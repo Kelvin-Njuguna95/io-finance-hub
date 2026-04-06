@@ -1,0 +1,20 @@
+[project]
+id = "io-finance-hub"
+name = "IO Finance Hub"
+
+[db]
+port = 54322
+
+[api]
+port = 54321
+schemas = ["public"]
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://io-finance-hub.vercel.app"]
+jwt_expiry = 3600
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+enable_confirmations = true

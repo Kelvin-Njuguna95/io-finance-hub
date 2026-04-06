@@ -9,7 +9,20 @@
       "Read(//tmp/**)",
       "Bash(npx create-next-app@latest io-finance-hub --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm)",
       "Bash(npm install:*)",
-      "Bash(npx shadcn@latest init -d)"
+      "Bash(npx shadcn@latest init -d)",
+      "Bash(npx shadcn@latest add card table badge dialog dropdown-menu input label select tabs textarea toast separator sheet sidebar alert avatar calendar checkbox command form navigation-menu popover scroll-area skeleton switch tooltip -y)",
+      "Bash(npx shadcn@latest add sonner -y)",
+      "Bash(npx shadcn@latest add card table badge dialog dropdown-menu input label select tabs textarea separator sheet sidebar alert avatar calendar checkbox command form navigation-menu popover scroll-area skeleton switch tooltip --overwrite)",
+      "Bash(npx next:*)",
+      "Bash(for file:*)",
+      "Bash(do)",
+      "Bash(sed -i '' 's/onValueChange={setSelectedMonth}/onValueChange={\\(v\\) => v \\\\&\\\\& setSelectedMonth\\(v\\)}/g' \"$file\")",
+      "Bash(done)",
+      "Bash(gh auth:*)",
+      "Bash(npm list:*)",
+      "Bash(sudo npm:*)",
+      "Bash(npx vercel:*)",
+      "Bash(npx supabase:*)"
     ]
   }
 }
