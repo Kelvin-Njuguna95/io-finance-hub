@@ -10,14 +10,6 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
 
-  // Exclude packages that Turbopack cannot bundle (native bindings,
-  // conditional exports that confuse the resolver, etc.).  These will
-  // be resolved at runtime from node_modules instead.
-  serverExternalPackages: [
-    '@supabase/supabase-js',
-    '@supabase/ssr',
-    'pg',
-  ],
 };
 
 export default nextConfig;
