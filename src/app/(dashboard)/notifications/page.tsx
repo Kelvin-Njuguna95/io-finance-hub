@@ -101,7 +101,7 @@ export default function NotificationsPage() {
       .order('created_at', { ascending: false })
       .limit(200);
 
-    setNotifications((data || []).map((n: any) => ({
+    setNotifications((data || []).map((n) => ({
       ...n,
       body: n.body || n.message || null,
       is_read: n.is_read ?? n.read ?? false,
@@ -194,7 +194,10 @@ export default function NotificationsPage() {
         {loading ? (
           <p className="text-sm text-neutral-400 py-8 text-center">Loading...</p>
         ) : filtered.length === 0 ? (
-          <p className="text-sm text-neutral-500 py-8 text-center">No notifications</p>
+          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center">
+            <p className="text-sm font-medium text-slate-700">You&apos;re all caught up — no new notifications at this time.</p>
+            <p className="mt-1 text-xs text-slate-500">New activity from budgets, expenses, and finance workflows will appear here automatically.</p>
+          </div>
         ) : (
           Object.entries(groups).map(([group, items]) => (
             <div key={group}>

@@ -677,3 +677,74 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// =============================================================
+// DELETE — Remove historical seed records for Q1 2026
+// =============================================================
+export async function DELETE(request: Request) {
+  try {
+    const authUser = await getAuthUser(request);
+    if (!authUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const admin = createAdminClient();
+
+    const { data: profile } = await admin
+      .from('users')
+      .select('role')
+      .eq('id', authUser.id)
+      .single();
+
+    if (!profile || profile.role !== 'cfo') {
+      return NextResponse.json({ error: 'CFO role required' }, { status: 403 });
+    }
+
+    const countDelete = async (
+      buildQuery: () => ReturnType<typeof admin.from>,
+    ): Promise<number> => {
+      const { data } = await buildQuery().select('id');
+      const total = data?.length || 0;
+      if (total > 0) {
+        await buildQuery().delete();
+      }
+      return total;
+    };
+
+    const deleted = {
+      monthly_financial_snapshots: await countDelete(
+        () => admin.from('monthly_financial_snapshots').eq('data_source', 'historical_seed_q1_2026'),
+      ),
+      invoices: await countDelete(
+        () => admin.from('invoices').ilike('source_note', '%Seeded from IO Financial Tracker Q1 2026%'),
+      ),
+      payments: await countDelete(
+        () => admin.from('payments').ilike('source_note', '%Seeded from IO Financial Tracker Q1 2026%'),
+      ),
+      project_expenses: await countDelete(
+        () => admin.from('project_expenses').ilike('source_note', '%Seeded from IO Financial Tracker Q1 2026%'),
+      ),
+      shared_overhead_entries: await countDelete(
+        () => admin.from('shared_overhead_entries').ilike('source_note', '%Seeded from IO Financial Tracker Q1 2026%'),
+      ),
+      profit_share_records: await countDelete(
+        () => admin.from('profit_share_records').ilike('source_note', '%Seeded from IO Financial Tracker Q1 2026%'),
+      ),
+      red_flags: await countDelete(
+        () => admin.from('red_flags').eq('title', 'Historical profit share — director breakdown pending'),
+      ),
+    };
+
+    return NextResponse.json({
+      success: true,
+      message: 'Historical seed data removed successfully',
+      deleted,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return NextResponse.json(
+      { error: 'Historical seed removal failed', details: message },
+      { status: 500 },
+    );
+  }
+}
