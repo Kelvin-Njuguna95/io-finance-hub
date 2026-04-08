@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
@@ -92,7 +93,11 @@ export default function NotificationsPage() {
     setLoading(true);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
 
     const { data } = await supabase
       .from('notifications')
@@ -117,9 +122,9 @@ export default function NotificationsPage() {
     if (!user) return;
     await supabase
       .from('notifications')
-      .update({ read: true, is_read: true, read_at: new Date().toISOString() })
+      .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('user_id', user.id)
-      .eq('read', false);
+      .eq('is_read', false);
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
   }
 
@@ -133,7 +138,7 @@ export default function NotificationsPage() {
       .from('notifications')
       .delete()
       .eq('user_id', user.id)
-      .eq('read', true)
+      .eq('is_read', true)
       .lt('created_at', cutoff.toISOString());
     fetchAll();
   }
@@ -143,7 +148,7 @@ export default function NotificationsPage() {
       const supabase = createClient();
       await supabase
         .from('notifications')
-        .update({ read: true, is_read: true, read_at: new Date().toISOString() })
+        .update({ is_read: true, read_at: new Date().toISOString() })
         .eq('id', n.id);
       setNotifications((prev) =>
         prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)),
@@ -248,7 +253,7 @@ export default function NotificationsPage() {
         )}
 
         <p className="text-center text-xs text-slate-300 pt-4">
-          <a href="/settings" className="text-blue-500 hover:underline">Manage notification preferences</a>
+          <Link href="/settings" className="text-blue-500 hover:underline">Manage notification preferences</Link>
         </p>
       </div>
     </div>
