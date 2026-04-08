@@ -5,12 +5,19 @@ const nextConfig: NextConfig = {
   // entirely by the standalone eslint.config.mjs.
 
   // Temporarily ignore TS errors during build so the app can deploy.
-  // The 68 errors are React-hook / dynamic-import patterns flagged
-  // by Next.js 16's stricter Turbopack type-checking pass.
   // TODO: fix the underlying patterns and set this back to false.
   typescript: {
     ignoreBuildErrors: true,
   },
+
+  // Exclude packages that Turbopack cannot bundle (native bindings,
+  // conditional exports that confuse the resolver, etc.).  These will
+  // be resolved at runtime from node_modules instead.
+  serverExternalPackages: [
+    '@supabase/supabase-js',
+    '@supabase/ssr',
+    'pg',
+  ],
 };
 
 export default nextConfig;
