@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import type { User } from '@/types/database';
+import { getUserErrorMessage } from '@/lib/errors';
 
 interface Props {
   open: boolean;
@@ -52,7 +53,7 @@ export function DepartmentFormDialog({ open, onClose, onSaved }: Props) {
     });
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserErrorMessage());
     } else {
       toast.success('Department created');
       setName('');

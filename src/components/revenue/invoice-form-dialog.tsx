@@ -16,6 +16,7 @@ import { getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { encodeBackdatedNotes, type BackdatedMeta } from '@/lib/backdated-utils';
 import { toast } from 'sonner';
 import type { Project } from '@/types/database';
+import { getUserErrorMessage } from '@/lib/errors';
 
 interface Props {
   open: boolean;
@@ -86,7 +87,7 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
     });
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserErrorMessage());
     } else {
       toast.success('Invoice created');
       onSaved();
@@ -148,10 +149,12 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
             <div className="space-y-1">
               <Label>Invoice Date</Label>
               <Input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
+              <p className="text-xs text-muted-foreground">Select the invoice issue date for this billing record.</p>
             </div>
             <div className="space-y-1">
               <Label>Due Date</Label>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              <p className="text-xs text-muted-foreground">Choose the expected payment due date.</p>
             </div>
           </div>
 
@@ -159,10 +162,12 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
             <div className="space-y-1">
               <Label>Amount (USD) *</Label>
               <Input type="number" step="0.0001" min={0} value={amountUsd || ''} onChange={(e) => setAmountUsd(parseFloat(e.target.value) || 0)} />
+              <p className="text-xs text-muted-foreground">Enter amount in USD using numbers only.</p>
             </div>
             <div className="space-y-1">
               <Label>Amount (KES)</Label>
               <Input type="number" step="0.01" min={0} value={amountKes || ''} onChange={(e) => setAmountKes(parseFloat(e.target.value) || 0)} />
+              <p className="text-xs text-muted-foreground">Optional KES equivalent for local reconciliation.</p>
             </div>
           </div>
 

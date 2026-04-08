@@ -11,13 +11,7 @@ import { formatDateTime, capitalize } from '@/lib/format';
 import { Check } from 'lucide-react';
 import type { RedFlag } from '@/types/database';
 import { toast } from 'sonner';
-
-const severityColors: Record<string, string> = {
-  low: 'bg-blue-100 text-blue-700',
-  medium: 'bg-yellow-100 text-yellow-700',
-  high: 'bg-orange-100 text-orange-700',
-  critical: 'bg-red-100 text-red-700',
-};
+import { getStatusBadgeClass } from '@/lib/status';
 
 export default function RedFlagsPage() {
   const [flags, setFlags] = useState<RedFlag[]>([]);
@@ -71,7 +65,7 @@ export default function RedFlagsPage() {
               <Card key={flag.id}>
                 <CardContent className="flex items-start justify-between p-4">
                   <div className="flex items-start gap-3">
-                    <Badge variant="secondary" className={severityColors[flag.severity]}>
+                    <Badge variant="secondary" className={getStatusBadgeClass(flag.severity)}>
                       {flag.severity}
                     </Badge>
                     <div>
@@ -87,7 +81,7 @@ export default function RedFlagsPage() {
                   </div>
                   {!flag.is_resolved && (
                     <Button variant="ghost" size="sm" onClick={() => resolve(flag.id)} className="gap-1">
-                      <Check className="h-3 w-3" /> Resolve
+                      <Check className="h-3 w-3" /> Resolve Flag
                     </Button>
                   )}
                 </CardContent>

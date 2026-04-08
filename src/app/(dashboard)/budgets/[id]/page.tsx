@@ -602,7 +602,7 @@ export default function BudgetDetailPage() {
                           <TableCell>
                             {editingItem === item.id ? (
                               <div className="flex gap-1">
-                                <Button size="sm" className="h-7 text-xs" onClick={() => handleSaveItem(item.id)} disabled={savingItem}>Save</Button>
+                                <Button size="sm" className="h-7 text-xs" onClick={() => handleSaveItem(item.id)} disabled={savingItem}>Save Line Item</Button>
                                 <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingItem(null)}>Cancel</Button>
                               </div>
                             ) : (

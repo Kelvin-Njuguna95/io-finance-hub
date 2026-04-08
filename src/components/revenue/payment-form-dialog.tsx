@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { formatCurrency } from '@/lib/format';
 import { toast } from 'sonner';
+import { getUserErrorMessage } from '@/lib/errors';
 
 interface InvoiceOption {
   id: string;
@@ -91,7 +92,7 @@ export function PaymentFormDialog({ open, onClose, onSaved }: Props) {
     });
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserErrorMessage());
     } else {
       toast.success('Payment recorded');
       onSaved();

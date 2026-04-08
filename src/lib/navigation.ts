@@ -90,6 +90,7 @@ const cfoNav: NavGroup[] = [
 ];
 
 const accountantNav: NavGroup[] = [
+  // Audit note (Phase 4): accountant budget visibility is aligned with server-enforced budget route permissions.
   {
     title: 'Overview',
     items: [
