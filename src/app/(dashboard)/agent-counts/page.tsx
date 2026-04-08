@@ -14,6 +14,7 @@ import {
 import { getCurrentYearMonth, formatYearMonth, formatDateTime } from '@/lib/format';
 import { Save, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { getUserErrorMessage } from '@/lib/errors';
 
 interface AgentRow {
   project_id: string;
@@ -75,7 +76,7 @@ export default function AgentCountsPage() {
         agent_count: count,
         entered_by: user?.id,
       }).eq('id', existing.record_id);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getUserErrorMessage()); return; }
     } else {
       const { error } = await supabase.from('agent_counts').insert({
         project_id: projectId,
@@ -83,7 +84,7 @@ export default function AgentCountsPage() {
         agent_count: count,
         entered_by: user?.id,
       });
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getUserErrorMessage()); return; }
     }
 
     toast.success(`${rows.find(r => r.project_id === projectId)?.project_name} updated to ${count} agents`);

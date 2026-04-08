@@ -21,6 +21,7 @@ import { formatCurrency, formatDate } from '@/lib/format';
 import { isBackdated, cleanNotes, getAgingBucket, computePaymentStatus } from '@/lib/backdated-utils';
 import { DollarSign, Clock, AlertTriangle, Download, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import { getUserErrorMessage } from '@/lib/errors';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 interface OutstandingInvoice {
@@ -208,7 +209,7 @@ export default function OutstandingReceivablesPage() {
     setSaving(false);
 
     if (error) {
-      toast.error('Failed to record payment: ' + error.message);
+      toast.error(getUserErrorMessage('Unable to record this payment right now. Please try again.'));
       return;
     }
 
