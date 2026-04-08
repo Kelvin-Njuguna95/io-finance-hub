@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { formatDate } from '@/lib/format';
 import {
   Settings as SettingsIcon, AlertTriangle, FileText, ClipboardList,
   Mail, Receipt, BarChart3, Bell, Users, Database, Lock,
@@ -32,6 +33,29 @@ interface SettingDef {
   type: 'number' | 'toggle' | 'text' | 'readonly';
   unit?: string;
   defaultValue?: string;
+}
+
+interface NotificationPreference {
+  id: string;
+  role: 'cfo' | 'accountant' | 'project_manager' | 'team_leader';
+  notif_type: string;
+  enabled: boolean;
+}
+
+interface ImportBatch {
+  id: string;
+  file_name: string | null;
+  year_month: string | null;
+  record_count: number | null;
+  created_at: string;
+  status: string | null;
+}
+
+interface SeedSnapshot {
+  year_month: string;
+  data_source: string | null;
+  total_agents: number | null;
+  created_at: string;
 }
 
 const SECTIONS: {
@@ -121,9 +145,10 @@ export default function SettingsPage() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
   const [activeSection, setActiveSection] = useState('thresholds');
-  const [notifPrefs, setNotifPrefs] = useState<any[]>([]);
-  const [importBatches, setImportBatches] = useState<any[]>([]);
-  const [seedSnapshots, setSeedSnapshots] = useState<any[]>([]);
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPreference[]>([]);
+  const [importBatches, setImportBatches] = useState<ImportBatch[]>([]);
+  const [seedSnapshots, setSeedSnapshots] = useState<SeedSnapshot[]>([]);
+  const [removingSeed, setRemovingSeed] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -144,7 +169,8 @@ export default function SettingsPage() {
 
       // Load seed snapshots
       const { data: snaps } = await supabase.from('monthly_financial_snapshots').select('year_month, data_source, total_agents, created_at').not('data_source', 'is', null).order('year_month');
-      setSeedSnapshots((snaps || []).filter((s: any) => s.data_source?.startsWith('historical_seed')));
+      const typedSnapshots = (snaps || []) as SeedSnapshot[];
+      setSeedSnapshots(typedSnapshots.filter((s) => s.data_source?.startsWith('historical_seed')));
     }
     load();
   }, []);
@@ -198,6 +224,50 @@ export default function SettingsPage() {
     }).eq('id', id);
     setNotifPrefs((prev) => prev.map((p) => p.id === id ? { ...p, enabled } : p));
     toast.success('Preference updated');
+  }
+
+  async function handleRemoveHistoricalSeed() {
+    const shouldContinue = window.confirm('This will remove historical seed records from all seed-related tables. Continue?');
+    if (!shouldContinue) return;
+
+    setRemovingSeed(true);
+    try {
+      const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        toast.error('Unable to verify your session. Please sign in again.');
+        return;
+      }
+
+      const res = await fetch('/api/historical-seed', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const payload = await res.json();
+      if (!res.ok) {
+        const message = typeof payload?.error === 'string' ? payload.error : 'Failed to remove historical seed data';
+        toast.error(message);
+        return;
+      }
+
+      toast.success(payload?.message || 'Historical seed data removed');
+
+      const { data: snaps } = await supabase
+        .from('monthly_financial_snapshots')
+        .select('year_month, data_source, total_agents, created_at')
+        .not('data_source', 'is', null)
+        .order('year_month');
+      const typedSnapshots = (snaps || []) as SeedSnapshot[];
+      setSeedSnapshots(typedSnapshots.filter((s) => s.data_source?.startsWith('historical_seed')));
+    } catch {
+      toast.error('Unexpected error while removing seed data');
+    } finally {
+      setRemovingSeed(false);
+    }
   }
 
   const currentSection = SECTIONS.find((s) => s.id === activeSection);
@@ -368,12 +438,12 @@ export default function SettingsPage() {
                       </TableHeader>
                       <TableBody>
                         {(() => {
-                          const types = [...new Set(notifPrefs.map((p: any) => p.notif_type))];
+                          const types = [...new Set(notifPrefs.map((p) => p.notif_type))];
                           return types.map((t) => (
                             <TableRow key={t}>
                               <TableCell className="text-sm capitalize">{t.replace(/_/g, ' ')}</TableCell>
                               {['cfo', 'accountant', 'project_manager', 'team_leader'].map((role) => {
-                                const pref = notifPrefs.find((p: any) => p.role === role && p.notif_type === t);
+                                const pref = notifPrefs.find((p) => p.role === role && p.notif_type === t);
                                 return (
                                   <TableCell key={role} className="text-center">
                                     {pref ? (
@@ -423,7 +493,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-neutral-400 mb-6">No historical seeds found.</p>
               ) : (
                 <Card className="io-card mb-6">
-                  <CardContent className="p-0">
+                  <CardContent className="p-0 overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -434,18 +504,34 @@ export default function SettingsPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {seedSnapshots.map((s: any) => (
+                        {seedSnapshots.map((s) => (
                           <TableRow key={s.year_month}>
                             <TableCell className="text-sm">{s.data_source}</TableCell>
                             <TableCell className="text-sm font-mono">{s.year_month}</TableCell>
                             <TableCell className="text-sm">{s.total_agents}</TableCell>
-                            <TableCell className="text-xs text-slate-400">{new Date(s.created_at).toLocaleDateString('en-GB')}</TableCell>
+                            <TableCell className="text-xs text-slate-400">{formatDate(s.created_at)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </CardContent>
                 </Card>
+              )}
+              {seedSnapshots.length > 0 && (
+                <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-medium text-amber-900">Historical Seed Cleanup</p>
+                  <p className="mt-1 text-xs text-amber-800">
+                    Use this action only when you need to roll back seeded historical records before reseeding.
+                  </p>
+                  <Button
+                    variant="destructive"
+                    className="mt-3"
+                    disabled={removingSeed}
+                    onClick={handleRemoveHistoricalSeed}
+                  >
+                    {removingSeed ? 'Removing Historical Seed Data...' : 'Remove Historical Seed Data'}
+                  </Button>
+                </div>
               )}
 
               {/* Import history */}
@@ -454,7 +540,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-neutral-400 mb-6">No imports recorded.</p>
               ) : (
                 <Card className="io-card mb-6">
-                  <CardContent className="p-0">
+                  <CardContent className="p-0 overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -466,12 +552,12 @@ export default function SettingsPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {importBatches.map((b: any) => (
+                        {importBatches.map((b) => (
                           <TableRow key={b.id}>
                             <TableCell className="text-sm">{b.file_name || 'Unnamed'}</TableCell>
                             <TableCell className="text-sm font-mono">{b.year_month || '-'}</TableCell>
                             <TableCell className="text-sm">{b.record_count || 0}</TableCell>
-                            <TableCell className="text-xs text-slate-400">{new Date(b.created_at).toLocaleDateString('en-GB')}</TableCell>
+                            <TableCell className="text-xs text-slate-400">{formatDate(b.created_at)}</TableCell>
                             <TableCell>
                               <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
                                 {b.status || 'complete'}
