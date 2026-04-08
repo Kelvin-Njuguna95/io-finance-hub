@@ -1,25 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-
-function createAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
+import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 
 export async function POST(request: Request) {
-  const authHeader = request.headers.get('Authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const admin = createAdminClient();
-  const { data: { user } } = await admin.auth.getUser(token);
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const { data: profile } = await admin.from('users').select('role, full_name').eq('id', user.id).single();
-  if (!profile) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  const auth = await getAuthUserProfile(request);
+  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
+  const { user, profile, admin } = auth;
 
   // CFO, TL, PM, and Accountant (own drafts only) can delete
   if (!['cfo', 'team_leader', 'project_manager', 'accountant'].includes(profile.role)) {
@@ -40,6 +25,10 @@ export async function POST(request: Request) {
   if (fetchError || !budget) {
     return NextResponse.json({ error: 'Budget not found' }, { status: 404 });
   }
+
+  // Month lock enforcement
+  const monthErr = await assertMonthOpen(admin, budget.year_month);
+  if (monthErr) return NextResponse.json({ error: monthErr.message }, { status: monthErr.status });
 
   // Verify ownership for non-CFO
   if (profile.role === 'accountant') {

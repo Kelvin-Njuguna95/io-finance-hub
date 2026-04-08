@@ -1,27 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 import * as XLSX from 'xlsx';
-
-function createAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
 
 // POST /api/expenses/import — parse Excel and return validated rows
 export async function POST(request: Request) {
-  const authHeader = request.headers.get('Authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await getAuthUserProfile(request);
+  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
+  const { user, profile, admin } = auth;
 
-  const admin = createAdminClient();
-  const { data: { user } } = await admin.auth.getUser(token);
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const { data: profile } = await admin.from('users').select('role, full_name').eq('id', user.id).single();
-  if (!['cfo', 'accountant'].includes(profile?.role || '')) {
+  if (!['cfo', 'accountant'].includes(profile.role)) {
     return NextResponse.json({ error: 'Only Accountant or CFO can import expenses' }, { status: 403 });
   }
 
@@ -190,6 +177,13 @@ export async function POST(request: Request) {
 
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json({ error: 'No rows to import' }, { status: 400 });
+    }
+
+    // Month lock enforcement — check all target months before importing
+    const targetMonths = [...new Set(rows.map((r: any) => r.period_month).filter(Boolean))] as string[];
+    for (const ym of targetMonths) {
+      const monthErr = await assertMonthOpen(admin, ym);
+      if (monthErr) return NextResponse.json({ error: `${monthErr.message} Cannot import expenses into a closed month.` }, { status: monthErr.status });
     }
 
     let importedCount = 0;

@@ -8,8 +8,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
-import { ArrowRightLeft } from 'lucide-react';
-import { getStatusBadgeClass, getStatusLabel } from '@/lib/status';
+import { CheckCircle, Clock, XCircle, ArrowRightLeft } from 'lucide-react';
 
 interface PendingExpenseRow {
   id: string;
@@ -23,6 +22,24 @@ interface PendingExpenseRow {
   status: string;
   projects?: { name: string } | null;
 }
+
+const STATUS_COLOR: Record<string, string> = {
+  pending_auth: 'bg-amber-100 text-amber-700',
+  confirmed: 'bg-emerald-100 text-emerald-700',
+  under_review: 'bg-blue-100 text-blue-700',
+  modified: 'bg-purple-100 text-purple-700',
+  voided: 'bg-red-100 text-red-700',
+  carried_forward: 'bg-slate-100 text-slate-600',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  pending_auth: 'Pending',
+  confirmed: 'Confirmed',
+  under_review: 'Review',
+  modified: 'Modified',
+  voided: 'Voided',
+  carried_forward: 'Carried Fwd',
+};
 
 interface Props {
   projectIds: string[];
@@ -153,8 +170,8 @@ export function TlBudgetVsExpensesPanel({ projectIds }: Props) {
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            <Badge className={`${getStatusBadgeClass(item.status)} border-0 text-[10px]`}>
-                              {getStatusLabel(item.status)}
+                            <Badge className={`${STATUS_COLOR[item.status] || 'bg-slate-100'} border-0 text-[10px]`}>
+                              {STATUS_LABEL[item.status] || item.status}
                             </Badge>
                           </TableCell>
                         </TableRow>
