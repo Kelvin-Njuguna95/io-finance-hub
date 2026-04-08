@@ -21,7 +21,7 @@ export default function DashboardLayout({
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
-        setDebugInfo(`getSession error: ${error.message}`);
+        setDebugInfo('Unable to verify your session right now.');
         setAuthed(false);
         return;
       }

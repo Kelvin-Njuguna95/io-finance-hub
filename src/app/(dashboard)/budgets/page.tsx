@@ -24,6 +24,8 @@ import { formatCurrency, getCurrentYearMonth, formatYearMonth, capitalize } from
 import { Plus, Eye, Undo2, Trash2, Info } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { DashboardAlert } from '@/components/common/dashboard-alert';
+import { getStatusBadgeClass } from '@/lib/status';
 
 interface BudgetRow {
   id: string;
@@ -39,18 +41,6 @@ interface BudgetRow {
   created_by_name: string;
   submitted_by_role: string;
 }
-
-const statusColors: Record<string, string> = {
-  draft: 'bg-slate-100 text-slate-600',
-  submitted: 'bg-blue-100 text-blue-700',
-  under_review: 'bg-amber-100 text-amber-700',
-  pm_review: 'bg-purple-100 text-purple-700',
-  pm_approved: 'bg-teal-100 text-teal-700',
-  pm_rejected: 'bg-rose-100 text-rose-700',
-  returned_to_tl: 'bg-amber-200 text-amber-800',
-  approved: 'bg-emerald-100 text-emerald-700',
-  rejected: 'bg-rose-100 text-rose-700',
-};
 
 const statusLabels: Record<string, string> = {
   draft: 'Draft',
@@ -76,6 +66,7 @@ export default function BudgetsPage() {
   }, [selectedMonth]);
 
   const [deleteTarget, setDeleteTarget] = useState<BudgetRow | null>(null);
+  // Security audit note: this client-side role check mirrors server-side guards in budget API routes.
   const canCreate = user?.role === 'team_leader' || user?.role === 'project_manager' || user?.role === 'cfo' || user?.role === 'accountant';
   const canManageBudgets = user?.role === 'team_leader' || user?.role === 'cfo' || user?.role === 'project_manager' || user?.role === 'accountant';
   const isAccountant = user?.role === 'accountant';
@@ -243,12 +234,10 @@ export default function BudgetsPage() {
       <div className="p-6 space-y-4">
         {/* TL notice about accountant budgets */}
         {isTl && accountantBudgetsForTlProject.length > 0 && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 flex items-start gap-2">
-            <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
-            <div className="text-sm text-blue-700">
-              The Accountant has also submitted {accountantBudgetsForTlProject.length === 1 ? 'a budget' : `${accountantBudgetsForTlProject.length} budgets`} for your project this month. Both are under PM review.
-            </div>
-          </div>
+          <DashboardAlert
+            variant="info"
+            description={`The Accountant has also submitted ${accountantBudgetsForTlProject.length === 1 ? 'a budget' : `${accountantBudgetsForTlProject.length} budgets`} for your project this month. Both are under PM review.`}
+          />
         )}
 
         {/* Filter tabs for accountant */}
@@ -263,8 +252,9 @@ export default function BudgetsPage() {
           </Tabs>
         )}
 
-        <Card>
+          <Card>
           <CardContent className="p-0">
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -295,7 +285,9 @@ export default function BudgetsPage() {
                       <TableRow key={b.id} className={hasSibling ? 'border-l-2 border-l-amber-300' : ''}>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
-                            {b.project_name || b.department_name || '—'}
+                            <span className="truncate max-w-[220px]" title={b.project_name || b.department_name || '—'}>
+                              {b.project_name || b.department_name || '—'}
+                            </span>
                             {hasSibling && (
                               <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">
                                 {siblings.length} versions
@@ -319,7 +311,7 @@ export default function BudgetsPage() {
                         </TableCell>
                         <TableCell>v{b.current_version}</TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className={statusColors[b.latest_status] || ''}>
+                          <Badge variant="secondary" className={getStatusBadgeClass(b.latest_status)}>
                             {statusLabels[b.latest_status] || capitalize(b.latest_status)}
                           </Badge>
                         </TableCell>
@@ -344,7 +336,7 @@ export default function BudgetsPage() {
                               </Link>
                             )}
                             {canDeleteBudget(b) && (
-                              <Button variant="ghost" size="icon" title="Delete" onClick={() => setDeleteTarget(b)}>
+                              <Button variant="ghost" size="icon" title="Delete Budget Record" onClick={() => setDeleteTarget(b)}>
                                 <Trash2 className="h-4 w-4 text-red-500" />
                               </Button>
                             )}
@@ -356,6 +348,7 @@ export default function BudgetsPage() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -371,9 +364,10 @@ export default function BudgetsPage() {
               This cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-            Amount: {formatCurrency(deleteTarget?.total_kes || 0, 'KES')} · Version {deleteTarget?.current_version}
-          </div>
+          <DashboardAlert
+            variant="error"
+            description={`Amount: ${formatCurrency(deleteTarget?.total_kes || 0, 'KES')} · Version ${deleteTarget?.current_version}`}
+          />
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDelete}>Delete Permanently</Button>

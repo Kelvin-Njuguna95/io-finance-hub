@@ -27,6 +27,7 @@ import {
   DollarSign, TrendingUp, FileText, AlertCircle, Wallet, Receipt,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getUserErrorMessage } from '@/lib/errors';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -351,7 +352,7 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
     }).select().single();
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserErrorMessage());
       return;
     }
     toast.success('Report created as draft.');

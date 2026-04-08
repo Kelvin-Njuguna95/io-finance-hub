@@ -15,6 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { Plus, Trash2, Save, Send } from 'lucide-react';
 import { toast } from 'sonner';
+import { getUserErrorMessage } from '@/lib/errors';
 
 interface ApprovedRequest {
   id: string;
@@ -94,7 +95,7 @@ export function AccountantMiscReport() {
     }).select().single();
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserErrorMessage());
     } else {
       setReport(data as MiscReport);
       toast.success('Misc report created');
@@ -139,7 +140,7 @@ export function AccountantMiscReport() {
 
     if (rows.length > 0) {
       const { error } = await supabase.from('accountant_misc_report_items').insert(rows);
-      if (error) { toast.error(error.message); setSaving(false); return; }
+      if (error) { toast.error(getUserErrorMessage()); setSaving(false); return; }
     }
 
     toast.success('Report saved');

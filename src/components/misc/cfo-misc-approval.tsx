@@ -18,6 +18,7 @@ import {
 import { formatCurrency, formatDate } from '@/lib/format';
 import { Check, X, Trash2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getUserErrorMessage } from '@/lib/errors';
 
 const DELETION_MARKER = '[PENDING_DELETE]';
 
@@ -139,7 +140,7 @@ export function CfoMiscApproval() {
     const supabase = createClient();
     const { error } = await supabase.from('accountant_misc_requests').delete().eq('id', confirmDelete.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserErrorMessage());
     } else {
       toast.success('Misc request permanently deleted');
       setConfirmDelete(null);

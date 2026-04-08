@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { PageHeader } from '@/components/layout/page-header';
@@ -19,16 +19,10 @@ import { formatCurrency, formatDate, getCurrentYearMonth, formatYearMonth, capit
 import { Plus, DollarSign, FileText, CreditCard, CalendarClock } from 'lucide-react';
 import { isBackdated, cleanNotes as cleanBackdatedNotes, getAgingBucket, computePaymentStatus } from '@/lib/backdated-utils';
 import { toast } from 'sonner';
+import { getStatusBadgeClass } from '@/lib/status';
+import { getUserErrorMessage } from '@/lib/errors';
 import type { Invoice, Payment } from '@/types/database';
 
-const invoiceStatusColors: Record<string, string> = {
-  draft: 'bg-neutral-100 text-neutral-700',
-  sent: 'bg-blue-100 text-blue-700',
-  partially_paid: 'bg-yellow-100 text-yellow-700',
-  paid: 'bg-green-100 text-green-700',
-  overdue: 'bg-red-100 text-red-700',
-  cancelled: 'bg-neutral-100 text-neutral-500',
-};
 
 export default function RevenuePage() {
   const { user } = useUser();
@@ -102,16 +96,16 @@ export default function RevenuePage() {
     load();
   }, [selectedMonth]);
 
-  const currentMonthInvoices = invoices.filter((i: any) => !i.is_carried_forward);
-  const carriedForwardInvoices = invoices.filter((i: any) => i.is_carried_forward);
-  const totalInvoicedUsd = currentMonthInvoices
+  const currentMonthInvoices = useMemo(() => invoices.filter((i: any) => !i.is_carried_forward), [invoices]);
+  const carriedForwardInvoices = useMemo(() => invoices.filter((i: any) => i.is_carried_forward), [invoices]);
+  const totalInvoicedUsd = useMemo(() => currentMonthInvoices
     .filter((i: any) => !isBackdated(i.description))
-    .reduce((s, i) => s + Number(i.amount_usd), 0);
-  const totalCashReceivedUsd = payments.reduce((s, p) => s + Number(p.amount_usd), 0);
-  const totalOutstandingUsd = invoices.reduce((s, i: any) => {
+    .reduce((s, i) => s + Number(i.amount_usd), 0), [currentMonthInvoices]);
+  const totalCashReceivedUsd = useMemo(() => payments.reduce((s, p) => s + Number(p.amount_usd), 0), [payments]);
+  const totalOutstandingUsd = useMemo(() => invoices.reduce((s, i: any) => {
     const paid = (i.payments || []).reduce((ps: number, p: any) => ps + Number(p.amount_usd), 0);
     return s + Math.max(0, Number(i.amount_usd) - paid);
-  }, 0);
+  }, 0), [invoices]);
   const canCreate = user?.role === 'cfo' || user?.role === 'accountant';
 
   return (
@@ -223,7 +217,7 @@ export default function RevenuePage() {
                           <TableCell className="text-sm text-neutral-500">{inv.billing_period}</TableCell>
                           <TableCell>{formatDate(inv.invoice_date)}</TableCell>
                           <TableCell>
-                            <Badge variant="secondary" className={invoiceStatusColors[inv.status]}>
+                            <Badge variant="secondary" className={getStatusBadgeClass(inv.status)}>
                               {capitalize(inv.status)}
                             </Badge>
                           </TableCell>
@@ -243,11 +237,15 @@ export default function RevenuePage() {
                                   if (!confirm('Delete this invoice? This cannot be undone.')) return;
                                   const supabase = createClient();
                                   // Delete payments first
-                                  await supabase.from('payments').delete().eq('invoice_id', inv.id);
-                                  await supabase.from('invoices').delete().eq('id', inv.id);
-                                  toast.success('Invoice deleted');
-                                  window.location.reload();
-                                }}>Delete</Button>
+                                  const { error: paymentDeleteError } = await supabase.from('payments').delete().eq('invoice_id', inv.id);
+                                  const { error: invoiceDeleteError } = await supabase.from('invoices').delete().eq('id', inv.id);
+                                  if (paymentDeleteError || invoiceDeleteError) {
+                                  toast.error(getUserErrorMessage());
+                                  return;
+                                }
+                                toast.success('Invoice deleted');
+                                window.location.reload();
+                              }}>Delete Invoice</Button>
                               </div>
                             </TableCell>
                           )}
