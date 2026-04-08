@@ -1,31 +1,40 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-
-function createAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
+import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 
 // POST — apply line-item decisions or submit final review
 export async function POST(request: Request) {
-  const authHeader = request.headers.get('Authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await getAuthUserProfile(request);
+  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
+  const { user, profile, admin } = auth;
 
-  const admin = createAdminClient();
-  const { data: { user } } = await admin.auth.getUser(token);
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const { data: profile } = await admin.from('users').select('role, full_name').eq('id', user.id).single();
-  if (!['project_manager', 'cfo'].includes(profile?.role || '')) {
+  if (!['project_manager', 'cfo'].includes(profile.role)) {
     return NextResponse.json({ error: 'Only PM or CFO can review line items' }, { status: 403 });
   }
 
   const body = await request.json();
   const { action, budget_id, items, item_id, pm_status, pm_approved_amount, reason } = body;
+
+  // Month lock enforcement — look up year_month from the budget
+  if (budget_id) {
+    const { data: budgetForLock } = await admin.from('budgets').select('year_month').eq('id', budget_id).single();
+    if (budgetForLock) {
+      const monthErr = await assertMonthOpen(admin, budgetForLock.year_month);
+      if (monthErr) return NextResponse.json({ error: monthErr.message }, { status: monthErr.status });
+    }
+  } else if (item_id) {
+    // Derive year_month from the budget item's budget
+    const { data: bi } = await admin.from('budget_items').select('budget_version_id').eq('id', item_id).single();
+    if (bi) {
+      const { data: bv } = await admin.from('budget_versions').select('budget_id').eq('id', bi.budget_version_id).single();
+      if (bv) {
+        const { data: b } = await admin.from('budgets').select('year_month').eq('id', bv.budget_id).single();
+        if (b) {
+          const monthErr = await assertMonthOpen(admin, b.year_month);
+          if (monthErr) return NextResponse.json({ error: monthErr.message }, { status: monthErr.status });
+        }
+      }
+    }
+  }
 
   // Action: update single line item
   if (action === 'update_item' && item_id) {

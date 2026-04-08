@@ -37,14 +37,14 @@ export interface NavGroup {
 
 const cfoNav: NavGroup[] = [
   {
-    title: 'OVERVIEW',
+    title: 'Overview',
     items: [
       { title: 'Dashboard', href: '/', icon: LayoutDashboard },
       { title: 'Red Flags', href: '/red-flags', icon: AlertTriangle },
     ],
   },
   {
-    title: 'FINANCIAL OPERATIONS',
+    title: 'Financial Operations',
     items: [
       { title: 'Budgets', href: '/budgets', icon: FileText },
       { title: 'Expenses', href: '/expenses', icon: Receipt },
@@ -55,7 +55,7 @@ const cfoNav: NavGroup[] = [
     ],
   },
   {
-    title: 'REPORTS',
+    title: 'Reports & Analysis',
     items: [
       { title: 'Monthly P&L', href: '/reports/monthly', icon: FileText },
       { title: 'P&L Reports', href: '/reports/pnl', icon: TrendingUp },
@@ -69,7 +69,7 @@ const cfoNav: NavGroup[] = [
     ],
   },
   {
-    title: 'ADMINISTRATION',
+    title: 'Administration',
     items: [
       { title: 'Misc Reports', href: '/misc', icon: ClipboardList },
       { title: 'Agent Counts', href: '/agent-counts', icon: Users },
@@ -81,7 +81,7 @@ const cfoNav: NavGroup[] = [
     ],
   },
   {
-    title: 'ADMINISTRATION',
+    title: 'Controls',
     items: [
       { title: 'Audit Log', href: '/audit', icon: ScrollText },
       { title: 'Notifications', href: '/notifications', icon: Bell },
@@ -91,13 +91,13 @@ const cfoNav: NavGroup[] = [
 
 const accountantNav: NavGroup[] = [
   {
-    title: 'OVERVIEW',
+    title: 'Overview',
     items: [
       { title: 'Dashboard', href: '/', icon: LayoutDashboard },
     ],
   },
   {
-    title: 'FINANCIAL OPERATIONS',
+    title: 'Financial Operations',
     items: [
       { title: 'Budgets', href: '/budgets', icon: FileText },
       { title: 'Expenses', href: '/expenses', icon: Receipt },
@@ -107,7 +107,7 @@ const accountantNav: NavGroup[] = [
     ],
   },
   {
-    title: 'REPORTS',
+    title: 'Reports',
     items: [
       { title: 'Monthly P&L', href: '/reports/monthly', icon: FileText },
       { title: 'P&L Reports', href: '/reports/pnl', icon: TrendingUp },
@@ -120,13 +120,13 @@ const accountantNav: NavGroup[] = [
     ],
   },
   {
-    title: 'ADMINISTRATION',
+    title: 'Administration',
     items: [
       { title: 'Misc Reports', href: '/misc', icon: ClipboardList },
     ],
   },
   {
-    title: 'ADMINISTRATION',
+    title: 'Controls',
     items: [
       { title: 'Audit Log', href: '/audit', icon: ScrollText },
       { title: 'Notifications', href: '/notifications', icon: Bell },
@@ -136,14 +136,14 @@ const accountantNav: NavGroup[] = [
 
 const teamLeaderNav: NavGroup[] = [
   {
-    title: 'OVERVIEW',
+    title: 'Overview',
     items: [
       { title: 'Dashboard', href: '/', icon: LayoutDashboard },
       { title: 'Notifications', href: '/notifications', icon: Bell },
     ],
   },
   {
-    title: 'FINANCIAL OPERATIONS',
+    title: 'My Projects',
     items: [
       { title: 'Project Financials', href: '/financials', icon: TrendingUp },
       { title: 'Budgets', href: '/budgets', icon: FileText },
@@ -151,7 +151,7 @@ const teamLeaderNav: NavGroup[] = [
     ],
   },
   {
-    title: 'REPORTS',
+    title: 'Reports',
     items: [
       { title: 'Monthly P&L', href: '/reports/monthly', icon: FileText },
       { title: 'Profitability', href: '/reports/profitability', icon: PieChart },
@@ -163,7 +163,7 @@ const teamLeaderNav: NavGroup[] = [
 
 const projectManagerNav: NavGroup[] = [
   {
-    title: 'OVERVIEW',
+    title: 'Overview',
     items: [
       { title: 'Dashboard', href: '/', icon: LayoutDashboard },
       { title: 'Notifications', href: '/notifications', icon: Bell },
@@ -171,7 +171,7 @@ const projectManagerNav: NavGroup[] = [
     ],
   },
   {
-    title: 'FINANCIAL OPERATIONS',
+    title: 'Financial Operations',
     items: [
       { title: 'Budget Reviews', href: '/budgets', icon: ClipboardList },
       { title: 'Revenue', href: '/revenue', icon: DollarSign },
@@ -180,7 +180,7 @@ const projectManagerNav: NavGroup[] = [
     ],
   },
   {
-    title: 'REPORTS',
+    title: 'Reports',
     items: [
       { title: 'Monthly P&L', href: '/reports/monthly', icon: FileText },
       { title: 'P&L Reports', href: '/reports/pnl', icon: TrendingUp },
@@ -192,7 +192,7 @@ const projectManagerNav: NavGroup[] = [
     ],
   },
   {
-    title: 'ADMINISTRATION',
+    title: 'Administration',
     items: [
       { title: 'Projects', href: '/projects', icon: Building2 },
     ],

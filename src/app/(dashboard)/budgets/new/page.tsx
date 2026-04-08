@@ -255,76 +255,41 @@ export default function NewBudgetPage() {
     // Determine submitted_by_role
     const submittedByRole = isAccountant ? 'accountant' : 'team_leader';
 
-    // Determine initial status on submit
-    let submitStatus: string;
-    if (!submit) {
-      submitStatus = 'draft';
-    } else if (user!.role === 'team_leader' || user!.role === 'accountant') {
-      submitStatus = 'pm_review';
-    } else {
-      submitStatus = 'submitted';
+    // Get auth session for API calls
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      toast.error('Session expired. Please log in again.');
+      setSaving(false);
+      return;
     }
 
-    // Create budget
-    const { data: budget, error: budgetError } = await supabase
-      .from('budgets')
-      .insert({
-        project_id: scopeType === 'project' ? scopeId : null,
-        department_id: scopeType === 'department' ? scopeId : null,
+    // Create budget via API (bypasses RLS, uses admin client)
+    const createRes = await fetch('/api/budgets/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        scope_type: scopeType,
+        scope_id: scopeId,
         year_month: yearMonth,
-        current_version: 1,
-        created_by: user!.id,
-        submitted_by_role: isAccountant ? 'accountant' : 'team_leader',
-      })
-      .select()
-      .single();
-
-    if (budgetError) {
-      toast.error(budgetError.message);
-      setSaving(false);
-      return;
-    }
-
-    // Create budget version
-    const { data: version, error: versionError } = await supabase
-      .from('budget_versions')
-      .insert({
-        budget_id: budget.id,
-        version_number: 1,
-        status: submitStatus,
-        total_amount_usd: 0,
-        total_amount_kes: totalKes,
-        submitted_by: submit ? user!.id : null,
-        submitted_at: submit ? new Date().toISOString() : null,
         notes,
-      })
-      .select()
-      .single();
+        items: items.map(item => ({
+          description: item.description,
+          category: item.category || null,
+          quantity: item.quantity,
+          unit_cost_kes: item.unit_cost_kes,
+          notes: item.notes || null,
+        })),
+        submit,
+      }),
+    });
 
-    if (versionError) {
-      toast.error(versionError.message);
-      setSaving(false);
-      return;
-    }
+    const createData = await createRes.json();
 
-    // Create budget items
-    const itemRows = items.map((item, idx) => ({
-      budget_version_id: version.id,
-      description: item.description,
-      category: item.category || null,
-      amount_usd: 0,
-      amount_kes: item.quantity * item.unit_cost_kes,
-      quantity: item.quantity,
-      unit_cost_usd: 0,
-      unit_cost_kes: item.unit_cost_kes,
-      notes: item.notes || null,
-      sort_order: idx,
-    }));
-
-    const { error: itemsError } = await supabase.from('budget_items').insert(itemRows);
-
-    if (itemsError) {
-      toast.error(itemsError.message);
+    if (!createRes.ok) {
+      toast.error(createData.error || 'Failed to create budget');
       setSaving(false);
       return;
     }
@@ -333,15 +298,14 @@ export default function NewBudgetPage() {
     if (submit) {
       const projectName = projects.find(p => p.id === scopeId)?.name || 'Unknown';
       try {
-        const { data: { session } } = await supabase.auth.getSession();
         await fetch('/api/budgets/accountant-submit-notify', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`,
+            'Authorization': `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
-            budget_id: budget.id,
+            budget_id: createData.budget_id,
             project_id: scopeId,
             project_name: projectName,
             year_month: yearMonth,

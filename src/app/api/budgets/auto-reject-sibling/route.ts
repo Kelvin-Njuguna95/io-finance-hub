@@ -1,25 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-
-function createAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
+import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 
 export async function POST(request: Request) {
-  const authHeader = request.headers.get('Authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await getAuthUserProfile(request);
+  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
+  const { user, profile, admin } = auth;
 
-  const admin = createAdminClient();
-  const { data: { user } } = await admin.auth.getUser(token);
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const { data: profile } = await admin.from('users').select('role').eq('id', user.id).single();
-  if (profile?.role !== 'cfo') return NextResponse.json({ error: 'CFO only' }, { status: 403 });
+  if (profile.role !== 'cfo') return NextResponse.json({ error: 'CFO only' }, { status: 403 });
 
   const body = await request.json();
   const { approved_budget_id, sibling_budget_ids, approved_submitted_by_role } = body;
@@ -33,6 +20,10 @@ export async function POST(request: Request) {
       .single();
 
     if (!sibling) continue;
+
+    // Month lock enforcement (check once per sibling — year_month may differ)
+    const monthErr = await assertMonthOpen(admin, sibling.year_month);
+    if (monthErr) return NextResponse.json({ error: monthErr.message }, { status: monthErr.status });
 
     // Reject all non-final versions
     const versions = (sibling.budget_versions || []) as any[];

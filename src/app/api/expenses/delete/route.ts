@@ -1,28 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-
-function createAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
-
-async function getAuthUser(request: Request) {
-  const authHeader = request.headers.get('Authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return null;
-  const admin = createAdminClient();
-  const { data: { user } } = await admin.auth.getUser(token);
-  if (!user) return null;
-  const { data: dbUser } = await admin.from('users').select('*').eq('id', user.id).single();
-  return dbUser;
-}
+import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 
 export async function POST(request: Request) {
-  const dbUser = await getAuthUser(request);
-  if (!dbUser) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  const auth = await getAuthUserProfile(request);
+  if ('error' in auth) return NextResponse.json({ success: false, error: auth.error.message }, { status: auth.error.status });
+  const { user: _user, profile: dbUser, admin } = auth;
 
   // Only CFO can delete expenses
   if (dbUser.role !== 'cfo') {
@@ -37,8 +19,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: 'Deletion reason required' }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-
   // Get the expense before deleting (for audit log)
   const { data: expense, error: fetchErr } = await admin
     .from('expenses')
@@ -48,6 +28,12 @@ export async function POST(request: Request) {
 
   if (fetchErr || !expense) {
     return NextResponse.json({ success: false, error: 'Expense not found' }, { status: 404 });
+  }
+
+  // Month lock enforcement
+  if (expense.year_month) {
+    const monthErr = await assertMonthOpen(admin, expense.year_month);
+    if (monthErr) return NextResponse.json({ success: false, error: monthErr.message }, { status: monthErr.status });
   }
 
   // If this expense was linked from a pending_expense, reset that link

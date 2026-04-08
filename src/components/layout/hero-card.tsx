@@ -1,5 +1,3 @@
-import { formatDate } from '@/lib/format';
-
 interface HeroStat {
   label: string;
   value: string;
@@ -12,7 +10,12 @@ interface HeroCardProps {
 }
 
 export function HeroCard({ stats, children }: HeroCardProps) {
-  const today = formatDate(new Date().toISOString());
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 
   return (
     <div className="hero-card">

@@ -1,13 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-
-function createAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
+import { createAdminClient, getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 
 async function getAuthUser(request: Request) {
   const authHeader = request.headers.get('Authorization');
@@ -144,6 +136,10 @@ export async function POST(request: Request) {
     if (!budget) {
       return NextResponse.json({ success: false, error: 'Budget not found' }, { status: 404 });
     }
+
+    // Month lock enforcement
+    const monthErr = await assertMonthOpen(admin, budget.year_month);
+    if (monthErr) return NextResponse.json({ success: false, error: monthErr.message }, { status: monthErr.status });
 
     // Filter items: include approved/adjusted items, OR all items if no PM review was done
     const allItems = budgetVersion.budget_items || [];
@@ -303,6 +299,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Pending expense not found' }, { status: 404 });
     }
 
+    // Month lock enforcement
+    const confirmMonthErr = await assertMonthOpen(admin, pending.year_month);
+    if (confirmMonthErr) return NextResponse.json({ success: false, error: confirmMonthErr.message }, { status: confirmMonthErr.status });
+
     const now = new Date().toISOString();
 
     // Look up expense_category_id from the category text
@@ -402,6 +402,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Pending expense not found' }, { status: 404 });
     }
 
+    // Month lock enforcement
+    const modifyMonthErr = await assertMonthOpen(admin, pending.year_month);
+    if (modifyMonthErr) return NextResponse.json({ success: false, error: modifyMonthErr.message }, { status: modifyMonthErr.status });
+
     const { data: updated, error: updErr } = await admin.from('pending_expenses').update({
       status: 'modified',
       actual_amount_kes,
@@ -448,6 +452,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Pending expense not found' }, { status: 404 });
     }
 
+    // Month lock enforcement
+    const urMonthErr = await assertMonthOpen(admin, pending.year_month);
+    if (urMonthErr) return NextResponse.json({ success: false, error: urMonthErr.message }, { status: urMonthErr.status });
+
     const { data: updated, error: updErr } = await admin.from('pending_expenses').update({
       status: 'under_review',
       review_notes: review_notes || null,
@@ -489,6 +497,10 @@ export async function POST(request: Request) {
     if (!pending) {
       return NextResponse.json({ success: false, error: 'Pending expense not found' }, { status: 404 });
     }
+
+    // Month lock enforcement
+    const voidMonthErr = await assertMonthOpen(admin, pending.year_month);
+    if (voidMonthErr) return NextResponse.json({ success: false, error: voidMonthErr.message }, { status: voidMonthErr.status });
 
     const now = new Date().toISOString();
 
@@ -535,6 +547,10 @@ export async function POST(request: Request) {
     if (!pending) {
       return NextResponse.json({ success: false, error: 'Pending expense not found' }, { status: 404 });
     }
+
+    // Month lock enforcement — check the source month
+    const cfMonthErr = await assertMonthOpen(admin, pending.year_month);
+    if (cfMonthErr) return NextResponse.json({ success: false, error: cfMonthErr.message }, { status: cfMonthErr.status });
 
     // Mark original as carried_forward
     const { error: updErr } = await admin.from('pending_expenses').update({
@@ -608,6 +624,13 @@ export async function POST(request: Request) {
       const { data: pending } = await admin.from('pending_expenses').select('*').eq('id', id).single();
       if (!pending) {
         errors.push({ id, error: 'Pending expense not found' });
+        continue;
+      }
+
+      // Month lock enforcement
+      const bcMonthErr = await assertMonthOpen(admin, pending.year_month);
+      if (bcMonthErr) {
+        errors.push({ id, error: bcMonthErr.message });
         continue;
       }
 
