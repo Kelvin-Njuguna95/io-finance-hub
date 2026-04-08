@@ -1,25 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-
-function createAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
+import { getAuthUserProfile } from '@/lib/supabase/admin';
 
 export async function POST(request: Request) {
-  const authHeader = request.headers.get('Authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const admin = createAdminClient();
-  const { data: { user } } = await admin.auth.getUser(token);
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const { data: profile } = await admin.from('users').select('role, full_name').eq('id', user.id).single();
-  if (!profile) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  const auth = await getAuthUserProfile(request);
+  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
+  const { user, profile, admin } = auth;
 
   const body = await request.json();
   const { budget_id, project_id, project_name, year_month, total_kes, submitted_by_role, existing_tl_budget } = body;
