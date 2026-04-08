@@ -1,14 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { createAdminClient, getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 
-function createAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
-
+/** Legacy helper kept for the GET handler which only needs the auth user */
 async function getAuthUser(request: Request) {
   const authHeader = request.headers.get('Authorization');
   const token = authHeader?.replace('Bearer ', '');
@@ -182,6 +175,10 @@ export async function POST(request: Request) {
   }
 
   const periodDate = toDateStr(period_month);
+
+  // Month lock enforcement — block writes to closed/locked months
+  const monthErr = await assertMonthOpen(admin, period_month);
+  if (monthErr) return NextResponse.json({ error: monthErr.message }, { status: monthErr.status });
 
   // Get project info for notifications
   const { data: project } = await admin.from('projects').select('name').eq('id', project_id).single();

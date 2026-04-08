@@ -1,27 +1,13 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-
-function createAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
+import { getAuthUserProfile, assertRole, assertMonthOpen } from '@/lib/supabase/admin';
 
 export async function POST(request: Request) {
-  const authHeader = request.headers.get('Authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await getAuthUserProfile(request);
+  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
+  const { user, profile, admin } = auth;
 
-  const admin = createAdminClient();
-  const { data: { user } } = await admin.auth.getUser(token);
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const { data: profile } = await admin.from('users').select('role, full_name').eq('id', user.id).single();
-  if (profile?.role !== 'cfo') {
-    return NextResponse.json({ error: 'Only CFO can revert budgets' }, { status: 403 });
-  }
+  const roleErr = assertRole(profile, ['cfo']);
+  if (roleErr) return NextResponse.json({ error: 'Only CFO can revert budgets' }, { status: roleErr.status });
 
   const body = await request.json();
   const { budget_id, action, reason } = body;
@@ -39,12 +25,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Only approved budgets can be reverted' }, { status: 400 });
   }
 
-  // Check month not locked
-  const { data: monthClosure } = await admin.from('month_closures')
-    .select('status').eq('year_month', budget.year_month).single();
-  if (monthClosure?.status === 'locked') {
-    return NextResponse.json({ error: 'Month is locked. Reopen the month first.' }, { status: 400 });
-  }
+  // Month lock enforcement
+  const monthErr = await assertMonthOpen(admin, budget.year_month);
+  if (monthErr) return NextResponse.json({ error: monthErr.message }, { status: monthErr.status });
 
   // Count linked expenses and withdrawals
   const { count: expCount } = await admin.from('expenses').select('id', { count: 'exact', head: true }).eq('budget_id', budget_id);
