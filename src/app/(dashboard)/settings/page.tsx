@@ -1,0 +1,493 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/hooks/use-user';
+import { PageHeader } from '@/components/layout/page-header';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import {
+  Settings as SettingsIcon, AlertTriangle, FileText, ClipboardList,
+  Mail, Receipt, BarChart3, Bell, Users, Database, Lock,
+} from 'lucide-react';
+import type { SystemSetting } from '@/types/database';
+
+// -----------------------------------------------
+// Section definitions
+// -----------------------------------------------
+interface SettingDef {
+  key: string;
+  label: string;
+  description: string;
+  type: 'number' | 'toggle' | 'text' | 'readonly';
+  unit?: string;
+  defaultValue?: string;
+}
+
+const SECTIONS: {
+  id: string;
+  title: string;
+  icon: typeof SettingsIcon;
+  settings: SettingDef[];
+}[] = [
+  {
+    id: 'thresholds',
+    title: 'Thresholds & Alerts',
+    icon: AlertTriangle,
+    settings: [
+      { key: 'overdue_invoice_days', label: 'Overdue Invoice Threshold', description: 'Days after invoice date before flagging as overdue', type: 'number', unit: 'days', defaultValue: '30' },
+      { key: 'expense_spike_threshold_percent', label: 'Expense Spike Threshold', description: 'Percentage increase that triggers a spike alert', type: 'number', unit: '%', defaultValue: '30' },
+      { key: 'budget_warning_threshold_percent', label: 'Budget Warning Threshold', description: 'Budget utilization percentage that triggers a warning', type: 'number', unit: '%', defaultValue: '90' },
+    ],
+  },
+  {
+    id: 'budget',
+    title: 'Budget Controls',
+    icon: FileText,
+    settings: [
+      { key: 'standard_exchange_rate', label: 'Standard Exchange Rate (USD/KES)', description: 'Default rate for USD to KES conversion across all calculations', type: 'number', unit: 'KES/USD', defaultValue: '129.5' },
+      { key: 'bank_balance_usd', label: 'Standing Bank Balance (USD)', description: 'Current standing bank balance used for cash flow calculations', type: 'number', unit: 'USD', defaultValue: '0' },
+    ],
+  },
+  {
+    id: 'misc',
+    title: 'Misc & Draws',
+    icon: ClipboardList,
+    settings: [
+      { key: 'misc_pm_review_warning_days', label: 'PM Review Warning Days', description: 'Days before stuck budget triggers a flag', type: 'number', unit: 'days', defaultValue: '2' },
+      { key: 'misc_underspend_alert_threshold_pct', label: 'Underspend Alert Threshold', description: 'Misc underspend percentage before LOW flag fires', type: 'number', unit: '%', defaultValue: '50' },
+      { key: 'misc_request_approval_warning_days', label: 'Request Approval Warning Days', description: 'Days before pending accountant misc request flags', type: 'number', unit: 'days', defaultValue: '1' },
+      { key: 'misc_report_overdue_warning_days', label: 'Report Overdue Warning Days', description: 'Days post-month-end before missing report triggers flag', type: 'number', unit: 'days', defaultValue: '3' },
+      { key: 'misc_gate_start_month', label: 'Gate Start Month', description: 'First month misc gate applies (YYYY-MM)', type: 'text', defaultValue: '2026-04' },
+      { key: 'misc_topup_monthly_limit_count', label: 'Top-Up Monthly Limit (count)', description: 'Maximum top-up requests per project per month', type: 'number', defaultValue: '3' },
+      { key: 'misc_topup_monthly_limit_kes', label: 'Top-Up Monthly Limit (KES)', description: 'Maximum top-up KES per project per month', type: 'number', unit: 'KES', defaultValue: '50000' },
+      { key: 'misc_min_itemisation_pct', label: 'Min Itemisation Required', description: 'Min percentage of drawn misc that must be itemised', type: 'number', unit: '%', defaultValue: '80' },
+      { key: 'misc_report_underspend_alert_pct', label: 'Report Underspend Alert', description: 'Report underspend that flags low report', type: 'number', unit: '%', defaultValue: '30' },
+      { key: 'misc_draw_expense_recording_days', label: 'Draw Expense Recording Days', description: 'Days before unrecorded draw triggers alert', type: 'number', unit: 'days', defaultValue: '2' },
+      { key: 'misc_pm_approval_warning_days', label: 'PM Approval Warning Days', description: 'Days before pending PM approval flags', type: 'number', unit: 'days', defaultValue: '2' },
+      { key: 'misc_report_due_day', label: 'Report Due Day of Month', description: '0 = last day of month', type: 'number', unit: 'day', defaultValue: '0' },
+    ],
+  },
+  {
+    id: 'eod',
+    title: 'EOD Report',
+    icon: Mail,
+    settings: [
+      { key: 'eod_auto_send_enabled', label: 'EOD Auto-Send Enabled', description: 'Enable/disable scheduled auto-send of EOD reports', type: 'toggle', defaultValue: 'true' },
+      { key: 'eod_auto_send_time', label: 'EOD Auto-Send Time', description: 'Time to auto-send (displays in EAT)', type: 'text', defaultValue: '18:00' },
+      { key: 'eod_timezone', label: 'EOD Timezone', description: 'Display timezone for EOD reports', type: 'readonly', defaultValue: 'Africa/Nairobi' },
+      { key: 'eod_slack_channel', label: 'Connected Slack Channel', description: 'Slack channel for EOD reports', type: 'readonly', defaultValue: '#io-finance' },
+    ],
+  },
+  {
+    id: 'invoicing',
+    title: 'Invoicing & Receivables',
+    icon: Receipt,
+    settings: [
+      { key: 'outstanding_balance_alert_kes', label: 'Outstanding Balance Alert Threshold', description: 'Total outstanding above which HIGH flag fires', type: 'number', unit: 'KES', defaultValue: '5000000' },
+      { key: 'backdated_invoice_cutoff', label: 'Backdated Invoice Cutoff Date', description: 'Earliest allowed date for backdated invoice entry', type: 'text', defaultValue: '2026-01-01' },
+    ],
+  },
+  {
+    id: 'variance',
+    title: 'Variance & Expenses',
+    icon: BarChart3,
+    settings: [
+      { key: 'overspend_flag_threshold_pct', label: 'Overspend Flag Threshold', description: 'Single line item overspend percentage before HIGH flag fires', type: 'number', unit: '%', defaultValue: '20' },
+      { key: 'max_carry_forward_items', label: 'Max Carry-Forward Items', description: 'Items in carry-forward queue before MEDIUM flag fires', type: 'number', defaultValue: '5' },
+      { key: 'budget_accuracy_benchmark_pct', label: 'Budget Accuracy Benchmark', description: 'Company accuracy below this triggers HIGH flag', type: 'number', unit: '%', defaultValue: '85' },
+      { key: 'void_alert_threshold_kes', label: 'Void Alert Threshold', description: 'Void amount above which LOW flag fires', type: 'number', unit: 'KES', defaultValue: '50000' },
+      { key: 'auto_carry_forward_on_close', label: 'Auto Carry-Forward at Month End', description: 'Unactioned expenses auto-defer to next month on closure', type: 'toggle', defaultValue: 'true' },
+    ],
+  },
+];
+
+// -----------------------------------------------
+// Component
+// -----------------------------------------------
+export default function SettingsPage() {
+  const { user } = useUser();
+  const [settings, setSettings] = useState<SystemSetting[]>([]);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [dirty, setDirty] = useState(false);
+  const [activeSection, setActiveSection] = useState('thresholds');
+  const [notifPrefs, setNotifPrefs] = useState<any[]>([]);
+  const [importBatches, setImportBatches] = useState<any[]>([]);
+  const [seedSnapshots, setSeedSnapshots] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient();
+      const { data } = await supabase.from('system_settings').select('*').order('key');
+      setSettings(data || []);
+      const v: Record<string, string> = {};
+      (data || []).forEach((s: SystemSetting) => { v[s.key] = s.value; });
+      setValues(v);
+
+      // Load notification preferences
+      const { data: prefs } = await supabase.from('notification_preferences').select('*').order('role,notif_type');
+      setNotifPrefs(prefs || []);
+
+      // Load import batches for Data section
+      const { data: batches } = await supabase.from('expense_import_batches').select('*').order('created_at', { ascending: false }).limit(20);
+      setImportBatches(batches || []);
+
+      // Load seed snapshots
+      const { data: snaps } = await supabase.from('monthly_financial_snapshots').select('year_month, data_source, total_agents, created_at').not('data_source', 'is', null).order('year_month');
+      setSeedSnapshots((snaps || []).filter((s: any) => s.data_source?.startsWith('historical_seed')));
+    }
+    load();
+  }, []);
+
+  function setValue(key: string, val: string) {
+    setValues((prev) => ({ ...prev, [key]: val }));
+    setDirty(true);
+  }
+
+  async function handleSave() {
+    const supabase = createClient();
+    const allKeys = SECTIONS.flatMap((s) => s.settings.map((d) => d.key));
+
+    for (const key of allKeys) {
+      if (values[key] === undefined) continue;
+      const existing = settings.find((s) => s.key === key);
+      if (existing) {
+        if (values[key] !== existing.value) {
+          await supabase.from('system_settings').update({
+            value: values[key],
+            updated_by: user?.id,
+            updated_at: new Date().toISOString(),
+          }).eq('id', existing.id);
+        }
+      } else {
+        // Insert new setting
+        const def = SECTIONS.flatMap((s) => s.settings).find((d) => d.key === key);
+        await supabase.from('system_settings').insert({
+          key,
+          value: values[key] || def?.defaultValue || '',
+          description: def?.description || '',
+          updated_by: user?.id,
+        });
+      }
+    }
+
+    toast.success('Settings saved');
+    setDirty(false);
+
+    // Reload
+    const { data } = await supabase.from('system_settings').select('*').order('key');
+    setSettings(data || []);
+  }
+
+  async function toggleNotifPref(id: string, enabled: boolean) {
+    const supabase = createClient();
+    await supabase.from('notification_preferences').update({
+      enabled,
+      updated_by: user?.id,
+      updated_at: new Date().toISOString(),
+    }).eq('id', id);
+    setNotifPrefs((prev) => prev.map((p) => p.id === id ? { ...p, enabled } : p));
+    toast.success('Preference updated');
+  }
+
+  const currentSection = SECTIONS.find((s) => s.id === activeSection);
+
+  // CFO only
+  if (user && user.role !== 'cfo') {
+    return (
+      <div>
+        <PageHeader title="Settings" description="Settings are managed by the CFO" />
+        <div className="p-6">
+          <p className="text-sm text-neutral-500">You do not have permission to manage system settings.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <PageHeader title="Settings" description="Configure system thresholds, parameters, and preferences" />
+
+      <div className="flex min-h-[calc(100vh-65px)]">
+        {/* Left sidebar nav */}
+        <div className="w-56 border-r border-slate-200 bg-white p-4 space-y-1 shrink-0">
+          {SECTIONS.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setActiveSection(s.id)}
+              className={cn(
+                'flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm transition-colors text-left',
+                activeSection === s.id
+                  ? 'bg-slate-100 font-medium text-[#0f172a]'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50',
+              )}
+            >
+              <s.icon className="h-4 w-4 shrink-0" />
+              {s.title}
+            </button>
+          ))}
+          <Separator className="my-2" />
+          <button
+            onClick={() => setActiveSection('notifications')}
+            className={cn(
+              'flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm transition-colors text-left',
+              activeSection === 'notifications'
+                ? 'bg-slate-100 font-medium text-[#0f172a]'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50',
+            )}
+          >
+            <Bell className="h-4 w-4 shrink-0" />
+            Notifications
+          </button>
+          <button
+            onClick={() => setActiveSection('users')}
+            className={cn(
+              'flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm transition-colors text-left',
+              activeSection === 'users'
+                ? 'bg-slate-100 font-medium text-[#0f172a]'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50',
+            )}
+          >
+            <Users className="h-4 w-4 shrink-0" />
+            User Management
+          </button>
+          <button
+            onClick={() => setActiveSection('data')}
+            className={cn(
+              'flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm transition-colors text-left',
+              activeSection === 'data'
+                ? 'bg-slate-100 font-medium text-[#0f172a]'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50',
+            )}
+          >
+            <Database className="h-4 w-4 shrink-0" />
+            Data & Import
+          </button>
+        </div>
+
+        {/* Right content */}
+        <div className="flex-1 p-6 max-w-2xl">
+          {/* Regular settings sections */}
+          {currentSection && (
+            <div>
+              <h2 className="text-lg font-semibold text-[#0f172a] mb-1">{currentSection.title}</h2>
+              <p className="text-sm text-slate-400 mb-6">Configure {currentSection.title.toLowerCase()} parameters</p>
+
+              <div className="space-y-5">
+                {currentSection.settings.map((def) => {
+                  const val = values[def.key] ?? def.defaultValue ?? '';
+                  return (
+                    <div key={def.key} className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor={def.key} className="text-sm font-medium">{def.label}</Label>
+                        {def.type === 'readonly' && <Lock className="h-3 w-3 text-slate-400" />}
+                      </div>
+                      <p className="text-xs text-slate-400">{def.description}</p>
+
+                      {def.type === 'toggle' ? (
+                        <Switch
+                          id={def.key}
+                          checked={val === 'true'}
+                          onCheckedChange={(checked) => setValue(def.key, checked ? 'true' : 'false')}
+                        />
+                      ) : def.type === 'readonly' ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id={def.key}
+                            value={val}
+                            disabled
+                            className="bg-slate-50 text-slate-500 max-w-xs"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id={def.key}
+                            type={def.type === 'number' ? 'number' : 'text'}
+                            value={val}
+                            onChange={(e) => setValue(def.key, e.target.value)}
+                            className="max-w-xs"
+                          />
+                          {def.unit && (
+                            <span className="text-xs text-slate-400">{def.unit}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {activeSection === 'eod' && (
+                <div className="mt-6 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                  <p className="text-xs text-amber-700">
+                    To update the Slack webhook URL, update the <code className="font-mono bg-amber-100 px-1 rounded">EOD_SLACK_WEBHOOK_URL</code> secret in your Vercel project settings.
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-8 flex items-center gap-3">
+                <Button onClick={handleSave}>Save Changes</Button>
+                {dirty && (
+                  <span className="text-xs text-amber-600">Unsaved changes</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Notifications preferences section */}
+          {activeSection === 'notifications' && (
+            <div>
+              <h2 className="text-lg font-semibold text-[#0f172a] mb-1">Notification Preferences</h2>
+              <p className="text-sm text-slate-400 mb-6">Configure which notification types each role receives</p>
+
+              {notifPrefs.length === 0 ? (
+                <p className="text-sm text-neutral-400 py-4">No notification preferences configured. Apply migration 00010 to seed defaults.</p>
+              ) : (
+                <Card className="io-card">
+                  <CardContent className="p-0 overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Notification Type</TableHead>
+                          <TableHead className="text-center">CFO</TableHead>
+                          <TableHead className="text-center">Accountant</TableHead>
+                          <TableHead className="text-center">PM</TableHead>
+                          <TableHead className="text-center">TL</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(() => {
+                          const types = [...new Set(notifPrefs.map((p: any) => p.notif_type))];
+                          return types.map((t) => (
+                            <TableRow key={t}>
+                              <TableCell className="text-sm capitalize">{t.replace(/_/g, ' ')}</TableCell>
+                              {['cfo', 'accountant', 'project_manager', 'team_leader'].map((role) => {
+                                const pref = notifPrefs.find((p: any) => p.role === role && p.notif_type === t);
+                                return (
+                                  <TableCell key={role} className="text-center">
+                                    {pref ? (
+                                      <Switch
+                                        checked={pref.enabled}
+                                        onCheckedChange={(checked) => toggleNotifPref(pref.id, checked)}
+                                      />
+                                    ) : (
+                                      <span className="text-slate-300">&mdash;</span>
+                                    )}
+                                  </TableCell>
+                                );
+                              })}
+                            </TableRow>
+                          ));
+                        })()}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* User management section */}
+          {activeSection === 'users' && (
+            <div>
+              <h2 className="text-lg font-semibold text-[#0f172a] mb-1">User Management</h2>
+              <p className="text-sm text-slate-400 mb-4">
+                Manage users and project assignments from the <a href="/users" className="text-blue-600 hover:underline">Users page</a>.
+              </p>
+              <Button variant="outline" onClick={() => window.location.href = '/users'}>
+                Go to User Management
+              </Button>
+            </div>
+          )}
+
+          {/* Data & Import section */}
+          {activeSection === 'data' && (
+            <div>
+              <h2 className="text-lg font-semibold text-[#0f172a] mb-1">Data & Import</h2>
+              <p className="text-sm text-slate-400 mb-6">Historical data and import activity</p>
+
+              {/* Seeded data */}
+              <h3 className="text-sm font-semibold text-slate-700 mb-2">Seeded Historical Data</h3>
+              {seedSnapshots.length === 0 ? (
+                <p className="text-sm text-neutral-400 mb-6">No historical seeds found.</p>
+              ) : (
+                <Card className="io-card mb-6">
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Source</TableHead>
+                          <TableHead>Month</TableHead>
+                          <TableHead>Agents</TableHead>
+                          <TableHead>Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {seedSnapshots.map((s: any) => (
+                          <TableRow key={s.year_month}>
+                            <TableCell className="text-sm">{s.data_source}</TableCell>
+                            <TableCell className="text-sm font-mono">{s.year_month}</TableCell>
+                            <TableCell className="text-sm">{s.total_agents}</TableCell>
+                            <TableCell className="text-xs text-slate-400">{new Date(s.created_at).toLocaleDateString('en-GB')}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Import history */}
+              <h3 className="text-sm font-semibold text-slate-700 mb-2">Import History</h3>
+              {importBatches.length === 0 ? (
+                <p className="text-sm text-neutral-400 mb-6">No imports recorded.</p>
+              ) : (
+                <Card className="io-card mb-6">
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>File</TableHead>
+                          <TableHead>Period</TableHead>
+                          <TableHead>Records</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {importBatches.map((b: any) => (
+                          <TableRow key={b.id}>
+                            <TableCell className="text-sm">{b.file_name || 'Unnamed'}</TableCell>
+                            <TableCell className="text-sm font-mono">{b.year_month || '-'}</TableCell>
+                            <TableCell className="text-sm">{b.record_count || 0}</TableCell>
+                            <TableCell className="text-xs text-slate-400">{new Date(b.created_at).toLocaleDateString('en-GB')}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
+                                {b.status || 'complete'}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

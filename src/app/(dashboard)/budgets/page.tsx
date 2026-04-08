@@ -1,0 +1,385 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/hooks/use-user';
+import { PageHeader } from '@/components/layout/page-header';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from '@/components/ui/dialog';
+import { formatCurrency, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
+import { Plus, Eye, Undo2, Trash2, Info } from 'lucide-react';
+import Link from 'next/link';
+import { toast } from 'sonner';
+
+interface BudgetRow {
+  id: string;
+  year_month: string;
+  current_version: number;
+  project_id: string | null;
+  project_name?: string;
+  department_name?: string;
+  latest_status: string;
+  total_usd: number;
+  total_kes: number;
+  created_by: string;
+  created_by_name: string;
+  submitted_by_role: string;
+}
+
+const statusColors: Record<string, string> = {
+  draft: 'bg-slate-100 text-slate-600',
+  submitted: 'bg-blue-100 text-blue-700',
+  under_review: 'bg-amber-100 text-amber-700',
+  pm_review: 'bg-purple-100 text-purple-700',
+  pm_approved: 'bg-teal-100 text-teal-700',
+  pm_rejected: 'bg-rose-100 text-rose-700',
+  returned_to_tl: 'bg-amber-200 text-amber-800',
+  approved: 'bg-emerald-100 text-emerald-700',
+  rejected: 'bg-rose-100 text-rose-700',
+};
+
+const statusLabels: Record<string, string> = {
+  draft: 'Draft',
+  submitted: 'Submitted',
+  under_review: 'Under Review',
+  pm_review: 'PM Review',
+  pm_approved: 'PM Approved',
+  pm_rejected: 'PM Rejected',
+  returned_to_tl: 'Returned — Action Needed',
+  approved: 'Approved',
+  rejected: 'Rejected',
+};
+
+export default function BudgetsPage() {
+  const { user } = useUser();
+  const [budgets, setBudgets] = useState<BudgetRow[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
+  const [loading, setLoading] = useState(true);
+  const [filterTab, setFilterTab] = useState('all');
+
+  useEffect(() => {
+    load();
+  }, [selectedMonth]);
+
+  const [deleteTarget, setDeleteTarget] = useState<BudgetRow | null>(null);
+  const canCreate = user?.role === 'team_leader' || user?.role === 'project_manager' || user?.role === 'cfo' || user?.role === 'accountant';
+  const canManageBudgets = user?.role === 'team_leader' || user?.role === 'cfo' || user?.role === 'project_manager' || user?.role === 'accountant';
+  const isAccountant = user?.role === 'accountant';
+  const isTl = user?.role === 'team_leader';
+
+  async function getAuthHeaders(): Promise<Record<string, string>> {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    return session ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+  }
+
+  async function handleWithdraw(budgetId: string) {
+    const headers = await getAuthHeaders();
+    const res = await fetch('/api/budgets/withdraw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify({ budget_id: budgetId }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast.success('Budget withdrawn to draft');
+      load();
+    } else {
+      toast.error(data.error);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    const headers = await getAuthHeaders();
+    const res = await fetch('/api/budgets/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify({ budget_id: deleteTarget.id }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast.success('Budget deleted');
+      setDeleteTarget(null);
+      load();
+    } else {
+      toast.error(data.error);
+      setDeleteTarget(null);
+    }
+  }
+
+  async function load() {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('budgets')
+      .select('id, year_month, current_version, project_id, department_id, created_by, submitted_by_role, projects(name), departments(name), budget_versions(status, total_amount_usd, total_amount_kes, version_number)')
+      .eq('year_month', selectedMonth)
+      .order('created_at', { ascending: false });
+
+    // Get user names for created_by
+    const userIds = new Set<string>();
+    (data || []).forEach((b: any) => { if (b.created_by) userIds.add(b.created_by); });
+    const { data: users } = await supabase.from('users').select('id, full_name').in('id', Array.from(userIds));
+    const nameMap = new Map((users || []).map((u: any) => [u.id, u.full_name]));
+
+    const rows: BudgetRow[] = (data || []).map((b: Record<string, unknown>) => {
+      const versions = (b.budget_versions as Record<string, unknown>[]) || [];
+      const latest = versions.find((v: Record<string, unknown>) => v.version_number === b.current_version) || versions[0];
+      return {
+        id: b.id as string,
+        year_month: b.year_month as string,
+        current_version: b.current_version as number,
+        project_id: b.project_id as string | null,
+        project_name: (b.projects as Record<string, unknown>)?.name as string | undefined,
+        department_name: (b.departments as Record<string, unknown>)?.name as string | undefined,
+        latest_status: (latest?.status as string) || 'draft',
+        total_usd: Number(latest?.total_amount_usd || 0),
+        total_kes: Number(latest?.total_amount_kes || 0),
+        created_by: b.created_by as string,
+        created_by_name: nameMap.get(b.created_by as string) || '—',
+        submitted_by_role: (b.submitted_by_role as string) || 'team_leader',
+      };
+    });
+
+    setBudgets(rows);
+    setLoading(false);
+  }
+
+  // Filter budgets based on tab selection
+  const filteredBudgets = budgets.filter(b => {
+    if (filterTab === 'all') return true;
+    if (filterTab === 'mine') return b.created_by === user?.id;
+    if (filterTab === 'pending') return ['submitted', 'pm_review', 'pm_approved', 'under_review'].includes(b.latest_status);
+    if (filterTab === 'approved') return b.latest_status === 'approved';
+    return true;
+  });
+
+  // Group budgets by project for dual-budget display
+  const projectGroups = new Map<string, BudgetRow[]>();
+  filteredBudgets.forEach(b => {
+    const key = b.project_name || b.department_name || b.id;
+    if (!projectGroups.has(key)) projectGroups.set(key, []);
+    projectGroups.get(key)!.push(b);
+  });
+
+  // Check if any project has multiple budgets
+  const hasDualBudgets = Array.from(projectGroups.values()).some(group => group.length > 1);
+
+  function canWithdraw(b: BudgetRow): boolean {
+    if (b.latest_status !== 'submitted' && b.latest_status !== 'pm_review') return false;
+    // TL can withdraw own budgets
+    if (isTl && b.submitted_by_role === 'team_leader' && b.created_by === user?.id) return true;
+    // Accountant can withdraw own budgets
+    if (isAccountant && b.submitted_by_role === 'accountant' && b.created_by === user?.id) return true;
+    // CFO can withdraw any
+    if (user?.role === 'cfo') return true;
+    return false;
+  }
+
+  function canDeleteBudget(b: BudgetRow): boolean {
+    if (b.latest_status !== 'draft') return false;
+    if (b.created_by === user?.id) return true;
+    if (user?.role === 'cfo') return true;
+    return false;
+  }
+
+  function canEdit(b: BudgetRow): boolean {
+    // TL can edit their own returned budgets
+    if (isTl && b.submitted_by_role === 'team_leader' && b.latest_status === 'returned_to_tl') return true;
+    // Accountant can edit their own returned/draft budgets
+    if (isAccountant && b.submitted_by_role === 'accountant' && b.created_by === user?.id &&
+        (b.latest_status === 'returned_to_tl' || b.latest_status === 'draft')) return true;
+    return false;
+  }
+
+  // Check if TL should see an info notice about accountant budgets
+  const accountantBudgetsForTlProject = isTl
+    ? budgets.filter(b => b.submitted_by_role === 'accountant' && b.created_by !== user?.id)
+    : [];
+
+  return (
+    <div>
+      <PageHeader title="Budgets" description="Manage project and department budgets">
+        <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Array.from({ length: 12 }, (_, i) => {
+              const d = new Date();
+              d.setMonth(d.getMonth() - i);
+              const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+              return (
+                <SelectItem key={ym} value={ym}>
+                  {formatYearMonth(ym)}
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+        {canCreate && (
+          <Link href="/budgets/new">
+            <Button size="sm" className="gap-1">
+              <Plus className="h-4 w-4" /> New Budget
+            </Button>
+          </Link>
+        )}
+      </PageHeader>
+
+      <div className="p-6 space-y-4">
+        {/* TL notice about accountant budgets */}
+        {isTl && accountantBudgetsForTlProject.length > 0 && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 flex items-start gap-2">
+            <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+            <div className="text-sm text-blue-700">
+              The Accountant has also submitted {accountantBudgetsForTlProject.length === 1 ? 'a budget' : `${accountantBudgetsForTlProject.length} budgets`} for your project this month. Both are under PM review.
+            </div>
+          </div>
+        )}
+
+        {/* Filter tabs for accountant */}
+        {(isAccountant || user?.role === 'cfo') && (
+          <Tabs value={filterTab} onValueChange={setFilterTab}>
+            <TabsList>
+              <TabsTrigger value="all">All Budgets</TabsTrigger>
+              {isAccountant && <TabsTrigger value="mine">Submitted By Me</TabsTrigger>}
+              <TabsTrigger value="pending">Pending Review</TabsTrigger>
+              <TabsTrigger value="approved">Approved</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
+
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Scope</TableHead>
+                  <TableHead>Submitted By</TableHead>
+                  <TableHead>Version</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Amount (KES)</TableHead>
+                  <TableHead className="w-[160px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredBudgets.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-neutral-500">
+                      No budgets found for {formatYearMonth(selectedMonth)}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredBudgets.map((b) => {
+                    const isOwnBudget = b.created_by === user?.id;
+                    // Check if there are multiple budgets for the same project
+                    const scopeKey = b.project_name || b.department_name || '';
+                    const siblings = projectGroups.get(scopeKey) || [];
+                    const hasSibling = siblings.length > 1;
+
+                    return (
+                      <TableRow key={b.id} className={hasSibling ? 'border-l-2 border-l-amber-300' : ''}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {b.project_name || b.department_name || '—'}
+                            {hasSibling && (
+                              <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">
+                                {siblings.length} versions
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm">{isOwnBudget ? 'You' : b.created_by_name}</span>
+                            <Badge
+                              variant="secondary"
+                              className={b.submitted_by_role === 'accountant'
+                                ? 'bg-blue-100 text-blue-700 text-[10px] px-1.5'
+                                : 'bg-amber-100 text-amber-700 text-[10px] px-1.5'
+                              }
+                            >
+                              {b.submitted_by_role === 'accountant' ? 'Accountant' : 'TL'}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>v{b.current_version}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className={statusColors[b.latest_status] || ''}>
+                            {statusLabels[b.latest_status] || capitalize(b.latest_status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {formatCurrency(b.total_kes, 'KES')}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Link href={`/budgets/${b.id}`}>
+                              <Button variant="ghost" size="icon" title="View">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            {canWithdraw(b) && (
+                              <Button variant="ghost" size="icon" title="Withdraw to draft" onClick={() => handleWithdraw(b.id)}>
+                                <Undo2 className="h-4 w-4 text-amber-600" />
+                              </Button>
+                            )}
+                            {canEdit(b) && (
+                              <Link href={`/budgets/${b.id}`}>
+                                <Button variant="ghost" size="sm" className="text-amber-600 text-xs">Edit & Resubmit</Button>
+                              </Link>
+                            )}
+                            {canDeleteBudget(b) && (
+                              <Button variant="ghost" size="icon" title="Delete" onClick={() => setDeleteTarget(b)}>
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Budget</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete the budget for{' '}
+              <strong>{deleteTarget?.project_name || deleteTarget?.department_name}</strong>?
+              This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+            Amount: {formatCurrency(deleteTarget?.total_kes || 0, 'KES')} · Version {deleteTarget?.current_version}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDelete}>Delete Permanently</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
