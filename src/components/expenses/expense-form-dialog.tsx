@@ -132,7 +132,7 @@ export function ExpenseFormDialog({ open, onClose, onSaved }: ExpenseFormDialogP
       overhead_category_id: expenseType === 'shared_expense' ? overheadCategoryId : null,
       expense_category_id: expenseCategoryId || null,
       description,
-      amount_usd: amountUsd,
+      amount_usd: 0,
       amount_kes: amountKes,
       expense_date: expenseDate,
       year_month: yearMonth,
@@ -228,15 +228,9 @@ export function ExpenseFormDialog({ open, onClose, onSaved }: ExpenseFormDialogP
             <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What was this expense for?" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Amount (USD)</Label>
-              <Input type="number" step="0.0001" min={0} value={amountUsd || ''} onChange={(e) => setAmountUsd(parseFloat(e.target.value) || 0)} />
-            </div>
-            <div className="space-y-1">
-              <Label>Amount (KES)</Label>
-              <Input type="number" step="0.01" min={0} value={amountKes || ''} onChange={(e) => setAmountKes(parseFloat(e.target.value) || 0)} />
-            </div>
+          <div className="space-y-1">
+            <Label>Amount (KES) *</Label>
+            <Input type="number" step="0.01" min={0} value={amountKes || ''} onChange={(e) => setAmountKes(parseFloat(e.target.value) || 0)} />
           </div>
 
           <div className="space-y-1">

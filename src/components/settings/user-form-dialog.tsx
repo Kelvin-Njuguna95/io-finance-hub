@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
@@ -29,57 +28,68 @@ const roles: { value: UserRole; label: string }[] = [
 export function UserFormDialog({ open, onClose, onSaved }: Props) {
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
-  const [password, setPassword] = useState('');
+  const [pin, setPin] = useState('');
   const [role, setRole] = useState<UserRole>('team_leader');
   const [directorTag, setDirectorTag] = useState<DirectorEnum | ''>('');
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
-    if (!email.trim() || !fullName.trim() || !password.trim()) {
-      toast.error('Email, name, and password are required');
+    if (!email.trim() || !fullName.trim() || !pin.trim()) {
+      toast.error('Email, name, and PIN are required');
+      return;
+    }
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+      toast.error('PIN must be exactly 4 digits');
       return;
     }
 
     setSaving(true);
-    const supabase = createClient();
 
-    // Create auth user via admin API (requires service role key)
-    // In production, this would use a Supabase Edge Function with the service_role key
-    // For now, we create the user record and instruct manual auth setup
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
+    try {
+      // Get the current session token to authenticate the API call
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
 
-    if (authError) {
-      // Fallback: just create the user record (auth user must be created via Supabase dashboard)
-      toast.error(`Auth creation failed: ${authError.message}. Create the auth user manually in Supabase dashboard, then add the user record.`);
-      setSaving(false);
-      return;
+      if (!session) {
+        toast.error('You must be logged in to create users');
+        setSaving(false);
+        return;
+      }
+
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          email,
+          password: pin + 'io',
+          full_name: fullName,
+          role,
+          director_tag: directorTag || null,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to create user');
+      } else {
+        toast.success(`User "${data.user.full_name}" created successfully`);
+        setEmail('');
+        setFullName('');
+        setPin('');
+        setRole('team_leader');
+        setDirectorTag('');
+        onSaved();
+        onClose();
+      }
+    } catch (err) {
+      toast.error('Network error — please try again');
     }
 
-    // Create user profile record
-    const { error: profileError } = await supabase.from('users').insert({
-      id: authData.user.id,
-      email,
-      full_name: fullName,
-      role,
-      director_tag: directorTag || null,
-    });
-
-    if (profileError) {
-      toast.error(profileError.message);
-    } else {
-      toast.success('User created');
-      setEmail('');
-      setFullName('');
-      setPassword('');
-      setRole('team_leader');
-      setDirectorTag('');
-      onSaved();
-      onClose();
-    }
     setSaving(false);
   }
 
@@ -103,8 +113,17 @@ export function UserFormDialog({ open, onClose, onSaved }: Props) {
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="john@impactoutsourcing.co.ke" />
           </div>
           <div className="space-y-1">
-            <Label>Password *</Label>
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Minimum 8 characters" />
+            <Label>4-Digit PIN *</Label>
+            <Input
+              type="password"
+              inputMode="numeric"
+              pattern="\d{4}"
+              maxLength={4}
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              placeholder="e.g. 1234"
+              className="text-center text-lg tracking-[0.5em] font-mono w-32"
+            />
           </div>
           <div className="space-y-1">
             <Label>Role *</Label>

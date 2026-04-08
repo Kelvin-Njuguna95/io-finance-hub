@@ -11,8 +11,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 import { getCurrentYearMonth, formatCurrency } from '@/lib/format';
 import { DIRECTORS } from '@/types/database';
+import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { User, DirectorEnum } from '@/types/database';
 
@@ -25,6 +27,7 @@ interface Props {
 export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
   const { user } = useUser();
   const [directorUsers, setDirectorUsers] = useState<User[]>([]);
+  const [forexBureaus, setForexBureaus] = useState<{ id: string; name: string }[]>([]);
   const [directorTag, setDirectorTag] = useState<DirectorEnum | ''>('');
   const [withdrawalDate, setWithdrawalDate] = useState(new Date().toISOString().split('T')[0]);
   const [amountUsd, setAmountUsd] = useState(0);
@@ -35,6 +38,8 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
   const [referenceRate, setReferenceRate] = useState(0);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showAddForex, setShowAddForex] = useState(false);
+  const [newForexName, setNewForexName] = useState('');
 
   // Auto-calculate KES when USD or rate changes
   useEffect(() => {
@@ -47,12 +52,12 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
     if (!open) return;
     async function load() {
       const supabase = createClient();
-      const { data } = await supabase
-        .from('users')
-        .select('*')
-        .not('director_tag', 'is', null)
-        .eq('is_active', true);
-      setDirectorUsers((data || []) as User[]);
+      const [usersRes, forexRes] = await Promise.all([
+        supabase.from('users').select('*').not('director_tag', 'is', null).eq('is_active', true),
+        supabase.from('forex_bureaus').select('id, name').eq('is_active', true).order('name'),
+      ]);
+      setDirectorUsers((usersRes.data || []) as User[]);
+      setForexBureaus((forexRes.data || []) as { id: string; name: string }[]);
     }
     load();
   }, [open]);
@@ -61,6 +66,26 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
   const varianceKes = referenceRate > 0 && amountUsd > 0
     ? amountKes - (amountUsd * referenceRate)
     : 0;
+
+  async function handleAddForexBureau() {
+    if (!newForexName.trim()) return;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('forex_bureaus')
+      .insert({ name: newForexName.trim() })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      setForexBureaus([...forexBureaus, { id: data.id, name: data.name }].sort((a, b) => a.name.localeCompare(b.name)));
+      setForexBureau(data.name);
+      setNewForexName('');
+      setShowAddForex(false);
+      toast.success(`"${data.name}" added`);
+    }
+  }
 
   async function handleSave() {
     if (!directorTag || amountUsd <= 0 || exchangeRate <= 0) {
@@ -148,7 +173,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Exchange Rate (USD→KES) *</Label>
+              <Label>Exchange Rate (USD to KES) *</Label>
               <Input type="number" step="0.0001" min={0} value={exchangeRate || ''} onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 0)} />
             </div>
             <div className="space-y-1">
@@ -166,7 +191,40 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>Forex Bureau</Label>
-              <Input value={forexBureau} onChange={(e) => setForexBureau(e.target.value)} placeholder="Bureau name" />
+              {!showAddForex ? (
+                <Select value={forexBureau} onValueChange={(v) => {
+                  if (v === '__add_new__') {
+                    setShowAddForex(true);
+                  } else if (v) {
+                    setForexBureau(v);
+                  }
+                }}>
+                  <SelectTrigger><SelectValue placeholder="Select bureau..." /></SelectTrigger>
+                  <SelectContent>
+                    {forexBureaus.map((fb) => (
+                      <SelectItem key={fb.id} value={fb.name}>{fb.name}</SelectItem>
+                    ))}
+                    <Separator className="my-1" />
+                    <SelectItem value="__add_new__">
+                      <span className="flex items-center gap-1 text-blue-600">
+                        <Plus className="h-3 w-3" /> Add new bureau
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    value={newForexName}
+                    onChange={(e) => setNewForexName(e.target.value)}
+                    placeholder="New bureau name"
+                    autoFocus
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddForexBureau()}
+                  />
+                  <Button size="sm" onClick={handleAddForexBureau} disabled={!newForexName.trim()}>Add</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setShowAddForex(false)}>Cancel</Button>
+                </div>
+              )}
             </div>
             <div className="space-y-1">
               <Label>Reference ID</Label>

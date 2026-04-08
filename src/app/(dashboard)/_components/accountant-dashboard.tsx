@@ -8,6 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { FileText, Receipt, ArrowDownToLine, AlertTriangle } from 'lucide-react';
+import { EodPanel } from '@/components/eod/eod-panel';
+import { AccountantMiscRequests } from '@/components/misc/accountant-misc-requests';
+import { AccountantMiscReport } from '@/components/misc/accountant-misc-report';
+import { OutstandingReceivablesPanel } from '@/components/revenue/outstanding-receivables-panel';
+import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
 
 export function AccountantDashboard() {
   const [stats, setStats] = useState({
@@ -39,7 +44,7 @@ export function AccountantDashboard() {
       ]);
 
       const totalWithdrawals = (withdrawalRes.data || []).reduce(
-        (sum, w) => sum + Number(w.amount_usd),
+        (sum: number, w: { amount_usd: number }) => sum + Number(w.amount_usd),
         0
       );
 
@@ -85,6 +90,21 @@ export function AccountantDashboard() {
             icon={AlertTriangle}
           />
         </div>
+
+        {/* Expense Queue */}
+        <ExpenseQueuePanel />
+
+        {/* Outstanding Receivables */}
+        <OutstandingReceivablesPanel />
+
+        {/* Misc Fund Requests */}
+        <AccountantMiscRequests />
+
+        {/* Misc Accountability Report */}
+        <AccountantMiscReport />
+
+        {/* EOD Report Panel */}
+        <EodPanel />
 
         <Card>
           <CardHeader>

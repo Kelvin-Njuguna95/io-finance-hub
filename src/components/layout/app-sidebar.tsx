@@ -9,9 +9,9 @@ import { ROLE_LABELS } from '@/types/database';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LogOut } from 'lucide-react';
+import { NotificationBell } from '@/components/layout/notification-bell';
 
 export function AppSidebar() {
   const { user, loading } = useUser();
@@ -26,11 +26,11 @@ export function AppSidebar() {
 
   if (loading) {
     return (
-      <div className="flex h-full w-60 flex-col border-r bg-white p-4">
-        <Skeleton className="h-8 w-32 mb-4" />
-        <Skeleton className="h-4 w-24 mb-6" />
+      <div className="flex h-full w-60 flex-col sidebar-gradient p-4">
+        <Skeleton className="h-8 w-32 mb-4 bg-white/20" />
+        <Skeleton className="h-4 w-24 mb-6 bg-white/20" />
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-8 w-full mb-2" />
+          <Skeleton key={i} className="h-8 w-full mb-2 bg-white/20" />
         ))}
       </div>
     );
@@ -41,14 +41,14 @@ export function AppSidebar() {
   const navGroups = getNavigation(user.role);
 
   return (
-    <div className="flex h-full w-60 flex-col border-r bg-white">
+    <div className="flex h-full w-60 flex-col sidebar-gradient">
       {/* Brand */}
-      <div className="flex h-14 items-center border-b px-4">
+      <div className="flex h-14 items-center px-4 border-b border-white/10">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-neutral-900 text-xs font-bold text-white">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#F5C518] text-[10px] font-bold text-[#0f172a]">
             IO
           </div>
-          <span className="text-sm font-semibold">Finance Hub</span>
+          <span className="text-sm font-semibold text-white">Finance Hub</span>
         </Link>
       </div>
 
@@ -56,7 +56,7 @@ export function AppSidebar() {
       <ScrollArea className="flex-1 px-3 py-4">
         {navGroups.map((group) => (
           <div key={group.title} className="mb-4">
-            <p className="mb-1 px-2 text-[11px] font-medium uppercase tracking-wider text-neutral-400">
+            <p className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wider text-white/30">
               {group.title}
             </p>
             {group.items.map((item) => {
@@ -69,11 +69,14 @@ export function AppSidebar() {
                   className={cn(
                     'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
                     isActive
-                      ? 'bg-neutral-100 font-medium text-neutral-900'
-                      : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                      ? 'bg-[rgba(245,197,24,0.12)] text-[#F5C518] font-medium'
+                      : 'text-white/60 hover:text-white hover:bg-white/5'
                   )}
                 >
-                  <item.icon className="h-4 w-4 shrink-0" />
+                  <item.icon className={cn(
+                    'h-4 w-4 shrink-0',
+                    isActive ? 'text-[#F5C518]' : 'text-white/40'
+                  )} />
                   {item.title}
                 </Link>
               );
@@ -82,18 +85,19 @@ export function AppSidebar() {
         ))}
       </ScrollArea>
 
-      <Separator />
-
       {/* User info + Sign out */}
-      <div className="p-3">
-        <div className="mb-2 px-2">
-          <p className="text-sm font-medium truncate">{user.full_name}</p>
-          <p className="text-xs text-neutral-500">{ROLE_LABELS[user.role]}</p>
+      <div className="p-3 border-t border-white/10">
+        <div className="mb-2 px-2 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-white truncate">{user.full_name}</p>
+            <p className="text-xs text-white/40">{ROLE_LABELS[user.role]}</p>
+          </div>
+          <NotificationBell />
         </div>
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start gap-2 text-neutral-600"
+          className="w-full justify-start gap-2 text-white/60 hover:text-white hover:bg-white/10"
           onClick={handleSignOut}
         >
           <LogOut className="h-4 w-4" />

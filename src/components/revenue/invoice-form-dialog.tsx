@@ -10,8 +10,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { getCurrentYearMonth, formatYearMonth } from '@/lib/format';
+import { encodeBackdatedNotes, type BackdatedMeta } from '@/lib/backdated-utils';
 import { toast } from 'sonner';
 import type { Project } from '@/types/database';
 
@@ -32,6 +34,8 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
   const [amountUsd, setAmountUsd] = useState(0);
   const [amountKes, setAmountKes] = useState(0);
   const [description, setDescription] = useState('');
+  const [isBackdated, setIsBackdated] = useState(false);
+  const [backdatedReason, setBackdatedReason] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -50,8 +54,24 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
       return;
     }
 
+    if (isBackdated && !backdatedReason.trim()) {
+      toast.error('Reason for late entry is required for backdated invoices');
+      return;
+    }
+
     setSaving(true);
     const supabase = createClient();
+
+    let finalDescription: string | null = description || null;
+    if (isBackdated) {
+      const meta: BackdatedMeta = {
+        reason: backdatedReason.trim(),
+        entry_date: new Date().toISOString().split('T')[0],
+        entered_by: user!.full_name || user!.email,
+      };
+      finalDescription = encodeBackdatedNotes(meta, description || undefined);
+    }
+
     const { error } = await supabase.from('invoices').insert({
       project_id: projectId,
       invoice_number: invoiceNumber,
@@ -61,7 +81,7 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
       amount_usd: amountUsd,
       amount_kes: amountKes,
       status: 'sent',
-      description: description || null,
+      description: finalDescription,
       created_by: user!.id,
     });
 
@@ -79,10 +99,21 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>New Invoice</DialogTitle>
+          <DialogTitle>{isBackdated ? 'New Backdated Invoice' : 'New Invoice'}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="backdated-toggle" className="text-sm font-medium">Backdated Invoice</Label>
+            <Switch id="backdated-toggle" checked={isBackdated} onCheckedChange={setIsBackdated} />
+          </div>
+
+          {isBackdated && (
+            <div className="rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
+              This is for invoices from prior periods being entered late. A reason for the late entry is required.
+            </div>
+          )}
+
           <div className="space-y-1">
             <Label>Project *</Label>
             <Select value={projectId} onValueChange={(v) => v && setProjectId(v)}>
@@ -103,7 +134,7 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
               <Select value={billingPeriod} onValueChange={(v) => v && setBillingPeriod(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Array.from({ length: 6 }, (_, i) => {
+                  {Array.from({ length: isBackdated ? 12 : 6 }, (_, i) => {
                     const d = new Date(); d.setMonth(d.getMonth() - i);
                     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
                     return <SelectItem key={ym} value={ym}>{formatYearMonth(ym)}</SelectItem>;
@@ -134,6 +165,18 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
               <Input type="number" step="0.01" min={0} value={amountKes || ''} onChange={(e) => setAmountKes(parseFloat(e.target.value) || 0)} />
             </div>
           </div>
+
+          {isBackdated && (
+            <div className="space-y-1">
+              <Label>Reason for Late Entry *</Label>
+              <Textarea
+                value={backdatedReason}
+                onChange={(e) => setBackdatedReason(e.target.value)}
+                rows={2}
+                placeholder="Explain why this invoice is being entered late..."
+              />
+            </div>
+          )}
 
           <div className="space-y-1">
             <Label>Description</Label>

@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/eod/auto-send",
+      "schedule": "0 15 * * *"
+    }
+  ]
+}

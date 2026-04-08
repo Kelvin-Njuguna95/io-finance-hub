@@ -4,7 +4,7 @@
 
 export type UserRole = 'cfo' | 'accountant' | 'team_leader' | 'project_manager';
 export type DirectorEnum = 'kelvin' | 'evans' | 'dan' | 'gidraph' | 'victor';
-export type BudgetStatus = 'draft' | 'submitted' | 'under_review' | 'approved' | 'rejected';
+export type BudgetStatus = 'draft' | 'submitted' | 'under_review' | 'pm_review' | 'pm_approved' | 'pm_rejected' | 'returned_to_tl' | 'approved' | 'rejected';
 export type ExpenseType = 'project_expense' | 'shared_expense';
 export type AllocationMethod = 'revenue_based' | 'headcount_based' | 'hybrid';
 export type MonthStatus = 'open' | 'under_review' | 'closed' | 'locked';
@@ -81,6 +81,7 @@ export interface Budget {
   year_month: string;
   current_version: number;
   created_by: string;
+  submitted_by_role: 'team_leader' | 'accountant' | null;
   created_at: string;
   updated_at: string;
 }
@@ -347,6 +348,58 @@ export interface OverheadCategory {
   description: string | null;
   default_allocation_method: AllocationMethod;
   is_active: boolean;
+  created_at: string;
+}
+
+export type PendingExpenseStatus = 'pending_auth' | 'confirmed' | 'under_review' | 'modified' | 'voided' | 'carried_forward';
+
+export interface PendingExpense {
+  id: string;
+  budget_id: string;
+  budget_version_id: string;
+  budget_item_id: string;
+  project_id: string | null;
+  department_id: string | null;
+  year_month: string;
+  description: string;
+  category: string | null;
+  budgeted_amount_kes: number;
+  actual_amount_kes: number | null;
+  variance_kes: number | null;
+  variance_pct: number | null;
+  status: PendingExpenseStatus;
+  confirmed_by: string | null;
+  confirmed_at: string | null;
+  modified_reason: string | null;
+  void_reason: string | null;
+  voided_by: string | null;
+  voided_at: string | null;
+  carry_from_month: string | null;
+  carry_reason: string | null;
+  expense_id: string | null;
+  review_notes: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpenseVariance {
+  id: string;
+  year_month: string;
+  project_id: string | null;
+  department_id: string | null;
+  category: string | null;
+  budgeted_total_kes: number;
+  actual_total_kes: number;
+  variance_kes: number;
+  variance_pct: number;
+  confirmed_count: number;
+  pending_count: number;
+  voided_count: number;
+  modified_count: number;
+  accuracy_score: number | null;
+  computed_at: string;
   created_at: string;
 }
 

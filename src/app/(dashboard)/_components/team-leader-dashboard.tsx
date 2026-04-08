@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { FileText, Users, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { TlBudgetVsExpensesPanel } from '@/components/expenses/tl-budget-vs-expenses-panel';
 import type { Project, Budget, BudgetVersion } from '@/types/database';
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
 
 export function TeamLeaderDashboard({ userId }: Props) {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectIds, setProjectIds] = useState<string[]>([]);
   const [budgets, setBudgets] = useState<(Budget & { latest_version?: BudgetVersion })[]>([]);
   const [loading, setLoading] = useState(true);
   const currentMonth = getCurrentYearMonth();
@@ -32,15 +34,16 @@ export function TeamLeaderDashboard({ userId }: Props) {
         .select('project_id')
         .eq('user_id', userId);
 
-      const projectIds = (assignments || []).map((a) => a.project_id);
+      const pids = (assignments || []).map((a: { project_id: string }) => a.project_id);
+      setProjectIds(pids);
 
-      if (projectIds.length > 0) {
+      if (pids.length > 0) {
         const [projectsRes, budgetsRes] = await Promise.all([
-          supabase.from('projects').select('*').in('id', projectIds),
+          supabase.from('projects').select('*').in('id', pids),
           supabase
             .from('budgets')
             .select('*, budget_versions(*)')
-            .in('project_id', projectIds)
+            .in('project_id', pids)
             .eq('year_month', currentMonth),
         ]);
 
@@ -110,6 +113,9 @@ export function TeamLeaderDashboard({ userId }: Props) {
             )}
           </CardContent>
         </Card>
+
+        {/* Budget vs Confirmed Expenses — scoped to TL's projects */}
+        <TlBudgetVsExpensesPanel projectIds={projectIds} />
       </div>
     </div>
   );

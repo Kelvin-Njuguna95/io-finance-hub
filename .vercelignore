@@ -1,0 +1,21 @@
+# Development & documentation files not needed for build
+APPENDIX_O_DIAGNOSTIC_REPORT.md
+DEPLOYMENT.md
+CLAUDE.md
+AGENTS.md
+scripts/
+supabase/
+*.sql
+
+# IDE & tooling
+.claude/
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Local environment
+.env.local
+.env.local.example

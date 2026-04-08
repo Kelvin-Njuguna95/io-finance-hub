@@ -30,7 +30,7 @@ export default function DepartmentsPage() {
       setDepartments(
         (data || []).map((d: Record<string, unknown>) => ({
           ...d,
-          owner_name: (d.users as Record<string, unknown>)?.full_name as string | undefined,
+          owner_name: 'All Directors',
         })) as (Department & { owner_name?: string })[]
       );
     }

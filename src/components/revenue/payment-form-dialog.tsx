@@ -35,6 +35,7 @@ export function PaymentFormDialog({ open, onClose, onSaved }: Props) {
   const [amountUsd, setAmountUsd] = useState(0);
   const [amountKes, setAmountKes] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentMethods, setPaymentMethods] = useState<{ id: string; name: string }[]>([]);
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -43,11 +44,20 @@ export function PaymentFormDialog({ open, onClose, onSaved }: Props) {
     if (!open) return;
     async function load() {
       const supabase = createClient();
-      const { data } = await supabase
-        .from('invoices')
-        .select('id, invoice_number, amount_usd, projects(name)')
-        .in('status', ['sent', 'partially_paid', 'overdue'])
-        .order('invoice_date', { ascending: false });
+      const [invRes, pmRes] = await Promise.all([
+        supabase
+          .from('invoices')
+          .select('id, invoice_number, amount_usd, projects(name)')
+          .in('status', ['sent', 'partially_paid', 'overdue'])
+          .order('invoice_date', { ascending: false }),
+        supabase
+          .from('payment_methods')
+          .select('id, name')
+          .eq('is_active', true)
+          .order('name'),
+      ]);
+      setPaymentMethods((pmRes.data || []) as { id: string; name: string }[]);
+      const data = invRes.data;
 
       setInvoices(
         (data || []).map((i: Record<string, unknown>) => ({
@@ -131,7 +141,14 @@ export function PaymentFormDialog({ open, onClose, onSaved }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>Payment Method</Label>
-              <Input value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} placeholder="Wire, Check, etc." />
+              <Select value={paymentMethod} onValueChange={(v) => v && setPaymentMethod(v)}>
+                <SelectTrigger><SelectValue placeholder="Select method..." /></SelectTrigger>
+                <SelectContent>
+                  {paymentMethods.map((pm) => (
+                    <SelectItem key={pm.id} value={pm.name}>{pm.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label>Reference</Label>

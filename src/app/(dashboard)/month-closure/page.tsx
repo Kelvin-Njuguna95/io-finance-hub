@@ -59,7 +59,33 @@ export default function MonthClosurePage() {
     const { data: warningData } = await supabase.rpc('fn_month_closure_warnings', {
       p_year_month: selectedMonth,
     });
-    setWarnings(warningData || []);
+    const allWarnings = warningData || [];
+
+    // Check accountant misc report — HARD BLOCK
+    const periodMonth = selectedMonth + '-01';
+    const { data: approvedReqs } = await supabase
+      .from('accountant_misc_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('period_month', periodMonth)
+      .eq('status', 'approved');
+
+    if ((approvedReqs as any)?.length > 0 || (approvedReqs as any)?.count > 0) {
+      const { data: miscReport } = await supabase
+        .from('accountant_misc_report')
+        .select('status')
+        .eq('period_month', periodMonth)
+        .single();
+
+      if (!miscReport || miscReport.status === 'draft') {
+        allWarnings.push({
+          warning_type: 'accountant_misc_report_missing',
+          warning_message: 'Accountant misc expenditure report has not been submitted. Month cannot be closed until this is complete.',
+          severity: 'critical',
+        });
+      }
+    }
+
+    setWarnings(allWarnings);
   }
 
   async function handleClose() {

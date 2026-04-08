@@ -19,7 +19,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ExpenseFormDialog } from '@/components/expenses/expense-form-dialog';
 import { formatCurrency, formatDate, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
-import { Plus } from 'lucide-react';
+import { Plus, ListChecks, GitCompareArrows, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import Link from 'next/link';
 import type { Expense } from '@/types/database';
 
 export default function ExpensesPage() {
@@ -27,7 +29,58 @@ export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<(Expense & { project_name?: string })[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
   const [showDialog, setShowDialog] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<(Expense & { project_name?: string }) | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  async function getAuthHeaders(): Promise<Record<string, string>> {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (session) headers['Authorization'] = `Bearer ${session.access_token}`;
+    return headers;
+  }
+
+  async function reloadExpenses() {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('expenses')
+      .select('*, projects(name)')
+      .eq('year_month', selectedMonth)
+      .order('expense_date', { ascending: false });
+    setExpenses(
+      (data || []).map((e: Record<string, unknown>) => ({
+        ...e,
+        project_name: (e.projects as Record<string, unknown>)?.name as string | undefined,
+      })) as (Expense & { project_name?: string })[]
+    );
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget || !deleteReason.trim()) return;
+    setDeleting(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/expenses/delete', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ expense_id: deleteTarget.id, reason: deleteReason }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success('Expense deleted');
+        setDeleteTarget(null);
+        setDeleteReason('');
+        reloadExpenses();
+      } else {
+        toast.error(result.error || 'Failed to delete');
+      }
+    } catch {
+      toast.error('Failed to delete expense');
+    }
+    setDeleting(false);
+  }
 
   useEffect(() => {
     async function load() {
@@ -49,9 +102,9 @@ export default function ExpensesPage() {
     load();
   }, [selectedMonth]);
 
-  const canCreate = user?.role === 'cfo' || user?.role === 'accountant';
+  const isCfo = user?.role === 'cfo';
+  const canCreate = isCfo || user?.role === 'accountant';
 
-  const totalUsd = expenses.reduce((s, e) => s + Number(e.amount_usd), 0);
   const totalKes = expenses.reduce((s, e) => s + Number(e.amount_kes), 0);
 
   return (
@@ -87,7 +140,7 @@ export default function ExpensesPage() {
             .select('*, projects(name)')
             .eq('year_month', selectedMonth)
             .order('expense_date', { ascending: false })
-            .then(({ data }) => {
+            .then(({ data }: { data: Record<string, unknown>[] | null }) => {
               setExpenses(
                 (data || []).map((e: Record<string, unknown>) => ({
                   ...e,
@@ -99,10 +152,26 @@ export default function ExpensesPage() {
       />
 
       <div className="p-6">
+        {/* Quick Links */}
+        {(user?.role === 'cfo' || user?.role === 'accountant') && (
+          <div className="mb-4 flex gap-3">
+            <Link href="/expenses/queue">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ListChecks className="h-3.5 w-3.5" /> Expense Queue
+              </Button>
+            </Link>
+            {user?.role === 'cfo' && (
+              <Link href="/expenses/variance">
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <GitCompareArrows className="h-3.5 w-3.5" /> Variance Dashboard
+                </Button>
+              </Link>
+            )}
+          </div>
+        )}
+
         <div className="mb-4 flex gap-4 text-sm">
-          <span className="font-medium">Total: {formatCurrency(totalUsd, 'USD')}</span>
-          <span className="text-neutral-500">|</span>
-          <span className="font-medium">{formatCurrency(totalKes, 'KES')}</span>
+          <span className="font-medium">Total: {formatCurrency(totalKes, 'KES')}</span>
         </div>
 
         <Card>
@@ -114,14 +183,14 @@ export default function ExpensesPage() {
                   <TableHead>Description</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Scope</TableHead>
-                  <TableHead className="text-right">USD</TableHead>
                   <TableHead className="text-right">KES</TableHead>
+                  {isCfo && <TableHead className="w-[60px]" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {expenses.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-neutral-500">
+                    <TableCell colSpan={isCfo ? 6 : 5} className="text-center py-8 text-neutral-500">
                       No expenses for {formatYearMonth(selectedMonth)}
                     </TableCell>
                   </TableRow>
@@ -139,11 +208,20 @@ export default function ExpensesPage() {
                         {e.project_name || 'Shared'}
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">
-                        {formatCurrency(Number(e.amount_usd), 'USD')}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
                         {formatCurrency(Number(e.amount_kes), 'KES')}
                       </TableCell>
+                      {isCfo && (
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => { setDeleteTarget(e); setDeleteReason(''); }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 )}
@@ -152,6 +230,48 @@ export default function ExpensesPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Expense</DialogTitle>
+          </DialogHeader>
+          {deleteTarget && (
+            <div className="space-y-4">
+              <div className="rounded-md bg-red-50 border border-red-200 p-3">
+                <p className="text-sm font-medium text-red-800">You are about to permanently delete this expense:</p>
+                <div className="mt-2 text-sm text-red-700 space-y-1">
+                  <p><strong>{deleteTarget.description}</strong></p>
+                  <p>{deleteTarget.project_name || 'Shared'} · {formatDate(deleteTarget.expense_date)}</p>
+                  <p className="font-mono font-semibold">{formatCurrency(Number(deleteTarget.amount_kes), 'KES')}</p>
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm">Reason for deletion <span className="text-red-500">*</span></Label>
+                <Textarea
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  placeholder="Why is this expense being deleted?"
+                  className="mt-1"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={deleting || !deleteReason.trim()}
+                  className="gap-1"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {deleting ? 'Deleting...' : 'Delete Expense'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
