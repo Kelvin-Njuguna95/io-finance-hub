@@ -16,14 +16,24 @@ export async function GET() {
   const admin = createAdminClient();
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
 
-  // Check if auto-send is enabled
-  const { data: setting } = await admin
+  // Check if auto-send is enabled + trigger sources
+  const { data: settings } = await admin
     .from('system_settings')
-    .select('value')
-    .eq('key', 'eod_auto_send_enabled')
-    .single();
+    .select('key, value')
+    .in('key', [
+      'eod_auto_send_enabled',
+      'eod_auto_send_on_expense',
+      'eod_auto_send_on_withdrawal',
+      'eod_auto_send_on_cash_received',
+    ]);
 
-  if (setting?.value !== 'true') {
+  const map = new Map((settings || []).map((s: { key: string; value: string }) => [s.key, s.value]));
+  const enabled = map.get('eod_auto_send_enabled') === 'true';
+  const sendOnExpense = map.get('eod_auto_send_on_expense') !== 'false';
+  const sendOnWithdrawal = map.get('eod_auto_send_on_withdrawal') !== 'false';
+  const sendOnCashReceived = map.get('eod_auto_send_on_cash_received') !== 'false';
+
+  if (!enabled) {
     return NextResponse.json({ skipped: true, reason: 'Auto-send disabled' });
   }
 
@@ -39,30 +49,35 @@ export async function GET() {
   }
 
   // Check for qualifying activity
-  const [expRes, wdRes, budRes] = await Promise.all([
+  const [expRes, wdRes, payRes] = await Promise.all([
     admin.from('expenses').select('id', { count: 'exact', head: true })
       .gte('created_at', `${today}T00:00:00+03:00`)
       .lt('created_at', `${today}T23:59:59+03:00`),
     admin.from('withdrawals').select('id', { count: 'exact', head: true })
       .gte('created_at', `${today}T00:00:00+03:00`)
       .lt('created_at', `${today}T23:59:59+03:00`),
-    admin.from('budget_versions').select('id', { count: 'exact', head: true })
-      .in('status', ['submitted', 'under_review'])
-      .gte('updated_at', `${today}T00:00:00+03:00`)
-      .lt('updated_at', `${today}T23:59:59+03:00`),
+    admin.from('payments').select('id', { count: 'exact', head: true })
+      .gte('created_at', `${today}T00:00:00+03:00`)
+      .lt('created_at', `${today}T23:59:59+03:00`),
   ]);
 
-  const hasActivity = (expRes.count || 0) > 0 || (wdRes.count || 0) > 0 || (budRes.count || 0) > 0;
+  const expenseCount = expRes.count || 0;
+  const withdrawalCount = wdRes.count || 0;
+  const cashReceivedCount = payRes.count || 0;
+  const hasActivity = (sendOnExpense && expenseCount > 0)
+    || (sendOnWithdrawal && withdrawalCount > 0)
+    || (sendOnCashReceived && cashReceivedCount > 0);
 
   if (!hasActivity) {
-    return NextResponse.json({ skipped: true, reason: 'No qualifying activity today' });
+    return NextResponse.json({
+      skipped: true,
+      reason: 'No qualifying activity today',
+      trigger_config: { sendOnExpense, sendOnWithdrawal, sendOnCashReceived },
+      counts: { expenseCount, withdrawalCount, cashReceivedCount },
+    });
   }
 
   // Trigger the EOD report via the main endpoint
-  const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
-    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-    : process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('.supabase.co', '') || 'http://localhost:3000';
-
   const appUrl = process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`
     : 'https://io-finance-hub.vercel.app';
