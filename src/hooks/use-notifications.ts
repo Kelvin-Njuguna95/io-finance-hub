@@ -15,7 +15,7 @@ export interface Notification {
   project_id: string | null;
   link: string | null;
   is_read: boolean;
-  read: boolean;
+  read?: boolean;
   read_at: string | null;
   created_at: string;
 }
@@ -26,9 +26,15 @@ export function useNotifications() {
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = useCallback(async () => {
+    setLoading(true);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setLoading(false);
+      return;
+    }
 
     const { data } = await supabase
       .from('notifications')
@@ -52,12 +58,9 @@ export function useNotifications() {
 
     // Subscribe to realtime notifications
     const supabase = createClient();
-    let userId: string | null = null;
-
     async function setupRealtime() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      userId = user.id;
 
       const channel = supabase
         .channel('notifications-' + user.id)
@@ -93,7 +96,7 @@ export function useNotifications() {
     const supabase = createClient();
     await supabase
       .from('notifications')
-      .update({ read: true, is_read: true, read_at: new Date().toISOString() })
+      .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('id', id);
 
     setNotifications((prev) =>
@@ -109,9 +112,9 @@ export function useNotifications() {
 
     await supabase
       .from('notifications')
-      .update({ read: true, is_read: true, read_at: new Date().toISOString() })
+      .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('user_id', user.id)
-      .eq('read', false);
+      .eq('is_read', false);
 
     setNotifications((prev) =>
       prev.map((n) => ({ ...n, is_read: true, read_at: new Date().toISOString() })),
