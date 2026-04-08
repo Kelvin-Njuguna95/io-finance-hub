@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { DIRECTORS } from '@/types/database';
 import { toast } from 'sonner';
 import type { User, DirectorEnum } from '@/types/database';
+import { getUserErrorMessage } from '@/lib/errors';
 
 interface Props {
   open: boolean;
@@ -61,7 +62,7 @@ export function ProjectFormDialog({ open, onClose, onSaved }: Props) {
     });
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserErrorMessage());
     } else {
       toast.success('Project created');
       setName('');

@@ -16,6 +16,8 @@ import { Separator } from '@/components/ui/separator';
 import { getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
 import { AlertTriangle, Lock, Unlock, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { getUserErrorMessage } from '@/lib/errors';
+import { DashboardAlert } from '@/components/common/dashboard-alert';
 
 interface Warning {
   warning_type: string;
@@ -97,7 +99,7 @@ export default function MonthClosurePage() {
     });
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserErrorMessage());
     } else {
       toast.success('Month closed successfully');
       setShowCloseDialog(false);
@@ -116,7 +118,7 @@ export default function MonthClosurePage() {
     });
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserErrorMessage());
     } else {
       toast.success('Month reopened');
       setShowReopenDialog(false);
@@ -226,21 +228,20 @@ export default function MonthClosurePage() {
               </DialogDescription>
             </DialogHeader>
             {warnings.length > 0 && (
-              <div className="rounded-md bg-yellow-50 p-3 text-sm">
-                <p className="font-medium text-yellow-800 mb-1">
-                  {warnings.length} warning(s) will be acknowledged:
-                </p>
-                <ul className="list-disc list-inside text-yellow-700 space-y-1">
+              <DashboardAlert
+                variant="warning"
+                title={`${warnings.length} warning(s) will be acknowledged:`}
+                description={<ul className="list-disc list-inside space-y-1">
                   {warnings.map((w, i) => (
                     <li key={i}>{w.warning_message}</li>
                   ))}
-                </ul>
-              </div>
+                </ul>}
+              />
             )}
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowCloseDialog(false)}>Cancel</Button>
               <Button onClick={handleClose} disabled={loading}>
-                {loading ? 'Closing...' : 'Confirm Close'}
+                {loading ? 'Closing...' : 'Confirm Month Closure'}
               </Button>
             </DialogFooter>
           </DialogContent>

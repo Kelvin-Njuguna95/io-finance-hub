@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { getCurrentYearMonth } from '@/lib/format';
 import { toast } from 'sonner';
 import type { Project, ExpenseType } from '@/types/database';
+import { getUserErrorMessage } from '@/lib/errors';
 
 interface ExpenseFormDialogProps {
   open: boolean;
@@ -143,7 +144,7 @@ export function ExpenseFormDialog({ open, onClose, onSaved }: ExpenseFormDialogP
     });
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserErrorMessage());
     } else {
       toast.success('Expense recorded');
       reset();

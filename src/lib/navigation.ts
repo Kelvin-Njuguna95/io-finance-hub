@@ -55,20 +55,6 @@ const cfoNav: NavGroup[] = [
     ],
   },
   {
-    title: 'Reports & Analysis',
-    items: [
-      { title: 'Monthly P&L', href: '/reports/monthly', icon: FileText },
-      { title: 'P&L Reports', href: '/reports/pnl', icon: TrendingUp },
-      { title: 'Profitability', href: '/reports/profitability', icon: PieChart },
-      { title: 'Trends & Analytics', href: '/reports/trends', icon: LineChart },
-      { title: 'Project Comparison', href: '/reports/projects', icon: BarChart3 },
-      { title: 'Budget Accuracy', href: '/reports/budget-accuracy', icon: Target },
-      { title: 'Outstanding Receivables', href: '/reports/outstanding', icon: DollarSign },
-      { title: 'Budget vs Actual', href: '/reports/budget-vs-actual', icon: ClipboardList },
-      { title: 'Profit Share', href: '/profit-share', icon: PieChart },
-    ],
-  },
-  {
     title: 'Administration',
     items: [
       { title: 'Misc Reports', href: '/misc', icon: ClipboardList },
@@ -87,9 +73,24 @@ const cfoNav: NavGroup[] = [
       { title: 'Notifications', href: '/notifications', icon: Bell },
     ],
   },
+  {
+    title: 'Reports & Analysis',
+    items: [
+      { title: 'Monthly P&L', href: '/reports/monthly', icon: FileText },
+      { title: 'P&L Reports', href: '/reports/pnl', icon: TrendingUp },
+      { title: 'Profitability', href: '/reports/profitability', icon: PieChart },
+      { title: 'Trends & Analytics', href: '/reports/trends', icon: LineChart },
+      { title: 'Project Comparison', href: '/reports/projects', icon: BarChart3 },
+      { title: 'Budget Accuracy', href: '/reports/budget-accuracy', icon: Target },
+      { title: 'Outstanding Receivables', href: '/reports/outstanding', icon: DollarSign },
+      { title: 'Budget vs Actual', href: '/reports/budget-vs-actual', icon: ClipboardList },
+      { title: 'Profit Share', href: '/profit-share', icon: PieChart },
+    ],
+  },
 ];
 
 const accountantNav: NavGroup[] = [
+  // Audit note (Phase 4): accountant budget visibility is aligned with server-enforced budget route permissions.
   {
     title: 'Overview',
     items: [
@@ -107,19 +108,6 @@ const accountantNav: NavGroup[] = [
     ],
   },
   {
-    title: 'Reports',
-    items: [
-      { title: 'Monthly P&L', href: '/reports/monthly', icon: FileText },
-      { title: 'P&L Reports', href: '/reports/pnl', icon: TrendingUp },
-      { title: 'Profitability', href: '/reports/profitability', icon: PieChart },
-      { title: 'Trends & Analytics', href: '/reports/trends', icon: LineChart },
-      { title: 'Project Comparison', href: '/reports/projects', icon: BarChart3 },
-      { title: 'Budget Accuracy', href: '/reports/budget-accuracy', icon: Target },
-      { title: 'Outstanding Receivables', href: '/reports/outstanding', icon: DollarSign },
-      { title: 'Budget vs Actual', href: '/reports/budget-vs-actual', icon: ClipboardList },
-    ],
-  },
-  {
     title: 'Administration',
     items: [
       { title: 'Misc Reports', href: '/misc', icon: ClipboardList },
@@ -130,6 +118,19 @@ const accountantNav: NavGroup[] = [
     items: [
       { title: 'Audit Log', href: '/audit', icon: ScrollText },
       { title: 'Notifications', href: '/notifications', icon: Bell },
+    ],
+  },
+  {
+    title: 'Reports',
+    items: [
+      { title: 'Monthly P&L', href: '/reports/monthly', icon: FileText },
+      { title: 'P&L Reports', href: '/reports/pnl', icon: TrendingUp },
+      { title: 'Profitability', href: '/reports/profitability', icon: PieChart },
+      { title: 'Trends & Analytics', href: '/reports/trends', icon: LineChart },
+      { title: 'Project Comparison', href: '/reports/projects', icon: BarChart3 },
+      { title: 'Budget Accuracy', href: '/reports/budget-accuracy', icon: Target },
+      { title: 'Outstanding Receivables', href: '/reports/outstanding', icon: DollarSign },
+      { title: 'Budget vs Actual', href: '/reports/budget-vs-actual', icon: ClipboardList },
     ],
   },
 ];

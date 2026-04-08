@@ -26,7 +26,7 @@ export function AppSidebar() {
 
   if (loading) {
     return (
-      <div className="flex h-full w-60 flex-col sidebar-gradient p-4">
+      <div className="flex h-full w-64 flex-col sidebar-gradient p-4">
         <Skeleton className="h-8 w-32 mb-4 bg-white/20" />
         <Skeleton className="h-4 w-24 mb-6 bg-white/20" />
         {Array.from({ length: 6 }).map((_, i) => (
@@ -41,22 +41,25 @@ export function AppSidebar() {
   const navGroups = getNavigation(user.role);
 
   return (
-    <div className="flex h-full w-60 flex-col sidebar-gradient">
+    <div className="flex h-full w-64 min-h-0 flex-col sidebar-gradient shadow-2xl shadow-[#020617]/40">
       {/* Brand */}
-      <div className="flex h-14 items-center px-4 border-b border-white/10">
+      <div className="flex h-14 items-center px-4 border-b border-white/10 bg-gradient-to-r from-[#0b1733] to-[#0f2248]">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#F5C518] text-[10px] font-bold text-[#0f172a]">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#F5C518] text-[10px] font-bold text-[#0f172a] shadow-lg shadow-[#f5c518]/30">
             IO
           </div>
-          <span className="text-sm font-semibold text-white">Finance Hub</span>
+          <div>
+            <span className="text-sm font-semibold text-white">Finance Hub</span>
+            <p className="text-[10px] tracking-wider text-white/40 uppercase">Control Center</p>
+          </div>
         </Link>
       </div>
 
       {/* Navigation */}
-      <ScrollArea className="flex-1 px-3 py-4">
+      <ScrollArea className="flex-1 min-h-0 px-3 py-4">
         {navGroups.map((group) => (
-          <div key={group.title} className="mb-4">
-            <p className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wider text-white/30">
+          <div key={group.title} className="mb-4 rounded-lg border border-white/5 bg-white/[0.02] p-1.5">
+            <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-white/40">
               {group.title}
             </p>
             {group.items.map((item) => {
@@ -67,14 +70,14 @@ export function AppSidebar() {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+                    'group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-all duration-200',
                     isActive
-                      ? 'bg-[rgba(245,197,24,0.12)] text-[#F5C518] font-medium'
-                      : 'text-white/60 hover:text-white hover:bg-white/5'
+                      ? 'bg-gradient-to-r from-[rgba(245,197,24,0.2)] to-[rgba(245,197,24,0.05)] text-[#F5C518] font-medium shadow-sm'
+                      : 'text-white/70 hover:text-white hover:bg-white/10 hover:translate-x-0.5'
                   )}
                 >
                   <item.icon className={cn(
-                    'h-4 w-4 shrink-0',
+                    'h-4 w-4 shrink-0 transition-colors',
                     isActive ? 'text-[#F5C518]' : 'text-white/40'
                   )} />
                   {item.title}
@@ -86,7 +89,7 @@ export function AppSidebar() {
       </ScrollArea>
 
       {/* User info + Sign out */}
-      <div className="p-3 border-t border-white/10">
+      <div className="p-3 border-t border-white/10 bg-gradient-to-t from-[#08122b] to-transparent">
         <div className="mb-2 px-2 flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-white truncate">{user.full_name}</p>
@@ -97,7 +100,7 @@ export function AppSidebar() {
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start gap-2 text-white/60 hover:text-white hover:bg-white/10"
+          className="w-full justify-start gap-2 text-white/70 hover:text-white hover:bg-white/15 border border-white/10"
           onClick={handleSignOut}
         >
           <LogOut className="h-4 w-4" />
