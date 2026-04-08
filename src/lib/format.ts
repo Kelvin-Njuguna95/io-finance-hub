@@ -5,10 +5,13 @@
 export function formatCurrency(amount: number, currency: 'USD' | 'KES' = 'KES'): string {
   const decimals = currency === 'USD' ? 4 : 2;
   const symbol = currency === 'USD' ? '$' : 'KES ';
-  return `${symbol}${amount.toLocaleString('en-US', {
+  const absoluteAmount = Math.abs(amount);
+  const formatted = `${symbol}${absoluteAmount.toLocaleString('en-US', {
     minimumFractionDigits: decimals > 2 ? 2 : decimals,
     maximumFractionDigits: decimals,
   })}`;
+
+  return amount < 0 ? `(${formatted})` : formatted;
 }
 
 export function formatPercent(value: number, decimals = 1): string {
@@ -27,11 +30,13 @@ export function getCurrentYearMonth(): string {
 }
 
 export function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  const day = String(parsed.getDate()).padStart(2, '0');
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const year = parsed.getFullYear();
+
+  return `${day}/${month}/${year}`;
 }
 
 export function formatDateTime(date: string): string {

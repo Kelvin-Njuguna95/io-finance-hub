@@ -10,7 +10,7 @@ import { getLaggedMonth, getMonthRange, shortMonth, formatKesShort, CHART_COLORS
 import { isBackdated } from '@/lib/backdated-utils';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer, ComposedChart, Area, ReferenceLine, Cell,
+  Legend, ResponsiveContainer, ComposedChart, Area, ReferenceLine, ReferenceDot,
 } from 'recharts';
 
 interface MonthData {
@@ -70,6 +70,15 @@ function ChartSkeleton() {
 
 function InsightBadge({ text }: { text: string }) {
   return <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm">{text}</div>;
+}
+
+function EmptyChartState({ label }: { label: string }) {
+  return (
+    <div className="h-80 rounded-lg border border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center text-slate-500 px-6 text-center">
+      <p className="text-sm font-medium">No {label.toLowerCase()} data available for the selected period.</p>
+      <p className="text-xs mt-1">Try a wider date range or confirm that source records have been captured for these months.</p>
+    </div>
+  );
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -380,6 +389,9 @@ export default function TrendsPage() {
 
   const catColors = ['#0f172a', '#ef4444', '#f59e0b', '#0ea5e9', '#8b5cf6', '#ec4899', '#14b8a6', '#6b7280'];
   const dirColors: Record<string, string> = { Kelvin: '#F5C518', Evans: '#0f172a', Dan: '#0ea5e9', Gidraph: '#ef4444', Victor: '#f59e0b', 'Company 30%': '#6b7280', Undistributed: '#d1d5db' };
+  const aifiSeriesName = projectNames.find((name) => name.toLowerCase().includes('aifi'));
+  const febPoint = projectTrends.find((point) => String(point.label).toLowerCase().startsWith('feb'));
+  const shouldAnnotateAifi = Boolean(aifiSeriesName && febPoint && typeof febPoint[aifiSeriesName] === 'number');
 
   return (
     <div>
@@ -399,7 +411,7 @@ export default function TrendsPage() {
         <Card className="io-card">
           <CardHeader><CardTitle className="text-base">Revenue vs Expenses</CardTitle></CardHeader>
           <CardContent>
-            {loading ? <ChartSkeleton /> : (
+            {loading ? <ChartSkeleton /> : monthlyData.length === 0 ? <EmptyChartState label="Revenue and expense" /> : (
               <ResponsiveContainer width="100%" height={360}>
                 <ComposedChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -422,7 +434,7 @@ export default function TrendsPage() {
         <Card className="io-card">
           <CardHeader><CardTitle className="text-base">Per-Project Profitability Trend</CardTitle></CardHeader>
           <CardContent>
-            {loading ? <ChartSkeleton /> : (
+            {loading ? <ChartSkeleton /> : projectTrends.length === 0 || projectNames.length === 0 ? <EmptyChartState label="Project profitability" /> : (
               <ResponsiveContainer width="100%" height={360}>
                 <ComposedChart data={projectTrends}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -434,6 +446,16 @@ export default function TrendsPage() {
                   {projectNames.map(name => (
                     <Line key={name} type="monotone" dataKey={name} stroke={getProjectColor(name)} strokeWidth={2} dot={{ r: 4 }} />
                   ))}
+                  {shouldAnnotateAifi && (
+                    <ReferenceDot
+                      x={febPoint?.label}
+                      y={Number(febPoint?.[aifiSeriesName!])}
+                      r={5}
+                      fill="#F5C518"
+                      stroke="#0f172a"
+                      label={{ value: 'AIFI February: Client visit — Mara safari', position: 'top', fill: '#0f172a', fontSize: 11 }}
+                    />
+                  )}
                 </ComposedChart>
               </ResponsiveContainer>
             )}
@@ -444,7 +466,7 @@ export default function TrendsPage() {
         <Card className="io-card">
           <CardHeader><CardTitle className="text-base">Expense Composition</CardTitle></CardHeader>
           <CardContent>
-            {loading ? <ChartSkeleton /> : (
+            {loading ? <ChartSkeleton /> : expenseComp.length === 0 || expenseCategories.length === 0 ? <EmptyChartState label="Expense composition" /> : (
               <ResponsiveContainer width="100%" height={360}>
                 <BarChart data={expenseComp}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -465,7 +487,7 @@ export default function TrendsPage() {
         <Card className="io-card">
           <CardHeader><CardTitle className="text-base">Revenue vs Expense Growth (Index = 100)</CardTitle></CardHeader>
           <CardContent>
-            {loading ? <ChartSkeleton /> : (
+            {loading ? <ChartSkeleton /> : indexData.length === 0 ? <EmptyChartState label="Growth index" /> : (
               <ResponsiveContainer width="100%" height={360}>
                 <ComposedChart data={indexData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -486,7 +508,7 @@ export default function TrendsPage() {
         <Card className="io-card">
           <CardHeader><CardTitle className="text-base">Cash Flow Timing Gap</CardTitle></CardHeader>
           <CardContent>
-            {loading ? <ChartSkeleton /> : (
+            {loading ? <ChartSkeleton /> : cashFlow.length === 0 ? <EmptyChartState label="Cash flow" /> : (
               <ResponsiveContainer width="100%" height={360}>
                 <BarChart data={cashFlow}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -535,7 +557,7 @@ export default function TrendsPage() {
           <Card className="io-card">
             <CardHeader><CardTitle className="text-base">Profit Share Distribution</CardTitle></CardHeader>
             <CardContent>
-              {loading ? <ChartSkeleton /> : (
+              {loading ? <ChartSkeleton /> : profitShare.length === 0 ? <EmptyChartState label="Profit share" /> : (
                 <ResponsiveContainer width="100%" height={360}>
                   <BarChart data={profitShare}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />

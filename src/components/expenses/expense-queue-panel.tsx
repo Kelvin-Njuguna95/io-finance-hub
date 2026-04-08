@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
+import { getStatusBadgeClass, getStatusLabel } from '@/lib/status';
 import { ArrowRight, ListChecks } from 'lucide-react';
 import Link from 'next/link';
 
@@ -19,24 +20,6 @@ interface PendingExpenseRow {
   status: string;
   projects?: { name: string } | null;
 }
-
-const STATUS_COLOR: Record<string, string> = {
-  pending_auth: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-emerald-100 text-emerald-700',
-  under_review: 'bg-blue-100 text-blue-700',
-  modified: 'bg-purple-100 text-purple-700',
-  voided: 'bg-red-100 text-red-700',
-  carried_forward: 'bg-slate-100 text-slate-600',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  pending_auth: 'Pending',
-  confirmed: 'Confirmed',
-  under_review: 'Under Review',
-  modified: 'Modified',
-  voided: 'Voided',
-  carried_forward: 'Carried Fwd',
-};
 
 interface Props {
   /** If provided, only show items for this project */
@@ -153,8 +136,8 @@ export function ExpenseQueuePanel({ projectId, compact }: Props) {
                       </p>
                     )}
                   </div>
-                  <Badge className={`${STATUS_COLOR[item.status] || 'bg-slate-100'} border-0 text-[10px]`}>
-                    {STATUS_LABEL[item.status] || item.status}
+                  <Badge className={`${getStatusBadgeClass(item.status)} border-0 text-[10px]`}>
+                    {getStatusLabel(item.status)}
                   </Badge>
                 </div>
               </div>
