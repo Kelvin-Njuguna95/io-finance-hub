@@ -23,6 +23,10 @@ function prevMonth(periodMonth: string): string {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
 
+function isProjectLeadRole(role: string): boolean {
+  return role === 'project_manager' || role === 'team_leader';
+}
+
 // =============================================================
 // GET — Misc overview for a project + month
 // =============================================================
@@ -47,8 +51,8 @@ export async function GET(request: Request) {
   const { data: profile } = await admin.from('users').select('role').eq('id', authUser.id).single();
   if (!profile) return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
 
-  // Role check: PM sees own project only, CFO/Accountant see all
-  if (profile.role === 'project_manager') {
+  // Role check: PM/TL see assigned projects only, CFO/Accountant see all
+  if (isProjectLeadRole(profile.role)) {
     const { data: assignment } = await admin.from('user_project_assignments')
       .select('id').eq('user_id', authUser.id).eq('project_id', projectId).single();
     if (!assignment) {
@@ -187,13 +191,13 @@ export async function POST(request: Request) {
   // draw_standing
   // -------------------------------------------------------
   if (action === 'draw_standing') {
-    // Only CFO or PM assigned to this project
-    if (profile.role === 'project_manager') {
+    // Only CFO or assigned PM/TL
+    if (isProjectLeadRole(profile.role)) {
       const { data: assignment } = await admin.from('user_project_assignments')
         .select('id').eq('user_id', authUser.id).eq('project_id', project_id).single();
       if (!assignment) return NextResponse.json({ error: 'Not your project' }, { status: 403 });
     } else if (profile.role !== 'cfo') {
-      return NextResponse.json({ error: 'Only PM or CFO can draw standing allocation' }, { status: 403 });
+      return NextResponse.json({ error: 'Only PM/TL or CFO can draw standing allocation' }, { status: 403 });
     }
 
     // Get allocation
@@ -257,13 +261,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'amount and purpose required for top-up' }, { status: 400 });
     }
 
-    // Only PM or CFO
-    if (profile.role === 'project_manager') {
+    // Only PM/TL or CFO
+    if (isProjectLeadRole(profile.role)) {
       const { data: assignment } = await admin.from('user_project_assignments')
         .select('id').eq('user_id', authUser.id).eq('project_id', project_id).single();
       if (!assignment) return NextResponse.json({ error: 'Not your project' }, { status: 403 });
     } else if (profile.role !== 'cfo') {
-      return NextResponse.json({ error: 'Only PM or CFO can submit top-ups' }, { status: 403 });
+      return NextResponse.json({ error: 'Only PM/TL or CFO can submit top-ups' }, { status: 403 });
     }
 
     // Check frozen
@@ -561,15 +565,15 @@ export async function POST(request: Request) {
   // pm_approve_draw — PM approves an accountant-raised draw
   // -------------------------------------------------------
   if (action === 'pm_approve_draw') {
-    if (profile.role !== 'project_manager' && profile.role !== 'cfo') {
-      return NextResponse.json({ error: 'Only PM or CFO can approve draws' }, { status: 403 });
+    if (!isProjectLeadRole(profile.role) && profile.role !== 'cfo') {
+      return NextResponse.json({ error: 'Only PM/TL or CFO can approve draws' }, { status: 403 });
     }
 
     const { draw_id, approved_amount } = body;
     if (!draw_id) return NextResponse.json({ error: 'draw_id required' }, { status: 400 });
 
     // PM must be assigned to this project
-    if (profile.role === 'project_manager') {
+    if (isProjectLeadRole(profile.role)) {
       const { data: assignment } = await admin.from('user_project_assignments')
         .select('id').eq('user_id', authUser.id).eq('project_id', project_id).single();
       if (!assignment) return NextResponse.json({ error: 'Not your project' }, { status: 403 });
@@ -632,15 +636,15 @@ export async function POST(request: Request) {
   // pm_decline_draw — PM declines an accountant-raised draw
   // -------------------------------------------------------
   if (action === 'pm_decline_draw') {
-    if (profile.role !== 'project_manager' && profile.role !== 'cfo') {
-      return NextResponse.json({ error: 'Only PM or CFO can decline draws' }, { status: 403 });
+    if (!isProjectLeadRole(profile.role) && profile.role !== 'cfo') {
+      return NextResponse.json({ error: 'Only PM/TL or CFO can decline draws' }, { status: 403 });
     }
 
     const { draw_id, decline_reason } = body;
     if (!draw_id) return NextResponse.json({ error: 'draw_id required' }, { status: 400 });
     if (!decline_reason?.trim()) return NextResponse.json({ error: 'Decline reason required' }, { status: 400 });
 
-    if (profile.role === 'project_manager') {
+    if (isProjectLeadRole(profile.role)) {
       const { data: assignment } = await admin.from('user_project_assignments')
         .select('id').eq('user_id', authUser.id).eq('project_id', project_id).single();
       if (!assignment) return NextResponse.json({ error: 'Not your project' }, { status: 403 });
@@ -754,15 +758,15 @@ export async function POST(request: Request) {
   // pm_delete_draw — PM deletes an approved-but-unspent draw
   // -------------------------------------------------------
   if (action === 'pm_delete_draw') {
-    if (profile.role !== 'project_manager' && profile.role !== 'cfo') {
-      return NextResponse.json({ error: 'Only PM or CFO can delete draws' }, { status: 403 });
+    if (!isProjectLeadRole(profile.role) && profile.role !== 'cfo') {
+      return NextResponse.json({ error: 'Only PM/TL or CFO can delete draws' }, { status: 403 });
     }
 
     const { draw_id, deletion_reason } = body;
     if (!draw_id) return NextResponse.json({ error: 'draw_id required' }, { status: 400 });
     if (!deletion_reason?.trim()) return NextResponse.json({ error: 'Deletion reason required' }, { status: 400 });
 
-    if (profile.role === 'project_manager') {
+    if (isProjectLeadRole(profile.role)) {
       const { data: assignment } = await admin.from('user_project_assignments')
         .select('id').eq('user_id', authUser.id).eq('project_id', project_id).single();
       if (!assignment) return NextResponse.json({ error: 'Not your project' }, { status: 403 });

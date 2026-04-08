@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
+import { useNotifications } from '@/hooks/use-notifications';
 import { getNavigation } from '@/lib/navigation';
 import { ROLE_LABELS } from '@/types/database';
 import { cn } from '@/lib/utils';
@@ -15,6 +16,7 @@ import { NotificationBell } from '@/components/layout/notification-bell';
 
 export function AppSidebar() {
   const { user, loading } = useUser();
+  const { unreadCount } = useNotifications();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -81,6 +83,11 @@ export function AppSidebar() {
                     isActive ? 'text-[#F5C518]' : 'text-white/40'
                   )} />
                   {item.title}
+                  {item.href === '/notifications' && unreadCount > 0 && (
+                    <span className="ml-auto inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-semibold text-white">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
                 </Link>
               );
             })}

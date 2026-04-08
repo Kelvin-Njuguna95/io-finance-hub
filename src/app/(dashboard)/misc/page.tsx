@@ -100,8 +100,15 @@ export default function MiscPage() {
         </Select>
       </PageHeader>
       <div className="p-6">
+        {['project_manager', 'team_leader', 'accountant', 'cfo'].includes(role) && (
+          <ProjectMiscLineItemsPanel user={user} selectedMonth={selectedMonth} />
+        )}
+
         {role === 'project_manager' && (
           <PmMiscView user={user} selectedMonth={selectedMonth} />
+        )}
+        {role === 'team_leader' && (
+          <TeamLeaderMiscView user={user} selectedMonth={selectedMonth} />
         )}
         {role === 'cfo' && (
           <CfoMiscView user={user} selectedMonth={selectedMonth} />
@@ -109,12 +116,270 @@ export default function MiscPage() {
         {role === 'accountant' && (
           <AccountantMiscView user={user} selectedMonth={selectedMonth} />
         )}
-        {!['project_manager', 'cfo', 'accountant'].includes(role) && (
+        {!['project_manager', 'team_leader', 'cfo', 'accountant'].includes(role) && (
           <p className="text-center text-slate-400 py-8">Your role does not have access to misc draws.</p>
         )}
       </div>
     </div>
   );
+}
+
+function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: any; selectedMonth: string }) {
+  const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [report, setReport] = useState<any>(null);
+  const [items, setItems] = useState<any[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const reportMonth = getPrevMonth(selectedMonth);
+
+  const loadProjects = useCallback(async () => {
+    setLoading(true);
+    const supabase = createClient();
+
+    if (['project_manager', 'team_leader'].includes(user.role)) {
+      const { data: assignments } = await supabase
+        .from('user_project_assignments')
+        .select('project_id, projects(id, name, is_active)')
+        .eq('user_id', user.id);
+      const assigned = (assignments || [])
+        .map((a: any) => a.projects)
+        .filter((p: any) => p?.is_active);
+      setProjects(assigned);
+      if (assigned.length > 0) setSelectedProjectId((prev) => prev || assigned[0].id);
+    } else {
+      const { data: allProjects } = await supabase
+        .from('projects')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+      setProjects(allProjects || []);
+      if ((allProjects || []).length > 0) setSelectedProjectId((prev) => prev || allProjects![0].id);
+    }
+    setLoading(false);
+  }, [user.id, user.role]);
+
+  const loadReport = useCallback(async () => {
+    if (!selectedProjectId) return;
+    const supabase = createClient();
+    const { data: rep } = await supabase
+      .from('misc_reports')
+      .select('*')
+      .eq('project_id', selectedProjectId)
+      .eq('period_month', reportMonth)
+      .single();
+    setReport(rep || null);
+    if (rep?.id) {
+      const { data: itemRows } = await supabase
+        .from('misc_report_items')
+        .select('*')
+        .eq('misc_report_id', rep.id)
+        .order('expense_date');
+      setItems(itemRows || []);
+    } else {
+      setItems([]);
+    }
+  }, [reportMonth, selectedProjectId]);
+
+  useEffect(() => { loadProjects(); }, [loadProjects]);
+  useEffect(() => { loadReport(); }, [loadReport]);
+
+  function addItem() {
+    setItems((prev) => [
+      ...prev,
+      { description: '', amount: 0, expense_date: new Date().toISOString().split('T')[0], misc_draw_id: null, isNew: true },
+    ]);
+  }
+
+  function updateItem(idx: number, field: string, value: any) {
+    setItems((prev) => prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item)));
+  }
+
+  function removeItem(idx: number) {
+    setItems((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function ensureReport() {
+    if (report?.id) return report;
+    if (!selectedProjectId) return null;
+    setCreating(true);
+    const supabase = createClient();
+    const periodDate = `${reportMonth}-01`;
+
+    const { data: draws } = await supabase
+      .from('misc_draws')
+      .select('id, draw_type, amount_approved')
+      .eq('project_id', selectedProjectId)
+      .eq('period_month', periodDate);
+    const { data: alloc } = await supabase
+      .from('misc_allocations')
+      .select('monthly_amount')
+      .eq('project_id', selectedProjectId)
+      .eq('is_active', true)
+      .single();
+
+    const totalDrawn = (draws || []).reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+    const standingAmount = (draws || []).find((d: any) => d.draw_type === 'standing')?.amount_approved || Number(alloc?.monthly_amount || 0);
+    const topUpTotal = (draws || []).filter((d: any) => d.draw_type === 'top_up').reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+
+    const { data: newReport, error } = await supabase.from('misc_reports').insert({
+      project_id: selectedProjectId,
+      period_month: reportMonth,
+      submitted_by: user.id,
+      total_allocated: Number(alloc?.monthly_amount || 0),
+      total_drawn: totalDrawn,
+      standing_allocation_amount: standingAmount,
+      top_up_total: topUpTotal,
+      draw_count: (draws || []).length,
+      status: 'draft',
+    }).select().single();
+
+    setCreating(false);
+    if (error || !newReport) {
+      toast.error(error?.message || 'Failed to create misc report.');
+      return null;
+    }
+    setReport(newReport);
+    return newReport;
+  }
+
+  async function handleSave() {
+    const targetReport = await ensureReport();
+    if (!targetReport?.id) return;
+    setSaving(true);
+    const supabase = createClient();
+
+    await supabase.from('misc_report_items').delete().eq('misc_report_id', targetReport.id);
+    const rows = items
+      .filter((i) => i.description?.trim() && Number(i.amount) > 0)
+      .map((i) => ({
+        misc_report_id: targetReport.id,
+        description: i.description,
+        amount: Number(i.amount),
+        expense_date: i.expense_date,
+        misc_draw_id: i.misc_draw_id || null,
+      }));
+
+    if (rows.length > 0) {
+      const { error } = await supabase.from('misc_report_items').insert(rows);
+      if (error) {
+        toast.error(error.message || 'Failed to save line items.');
+        setSaving(false);
+        return;
+      }
+    }
+
+    const totalClaimed = rows.reduce((s, r) => s + Number(r.amount), 0);
+    await supabase.from('misc_reports').update({
+      total_claimed: totalClaimed,
+      variance: Number(targetReport.total_allocated || 0) - totalClaimed,
+      submitted_by: user.id,
+    }).eq('id', targetReport.id);
+
+    toast.success('Project misc line items saved.');
+    setSaving(false);
+    loadReport();
+  }
+
+  const canEdit = !report || ['draft', 'submitted'].includes(report.status);
+  const itemTotal = items.reduce((s, i) => s + Number(i.amount || 0), 0);
+
+  return (
+    <Card className="mb-6 border-indigo-200 bg-indigo-50/30">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium">Project Misc Expenditure Line Items</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-xs text-slate-600">
+          Enter project-level misc expenditure for <strong>{formatYearMonth(reportMonth)}</strong>. This section is available to CFO, Accountant, PM, and Team Leader.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="space-y-1 md:col-span-2">
+            <Label>Project</Label>
+            <Select value={selectedProjectId} onValueChange={setSelectedProjectId} disabled={loading || projects.length === 0}>
+              <SelectTrigger>
+                <SelectValue placeholder={loading ? 'Loading projects...' : 'Select project'} />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((p: any) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="rounded-md border bg-white p-3 text-sm">
+            <p className="text-slate-500">Line Item Total</p>
+            <p className="font-semibold">{formatCurrency(itemTotal, 'KES')}</p>
+          </div>
+        </div>
+
+        {!selectedProjectId ? (
+          <p className="text-sm text-slate-500">No project selected.</p>
+        ) : (
+          <>
+            {canEdit && (
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" className="gap-1" onClick={addItem}>
+                  <Plus className="h-3.5 w-3.5" /> Add Line Item
+                </Button>
+              </div>
+            )}
+
+            {items.length === 0 ? (
+              <p className="text-sm text-slate-500 text-center py-2">No line items yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {items.map((item, idx) => (
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-end rounded-lg border bg-white p-2">
+                    <div className="col-span-2">
+                      <Label className="text-xs">Date</Label>
+                      <Input type="date" value={item.expense_date || ''} disabled={!canEdit} onChange={(e) => updateItem(idx, 'expense_date', e.target.value)} />
+                    </div>
+                    <div className="col-span-6">
+                      <Label className="text-xs">Description</Label>
+                      <Input value={item.description || ''} disabled={!canEdit} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
+                    </div>
+                    <div className="col-span-3">
+                      <Label className="text-xs">Amount (KES)</Label>
+                      <Input type="number" step="0.01" value={item.amount || ''} disabled={!canEdit} onChange={(e) => updateItem(idx, 'amount', parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div className="col-span-1 flex justify-end">
+                      {canEdit && (
+                        <Button variant="ghost" size="icon" onClick={() => removeItem(idx)} title="Remove line item">
+                          <Trash2 className="h-4 w-4 text-rose-500" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {report?.status && !canEdit && (
+              <p className="text-xs text-slate-500">
+                This report is <strong>{report.status}</strong> and is no longer editable.
+              </p>
+            )}
+
+            {canEdit && (
+              <div className="flex justify-end">
+                <Button onClick={handleSave} disabled={saving || creating || loading || !selectedProjectId} className="gap-1">
+                  <Save className="h-3.5 w-3.5" />
+                  {saving ? 'Saving...' : creating ? 'Creating report...' : 'Save Line Items'}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TeamLeaderMiscView({ user, selectedMonth }: { user: any; selectedMonth: string }) {
+  return <PmMiscView user={user} selectedMonth={selectedMonth} />;
 }
 
 // ══════════════════════════════════════════════════════════════════
