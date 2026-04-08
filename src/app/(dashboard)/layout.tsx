@@ -11,7 +11,6 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [authed, setAuthed] = useState<boolean | null>(null);
-  const [debugInfo, setDebugInfo] = useState('checking...');
 
   useEffect(() => {
     const supabase = createClient();
@@ -21,18 +20,13 @@ export default function DashboardLayout({
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
-        setDebugInfo(`getSession error: ${error.message}`);
         setAuthed(false);
         return;
       }
 
       if (session) {
-        setDebugInfo(`session found: ${session.user.email}`);
         setAuthed(true);
       } else {
-        // Check localStorage directly
-        const keys = Object.keys(localStorage).filter(k => k.includes('supabase'));
-        setDebugInfo(`no session. localStorage supabase keys: ${keys.length > 0 ? keys.join(', ') : 'none'}`);
         setAuthed(false);
       }
     }
@@ -43,7 +37,7 @@ export default function DashboardLayout({
   if (authed === null) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#f8fafc]">
-        <p className="text-sm text-neutral-500">Loading... {debugInfo}</p>
+        <p className="text-sm text-neutral-500">Loading your workspace…</p>
       </div>
     );
   }
@@ -51,10 +45,10 @@ export default function DashboardLayout({
   if (authed === false) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#f8fafc]">
-        <div className="text-center space-y-3">
-          <p className="text-sm text-neutral-500">Not authenticated</p>
-          <p className="text-xs text-neutral-400">{debugInfo}</p>
-          <a href="/login" className="text-sm text-blue-600 underline">Go to login</a>
+        <div className="max-w-md rounded-lg border border-amber-200 bg-amber-50 p-4 text-left alert-warning">
+          <p className="text-sm font-medium text-amber-900">Your session has expired.</p>
+          <p className="mt-1 text-sm text-amber-800">Please sign in again to continue working in Finance Hub.</p>
+          <a href="/login" className="mt-3 inline-block text-sm font-medium text-[#0f172a] underline">Go to login</a>
         </div>
       </div>
     );
