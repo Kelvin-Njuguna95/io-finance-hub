@@ -1,0 +1,165 @@
+import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
+
+function createAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
+
+export async function POST(request: Request) {
+  const authHeader = request.headers.get('Authorization');
+  const token = authHeader?.replace('Bearer ', '');
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const admin = createAdminClient();
+  const { data: { user } } = await admin.auth.getUser(token);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { data: profile } = await admin.from('users').select('role, full_name').eq('id', user.id).single();
+  if (!profile) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+  // Only these roles can create budgets
+  if (!['cfo', 'team_leader', 'project_manager', 'accountant'].includes(profile.role)) {
+    return NextResponse.json({ error: 'Not authorized to create budgets' }, { status: 403 });
+  }
+
+  const body = await request.json();
+  const {
+    scope_type,
+    scope_id,
+    year_month,
+    notes,
+    items,
+    submit,
+  } = body;
+
+  if (!scope_id || !year_month) {
+    return NextResponse.json({ error: 'scope_id and year_month required' }, { status: 400 });
+  }
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return NextResponse.json({ error: 'At least one line item required' }, { status: 400 });
+  }
+  if (items.some((i: any) => !i.description?.trim())) {
+    return NextResponse.json({ error: 'All line items must have a description' }, { status: 400 });
+  }
+
+  const isAccountant = profile.role === 'accountant';
+  const isTeamLeader = profile.role === 'team_leader';
+  const isProjectManager = profile.role === 'project_manager';
+
+  // Accountant: project scope only
+  if (isAccountant && scope_type !== 'project') {
+    return NextResponse.json({ error: 'Accountant can only create project budgets' }, { status: 403 });
+  }
+
+  // TL: verify project assignment
+  if (isTeamLeader) {
+    const { data: assignment } = await admin
+      .from('user_project_assignments')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('project_id', scope_id)
+      .single();
+    if (!assignment) return NextResponse.json({ error: 'Not assigned to this project' }, { status: 403 });
+  }
+
+  // PM: verify department/project assignment
+  if (isProjectManager && scope_type === 'project') {
+    const { data: assignment } = await admin
+      .from('user_project_assignments')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('project_id', scope_id)
+      .single();
+    if (!assignment) return NextResponse.json({ error: 'Not assigned to this project' }, { status: 403 });
+  }
+
+  // Determine submitted_by_role
+  const submittedByRole = isAccountant ? 'accountant' : 'team_leader';
+
+  // Determine status
+  let submitStatus: string;
+  if (!submit) {
+    submitStatus = 'draft';
+  } else if (isTeamLeader || isAccountant) {
+    submitStatus = 'pm_review';
+  } else {
+    submitStatus = 'submitted';
+  }
+
+  // Calculate total
+  const totalKes = items.reduce((sum: number, i: any) => sum + (i.quantity || 1) * (i.unit_cost_kes || 0), 0);
+
+  // Create budget
+  const { data: budget, error: budgetError } = await admin
+    .from('budgets')
+    .insert({
+      project_id: scope_type === 'project' ? scope_id : null,
+      department_id: scope_type === 'department' ? scope_id : null,
+      year_month,
+      current_version: 1,
+      created_by: user.id,
+      submitted_by_role: submittedByRole,
+    })
+    .select()
+    .single();
+
+  if (budgetError) {
+    return NextResponse.json({ error: `Budget creation failed: ${budgetError.message}` }, { status: 500 });
+  }
+
+  // Create budget version
+  const { data: version, error: versionError } = await admin
+    .from('budget_versions')
+    .insert({
+      budget_id: budget.id,
+      version_number: 1,
+      status: submitStatus,
+      total_amount_usd: 0,
+      total_amount_kes: totalKes,
+      submitted_by: submit ? user.id : null,
+      submitted_at: submit ? new Date().toISOString() : null,
+      notes: notes || null,
+    })
+    .select()
+    .single();
+
+  if (versionError) {
+    // Rollback budget
+    await admin.from('budgets').delete().eq('id', budget.id);
+    return NextResponse.json({ error: `Version creation failed: ${versionError.message}` }, { status: 500 });
+  }
+
+  // Create budget items
+  const itemRows = items.map((item: any, idx: number) => ({
+    budget_version_id: version.id,
+    description: item.description,
+    category: item.category || null,
+    amount_usd: 0,
+    amount_kes: (item.quantity || 1) * (item.unit_cost_kes || 0),
+    quantity: item.quantity || 1,
+    unit_cost_usd: 0,
+    unit_cost_kes: item.unit_cost_kes || 0,
+    notes: item.notes || null,
+    sort_order: idx,
+  }));
+
+  const { error: itemsError } = await admin.from('budget_items').insert(itemRows);
+
+  if (itemsError) {
+    // Rollback
+    await admin.from('budget_versions').delete().eq('id', version.id);
+    await admin.from('budgets').delete().eq('id', budget.id);
+    return NextResponse.json({ error: `Items creation failed: ${itemsError.message}` }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    success: true,
+    budget_id: budget.id,
+    version_id: version.id,
+    status: submitStatus,
+  });
+}
