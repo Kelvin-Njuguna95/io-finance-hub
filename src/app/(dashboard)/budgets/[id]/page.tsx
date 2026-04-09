@@ -373,11 +373,20 @@ export default function BudgetDetailPage() {
     toast.success('Budget resubmitted for PM review');
     load();
   }
-  const canCfoApprove = isCfo && (activeVersion?.status === 'pm_approved' || activeVersion?.status === 'under_review' || activeVersion?.status === 'submitted');
+  const pendingLineItems = items.filter((i: any) => !i.pm_status || i.pm_status === 'pending').length;
+  const canCfoApprove = isCfo && (
+    activeVersion?.status === 'pm_approved'
+    || activeVersion?.status === 'under_review'
+    || activeVersion?.status === 'submitted'
+    || (
+      activeVersion?.status === 'pm_review'
+      && budgetSubmittedByRole === 'accountant'
+      && pendingLineItems === 0
+    )
+  );
   const canPmReview = isPm && activeVersion?.status === 'pm_review';
   // CFO can also do line-item review on pm_review, pm_approved, submitted budgets
   const canLineReview = canPmReview || (isCfo && ['pm_review', 'pm_approved', 'submitted', 'under_review'].includes(activeVersion?.status || ''));
-  const pendingLineItems = items.filter((i: any) => !i.pm_status || i.pm_status === 'pending').length;
   const [adjustItem, setAdjustItem] = useState<any>(null);
   const [adjustAmount, setAdjustAmount] = useState(0);
   const [adjustReason, setAdjustReason] = useState('');
@@ -565,6 +574,11 @@ export default function BudgetDetailPage() {
                   toast.success('Approved ' + pendingIds.length + ' items');
                   load();
                 }} className="gap-1 text-emerald-600">Approve All</Button>
+                {isCfo && !isPm && (
+                  <span className="text-xs text-amber-700">
+                    Mark all line items for PM review. Use &quot;Approve Budget&quot; below to finalise.
+                  </span>
+                )}
                 <Button variant="outline" size="sm" onClick={async () => {
                   const reason = prompt('Reason for removing all pending items:');
                   if (!reason) return;
