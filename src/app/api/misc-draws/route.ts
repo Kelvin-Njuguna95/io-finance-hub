@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient, getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 /** Legacy helper kept for the GET handler which only needs the auth user */
 async function getAuthUser(request: Request) {
@@ -31,10 +32,11 @@ function isProjectLeadRole(role: string): boolean {
 // GET — Misc overview for a project + month
 // =============================================================
 export async function GET(request: Request) {
-  const authUser = await getAuthUser(request);
-  if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
 
-  const admin = createAdminClient();
+    const admin = createAdminClient();
 
   // Parse query params
   const { searchParams } = new URL(request.url);
@@ -91,7 +93,7 @@ export async function GET(request: Request) {
       .single(),
     admin.from('system_settings')
       .select('value')
-      .eq('key', 'misc_topup_monthly_limit_amount')
+      .eq('key', 'misc_topup_monthly_limit_kes')
       .single(),
     // Freeze check
     admin.from('system_settings')
@@ -131,33 +133,37 @@ export async function GET(request: Request) {
   const topupLimitAmount = parseFloat(limitAmountRes.data?.value || '50000');
   const frozen = freezeRes.data?.value === 'true';
 
-  return NextResponse.json({
-    allocation: { monthly_amount: monthlyAmount },
-    draws,
-    standing_draw: standingDraw,
-    top_ups: topUps,
-    total_drawn: totalDrawn,
-    remaining,
-    top_up_count: topUpCount,
-    top_up_total: topUpTotal,
-    limits: {
-      topup_limit_count: topupLimitCount,
-      topup_limit_amount: topupLimitAmount,
-      remaining_count: topupLimitCount - topUpCount,
-      remaining_amount: topupLimitAmount - topUpTotal,
-      frozen,
-    },
-    report: reportRes.data || null,
-    prev_report_status: prevReportRes.data?.status || null,
-  });
+    return NextResponse.json({
+      allocation: { monthly_amount: monthlyAmount },
+      draws,
+      standing_draw: standingDraw,
+      top_ups: topUps,
+      total_drawn: totalDrawn,
+      remaining,
+      top_up_count: topUpCount,
+      top_up_total: topUpTotal,
+      limits: {
+        topup_limit_count: topupLimitCount,
+        topup_limit_amount: topupLimitAmount,
+        remaining_count: topupLimitCount - topUpCount,
+        remaining_amount: topupLimitAmount - topUpTotal,
+        frozen,
+      },
+      report: reportRes.data || null,
+      prev_report_status: prevReportRes.data?.status || null,
+    });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to load misc overview.', 'MISC_GET_ERROR');
+  }
 }
 
 // =============================================================
 // POST — Create draws, flag, freeze/unfreeze
 // =============================================================
 export async function POST(request: Request) {
-  const authUser = await getAuthUser(request);
-  if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from('users').select('role, full_name').eq('id', authUser.id).single();
@@ -289,7 +295,7 @@ export async function POST(request: Request) {
 
     const [limitCountRes, limitAmountRes] = await Promise.all([
       admin.from('system_settings').select('value').eq('key', 'misc_topup_monthly_limit_count').single(),
-      admin.from('system_settings').select('value').eq('key', 'misc_topup_monthly_limit_amount').single(),
+      admin.from('system_settings').select('value').eq('key', 'misc_topup_monthly_limit_kes').single(),
     ]);
 
     const topupLimitCount = parseInt(limitCountRes.data?.value || '3', 10);
@@ -855,5 +861,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, draw: updated });
   }
 
-  return NextResponse.json({ error: 'Unhandled action' }, { status: 400 });
+    return NextResponse.json({ error: 'Unhandled action', code: 'BAD_REQUEST' }, { status: 400 });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to process misc action.', 'MISC_POST_ERROR');
+  }
 }

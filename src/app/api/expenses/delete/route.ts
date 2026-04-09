@@ -1,23 +1,25 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 export async function POST(request: Request) {
-  const auth = await getAuthUserProfile(request);
-  if ('error' in auth) return NextResponse.json({ success: false, error: auth.error.message }, { status: auth.error.status });
-  const { user: _user, profile: dbUser, admin } = auth;
+  try {
+    const auth = await getAuthUserProfile(request);
+    if ('error' in auth) return NextResponse.json({ success: false, error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
+    const { user: _user, profile: dbUser, admin } = auth;
 
   // Only CFO can delete expenses
-  if (dbUser.role !== 'cfo') {
-    return NextResponse.json({ success: false, error: 'Only CFO can delete expenses' }, { status: 403 });
-  }
+    if (dbUser.role !== 'cfo') {
+      return NextResponse.json({ success: false, error: 'Only CFO can delete expenses', code: 'FORBIDDEN' }, { status: 403 });
+    }
 
-  const { expense_id, reason } = await request.json();
-  if (!expense_id) {
-    return NextResponse.json({ success: false, error: 'expense_id required' }, { status: 400 });
-  }
-  if (!reason?.trim()) {
-    return NextResponse.json({ success: false, error: 'Deletion reason required' }, { status: 400 });
-  }
+    const { expense_id, reason } = await request.json();
+    if (!expense_id) {
+      return NextResponse.json({ success: false, error: 'expense_id required', code: 'BAD_REQUEST' }, { status: 400 });
+    }
+    if (!reason?.trim()) {
+      return NextResponse.json({ success: false, error: 'Deletion reason required', code: 'BAD_REQUEST' }, { status: 400 });
+    }
 
   // Get the expense before deleting (for audit log)
   const { data: expense, error: fetchErr } = await admin
@@ -26,15 +28,15 @@ export async function POST(request: Request) {
     .eq('id', expense_id)
     .single();
 
-  if (fetchErr || !expense) {
-    return NextResponse.json({ success: false, error: 'Expense not found' }, { status: 404 });
-  }
+    if (fetchErr || !expense) {
+      return NextResponse.json({ success: false, error: 'Expense not found', code: 'NOT_FOUND' }, { status: 404 });
+    }
 
   // Month lock enforcement
-  if (expense.year_month) {
-    const monthErr = await assertMonthOpen(admin, expense.year_month);
-    if (monthErr) return NextResponse.json({ success: false, error: monthErr.message }, { status: monthErr.status });
-  }
+    if (expense.year_month) {
+      const monthErr = await assertMonthOpen(admin, expense.year_month);
+      if (monthErr) return NextResponse.json({ success: false, error: monthErr.message, code: 'MONTH_LOCKED' }, { status: monthErr.status });
+    }
 
   // If this expense was linked from a pending_expense, reset that link
   const { data: linkedPE } = await admin
@@ -59,9 +61,9 @@ export async function POST(request: Request) {
     .delete()
     .eq('id', expense_id);
 
-  if (delErr) {
-    return NextResponse.json({ success: false, error: delErr.message }, { status: 500 });
-  }
+    if (delErr) {
+      return NextResponse.json({ success: false, error: 'Failed to delete expense', code: 'DELETE_FAILED' }, { status: 500 });
+    }
 
   // Audit log
   await admin.from('audit_logs').insert({
@@ -74,5 +76,8 @@ export async function POST(request: Request) {
     reason,
   });
 
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to delete expense.', 'EXPENSE_DELETE_ERROR');
+  }
 }

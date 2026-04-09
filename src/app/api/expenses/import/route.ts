@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 import * as XLSX from 'xlsx';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 // POST /api/expenses/import — parse Excel and return validated rows
 export async function POST(request: Request) {
-  const auth = await getAuthUserProfile(request);
-  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
-  const { user, profile, admin } = auth;
+  try {
+    const auth = await getAuthUserProfile(request);
+    if ('error' in auth) return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
+    const { user, profile, admin } = auth;
 
-  if (!['cfo', 'accountant'].includes(profile.role)) {
-    return NextResponse.json({ error: 'Only Accountant or CFO can import expenses' }, { status: 403 });
-  }
+    if (!['cfo', 'accountant'].includes(profile.role)) {
+      return NextResponse.json({ error: 'Only Accountant or CFO can import expenses', code: 'FORBIDDEN' }, { status: 403 });
+    }
 
   const contentType = request.headers.get('content-type') || '';
 
@@ -298,5 +300,8 @@ export async function POST(request: Request) {
     });
   }
 
-  return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid request', code: 'BAD_REQUEST' }, { status: 400 });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to import expenses.', 'EXPENSE_IMPORT_ERROR');
+  }
 }

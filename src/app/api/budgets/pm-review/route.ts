@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 export async function POST(request: Request) {
-  const auth = await getAuthUserProfile(request);
-  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
-  const { user, profile, admin } = auth;
+  try {
+    const auth = await getAuthUserProfile(request);
+    if ('error' in auth) return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
+    const { user, profile, admin } = auth;
 
   if (profile.role !== 'project_manager' && profile.role !== 'cfo') {
     return NextResponse.json({ error: 'Only PMs can review TL budgets' }, { status: 403 });
@@ -142,5 +144,8 @@ export async function POST(request: Request) {
     new_values: { status: newStatus, comments },
   });
 
-  return NextResponse.json({ success: true, new_status: newStatus });
+    return NextResponse.json({ success: true, new_status: newStatus });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to process PM budget review.', 'PM_REVIEW_ERROR');
+  }
 }

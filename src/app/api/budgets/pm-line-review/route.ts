@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 // POST — apply line-item decisions or submit final review
 export async function POST(request: Request) {
-  const auth = await getAuthUserProfile(request);
-  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
-  const { user, profile, admin } = auth;
+  try {
+    const auth = await getAuthUserProfile(request);
+    if ('error' in auth) return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
+    const { user, profile, admin } = auth;
 
   if (!['project_manager', 'cfo'].includes(profile.role)) {
     return NextResponse.json({ error: 'Only PM or CFO can review line items' }, { status: 403 });
@@ -123,14 +125,14 @@ export async function POST(request: Request) {
   // Action: submit final review
   if (action === 'submit_review' && budget_id) {
     // Get budget and check all items reviewed
-    const { data: budget } = await admin.from('budgets').select('*, budget_versions(id, budget_items(*))').eq('id', budget_id).single();
+    const { data: budget } = await admin.from('budgets').select('*, budget_versions(id, version_number, budget_items(*))').eq('id', budget_id).single();
     if (!budget) return NextResponse.json({ error: 'Budget not found' }, { status: 404 });
 
     const versions = (budget as any).budget_versions || [];
     const currentVersion = versions.find((v: any) => v.version_number === budget.current_version) || versions[0];
     const allItems = currentVersion?.budget_items || [];
 
-    const pending = allItems.filter((i: any) => i.pm_status === 'pending');
+    const pending = allItems.filter((i: any) => !i.pm_status || i.pm_status === 'pending');
     if (pending.length > 0) {
       return NextResponse.json({ error: `${pending.length} line items still pending review` }, { status: 400 });
     }
@@ -188,5 +190,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, summary });
   }
 
-  return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid action', code: 'BAD_REQUEST' }, { status: 400 });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to process line-item review.', 'PM_LINE_REVIEW_ERROR');
+  }
 }

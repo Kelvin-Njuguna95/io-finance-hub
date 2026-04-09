@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 // This endpoint is called by a cron job (Vercel Cron or external scheduler)
 // It checks if auto-send is enabled, if activity exists, and sends if needed
@@ -13,8 +14,9 @@ function createAdminClient() {
 }
 
 export async function GET() {
-  const admin = createAdminClient();
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
+  try {
+    const admin = createAdminClient();
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
 
   // Check if auto-send is enabled + trigger sources
   const { data: settings } = await admin
@@ -77,12 +79,11 @@ export async function GET() {
     });
   }
 
-  // Trigger the EOD report via the main endpoint
-  const appUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : 'https://io-finance-hub.vercel.app';
+    // Trigger the EOD report via the main endpoint
+    const appUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'https://io-finance-hub.vercel.app';
 
-  try {
     const res = await fetch(`${appUrl}/api/eod`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -91,9 +92,7 @@ export async function GET() {
 
     const result = await res.json();
     return NextResponse.json({ sent: true, result });
-  } catch (err) {
-    return NextResponse.json({
-      error: err instanceof Error ? err.message : String(err),
-    }, { status: 500 });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to run EOD auto-send.', 'EOD_AUTO_SEND_ERROR');
   }
 }
