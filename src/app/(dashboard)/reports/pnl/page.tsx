@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,6 +13,8 @@ import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/form
 import { getUnifiedServicePeriodLabel } from '@/lib/report-utils';
 import { Badge } from '@/components/ui/badge';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { FileDown } from 'lucide-react';
+import { exportSimpleReportPdf } from '@/lib/pdf-export';
 
 function PnlLine({ label, kes, bold, negative }: {
   label: string; kes: number; bold?: boolean; negative?: boolean;
@@ -159,6 +162,23 @@ export default function PnLReportPage() {
     load();
   }, [selectedMonth, reportMode]);
 
+  async function exportPdf() {
+    if (!pnl) return;
+    await exportSimpleReportPdf(
+      'Profit & Loss',
+      reportMode === 'accrual' ? servicePeriodLabel : 'Cash basis',
+      [
+        `Revenue: ${pnl.revenue.toFixed(2)}`,
+        `Direct costs: ${pnl.directCosts.toFixed(2)}`,
+        `Gross profit: ${pnl.grossProfit.toFixed(2)}`,
+        `Overhead: ${pnl.sharedOverhead.toFixed(2)}`,
+        `Operating profit: ${pnl.operatingProfit.toFixed(2)}`,
+        `Net profit: ${pnl.netProfit.toFixed(2)}`,
+      ],
+      `IO_PnL_${selectedMonth}.pdf`,
+    );
+  }
+
   return (
     <div>
       <PageHeader title="Profit & Loss" description={reportMode === 'accrual' ? servicePeriodLabel : "Company P&L statement"}>
@@ -178,6 +198,9 @@ export default function PnLReportPage() {
             })}
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={exportPdf}>
+          <FileDown className="h-4 w-4 mr-1" /> Export PDF
+        </Button>
       </PageHeader>
 
       <div className="p-6 space-y-6">
@@ -233,7 +256,7 @@ export default function PnLReportPage() {
                     ]}>
                       <XAxis dataKey="step" tick={{ fontSize: 11 }} />
                       <YAxis tickFormatter={(v) => formatCompactCurrency(Number(v), 'KES')} />
-                      <Tooltip formatter={(v: number) => formatCompactCurrency(v, 'KES')} />
+                      <Tooltip formatter={(v: unknown) => formatCompactCurrency(Number(v || 0), 'KES')} />
                       <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                         {[0, 1, 2, 3, 4].map((i) => <Cell key={i} fill={['#22c55e', '#ef4444', '#0ea5e9', '#f59e0b', '#22c55e'][i]} />)}
                       </Bar>

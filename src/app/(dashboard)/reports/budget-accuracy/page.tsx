@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,6 +17,8 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine, Cell,
 } from 'recharts';
+import { FileDown } from 'lucide-react';
+import { exportSimpleReportPdf } from '@/lib/pdf-export';
 
 interface AccuracyRow {
   month: string;
@@ -152,6 +155,15 @@ export default function BudgetAccuracyPage() {
       }, { name: '', avg: 0 })
     : { name: '-', avg: 0 };
 
+  async function exportPdf() {
+    await exportSimpleReportPdf(
+      'Budget Accuracy Report',
+      `${rangeMonths}-month window`,
+      rows.slice(0, 120).map((r) => `${r.month} | ${r.project} | budget ${r.budgeted.toFixed(2)} | actual ${r.actual.toFixed(2)} | accuracy ${r.accuracy.toFixed(1)}%`),
+      `IO_Budget_Accuracy_${rangeMonths}m.pdf`,
+    );
+  }
+
   return (
     <div>
       <PageHeader title="Budget Accuracy" description="Budget forecasting accuracy tracking">
@@ -163,6 +175,9 @@ export default function BudgetAccuracyPage() {
             <SelectItem value="12">Last 12 Months</SelectItem>
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={exportPdf}>
+          <FileDown className="h-4 w-4 mr-1" /> Export PDF
+        </Button>
       </PageHeader>
 
       <div className="p-6 space-y-6">

@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChartStatusBadge, ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency } from '@/components/reports/executive-kit';
@@ -13,6 +14,8 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, ComposedChart, Area, ReferenceLine, Cell,
 } from 'recharts';
+import { FileDown } from 'lucide-react';
+import { exportSimpleReportPdf } from '@/lib/pdf-export';
 
 interface MonthData {
   month: string;
@@ -49,6 +52,7 @@ interface CashFlowPoint {
   serviceRevenue: number;
   serviceExpenses: number;
   cashReceived: number;
+  outstanding: number;
 }
 
 interface AgentEfficiency {
@@ -264,6 +268,7 @@ export default function TrendsPage() {
           serviceRevenue: revenue,
           serviceExpenses: directExpenses + overhead,
           cashReceived,
+          outstanding: Math.max(0, revenue - cashReceived),
         });
 
         // Agent efficiency
@@ -386,6 +391,15 @@ export default function TrendsPage() {
   const catColors = ['#0f172a', '#ef4444', '#f59e0b', '#0ea5e9', '#8b5cf6', '#ec4899', '#14b8a6', '#6b7280'];
   const dirColors: Record<string, string> = { Kelvin: '#F5C518', Evans: '#0f172a', Dan: '#0ea5e9', Gidraph: '#ef4444', Victor: '#f59e0b', 'Company 30%': '#6b7280', Undistributed: '#d1d5db' };
 
+  async function exportPdf() {
+    await exportSimpleReportPdf(
+      'Trends & Analytics',
+      `${rangeMonths}-month analytics window`,
+      monthlyData.slice(0, 120).map((m) => `${m.month} | revenue ${m.revenue.toFixed(2)} | expenses ${(m.directExpenses + m.overhead).toFixed(2)} | net ${m.netProfit.toFixed(2)}`),
+      `IO_Trends_${rangeMonths}m.pdf`,
+    );
+  }
+
   return (
     <div>
       <PageHeader title="Trends & Analytics" description="Multi-month financial analytics">
@@ -397,6 +411,9 @@ export default function TrendsPage() {
             <SelectItem value="12">Last 12 Months</SelectItem>
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={exportPdf}>
+          <FileDown className="h-4 w-4 mr-1" /> Export PDF
+        </Button>
       </PageHeader>
 
       <div className="p-6 space-y-8">

@@ -69,8 +69,8 @@ export default function BudgetsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<BudgetRow | null>(null);
   // Security audit note: this client-side role check mirrors server-side guards in budget API routes.
-  const canCreate = user?.role === 'team_leader' || user?.role === 'project_manager' || user?.role === 'cfo' || user?.role === 'accountant';
-  const canManageBudgets = user?.role === 'team_leader' || user?.role === 'cfo' || user?.role === 'project_manager' || user?.role === 'accountant';
+  const canCreate = user?.role === 'team_leader' || user?.role === 'project_manager' || user?.role === 'cfo' || user?.role === 'accountant' || user?.role === 'department_head';
+  const canManageBudgets = user?.role === 'team_leader' || user?.role === 'cfo' || user?.role === 'project_manager' || user?.role === 'accountant' || user?.role === 'department_head';
   const isAccountant = user?.role === 'accountant';
   const isTl = user?.role === 'team_leader';
   const newBudgetButtonLabel = user?.role === 'team_leader'

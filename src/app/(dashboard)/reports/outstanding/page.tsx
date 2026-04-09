@@ -18,12 +18,13 @@ import {
 } from '@/components/ui/dialog';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { isBackdated, cleanNotes, getAgingBucket, computePaymentStatus } from '@/lib/backdated-utils';
-import { Download } from 'lucide-react';
+import { Download, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { getUserErrorMessage } from '@/lib/errors';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency } from '@/components/reports/executive-kit';
 import { getInvoiceOutstandingTotal, getOutstandingInvoices } from '@/lib/queries/invoices';
+import { exportSimpleReportPdf } from '@/lib/pdf-export';
 
 interface OutstandingInvoice {
   id: string;
@@ -162,6 +163,15 @@ export default function OutstandingReceivablesPage() {
     toast.success('CSV exported');
   }
 
+  async function exportPdf() {
+    await exportSimpleReportPdf(
+      'Outstanding Receivables',
+      'Unpaid invoices and aging analysis',
+      invoices.slice(0, 120).map((inv) => `${inv.invoice_number} | ${inv.project_name} | outstanding ${inv.balance.toFixed(2)} USD | aging ${inv.aging.bucket}`),
+      `IO_Outstanding_Receivables_${new Date().toISOString().split('T')[0]}.pdf`,
+    );
+  }
+
   // Record payment
   function openPaymentDialog(inv: OutstandingInvoice) {
     setSelectedInvoice(inv);
@@ -220,6 +230,9 @@ export default function OutstandingReceivablesPage() {
       <PageHeader title="Outstanding Receivables" description="Unpaid invoices and aging analysis">
         <Button size="sm" variant="outline" className="gap-1" onClick={exportCSV}>
           <Download className="h-4 w-4" /> Export CSV
+        </Button>
+        <Button size="sm" variant="outline" className="gap-1" onClick={exportPdf}>
+          <FileDown className="h-4 w-4" /> Export PDF
         </Button>
       </PageHeader>
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,6 +15,8 @@ import {
 import { formatCurrency, formatPercent, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
 import { getLaggedMonth, getUnifiedServicePeriodLabel } from '@/lib/report-utils';
 import { getConfirmedExpensesByMonth } from '@/lib/queries/expenses';
+import { FileDown } from 'lucide-react';
+import { exportSimpleReportPdf } from '@/lib/pdf-export';
 
 interface BvaRow {
   scope: string;
@@ -139,6 +142,15 @@ export default function BudgetVsActualPage() {
     rejected: 'bg-rose-100 text-rose-700',
   };
 
+  async function exportPdf() {
+    await exportSimpleReportPdf(
+      'Budget vs Actual',
+      `Service period: ${servicePeriodLabel}`,
+      rows.slice(0, 120).map((r) => `${r.scope} | budget ${r.budget_kes.toFixed(2)} | actual ${r.actual_kes.toFixed(2)} | variance ${r.variance_kes.toFixed(2)}`),
+      `IO_Budget_vs_Actual_${selectedMonth}.pdf`,
+    );
+  }
+
   return (
     <div>
       <PageHeader title="Budget vs Actual" description={servicePeriodLabel}>
@@ -152,6 +164,9 @@ export default function BudgetVsActualPage() {
             })}
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={exportPdf}>
+          <FileDown className="h-4 w-4 mr-1" /> Export PDF
+        </Button>
       </PageHeader>
 
       <div className="p-6 space-y-6">

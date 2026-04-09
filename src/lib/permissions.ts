@@ -5,7 +5,7 @@ export function canSubmitProjectBudget(role?: UserRole | null): boolean {
 }
 
 export function canSubmitDepartmentBudget(role?: UserRole | null): boolean {
-  return role === 'cfo' || role === 'accountant';
+  return role === 'cfo' || role === 'accountant' || role === 'department_head';
 }
 
 export function canCreateExpense(role?: UserRole | null): boolean {

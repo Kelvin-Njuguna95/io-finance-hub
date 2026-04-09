@@ -3,6 +3,14 @@
     {
       "path": "/api/eod/auto-send",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/misc-draws/create-monthly",
+      "schedule": "0 5 1 * *"
+    },
+    {
+      "path": "/api/expense-lifecycle/rollover-carry-forward",
+      "schedule": "0 3 1 * *"
     }
   ]
 }

@@ -17,9 +17,9 @@ export default function NotFound() {
           <p className="text-sm text-slate-600">
             The page you are looking for does not exist or may have moved.
           </p>
-          <Button asChild>
-            <Link href="/">Back to Dashboard</Link>
-          </Button>
+          <Link href="/">
+            <Button>Back to Dashboard</Button>
+          </Link>
         </CardContent>
       </Card>
     </div>

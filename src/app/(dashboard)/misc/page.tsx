@@ -143,8 +143,9 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: any; selecte
 
     if (['project_manager', 'team_leader'].includes(user.role)) {
       const { data: assigned } = await getAssignedActiveProjects(supabase, user.id);
-      setProjects(assigned);
-      if (assigned.length > 0) setSelectedProjectId((prev) => prev || assigned[0].id);
+      const assignedProjects = assigned || [];
+      setProjects(assignedProjects);
+      if (assignedProjects.length > 0) setSelectedProjectId((prev) => prev || assignedProjects[0].id);
     } else {
       const { data: allProjects } = await getActiveProjects(supabase);
       setProjects(allProjects || []);
@@ -282,7 +283,7 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: any; selecte
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="space-y-1 md:col-span-2">
             <Label>Project</Label>
-            <Select value={selectedProjectId} onValueChange={setSelectedProjectId} disabled={loading || projects.length === 0}>
+            <Select value={selectedProjectId} onValueChange={(v) => setSelectedProjectId(v ?? '')} disabled={loading || projects.length === 0}>
               <SelectTrigger>
                 <SelectValue placeholder={loading ? 'Loading projects...' : 'Select project'} />
               </SelectTrigger>

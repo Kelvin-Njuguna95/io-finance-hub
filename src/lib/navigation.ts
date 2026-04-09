@@ -211,5 +211,9 @@ export function getNavigation(role: UserRole): NavGroup[] {
       return teamLeaderNav;
     case 'project_manager':
       return projectManagerNav;
+    case 'department_head':
+      return accountantNav;
+    default:
+      return accountantNav;
   }
 }
