@@ -40,11 +40,7 @@ export async function POST(request: Request) {
   const isAccountant = profile.role === 'accountant';
   const isTeamLeader = profile.role === 'team_leader';
   const isProjectManager = profile.role === 'project_manager';
-
-  // Accountant: project scope only
-  if (isAccountant && scope_type !== 'project') {
-    return NextResponse.json({ error: 'Accountant can only create project budgets' }, { status: 403 });
-  }
+  const isCfo = profile.role === 'cfo';
 
   // TL: verify project assignment
   if (isTeamLeader) {
@@ -55,6 +51,11 @@ export async function POST(request: Request) {
       .eq('project_id', scope_id)
       .single();
     if (!assignment) return NextResponse.json({ error: 'Not assigned to this project' }, { status: 403 });
+  }
+
+
+  if (isProjectManager && scope_type !== 'project') {
+    return NextResponse.json({ error: 'Project managers can only create project budgets' }, { status: 403 });
   }
 
   // PM: verify department/project assignment
@@ -69,16 +70,24 @@ export async function POST(request: Request) {
   }
 
   // Determine submitted_by_role
-  const submittedByRole = isAccountant ? 'accountant' : 'team_leader';
+  let submittedByRole = 'team_leader';
+  if (isAccountant) submittedByRole = 'accountant';
+  else if (isProjectManager) submittedByRole = 'project_manager';
+  else if (isCfo) submittedByRole = 'cfo';
 
-  // Determine status
+  // Determine status by routing chain
   let submitStatus: string;
   if (!submit) {
     submitStatus = 'draft';
-  } else if (isTeamLeader || isAccountant) {
-    submitStatus = 'pm_review';
-  } else {
+  } else if (scope_type === 'department') {
+    // Department budgets bypass PM review and go directly to CFO queue
     submitStatus = 'submitted';
+  } else if (isProjectManager || isCfo) {
+    // PM/CFO project submissions skip PM review
+    submitStatus = 'pm_approved';
+  } else {
+    // TL and accountant project submissions go through PM review
+    submitStatus = 'pm_review';
   }
 
   // Calculate total

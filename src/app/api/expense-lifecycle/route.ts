@@ -219,14 +219,9 @@ export async function POST(request: Request) {
     const monthErr = await assertMonthOpen(admin, budget.year_month);
     if (monthErr) return NextResponse.json({ success: false, error: monthErr.message }, { status: monthErr.status });
 
-    // Filter items:
-    // - If PM/CFO line-review happened, include only approved/adjusted items.
-    // - If no line-review happened (e.g. direct accountant -> CFO flow), include all non-removed items.
+    // Filter items: include only PM-approved or adjusted items
     const allItems = budgetVersion.budget_items || [];
-    const hasLineReview = allItems.some((item: any) => ['approved', 'adjusted', 'removed'].includes(item.pm_status));
-    const eligibleItems = hasLineReview
-      ? allItems.filter((item: any) => ['approved', 'adjusted'].includes(item.pm_status))
-      : allItems.filter((item: any) => item.pm_status !== 'removed');
+    const eligibleItems = allItems.filter((item: any) => ['approved', 'adjusted'].includes(item.pm_status));
 
     if (eligibleItems.length === 0) {
       return NextResponse.json({ success: false, error: 'No eligible budget items found' }, { status: 400 });
@@ -254,7 +249,7 @@ export async function POST(request: Request) {
       year_month: budget.year_month,
       description: item.description,
       category: item.category,
-      budgeted_amount_kes: item.pm_approved_amount != null ? item.pm_approved_amount : item.amount_kes,
+      budgeted_amount_kes: item.pm_approved_amount != null ? item.pm_approved_amount : 0,
       status: 'pending_auth',
     }));
 
@@ -347,7 +342,7 @@ export async function POST(request: Request) {
         year_month: budget.year_month,
         description: item.description,
         category: item.category,
-        budgeted_amount_kes: item.pm_approved_amount != null ? item.pm_approved_amount : item.amount_kes,
+        budgeted_amount_kes: item.pm_approved_amount != null ? item.pm_approved_amount : 0,
         status: 'pending_auth',
       }));
 

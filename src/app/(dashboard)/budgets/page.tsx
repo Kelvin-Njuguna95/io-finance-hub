@@ -73,6 +73,11 @@ export default function BudgetsPage() {
   const canManageBudgets = user?.role === 'team_leader' || user?.role === 'cfo' || user?.role === 'project_manager' || user?.role === 'accountant';
   const isAccountant = user?.role === 'accountant';
   const isTl = user?.role === 'team_leader';
+  const newBudgetButtonLabel = user?.role === 'team_leader'
+    ? 'New Budget'
+    : user?.role === 'accountant' || user?.role === 'cfo'
+      ? 'New Project / Department Budget'
+      : 'New Project Budget';
 
   async function getAuthHeaders(): Promise<Record<string, string>> {
     const supabase = createClient();
@@ -224,7 +229,7 @@ export default function BudgetsPage() {
         {canCreate && (
           <Link href="/budgets/new">
             <Button size="sm" className="gap-1">
-              <Plus className="h-4 w-4" /> New Budget
+              <Plus className="h-4 w-4" /> {newBudgetButtonLabel}
             </Button>
           </Link>
         )}
@@ -301,10 +306,20 @@ export default function BudgetsPage() {
                               variant="secondary"
                               className={b.submitted_by_role === 'accountant'
                                 ? 'bg-blue-100 text-blue-700 text-[10px] px-1.5'
-                                : 'bg-amber-100 text-amber-700 text-[10px] px-1.5'
+                                : b.submitted_by_role === 'project_manager'
+                                  ? 'bg-teal-100 text-teal-700 text-[10px] px-1.5'
+                                  : b.submitted_by_role === 'cfo'
+                                    ? 'bg-violet-100 text-violet-700 text-[10px] px-1.5'
+                                    : 'bg-amber-100 text-amber-700 text-[10px] px-1.5'
                               }
                             >
-                              {b.submitted_by_role === 'accountant' ? 'Accountant' : 'TL'}
+                              {b.submitted_by_role === 'accountant'
+                                ? 'Accountant'
+                                : b.submitted_by_role === 'project_manager'
+                                  ? 'PM'
+                                  : b.submitted_by_role === 'cfo'
+                                    ? 'CFO'
+                                    : 'TL'}
                             </Badge>
                           </div>
                         </TableCell>

@@ -142,7 +142,7 @@ export default function AuditLogPage() {
   const [roleFilter, setRoleFilter] = useState('All');
 
   // Security audit note: access is server-backed by RLS/auth on audit_logs and user metadata tables.
-  const canViewAudit = user?.role === 'cfo' || user?.role === 'accountant';
+  const canViewAudit = canViewAuditPermission(user?.role);
 
   const fetchLogs = useCallback(async () => {
     if (!canViewAudit) {
@@ -188,9 +188,13 @@ export default function AuditLogPage() {
       };
     });
 
-    setRows(mappedRows);
+    const rowsForRole = user?.role === 'accountant'
+      ? mappedRows.filter((row) => row.user_role !== 'cfo')
+      : mappedRows;
+
+    setRows(rowsForRole);
     setLoading(false);
-  }, [canViewAudit, dateFrom, dateTo, entityFilter]);
+  }, [canViewAudit, dateFrom, dateTo, entityFilter, user?.role]);
 
   useEffect(() => {
     fetchLogs();
