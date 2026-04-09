@@ -192,6 +192,16 @@ export default function RevenuePage() {
     });
   }, [invoiceFilter, invoices, sortDirection, sortKey]);
 
+  const outstandingInvoices = useMemo(() => {
+    return [...invoices]
+      .filter((inv) => Number(inv.balance_outstanding ?? 0) > 0)
+      .sort((a, b) => {
+        const aDays = getAgingBucket(a.invoice_date).days;
+        const bDays = getAgingBucket(b.invoice_date).days;
+        return bDays - aDays;
+      });
+  }, [invoices]);
+
   function openPaymentDialog(inv: RevenueInvoice) {
     const outstanding = Math.max(0, Number(inv.balance_outstanding ?? 0));
     setPaymentInvoice(inv);
@@ -476,6 +486,7 @@ export default function RevenuePage() {
           <TabsList>
             <TabsTrigger value="invoices">Invoices</TabsTrigger>
             <TabsTrigger value="payments">Payments</TabsTrigger>
+            <TabsTrigger value="outstanding">Outstanding Receivables</TabsTrigger>
           </TabsList>
 
           <TabsContent value="invoices">
@@ -629,6 +640,78 @@ export default function RevenuePage() {
                           </TableCell>
                         </TableRow>
                       ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="outstanding">
+            <Card>
+              <CardContent className="space-y-4 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-neutral-600">
+                    Open receivables with a remaining balance.
+                  </p>
+                  <Button asChild variant="ghost" size="sm">
+                    <Link href="/reports/outstanding">Open detailed aging report</Link>
+                  </Button>
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Invoice #</TableHead>
+                      <TableHead>Project</TableHead>
+                      <TableHead>Invoice Date</TableHead>
+                      <TableHead>Due Date</TableHead>
+                      <TableHead>Aging</TableHead>
+                      <TableHead className="text-right">Outstanding (USD)</TableHead>
+                      {canCreate && <TableHead className="w-[150px]">Actions</TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {outstandingInvoices.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={canCreate ? 7 : 6} className="text-center py-8 text-neutral-500">
+                          No outstanding receivables.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      outstandingInvoices.map((inv) => {
+                        const outstandingAmount = Number(inv.balance_outstanding ?? 0);
+                        const aging = getAgingBucket(inv.invoice_date);
+
+                        return (
+                          <TableRow key={inv.id}>
+                            <TableCell className="font-medium">{inv.invoice_number}</TableCell>
+                            <TableCell>{inv.project_name || '—'}</TableCell>
+                            <TableCell>{formatDate(inv.invoice_date)}</TableCell>
+                            <TableCell>{inv.due_date ? formatDate(inv.due_date) : '—'}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={aging.days > 90 ? 'bg-rose-100 text-rose-700 border-rose-200' : aging.days > 60 ? 'bg-amber-100 text-amber-700 border-amber-200' : aging.days > 30 ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'}>
+                                {aging.bucket}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm font-semibold text-rose-600">
+                              {formatCurrency(outstandingAmount, 'USD')}
+                            </TableCell>
+                            {canCreate && (
+                              <TableCell>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs"
+                                  onClick={() => openPaymentDialog(inv)}
+                                >
+                                  Record Payment
+                                </Button>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>
