@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RoleInsightBoard } from '@/components/reports/role-insight-board';
+
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { getLaggedMonth } from '@/lib/report-utils';
 import { isBackdated } from '@/lib/backdated-utils';
@@ -381,6 +382,7 @@ export default function MonthlyPnlReport() {
 
             <Card className="io-card max-w-6xl overflow-hidden border-slate-200">
               <CardHeader className="bg-gradient-to-r from-[#0f172a] via-[#12203c] to-[#1e293b] text-white rounded-t-lg border-b border-white/10">
+
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <CardTitle className="text-lg text-white">IO FINANCE HUB</CardTitle>
@@ -393,6 +395,7 @@ export default function MonthlyPnlReport() {
               </div>
               </CardHeader>
               <CardContent className="space-y-6 bg-slate-50 p-6">
+
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <MetricCard label="Total Revenue" value={formatCurrency(pnl.totalRevenue, 'KES')} accent="ring-1 ring-sky-100" />
                 <MetricCard label="Total Direct Costs" value={formatCurrency(pnl.totalDirectCosts, 'KES')} accent="ring-1 ring-amber-100" />
