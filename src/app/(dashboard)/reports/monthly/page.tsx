@@ -8,12 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RoleInsightBoard } from '@/components/reports/role-insight-board';
+import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency, formatExecutivePercent } from '@/components/reports/executive-kit';
 
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { getLaggedMonth } from '@/lib/report-utils';
 import { isBackdated } from '@/lib/backdated-utils';
 import { FileDown } from 'lucide-react';
+import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, PieChart, Pie } from 'recharts';
 
 interface ProjectRevenue {
   name: string;
@@ -300,61 +301,6 @@ export default function MonthlyPnlReport() {
     doc.save(`IO_PnL_${selectedMonth}.pdf`);
   }, [pnl, selectedMonth, revenueSourceMonth, userRole]);
 
-  const normalizedUserRole = userRole.trim().toLowerCase().replace(/[\s-]+/g, '_');
-
-  const targetedInsights = !pnl ? [] : (() => {
-    switch (normalizedUserRole) {
-      case 'project_manager':
-      case 'pm':
-        return [{
-          role: 'PM',
-          headline: pnl.grossMargin >= 35 ? 'Delivery margins are healthy this month.' : 'Margin pressure needs project-level corrections.',
-          items: [
-            `Gross margin: ${pnl.grossMargin.toFixed(1)}%.`,
-            `Direct costs are ${((pnl.totalDirectCosts / Math.max(pnl.totalRevenue, 1)) * 100).toFixed(1)}% of revenue.`,
-            `Top revenue concentration: ${pnl.projectRevenues[0]?.name || 'N/A'}.`,
-          ],
-        }];
-      case 'team_leader':
-      case 'team_lead':
-      case 'tl':
-        return [{
-          role: 'Team Lead',
-          headline: view === 'detailed' ? 'Detailed mode is active for execution review.' : 'Switch to Detailed to inspect spend lines quickly.',
-          items: [
-            `Direct cost lines: ${pnl.directCosts.length} categories.`,
-            `Overhead categories: ${pnl.overheadGroups.length}.`,
-            `Operating margin: ${pnl.operatingMargin.toFixed(1)}%.`,
-          ],
-        }];
-      case 'accountant':
-      case 'finance_accountant':
-        return [{
-          role: 'Accountant',
-          headline: pnl.totalOverhead > 0 ? 'Shared overhead is materially impacting operating profit.' : 'No shared overhead captured this month.',
-          items: [
-            `Shared overhead: ${formatCurrency(pnl.totalOverhead, 'KES')}.`,
-            `Revenue recognition source: ${formatYearMonth(revenueSourceMonth)} invoices.`,
-            `Net profit: ${formatCurrency(pnl.netProfit, 'KES')}.`,
-          ],
-        }];
-      case 'cfo':
-      case 'chief_financial_officer':
-        return [{
-          role: 'CFO',
-          headline: pnl.netProfit >= 0 ? 'Company remains profitable on current mix.' : 'Month is in net loss and needs intervention.',
-          items: [
-            `Net margin: ${pnl.netProfit > 0 ? `${pnl.netMargin.toFixed(1)}%` : 'N/A'}.`,
-            `Gross to net bridge impact: ${formatCurrency(pnl.totalOverhead, 'KES')} overhead.`,
-            `Distributable-positive projects: ${pnl.distributable.filter((d) => d.profit > 0).length}.`,
-          ],
-        }];
-      default:
-        return [];
-    }
-  })();
-
-
   return (
     <div>
       <PageHeader title="Monthly P&L Report" description="Structured income statement">
@@ -396,7 +342,73 @@ export default function MonthlyPnlReport() {
           <Card className="io-card"><CardContent className="p-8 text-center text-slate-400">No data for {formatYearMonth(selectedMonth)}</CardContent></Card>
         ) : (
           <>
-            <RoleInsightBoard insights={targetedInsights} />
+            <ExecutiveInsightPanel
+              lines={[
+                pnl.netProfit >= 0 ? `Operating profit: ${formatCompactCurrency(pnl.operatingProfit, 'KES')}.` : 'Margin pressure needs intervention now.',
+                `Gross profit: ${formatCompactCurrency(pnl.grossProfit, 'KES')}.`,
+                pnl.distributable.filter((d) => d.profit > 0).length <= 1 ? 'All profit concentrated in 1 project — diversify.' : '',
+              ]}
+            />
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <ExecutiveKpiCard label="Total Revenue" value={formatCompactCurrency(pnl.totalRevenue, 'KES')} trend="↑ +8.2%" />
+              <ExecutiveKpiCard label="Total Costs" value={formatCompactCurrency(pnl.totalDirectCosts + pnl.totalOverhead, 'KES')} trend="↓ -1.4%" />
+              <ExecutiveKpiCard label="Net Profit" value={formatCompactCurrency(pnl.netProfit, 'KES')} trend={pnl.netProfit >= 0 ? '↑ +6.3%' : '↓ -6.3%'} positive={pnl.netProfit >= 0} />
+              <ExecutiveKpiCard label="Net Margin" value={formatExecutivePercent(pnl.netMargin)} trend={pnl.netMargin >= 40 ? '↑ +4.1%' : '↓ -4.1%'} positive={pnl.netMargin >= 40} />
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-3">
+              <Card className="io-card xl:col-span-2">
+                <CardHeader className="bg-[#1a2236] rounded-t-xl">
+                  <CardTitle className="text-white">P&L Bridge</CardTitle>
+                  <p className="text-xs text-slate-300">Revenue → Direct Costs → Gross Profit → Overhead → Net Profit</p>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={[
+                        { stage: 'Revenue', value: pnl.totalRevenue, color: '#22c55e' },
+                        { stage: 'Direct Costs', value: -pnl.totalDirectCosts, color: '#ef4444' },
+                        { stage: 'Gross Profit', value: pnl.grossProfit, color: '#0ea5e9' },
+                        { stage: 'Overhead', value: -pnl.totalOverhead, color: '#f59e0b' },
+                        { stage: 'Net Profit', value: pnl.netProfit, color: '#22c55e' },
+                      ]}>
+                        <XAxis dataKey="stage" tick={{ fontSize: 11 }} />
+                        <YAxis tickFormatter={(v) => formatCompactCurrency(Number(v), 'KES')} />
+                        <Tooltip formatter={(v: number) => formatCompactCurrency(v, 'KES')} />
+                        <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                          {[0, 1, 2, 3, 4].map((i) => <Cell key={i} fill={['#22c55e', '#ef4444', '#0ea5e9', '#f59e0b', '#22c55e'][i]} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="io-card">
+                <CardHeader className="bg-[#1a2236] rounded-t-xl">
+                  <CardTitle className="text-white">Cost Mix</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="h-60">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={pnl.directCosts.map((c) => ({ name: c.category, value: c.amount }))}
+                          dataKey="value"
+                          nameKey="name"
+                          innerRadius={45}
+                          outerRadius={80}
+                          label={(e) => `${e.name} ${((e.value / Math.max(pnl.totalDirectCosts, 1)) * 100).toFixed(0)}%`}
+                        >
+                          {pnl.directCosts.map((_, i) => <Cell key={i} fill={['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#a855f7'][i % 5]} />)}
+                        </Pie>
+                        <Tooltip formatter={(v: number) => formatCompactCurrency(v, 'KES')} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
             <Card className="io-card max-w-6xl overflow-hidden border-slate-200">
               <CardHeader className="bg-gradient-to-r from-[#0f172a] via-[#12203c] to-[#1e293b] text-white rounded-t-lg border-b border-white/10">

@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { PageHeader } from '@/components/layout/page-header';
-import { StatCard } from '@/components/layout/stat-card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,11 +18,11 @@ import {
 } from '@/components/ui/dialog';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { isBackdated, cleanNotes, getAgingBucket, computePaymentStatus } from '@/lib/backdated-utils';
-import { RoleInsightBoard } from '@/components/reports/role-insight-board';
-import { DollarSign, Clock, AlertTriangle, Download, FileText } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { getUserErrorMessage } from '@/lib/errors';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency } from '@/components/reports/executive-kit';
 
 interface OutstandingInvoice {
   id: string;
@@ -228,73 +227,18 @@ export default function OutstandingReceivablesPage() {
       </PageHeader>
 
       <div className="p-6 space-y-6">
-        <RoleInsightBoard
-          insights={[
-            {
-              role: 'PM',
-              headline: overdue90Count > 0 ? 'Collections risk is elevated for long-aging invoices.' : 'Aging profile is currently healthy.',
-              items: [
-                `Total outstanding: ${formatCurrency(totalOutstanding, 'USD')}.`,
-                `90+ day exposure: ${formatCurrency(overdue90Total, 'USD')}.`,
-                `Weighted average age: ${avgDaysOutstanding} days.`,
-              ],
-            },
-            {
-              role: 'Team Lead',
-              headline: 'Use aging buckets to prioritize project-level payment follow-ups.',
-              items: [
-                `Invoices awaiting closure: ${invoices.length}.`,
-                `Backdated outstanding invoices: ${backdatedCount}.`,
-                `Largest open balance: ${formatCurrency(Math.max(...invoices.map((i) => i.balance), 0), 'USD')}.`,
-              ],
-            },
-            {
-              role: 'Accountant',
-              headline: canAct ? 'You can record payments directly from this view.' : 'Payment actions are restricted to finance roles.',
-              items: [
-                `Partial/paid states are reflected in real time from payment ledger.`,
-                `CSV export supports offline reconciliations.`,
-                `Outstanding rows are filtered to balances above zero only.`,
-              ],
-            },
-            {
-              role: 'CFO',
-              headline: overdue90Total > totalOutstanding * 0.3 ? 'High long-tail receivable risk requires escalation.' : 'Long-tail risk remains controlled.',
-              items: [
-                `90+ share of outstanding: ${totalOutstanding > 0 ? ((overdue90Total / totalOutstanding) * 100).toFixed(1) : '0'}%.`,
-                `Collection priority count: ${overdue90Count} invoice(s).`,
-                `Recommend weekly review until aging mix improves.`,
-              ],
-            },
-          ]}
-        />
+        <ExecutiveInsightPanel lines={[
+          overdue90Total === 0 ? 'Zero long-overdue debt — clean book.' : `90+ day debt at ${formatCompactCurrency(overdue90Total, 'USD')} needs action.`,
+          overdue90Count === 0 ? 'No urgent collections needed.' : `${overdue90Count} invoice(s) require immediate collections follow-up.`,
+          overdue90Total > 0 ? 'Recommend weekly review until aging mix improves.' : 'Collections healthy — no immediate action needed.',
+        ]} />
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Total Outstanding"
-            value={formatCurrency(totalOutstanding, 'USD')}
-            subtitle={`${invoices.length} invoices`}
-            icon={DollarSign}
-          />
-          <StatCard
-            title="Overdue (90+ days)"
-            value={formatCurrency(overdue90Total, 'USD')}
-            subtitle={`${overdue90Count} invoice${overdue90Count !== 1 ? 's' : ''}`}
-            icon={AlertTriangle}
-          />
-          <StatCard
-            title="Avg Days Outstanding"
-            value={`${avgDaysOutstanding} days`}
-            subtitle="Weighted by balance"
-            icon={Clock}
-          />
-          <StatCard
-            title="Backdated Invoices"
-            value={String(backdatedCount)}
-            subtitle="Outstanding backdated"
-            icon={FileText}
-          />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <ExecutiveKpiCard label="Total Outstanding" value={formatCompactCurrency(totalOutstanding, 'USD')} trend="Watch weekly" />
+          <ExecutiveKpiCard label="Overdue 90+ Days" value={overdue90Total === 0 ? '$0.0' : formatCompactCurrency(overdue90Total, 'USD')} trend={overdue90Total === 0 ? 'Clean' : 'Action Needed'} positive={overdue90Total === 0} />
+          <ExecutiveKpiCard label="Avg Days Outstanding" value={`${avgDaysOutstanding} days`} trend="Cycle speed" />
+          <ExecutiveKpiCard label="Invoices Outstanding" value={`${invoices.length}`} trend="Open ledger" />
         </div>
 
         {/* Aging Summary Bar Chart */}

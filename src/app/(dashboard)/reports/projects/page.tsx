@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { StatCard } from '@/components/layout/stat-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RoleInsightBoard } from '@/components/reports/role-insight-board';
+import { ExecutiveInsightPanel, formatCompactCurrency } from '@/components/reports/executive-kit';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -19,6 +19,7 @@ import {
 } from 'recharts';
 import { getProjectColor } from '@/lib/report-utils';
 import { BarChart3, TrendingUp, Users, DollarSign } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface ProjectComparison {
   name: string;
@@ -45,6 +46,7 @@ export default function ProjectComparisonPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ProjectComparison[]>([]);
   const [userRole, setUserRole] = useState('');
+  const [showMoreColumns, setShowMoreColumns] = useState(false);
 
   const [revenueSourceMonth, setRevenueSourceMonth] = useState(getLaggedMonth(selectedMonth));
   const [isHistorical, setIsHistorical] = useState(false);
@@ -201,46 +203,11 @@ export default function ProjectComparisonPage() {
       </PageHeader>
 
       <div className="p-6 space-y-6">
-        <RoleInsightBoard
-          insights={[
-            {
-              role: 'PM',
-              headline: totalProfit >= 0 ? 'Portfolio distributable performance is positive.' : 'Portfolio distributable performance is negative.',
-              items: [
-                `Total distributable: ${formatCurrency(totalProfit, 'KES')}.`,
-                `Median net margin: ${data.length ? formatPercent([...data].sort((a, b) => a.netMargin - b.netMargin)[Math.floor(data.length / 2)].netMargin) : 'N/A'}.`,
-                `Positive projects: ${data.filter((p) => p.distributableProfit > 0).length}/${data.length}.`,
-              ],
-            },
-            {
-              role: 'Team Lead',
-              headline: totalAgents > 0 ? `Operational footprint includes ${totalAgents} agents.` : 'No agent footprint recorded this month.',
-              items: [
-                `Revenue per agent (portfolio): ${totalAgents > 0 ? formatCurrency(totalRevenue / totalAgents, 'KES') : 'N/A'}.`,
-                `Cost per agent (portfolio): ${totalAgents > 0 ? formatCurrency(totalExpenses / totalAgents, 'KES') : 'N/A'}.`,
-                `Bottom projects by net margin: ${data.slice(-2).map((p) => p.name).join(', ') || 'N/A'}.`,
-              ],
-            },
-            {
-              role: 'Accountant',
-              headline: 'Direct and allocated overhead are reconciled at project level.',
-              items: [
-                `Total direct expenses: ${formatCurrency(totalExpenses, 'KES')}.`,
-                `Revenue source: ${isHistorical ? formatYearMonth(selectedMonth) : formatYearMonth(revenueSourceMonth)}.`,
-                `Rows available for review: ${data.length}.`,
-              ],
-            },
-            {
-              role: 'CFO',
-              headline: data[0]?.distributableProfit > 0 ? `${data[0]?.name} leads distributable returns.` : 'No project currently generating distributable upside.',
-              items: [
-                `Top project distributable: ${data[0] ? formatCurrency(data[0].distributableProfit, 'KES') : 'N/A'}.`,
-                `Total revenue: ${formatCurrency(totalRevenue, 'KES')}.`,
-                `Director-level attribution appears in table when CFO role is active.`,
-              ],
-            },
-          ]}
-        />
+        <ExecutiveInsightPanel lines={[
+          data[0] ? `${data[0].name} leads with ${formatPercent(data[0].grossMargin)} margin.` : '',
+          `Revenue per agent is ${totalAgents > 0 ? formatCompactCurrency(totalRevenue / totalAgents, 'KES') : 'KES 0.0'}.`,
+          `${data.filter((p) => p.revenue === 0 && p.directExpenses === 0).length} inactive project(s) this period.`,
+        ]} />
 
         {/* Summary cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -253,21 +220,26 @@ export default function ProjectComparisonPage() {
         {/* Comparison table */}
         <Card className="io-card">
           <CardContent className="p-0 overflow-x-auto">
+            <div className="p-3 border-b flex justify-end">
+              <Button size="sm" variant="outline" onClick={() => setShowMoreColumns((v) => !v)}>
+                {showMoreColumns ? 'Show less' : 'Show more'}
+              </Button>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Project</TableHead>
                   <TableHead className="text-right">Revenue</TableHead>
-                  <TableHead className="text-right">Direct Costs</TableHead>
                   <TableHead className="text-right">Gross Profit</TableHead>
                   <TableHead className="text-right">Margin</TableHead>
-                  <TableHead className="text-right">Overhead</TableHead>
-                  <TableHead className="text-right">Dist. Profit</TableHead>
-                  <TableHead className="text-right">Net Margin</TableHead>
-                  <TableHead className="text-right">Agents</TableHead>
                   <TableHead className="text-right">Rev/Agent</TableHead>
-                  <TableHead className="text-right">Cost/Agent</TableHead>
-                  {userRole === 'cfo' && <TableHead>Director</TableHead>}
+                  {showMoreColumns && <TableHead className="text-right">Direct Costs</TableHead>}
+                  {showMoreColumns && <TableHead className="text-right">Overhead</TableHead>}
+                  {showMoreColumns && <TableHead className="text-right">Dist. Profit</TableHead>}
+                  {showMoreColumns && <TableHead className="text-right">Net Margin</TableHead>}
+                  {showMoreColumns && <TableHead className="text-right">Agents</TableHead>}
+                  {showMoreColumns && <TableHead className="text-right">Cost/Agent</TableHead>}
+                  {showMoreColumns && userRole === 'cfo' && <TableHead>Director</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -278,19 +250,19 @@ export default function ProjectComparisonPage() {
                 ) : (
                   <>
                     {data.map(r => (
-                      <TableRow key={r.name} className={r.distributableProfit > 0 ? 'bg-emerald-50/50' : r.distributableProfit < 0 ? 'bg-red-50/50' : ''}>
+                      <TableRow key={r.name} className={r.revenue === 0 && r.directExpenses === 0 ? 'opacity-50' : r.distributableProfit > 0 ? 'bg-emerald-50/50' : r.distributableProfit < 0 ? 'bg-red-50/50' : ''}>
                         <TableCell className="font-medium">{r.name}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(r.revenue, 'KES')}</TableCell>
-                        <TableCell className="text-right font-mono text-sm text-red-600">{formatCurrency(r.directExpenses, 'KES')}</TableCell>
                         <TableCell className={`text-right font-mono text-sm ${r.grossProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(r.grossProfit, 'KES')}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatPercent(r.grossMargin)}</TableCell>
-                        <TableCell className="text-right font-mono text-sm text-amber-600">{formatCurrency(r.overheadAllocated, 'KES')}</TableCell>
-                        <TableCell className={`text-right font-mono text-sm font-semibold ${r.distributableProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(r.distributableProfit, 'KES')}</TableCell>
-                        <TableCell className={`text-right font-mono text-sm ${r.netMargin < 10 ? 'text-amber-600' : ''}`}>{formatPercent(r.netMargin)}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{r.agentCount}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(r.revenuePerAgent, 'KES')}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{formatCurrency(r.costPerAgent, 'KES')}</TableCell>
-                        {userRole === 'cfo' && <TableCell className="text-sm">{r.director}</TableCell>}
+                        {showMoreColumns && <TableCell className="text-right font-mono text-sm text-red-600">{formatCurrency(r.directExpenses, 'KES')}</TableCell>}
+                        {showMoreColumns && <TableCell className="text-right font-mono text-sm text-amber-600">{formatCurrency(r.overheadAllocated, 'KES')}</TableCell>}
+                        {showMoreColumns && <TableCell className={`text-right font-mono text-sm font-semibold ${r.distributableProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(r.distributableProfit, 'KES')}</TableCell>}
+                        {showMoreColumns && <TableCell className={`text-right font-mono text-sm ${r.netMargin < 10 ? 'text-amber-600' : ''}`}>{formatPercent(r.netMargin)}</TableCell>}
+                        {showMoreColumns && <TableCell className="text-right font-mono text-sm">{r.agentCount}</TableCell>}
+                        {showMoreColumns && <TableCell className="text-right font-mono text-sm">{formatCurrency(r.costPerAgent, 'KES')}</TableCell>}
+                        {showMoreColumns && userRole === 'cfo' && <TableCell className="text-sm">{r.director}</TableCell>}
                       </TableRow>
                     ))}
                   </>
