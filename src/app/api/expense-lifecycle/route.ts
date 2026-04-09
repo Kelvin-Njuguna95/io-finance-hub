@@ -240,19 +240,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, data: [], message: 'All items already populated' });
     }
 
-    const pendingRows = newItems.map((item: any) => ({
-      budget_id: budget.id,
-      budget_version_id: budgetVersion.id,
-      budget_item_id: item.id,
-      project_id: budget.project_id,
-      department_id: budget.department_id,
-      year_month: budget.year_month,
-      description: item.description,
-      category: item.category,
-      budgeted_amount_kes: item.pm_approved_amount ?? item.amount_kes,
-      actual_amount_kes: null,
-      status: 'pending_auth',
-    }));
+    const pendingRows = newItems.map((item: any) => {
+      const budgetedAmountKes = item.pm_status === 'adjusted'
+        ? item.pm_approved_amount
+        : item.amount_kes;
+
+      return {
+        budget_id: budget.id,
+        budget_version_id: budgetVersion.id,
+        budget_item_id: item.id,
+        project_id: budget.project_id,
+        department_id: budget.department_id,
+        year_month: budget.year_month,
+        description: item.description,
+        category: item.category,
+        budgeted_amount_kes: budgetedAmountKes,
+        actual_amount_kes: null,
+        status: 'pending_auth',
+      };
+    });
 
     const { data: inserted, error: insertErr } = await admin
       .from('pending_expenses')
