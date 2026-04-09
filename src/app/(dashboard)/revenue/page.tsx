@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { PageHeader } from '@/components/layout/page-header';
@@ -126,6 +127,9 @@ export default function RevenuePage() {
         </Select>
         {canCreate && (
           <div className="flex gap-2">
+            <Button size="sm" variant="secondary" asChild>
+              <Link href="/invoices">Manage Invoices</Link>
+            </Button>
             <Button size="sm" className="gap-1" onClick={() => setShowInvoiceDialog(true)}>
               <Plus className="h-4 w-4" /> Invoice
             </Button>

@@ -51,6 +51,7 @@ const cfoNav: NavGroup[] = [
       { title: 'Expense Queue', href: '/expenses/queue', icon: ListChecks },
       { title: 'Variance Dashboard', href: '/expenses/variance', icon: GitCompareArrows },
       { title: 'Revenue', href: '/revenue', icon: DollarSign },
+      { title: 'Invoices', href: '/invoices', icon: FileText },
       { title: 'Withdrawals', href: '/withdrawals', icon: ArrowDownToLine },
     ],
   },
@@ -104,6 +105,7 @@ const accountantNav: NavGroup[] = [
       { title: 'Expenses', href: '/expenses', icon: Receipt },
       { title: 'Expense Queue', href: '/expenses/queue', icon: ListChecks },
       { title: 'Revenue', href: '/revenue', icon: DollarSign },
+      { title: 'Invoices', href: '/invoices', icon: FileText },
       { title: 'Withdrawals', href: '/withdrawals', icon: ArrowDownToLine },
     ],
   },
@@ -176,6 +178,7 @@ const projectManagerNav: NavGroup[] = [
     items: [
       { title: 'Budget Reviews', href: '/budgets', icon: ClipboardList },
       { title: 'Revenue', href: '/revenue', icon: DollarSign },
+      { title: 'Invoices', href: '/invoices', icon: FileText },
       { title: 'Expenses', href: '/expenses', icon: Receipt },
       { title: 'Withdrawals', href: '/withdrawals', icon: ArrowDownToLine },
     ],
