@@ -22,6 +22,7 @@ import {
   Mail, Receipt, BarChart3, Bell, Users, Database, Lock,
 } from 'lucide-react';
 import type { SystemSetting } from '@/types/database';
+import { canEditSettings, canViewSettings } from '@/lib/permissions';
 
 // -----------------------------------------------
 // Section definitions
@@ -165,6 +166,8 @@ export default function SettingsPage() {
   const [importBatches, setImportBatches] = useState<ImportBatch[]>([]);
   const [seedSnapshots, setSeedSnapshots] = useState<SeedSnapshot[]>([]);
   const [removingSeed, setRemovingSeed] = useState(false);
+  const canEdit = canEditSettings(user?.role);
+  const canView = canViewSettings(user?.role);
 
   useEffect(() => {
     async function load() {
@@ -197,6 +200,7 @@ export default function SettingsPage() {
   }
 
   async function handleSave() {
+    if (!canEdit) return;
     const supabase = createClient();
     const allKeys = SECTIONS.flatMap((s) => s.settings.map((d) => d.key));
     const allDefs = SECTIONS.flatMap((s) => s.settings);
@@ -260,6 +264,7 @@ export default function SettingsPage() {
   }
 
   async function toggleNotifPref(id: string, enabled: boolean) {
+    if (!canEdit) return;
     const supabase = createClient();
     await supabase.from('notification_preferences').update({
       enabled,
@@ -271,6 +276,7 @@ export default function SettingsPage() {
   }
 
   async function handleRemoveHistoricalSeed() {
+    if (!canEdit) return;
     const shouldContinue = window.confirm('This will remove historical seed records from all seed-related tables. Continue?');
     if (!shouldContinue) return;
 
@@ -316,13 +322,12 @@ export default function SettingsPage() {
 
   const currentSection = SECTIONS.find((s) => s.id === activeSection);
 
-  // CFO only
-  if (user && user.role !== 'cfo') {
+  if (user && !canView) {
     return (
       <div>
-        <PageHeader title="Settings" description="Settings are managed by the CFO" />
+        <PageHeader title="Settings" description="Settings are available to CFO and Accountant" />
         <div className="p-6">
-          <p className="text-sm text-neutral-500">You do not have permission to manage system settings.</p>
+          <p className="text-sm text-neutral-500">You do not have permission to view settings.</p>
         </div>
       </div>
     );
@@ -363,7 +368,7 @@ export default function SettingsPage() {
             <Bell className="h-4 w-4 shrink-0" />
             Notifications
           </button>
-          <button
+          {canEdit && <button
             onClick={() => setActiveSection('users')}
             className={cn(
               'flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm transition-colors text-left',
@@ -374,8 +379,8 @@ export default function SettingsPage() {
           >
             <Users className="h-4 w-4 shrink-0" />
             User Management
-          </button>
-          <button
+          </button>}
+          {canEdit && <button
             onClick={() => setActiveSection('data')}
             className={cn(
               'flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm transition-colors text-left',
@@ -386,7 +391,7 @@ export default function SettingsPage() {
           >
             <Database className="h-4 w-4 shrink-0" />
             Data & Import
-          </button>
+          </button>}
         </div>
 
         {/* Right content */}
@@ -413,6 +418,7 @@ export default function SettingsPage() {
                           id={def.key}
                           checked={val === 'true'}
                           onCheckedChange={(checked) => setValue(def.key, checked ? 'true' : 'false')}
+                          disabled={!canEdit}
                         />
                       ) : def.type === 'readonly' ? (
                         <div className="flex items-center gap-2">
@@ -430,6 +436,7 @@ export default function SettingsPage() {
                             type={def.type === 'number' ? 'number' : 'text'}
                             value={val}
                             onChange={(e) => setValue(def.key, e.target.value)}
+                            disabled={!canEdit}
                             className="max-w-xs"
                             min={def.type === 'number' ? def.min : undefined}
                             max={def.type === 'number' ? def.max : undefined}
@@ -454,7 +461,7 @@ export default function SettingsPage() {
               )}
 
               <div className="mt-8 flex items-center gap-3">
-                <Button onClick={handleSave}>Save Changes</Button>
+                <Button onClick={handleSave} disabled={!canEdit}>Save Changes</Button>
                 {dirty && (
                   <span className="text-xs text-amber-600">Unsaved changes</span>
                 )}
@@ -497,6 +504,7 @@ export default function SettingsPage() {
                                       <Switch
                                         checked={pref.enabled}
                                         onCheckedChange={(checked) => toggleNotifPref(pref.id, checked)}
+                                        disabled={!canEdit}
                                       />
                                     ) : (
                                       <span className="text-slate-300">&mdash;</span>
@@ -516,7 +524,7 @@ export default function SettingsPage() {
           )}
 
           {/* User management section */}
-          {activeSection === 'users' && (
+          {canEdit && activeSection === 'users' && (
             <div>
               <h2 className="text-lg font-semibold text-[#0f172a] mb-1">User Management</h2>
               <p className="text-sm text-slate-400 mb-4">
@@ -529,7 +537,7 @@ export default function SettingsPage() {
           )}
 
           {/* Data & Import section */}
-          {activeSection === 'data' && (
+          {canEdit && activeSection === 'data' && (
             <div>
               <h2 className="text-lg font-semibold text-[#0f172a] mb-1">Data & Import</h2>
               <p className="text-sm text-slate-400 mb-6">Historical data and import activity</p>
