@@ -91,10 +91,11 @@ export default function RevenuePage() {
 
     const { data: invoiceData, error: invoiceError } = await supabase
       .from('invoices')
-      .select('id, invoice_number, project_id, client_name, amount_usd, amount_kes, payment_status, total_paid, balance_outstanding, due_date, created_at, billing_period, invoice_date, status, description, notes, projects(name)')
+      .select('*, projects(name)')
       .order('created_at', { ascending: false });
 
     if (invoiceError) {
+      setInvoices([]);
       toast.error(getUserErrorMessage());
     } else {
       setInvoices((invoiceData || []).map((i: any) => ({
