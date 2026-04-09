@@ -78,9 +78,11 @@ export default function MonthlyPnlReport() {
 
       // Get user role
       const { data: { user } } = await supabase.auth.getUser();
+      let fetchedRole = '';
       if (user) {
         const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
-        setUserRole(profile?.role || '');
+        fetchedRole = profile?.role || '';
+        setUserRole(fetchedRole);
       }
 
       // Detect historical months — use direct matching
@@ -111,8 +113,8 @@ export default function MonthlyPnlReport() {
       const assignedProjects = (projAssign.data || []).map((a: any) => a.project_id);
 
       // Filter for PM/TL if needed
-      const profile = userRole;
-      const isRestricted = profile === 'team_leader' || profile === 'project_manager';
+      const normalizedRole = fetchedRole.trim().toLowerCase().replace(/[\s-]+/g, '_');
+      const isRestricted = normalizedRole === 'team_leader' || normalizedRole === 'project_manager' || normalizedRole === 'team_lead' || normalizedRole === 'pm';
 
       // Revenue per project (lagged)
       const revMap = new Map<string, number>();
@@ -204,7 +206,7 @@ export default function MonthlyPnlReport() {
       setLoading(false);
     }
     load();
-  }, [selectedMonth, userRole]);
+  }, [selectedMonth]);
 
   const exportPdf = useCallback(async () => {
     if (!pnl) return;
@@ -298,53 +300,60 @@ export default function MonthlyPnlReport() {
     doc.save(`IO_PnL_${selectedMonth}.pdf`);
   }, [pnl, selectedMonth, revenueSourceMonth, userRole]);
 
-  const allInsights = pnl ? [
-    {
-      role: 'PM',
-      headline: pnl.grossMargin >= 35 ? 'Delivery margins are healthy this month.' : 'Margin pressure needs project-level corrections.',
-      items: [
-        `Gross margin: ${pnl.grossMargin.toFixed(1)}%.`,
-        `Direct costs are ${((pnl.totalDirectCosts / Math.max(pnl.totalRevenue, 1)) * 100).toFixed(1)}% of revenue.`,
-        `Top revenue concentration: ${pnl.projectRevenues[0]?.name || 'N/A'}.`,
-      ],
-    },
-    {
-      role: 'Team Lead',
-      headline: view === 'detailed' ? 'Detailed mode is active for execution review.' : 'Switch to Detailed to inspect spend lines quickly.',
-      items: [
-        `Direct cost lines: ${pnl.directCosts.length} categories.`,
-        `Overhead categories: ${pnl.overheadGroups.length}.`,
-        `Operating margin: ${pnl.operatingMargin.toFixed(1)}%.`,
-      ],
-    },
-    {
-      role: 'Accountant',
-      headline: pnl.totalOverhead > 0 ? 'Shared overhead is materially impacting operating profit.' : 'No shared overhead captured this month.',
-      items: [
-        `Shared overhead: ${formatCurrency(pnl.totalOverhead, 'KES')}.`,
-        `Revenue recognition source: ${formatYearMonth(revenueSourceMonth)} invoices.`,
-        `Net profit: ${formatCurrency(pnl.netProfit, 'KES')}.`,
-      ],
-    },
-    {
-      role: 'CFO',
-      headline: pnl.netProfit >= 0 ? 'Company remains profitable on current mix.' : 'Month is in net loss and needs intervention.',
-      items: [
-        `Net margin: ${pnl.netProfit > 0 ? `${pnl.netMargin.toFixed(1)}%` : 'N/A'}.`,
-        `Gross to net bridge impact: ${formatCurrency(pnl.totalOverhead, 'KES')} overhead.`,
-        `Distributable-positive projects: ${pnl.distributable.filter((d) => d.profit > 0).length}.`,
-      ],
-    },
-  ] : [];
+  const normalizedUserRole = userRole.trim().toLowerCase().replace(/[\s-]+/g, '_');
 
-  const insightRoleByUserRole: Record<string, string> = {
-    project_manager: 'PM',
-    team_leader: 'Team Lead',
-    accountant: 'Accountant',
-    cfo: 'CFO',
-  };
+  const targetedInsights = !pnl ? [] : (() => {
+    switch (normalizedUserRole) {
+      case 'project_manager':
+      case 'pm':
+        return [{
+          role: 'PM',
+          headline: pnl.grossMargin >= 35 ? 'Delivery margins are healthy this month.' : 'Margin pressure needs project-level corrections.',
+          items: [
+            `Gross margin: ${pnl.grossMargin.toFixed(1)}%.`,
+            `Direct costs are ${((pnl.totalDirectCosts / Math.max(pnl.totalRevenue, 1)) * 100).toFixed(1)}% of revenue.`,
+            `Top revenue concentration: ${pnl.projectRevenues[0]?.name || 'N/A'}.`,
+          ],
+        }];
+      case 'team_leader':
+      case 'team_lead':
+      case 'tl':
+        return [{
+          role: 'Team Lead',
+          headline: view === 'detailed' ? 'Detailed mode is active for execution review.' : 'Switch to Detailed to inspect spend lines quickly.',
+          items: [
+            `Direct cost lines: ${pnl.directCosts.length} categories.`,
+            `Overhead categories: ${pnl.overheadGroups.length}.`,
+            `Operating margin: ${pnl.operatingMargin.toFixed(1)}%.`,
+          ],
+        }];
+      case 'accountant':
+      case 'finance_accountant':
+        return [{
+          role: 'Accountant',
+          headline: pnl.totalOverhead > 0 ? 'Shared overhead is materially impacting operating profit.' : 'No shared overhead captured this month.',
+          items: [
+            `Shared overhead: ${formatCurrency(pnl.totalOverhead, 'KES')}.`,
+            `Revenue recognition source: ${formatYearMonth(revenueSourceMonth)} invoices.`,
+            `Net profit: ${formatCurrency(pnl.netProfit, 'KES')}.`,
+          ],
+        }];
+      case 'cfo':
+      case 'chief_financial_officer':
+        return [{
+          role: 'CFO',
+          headline: pnl.netProfit >= 0 ? 'Company remains profitable on current mix.' : 'Month is in net loss and needs intervention.',
+          items: [
+            `Net margin: ${pnl.netProfit > 0 ? `${pnl.netMargin.toFixed(1)}%` : 'N/A'}.`,
+            `Gross to net bridge impact: ${formatCurrency(pnl.totalOverhead, 'KES')} overhead.`,
+            `Distributable-positive projects: ${pnl.distributable.filter((d) => d.profit > 0).length}.`,
+          ],
+        }];
+      default:
+        return [];
+    }
+  })();
 
-  const targetedInsights = userRole ? allInsights.filter((insight) => insight.role === insightRoleByUserRole[userRole]) : [];
 
   return (
     <div>
