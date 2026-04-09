@@ -288,6 +288,7 @@ export default function BudgetDetailPage() {
 
   const isCfo = user?.role === 'cfo';
   const isPm = user?.role === 'project_manager';
+  const isPmOrCfo = isPm || isCfo;
   const isAccountant = user?.role === 'accountant';
   const isTl = user?.role === 'team_leader';
   const isOwnBudget = budget?.created_by === user?.id;
@@ -378,13 +379,9 @@ export default function BudgetDetailPage() {
     activeVersion?.status === 'pm_approved'
     || activeVersion?.status === 'under_review'
     || activeVersion?.status === 'submitted'
-    || (
-      activeVersion?.status === 'pm_review'
-      && budgetSubmittedByRole === 'accountant'
-      && pendingLineItems === 0
-    )
+    || activeVersion?.status === 'pm_review'
   );
-  const canPmReview = isPm && activeVersion?.status === 'pm_review';
+  const canPmReview = isPmOrCfo && activeVersion?.status === 'pm_review';
   // CFO can also do line-item review on pm_review, pm_approved, submitted budgets
   const canLineReview = canPmReview || (isCfo && ['pm_review', 'pm_approved', 'submitted', 'under_review'].includes(activeVersion?.status || ''));
   const [adjustItem, setAdjustItem] = useState<any>(null);
