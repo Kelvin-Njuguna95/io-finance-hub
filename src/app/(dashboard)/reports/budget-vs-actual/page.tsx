@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/table';
 import { formatCurrency, formatPercent, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
 import { getLaggedMonth, getUnifiedServicePeriodLabel } from '@/lib/report-utils';
+import { getConfirmedExpensesByMonth } from '@/lib/queries/expenses';
 
 interface BvaRow {
   scope: string;
@@ -61,10 +62,7 @@ export default function BudgetVsActualPage() {
         .eq('year_month', selectedMonth);
 
       // Get expenses for this month
-      const { data: expenses } = await supabase
-        .from('expenses')
-        .select('budget_id, project_id, amount_kes')
-        .eq('year_month', selectedMonth);
+      const { data: expenses } = await getConfirmedExpensesByMonth(supabase, selectedMonth);
 
       // Expense by budget
       const expenseByBudget = new Map<string, number>();

@@ -23,6 +23,7 @@ import { CfoMiscApproval } from '@/components/misc/cfo-misc-approval';
 import { OutstandingReceivablesPanel } from '@/components/revenue/outstanding-receivables-panel';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
 import type { RedFlag, BudgetVersion, MonthlyFinancialSnapshot } from '@/types/database';
+import { getActiveRedFlags } from '@/lib/queries/red-flags';
 
 export function CfoDashboard() {
   const [snapshot, setSnapshot] = useState<MonthlyFinancialSnapshot | null>(null);
@@ -49,12 +50,7 @@ export function CfoDashboard() {
           .select('*')
           .eq('year_month', currentMonth)
           .single(),
-        supabase
-          .from('red_flags')
-          .select('*')
-          .eq('is_resolved', false)
-          .order('created_at', { ascending: false })
-          .limit(10),
+        getActiveRedFlags(supabase, 10),
         supabase
           .from('budget_versions')
           .select('*, budgets(project_id, department_id, year_month)')

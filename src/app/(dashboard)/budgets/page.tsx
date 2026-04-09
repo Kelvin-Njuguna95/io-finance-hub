@@ -26,6 +26,8 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { DashboardAlert } from '@/components/common/dashboard-alert';
 import { getStatusBadgeClass } from '@/lib/status';
+import { getBudgetsByMonth } from '@/lib/queries/budgets';
+import { BUDGET_STATUS } from '@/lib/constants/status';
 
 interface BudgetRow {
   id: string;
@@ -115,11 +117,7 @@ export default function BudgetsPage() {
 
   async function load() {
     const supabase = createClient();
-    const { data } = await supabase
-      .from('budgets')
-      .select('id, year_month, current_version, project_id, department_id, created_by, submitted_by_role, projects(name), departments(name), budget_versions(status, total_amount_usd, total_amount_kes, version_number)')
-      .eq('year_month', selectedMonth)
-      .order('created_at', { ascending: false });
+    const { data } = await getBudgetsByMonth(supabase, selectedMonth);
 
     // Get user names for created_by
     const userIds = new Set<string>();
@@ -154,8 +152,8 @@ export default function BudgetsPage() {
   const filteredBudgets = budgets.filter(b => {
     if (filterTab === 'all') return true;
     if (filterTab === 'mine') return b.created_by === user?.id;
-    if (filterTab === 'pending') return ['submitted', 'pm_review', 'pm_approved', 'under_review'].includes(b.latest_status);
-    if (filterTab === 'approved') return b.latest_status === 'approved';
+    if (filterTab === 'pending') return b.latest_status === BUDGET_STATUS.PM_REVIEW;
+    if (filterTab === 'approved') return b.latest_status === BUDGET_STATUS.APPROVED;
     return true;
   });
 

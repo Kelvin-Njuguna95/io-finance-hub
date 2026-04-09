@@ -12,6 +12,7 @@ import { Check } from 'lucide-react';
 import type { RedFlag } from '@/types/database';
 import { toast } from 'sonner';
 import { getStatusBadgeClass } from '@/lib/status';
+import { getRedFlags } from '@/lib/queries/red-flags';
 
 export default function RedFlagsPage() {
   const [flags, setFlags] = useState<RedFlag[]>([]);
@@ -21,11 +22,7 @@ export default function RedFlagsPage() {
 
   async function load() {
     const supabase = createClient();
-    const { data } = await supabase
-      .from('red_flags')
-      .select('*')
-      .eq('is_resolved', filter === 'resolved')
-      .order('created_at', { ascending: false });
+    const { data } = await getRedFlags(supabase, filter === 'resolved');
     setFlags(data || []);
   }
 

@@ -21,6 +21,8 @@ import { getStatusBadgeClass } from '@/lib/status';
 import { getAgingBucket } from '@/lib/backdated-utils';
 import { toast } from 'sonner';
 import { DollarSign, FileText, AlertTriangle, Plus, CreditCard } from 'lucide-react';
+import { getAllInvoices, getInvoiceOutstandingTotal, getInvoicesByMonth } from '@/lib/queries/invoices';
+import { INVOICE_STATUS, OUTSTANDING_INVOICE_STATUSES } from '@/lib/constants/status';
 
 type InvoiceRow = {
   id: string;
@@ -49,14 +51,9 @@ export default function InvoicesPage() {
 
   const loadInvoices = useCallback(async () => {
     const supabase = createClient();
-    let query = supabase
-      .from('invoices')
-      .select('id, invoice_number, project_id, invoice_date, due_date, billing_period, amount_usd, status, description, projects(name), payments(amount_usd)')
-      .order('invoice_date', { ascending: false });
-    if (selectedMonth !== 'all') {
-      query = query.eq('billing_period', selectedMonth);
-    }
-    const { data, error } = await query;
+    const { data, error } = selectedMonth === 'all'
+      ? await getAllInvoices(supabase)
+      : await getInvoicesByMonth(supabase, selectedMonth);
     if (error) {
       toast.error('Failed to load invoices');
       return;
@@ -70,10 +67,7 @@ export default function InvoicesPage() {
 
   const viewRows = useMemo(() => {
     if (tab === 'all') return rows;
-    return rows.filter((row) => {
-      const paid = (row.payments || []).reduce((s, p) => s + Number(p.amount_usd || 0), 0);
-      return Number(row.amount_usd) - paid > 0;
-    });
+    return rows.filter((row) => getInvoiceOutstandingTotal(row) > 0 && OUTSTANDING_INVOICE_STATUSES.includes(row.status as any));
   }, [rows, tab]);
 
   const totals = useMemo(() => {
@@ -234,11 +228,11 @@ export default function InvoicesPage() {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="draft">Draft</SelectItem>
-                                  <SelectItem value="sent">Sent</SelectItem>
-                                  <SelectItem value="partially_paid">Partially Paid</SelectItem>
-                                  <SelectItem value="paid">Paid</SelectItem>
-                                  <SelectItem value="overdue">Overdue</SelectItem>
+                                  <SelectItem value={INVOICE_STATUS.DRAFT}>Draft</SelectItem>
+                                  <SelectItem value={INVOICE_STATUS.SENT}>Sent</SelectItem>
+                                  <SelectItem value={INVOICE_STATUS.PARTIALLY_PAID}>Partially Paid</SelectItem>
+                                  <SelectItem value={INVOICE_STATUS.PAID}>Paid</SelectItem>
+                                  <SelectItem value={INVOICE_STATUS.OVERDUE}>Overdue</SelectItem>
                                 </SelectContent>
                               </Select>
                               <Button variant="ghost" size="sm" onClick={() => handleDeleteInvoice(row.id)}>

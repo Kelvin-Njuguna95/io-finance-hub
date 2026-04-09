@@ -28,6 +28,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getUserErrorMessage } from '@/lib/errors';
+import { getActiveProjects, getAssignedActiveProjects } from '@/lib/queries/projects';
+import { getMiscDrawsByProjectAndPeriod, getPendingPmMiscDrawsByProjectAndPeriod, getMiscReportByProjectAndPeriod } from '@/lib/queries/misc';
+import { MISC_DRAW_STATUS } from '@/lib/constants/status';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -139,21 +142,11 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: any; selecte
     const supabase = createClient();
 
     if (['project_manager', 'team_leader'].includes(user.role)) {
-      const { data: assignments } = await supabase
-        .from('user_project_assignments')
-        .select('project_id, projects(id, name, is_active)')
-        .eq('user_id', user.id);
-      const assigned = (assignments || [])
-        .map((a: any) => a.projects)
-        .filter((p: any) => p?.is_active);
+      const { data: assigned } = await getAssignedActiveProjects(supabase, user.id);
       setProjects(assigned);
       if (assigned.length > 0) setSelectedProjectId((prev) => prev || assigned[0].id);
     } else {
-      const { data: allProjects } = await supabase
-        .from('projects')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
+      const { data: allProjects } = await getActiveProjects(supabase);
       setProjects(allProjects || []);
       if ((allProjects || []).length > 0) setSelectedProjectId((prev) => prev || allProjects![0].id);
     }
@@ -163,12 +156,7 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: any; selecte
   const loadReport = useCallback(async () => {
     if (!selectedProjectId) return;
     const supabase = createClient();
-    const { data: rep } = await supabase
-      .from('misc_reports')
-      .select('*')
-      .eq('project_id', selectedProjectId)
-      .eq('period_month', reportMonth)
-      .single();
+    const { data: rep } = await getMiscReportByProjectAndPeriod(supabase, selectedProjectId, reportMonth);
     setReport(rep || null);
     if (rep?.id) {
       const { data: itemRows } = await supabase
@@ -207,11 +195,7 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: any; selecte
     const supabase = createClient();
     const periodDate = `${reportMonth}-01`;
 
-    const { data: draws } = await supabase
-      .from('misc_draws')
-      .select('id, draw_type, amount_approved')
-      .eq('project_id', selectedProjectId)
-      .eq('period_month', periodDate);
+    const { data: draws } = await getMiscDrawsByProjectAndPeriod(supabase, selectedProjectId, periodDate);
     const { data: alloc } = await supabase
       .from('misc_allocations')
       .select('monthly_amount')
@@ -476,7 +460,7 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
       .select('*, users!misc_draws_raised_by_fkey(full_name)')
       .eq('project_id', proj.id)
       .eq('pm_approval_status', 'pending')
-      .eq('status', 'pending_pm_approval')
+      .eq('status', MISC_DRAW_STATUS.PENDING_PM_APPROVAL)
       .order('created_at');
     setPendingApprovals(pendingDraws || []);
 
@@ -892,11 +876,11 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
                         d.status === 'approved' ? 'bg-emerald-100 text-emerald-700'
                           : d.status === 'accounted' ? 'bg-blue-100 text-blue-700'
                             : d.status === 'flagged' ? 'bg-rose-100 text-rose-700'
-                              : d.status === 'pending_pm_approval' ? 'bg-purple-100 text-purple-700'
+                              : d.status === MISC_DRAW_STATUS.PENDING_PM_APPROVAL ? 'bg-purple-100 text-purple-700'
                                 : d.status === 'declined' ? 'bg-rose-100 text-rose-700'
                                   : 'bg-slate-100 text-slate-600'
                       }>
-                        {d.status === 'approved' ? 'Active' : d.status === 'accounted' ? 'Accounted' : d.status === 'flagged' ? 'Flagged' : d.status === 'pending_pm_approval' ? 'Pending Approval' : d.status === 'declined' ? 'Declined' : d.status}
+                        {d.status === 'approved' ? 'Active' : d.status === 'accounted' ? 'Accounted' : d.status === 'flagged' ? 'Flagged' : d.status === MISC_DRAW_STATUS.PENDING_PM_APPROVAL ? 'Pending Approval' : d.status === 'declined' ? 'Declined' : d.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">
@@ -1392,9 +1376,9 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
   }, 0);
 
   const flaggedCount = allDraws.filter((d) => d.cfo_flagged).length;
-  const unrecordedCount = allDraws.filter((d) => !d.expense_id && !['pending_pm_approval', 'declined', 'deleted'].includes(d.status)).length;
+  const unrecordedCount = allDraws.filter((d) => !d.expense_id && ![MISC_DRAW_STATUS.PENDING_PM_APPROVAL, MISC_DRAW_STATUS.DECLINED, MISC_DRAW_STATUS.DELETED].includes(d.status)).length;
   const delegatedCount = allDraws.filter((d) => d.raised_by_role === 'accountant').length;
-  const pendingPmCount = allDraws.filter((d) => d.status === 'pending_pm_approval').length;
+  const pendingPmCount = allDraws.filter((d) => d.status === MISC_DRAW_STATUS.PENDING_PM_APPROVAL).length;
 
   // Accountant misc metrics
   const acctPending = acctRequests.filter((r) => r.status === 'pending');
@@ -2022,7 +2006,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
                         {d.raised_by_role === 'accountant' && (
                           <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px]">Delegated</Badge>
                         )}
-                        {d.status === 'pending_pm_approval' && (
+                        {d.status === MISC_DRAW_STATUS.PENDING_PM_APPROVAL && (
                           <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px]">Pending PM</Badge>
                         )}
                         {d.status === 'declined' && (
@@ -2031,7 +2015,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
                         {d.status === 'deleted' && (
                           <Badge variant="secondary" className="bg-slate-200 text-slate-500 text-[10px]">Deleted</Badge>
                         )}
-                        {!d.expense_id && !['pending_pm_approval', 'declined', 'deleted'].includes(d.status) && (
+                        {!d.expense_id && ![MISC_DRAW_STATUS.PENDING_PM_APPROVAL, MISC_DRAW_STATUS.DECLINED, MISC_DRAW_STATUS.DELETED].includes(d.status) && (
                           <Badge variant="secondary" className="bg-slate-100 text-slate-500 text-xs">Not Recorded</Badge>
                         )}
                       </div>
@@ -2325,7 +2309,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
       .select('*, projects(name)')
       .eq('raised_by', user.id)
       .eq('pm_approval_status', 'pending')
-      .eq('status', 'pending_pm_approval')
+      .eq('status', MISC_DRAW_STATUS.PENDING_PM_APPROVAL)
       .order('created_at', { ascending: false });
     setMyPendingDraws(myPending || []);
 

@@ -17,6 +17,8 @@ import { encodeBackdatedNotes, type BackdatedMeta } from '@/lib/backdated-utils'
 import { toast } from 'sonner';
 import type { Project } from '@/types/database';
 import { getUserErrorMessage } from '@/lib/errors';
+import { getActiveProjects } from '@/lib/queries/projects';
+import { INVOICE_STATUS } from '@/lib/constants/status';
 
 interface Props {
   open: boolean;
@@ -56,7 +58,7 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
     if (!open) return;
     async function load() {
       const supabase = createClient();
-      const { data } = await supabase.from('projects').select('*').eq('is_active', true).order('name');
+      const { data } = await getActiveProjects(supabase);
       setProjects((data || []) as Project[]);
     }
     load();
@@ -98,7 +100,7 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
       billing_period: billingPeriod,
       amount_usd: amountUsd,
       amount_kes: amountKes,
-      status: 'sent',
+      status: INVOICE_STATUS.SENT,
       description: finalDescription,
       created_by: user!.id,
     });
