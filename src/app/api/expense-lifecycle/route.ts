@@ -249,7 +249,8 @@ export async function POST(request: Request) {
       year_month: budget.year_month,
       description: item.description,
       category: item.category,
-      budgeted_amount_kes: item.pm_approved_amount != null ? item.pm_approved_amount : 0,
+      budgeted_amount_kes: item.pm_approved_amount ?? item.amount_kes,
+      actual_amount_kes: null,
       status: 'pending_auth',
     }));
 

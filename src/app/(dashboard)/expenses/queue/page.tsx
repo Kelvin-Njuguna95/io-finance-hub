@@ -221,6 +221,7 @@ export default function ExpenseQueuePage() {
     .filter((i) => i.status === EXPENSE_STATUS.CONFIRMED)
     .reduce((s, i) => s + Number(i.actual_amount_kes || 0), 0);
   const pendingCount = filtered.filter((i) => i.status === EXPENSE_STATUS.PENDING_AUTH).length;
+  const selectedMonthPendingCount = items.filter((i) => i.status === EXPENSE_STATUS.PENDING_AUTH).length;
   const totalActual = filtered.reduce((s, i) => s + Number(i.actual_amount_kes || i.budgeted_amount_kes), 0);
   const overallVariance = totalActual - totalBudgeted;
 
@@ -556,6 +557,10 @@ export default function ExpenseQueuePage() {
             {loading ? (
               <div className="flex items-center justify-center py-16 text-sm text-slate-400">
                 Loading...
+              </div>
+            ) : selectedMonthPendingCount === 0 ? (
+              <div className="flex items-center justify-center py-16 text-sm text-slate-500">
+                No pending expenses — all approved budgets have been confirmed for {formatYearMonth(selectedMonth)}.
               </div>
             ) : filtered.length === 0 ? (
               <div className="flex items-center justify-center py-16 text-sm text-slate-400">
