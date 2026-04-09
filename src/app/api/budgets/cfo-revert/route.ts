@@ -112,6 +112,7 @@ export async function POST(request: Request) {
     });
 
     // Delete
+    await admin.from('pending_expenses').delete().eq('budget_id', budget_id);
     await admin.from('budget_withdrawal_log').delete().eq('budget_id', budget_id);
     for (const v of versions) {
       await admin.from('budget_items').delete().eq('budget_version_id', v.id);
