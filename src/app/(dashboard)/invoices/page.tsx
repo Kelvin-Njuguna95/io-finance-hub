@@ -39,6 +39,7 @@ type InvoiceRow = {
 export default function InvoicesPage() {
   const { user } = useUser();
   const [selectedMonth, setSelectedMonth] = useState<'all' | string>('all');
+
   const [rows, setRows] = useState<InvoiceRow[]>([]);
   const [tab, setTab] = useState<'all' | 'outstanding'>('all');
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
@@ -52,6 +53,10 @@ export default function InvoicesPage() {
       .from('invoices')
       .select('id, invoice_number, project_id, invoice_date, due_date, billing_period, amount_usd, status, description, projects(name), payments(amount_usd)')
       .order('invoice_date', { ascending: false });
+    if (selectedMonth !== 'all') {
+      query = query.eq('billing_period', selectedMonth);
+    }
+    const { data, error } = await query;
 
     if (selectedMonth !== 'all') {
       query = query.eq('billing_period', selectedMonth);
@@ -86,7 +91,7 @@ export default function InvoicesPage() {
       const paid = (r.payments || []).reduce((s, p) => s + Number(p.amount_usd || 0), 0);
       const outstanding = Number(r.amount_usd) - paid;
       if (outstanding <= 0) return false;
-      return getAgingBucket(r.invoice_date) !== 'current';
+      return getAgingBucket(r.invoice_date).days > 30;
     }).length;
     return { totalInvoiced, totalPaid, totalOutstanding, overdueCount };
   }, [rows]);
@@ -129,6 +134,7 @@ export default function InvoicesPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Months</SelectItem>
+
               {Array.from({ length: 12 }, (_, i) => {
                 const d = new Date();
                 d.setMonth(d.getMonth() - i);
@@ -204,6 +210,7 @@ export default function InvoicesPage() {
                   <TableRow>
                     <TableCell colSpan={canManage ? 9 : 8} className="py-8 text-center text-sm text-neutral-500">
                       {selectedMonth === 'all' ? 'No invoices found.' : `No invoices found for ${formatYearMonth(selectedMonth)}`}
+
                     </TableCell>
                   </TableRow>
                 ) : (
