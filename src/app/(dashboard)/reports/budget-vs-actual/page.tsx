@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { RoleInsightBoard } from '@/components/reports/role-insight-board';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -155,6 +156,47 @@ export default function BudgetVsActualPage() {
       </PageHeader>
 
       <div className="p-6 space-y-6">
+        <RoleInsightBoard
+          insights={[
+            {
+              role: 'PM',
+              headline: totalVariance >= 0 ? 'Portfolio is under budget.' : 'Portfolio has crossed budget.',
+              items: [
+                `Utilization: ${formatPercent(totalUtil)} across active scopes.`,
+                `Gross profit view: ${formatCurrency(grossProfit, 'KES')}.`,
+                `${rows.filter((r) => r.variance_kes < 0).length} scope(s) are over budget.`,
+              ],
+            },
+            {
+              role: 'Team Lead',
+              headline: totalUtil > 90 ? 'Spending pace is high this month.' : 'Spending pace is still controlled.',
+              items: [
+                `Total spent: ${formatCurrency(totalActual, 'KES')}.`,
+                `Largest actual line: ${[...rows].sort((a, b) => b.actual_kes - a.actual_kes)[0]?.scope || 'N/A'}.`,
+                `Status coverage: ${rows.length} budgets in review.`,
+              ],
+            },
+            {
+              role: 'Accountant',
+              headline: 'Budget and actual reconciliation is in one ledger view.',
+              items: [
+                `Budget booked: ${formatCurrency(totalBudget, 'KES')}.`,
+                `Variance bridge: ${formatCurrency(totalVariance, 'KES')}.`,
+                `Revenue source month: ${formatYearMonth(revenueSourceMonth)}.`,
+              ],
+            },
+            {
+              role: 'CFO',
+              headline: grossProfit >= 0 ? 'Lagged P&L remains profitable.' : 'Lagged P&L is negative this cycle.',
+              items: [
+                `Lagged revenue: ${formatCurrency(laggedRevenue, 'KES')}.`,
+                `Expense-to-revenue ratio: ${((totalActual / Math.max(laggedRevenue, 1)) * 100).toFixed(1)}%.`,
+                `Over-budget scopes: ${rows.filter((r) => r.utilization_pct > 100).length}.`,
+              ],
+            },
+          ]}
+        />
+
         {/* Summary stats */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard title="Total Budgeted" value={formatCurrency(totalBudget, 'KES')} icon={FileText} />
