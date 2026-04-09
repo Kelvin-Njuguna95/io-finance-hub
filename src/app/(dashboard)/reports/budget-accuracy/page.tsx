@@ -7,6 +7,7 @@ import { StatCard } from '@/components/layout/stat-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RoleInsightBoard } from '@/components/reports/role-insight-board';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -167,6 +168,47 @@ export default function BudgetAccuracyPage() {
       </PageHeader>
 
       <div className="p-6 space-y-6">
+        <RoleInsightBoard
+          insights={[
+            {
+              role: 'PM',
+              headline: avgAccuracy >= 90 ? 'Forecast quality is tracking above target.' : 'Forecast quality is below target baseline.',
+              items: [
+                `Average forecasting accuracy: ${formatPercent(avgAccuracy)}.`,
+                `Best performer: ${bestProject.name} (${formatPercent(bestProject.avg)}).`,
+                `${rows.filter((r) => r.accuracy < 75).length} data point(s) are high risk.`,
+              ],
+            },
+            {
+              role: 'Team Lead',
+              headline: 'Use trend lines to tighten planning at team level.',
+              items: [
+                `Coverage window: ${rangeMonths} months.`,
+                `Projects in scope: ${projectNames.length}.`,
+                `Most recent month tracked: ${rows[0]?.month ? formatYearMonth(rows[0].month) : 'N/A'}.`,
+              ],
+            },
+            {
+              role: 'Accountant',
+              headline: 'Variance patterns are segmented by over/under/on-target behavior.',
+              items: [
+                `Rows reconciled: ${rows.length}.`,
+                `Over-budget frequency leaders surface in stacked frequency chart.`,
+                `Target threshold remains 90% accuracy.`,
+              ],
+            },
+            {
+              role: 'CFO',
+              headline: avgAccuracy >= 85 ? 'Budget governance is trending stable.' : 'Budget governance needs tighter controls.',
+              items: [
+                `Portfolio accuracy gap to 90% target: ${(90 - avgAccuracy).toFixed(1)} pts.`,
+                `Decision-ready view across ${projectNames.length} active project streams.`,
+                `Use low-accuracy outliers for policy review.`,
+              ],
+            },
+          ]}
+        />
+
         {/* Summary cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatCard title="Avg Accuracy" value={formatPercent(avgAccuracy)} subtitle={avgAccuracy >= 90 ? 'On target' : 'Below 90% target'} icon={Target} />

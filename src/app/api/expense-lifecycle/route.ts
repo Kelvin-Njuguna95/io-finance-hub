@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient, getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
+import { createAdminClient, assertMonthOpen } from '@/lib/supabase/admin';
 
 async function getAuthUser(request: Request) {
   const authHeader = request.headers.get('Authorization');
@@ -36,6 +36,71 @@ async function notifyRole(
       link,
     });
   }
+}
+
+function isMiscBudgetItem(item: { category?: string | null; description?: string | null }) {
+  const category = (item.category || '').toLowerCase();
+  const description = (item.description || '').toLowerCase();
+  return category.includes('misc') || description.includes('misc');
+}
+
+async function autoLogBudgetMiscDraws(
+  admin: ReturnType<typeof createAdminClient>,
+  dbUser: any,
+  budget: any,
+  budgetItems: any[],
+) {
+  if (!budget?.project_id || !budget?.year_month || !budgetItems.length) return 0;
+
+  const miscItems = budgetItems
+    .filter((item: any) => isMiscBudgetItem(item))
+    .filter((item: any) => Number(item.pm_approved_amount != null ? item.pm_approved_amount : item.amount_kes) > 0);
+
+  if (!miscItems.length) return 0;
+
+  const { data: existingDraws } = await admin
+    .from('misc_draws')
+    .select('budget_item_id')
+    .in('budget_item_id', miscItems.map((item: any) => item.id));
+  const existing = new Set((existingDraws || []).map((d: any) => d.budget_item_id).filter(Boolean));
+
+  const { data: assignment } = await admin
+    .from('user_project_assignments')
+    .select('user_id')
+    .eq('project_id', budget.project_id)
+    .limit(1)
+    .maybeSingle();
+
+  const now = new Date().toISOString();
+  const rows = miscItems
+    .filter((item: any) => !existing.has(item.id))
+    .map((item: any) => {
+      const amount = Number(item.pm_approved_amount != null ? item.pm_approved_amount : item.amount_kes);
+      return {
+        project_id: budget.project_id,
+        period_month: `${budget.year_month}-01`,
+        draw_type: 'top_up',
+        amount_requested: amount,
+        amount_approved: amount,
+        purpose: `Budget-approved misc line: ${item.description}`,
+        status: 'approved',
+        budget_item_id: item.id,
+        requested_by: assignment?.user_id || dbUser.id,
+        pm_user_id: assignment?.user_id || null,
+        raised_by: dbUser.id,
+        raised_by_role: dbUser.role,
+        pm_approval_status: 'approved',
+        pm_approved_by: dbUser.id,
+        pm_actioned_at: now,
+        accountant_notes: 'Auto-created from approved budget miscellaneous line item.',
+      };
+    });
+
+  if (!rows.length) return 0;
+  const { data: inserted, error } = await admin.from('misc_draws').insert(rows).select('id');
+  if (error) throw error;
+
+  return inserted?.length || 0;
 }
 
 // =============================================================
@@ -187,6 +252,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: insertErr.message }, { status: 500 });
     }
 
+    let miscLogged = 0;
+    try {
+      miscLogged = await autoLogBudgetMiscDraws(admin, dbUser, budget, newItems);
+    } catch (miscErr: any) {
+      console.error('Failed to auto-log misc items from budget:', miscErr?.message || miscErr);
+    }
+
     // Audit log
     await admin.from('audit_logs').insert({
       user_id: dbUser.id,
@@ -203,7 +275,7 @@ export async function POST(request: Request) {
       await notifyRole(admin, 'accountant', 'Pending expenses auto-populated', `${inserted?.length} pending expense(s) created from budget for ${budget.year_month}.`, '/expenses');
     }
 
-    return NextResponse.json({ success: true, data: inserted });
+    return NextResponse.json({ success: true, data: inserted, misc_logged: miscLogged });
   }
 
   // -----------------------------------------------------------
@@ -268,6 +340,12 @@ export async function POST(request: Request) {
 
       const { error: insErr } = await admin.from('pending_expenses').insert(rows);
       if (!insErr) totalCreated += rows.length;
+
+      try {
+        await autoLogBudgetMiscDraws(admin, dbUser, budget, newItems);
+      } catch (miscErr: any) {
+        console.error('Backfill misc auto-log failed:', miscErr?.message || miscErr);
+      }
     }
 
     await admin.from('audit_logs').insert({

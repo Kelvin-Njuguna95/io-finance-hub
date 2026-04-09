@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { RoleInsightBoard } from '@/components/reports/role-insight-board';
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 
 function PnlLine({ label, kes, bold, negative }: {
@@ -175,7 +176,50 @@ export default function PnLReportPage() {
         </Select>
       </PageHeader>
 
-      <div className="p-6">
+      <div className="p-6 space-y-6">
+        {!!pnl && (
+          <RoleInsightBoard
+            insights={[
+              {
+                role: 'PM',
+                headline: pnl.grossProfit >= 0 ? 'Gross profitability is positive.' : 'Gross line is negative and needs project resets.',
+                items: [
+                  `Revenue basis: ${reportMode === 'accrual' ? 'Lagged invoice month' : 'Cash received month'}.`,
+                  `Gross profit: ${formatCurrency(pnl.grossProfit, 'KES')}.`,
+                  `Direct cost intensity: ${((pnl.directCosts / Math.max(pnl.revenue, 1)) * 100).toFixed(1)}% of revenue.`,
+                ],
+              },
+              {
+                role: 'Team Lead',
+                headline: pnl.agents > 0 ? `Agent-backed operations running with ${pnl.agents} agents.` : 'No agent count registered for this period.',
+                items: [
+                  `Revenue per agent: ${pnl.agents > 0 ? formatCurrency(pnl.revenue / pnl.agents, 'KES') : 'N/A'}.`,
+                  `Gross to operating drag: ${formatCurrency(pnl.sharedOverhead, 'KES')}.`,
+                  `Mode selected: ${reportMode}.`,
+                ],
+              },
+              {
+                role: 'Accountant',
+                headline: 'P&L view aligns revenue recognition and cost booking windows.',
+                items: [
+                  `Revenue month in scope: ${reportMode === 'accrual' ? formatYearMonth(revenueSourceMonth) : formatYearMonth(selectedMonth)}.`,
+                  `Cash balance monitor: ${formatCurrency(cashBalance, 'USD')}.`,
+                  `Shared overhead booked: ${formatCurrency(pnl.sharedOverhead, 'KES')}.`,
+                ],
+              },
+              {
+                role: 'CFO',
+                headline: pnl.netProfit >= 0 ? 'Net result remains positive.' : 'Net loss requires immediate levers.',
+                items: [
+                  `Operating profit: ${formatCurrency(pnl.operatingProfit, 'KES')}.`,
+                  `Net profit: ${formatCurrency(pnl.netProfit, 'KES')}.`,
+                  `Revenue in USD: ${pnl.revenueUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}.`,
+                ],
+              },
+            ]}
+          />
+        )}
+
         <Card className="max-w-2xl io-card">
           <CardHeader>
             <div>
