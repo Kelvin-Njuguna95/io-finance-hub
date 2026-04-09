@@ -36,11 +36,12 @@ type RevenueInvoice = Invoice & {
   payment_status?: string;
   total_paid?: number;
   balance_outstanding?: number;
+  status?: string;
   year_month?: string;
 };
 
 type InvoiceFilter = 'all' | 'unpaid' | 'partially_paid' | 'paid' | 'overdue' | 'pending';
-type SortKey = 'amount' | 'due_date' | 'status';
+type SortKey = 'created_at' | 'amount' | 'due_date' | 'status';
 type SortDirection = 'asc' | 'desc';
 
 function normalizeStatus(invoice: RevenueInvoice): InvoiceFilter {
@@ -78,7 +79,7 @@ export default function RevenuePage() {
   const [paymentNotes, setPaymentNotes] = useState('');
   const [submittingPayment, setSubmittingPayment] = useState(false);
   const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>('all');
-  const [sortKey, setSortKey] = useState<SortKey>('due_date');
+  const [sortKey, setSortKey] = useState<SortKey>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
   const [confirmDeleteInvoice, setConfirmDeleteInvoice] = useState<RevenueInvoice | null>(null);
@@ -90,10 +91,11 @@ export default function RevenuePage() {
 
     const { data: invoiceData, error: invoiceError } = await supabase
       .from('invoices')
-      .select('id, invoice_number, project_id, client_name, amount_usd, amount_kes, payment_status, total_paid, balance_outstanding, due_date, created_at, year_month, billing_period, invoice_date, status, description, notes, projects(name)')
+      .select('*, projects(name)')
       .order('created_at', { ascending: false });
 
     if (invoiceError) {
+      setInvoices([]);
       toast.error(getUserErrorMessage());
     } else {
       setInvoices((invoiceData || []).map((i: any) => ({
@@ -136,7 +138,6 @@ export default function RevenuePage() {
   }, [loadData]);
 
   const totalInvoicedUsd = useMemo(() => invoices
-    .filter((i: RevenueInvoice) => !isBackdated(i.description))
     .reduce((s, i) => s + Number(i.amount_usd), 0), [invoices]);
 
   const totalCashReceivedUsd = useMemo(() => payments.reduce((s, p) => s + Number(p.amount_usd), 0), [payments]);
@@ -144,8 +145,15 @@ export default function RevenuePage() {
   const outstandingTotals = useMemo(() => invoices.reduce((acc, inv) => {
     const computedStatus = normalizeStatus(inv);
     if (computedStatus !== 'paid') {
-      acc.usd += Math.max(0, Number(inv.balance_outstanding ?? 0));
-      acc.kes += Math.max(0, Number(inv.amount_kes ?? 0));
+      const invoiceOutstandingUsd = Math.max(0, Number(inv.balance_outstanding ?? 0));
+      const amountUsd = Number(inv.amount_usd ?? 0);
+      const amountKes = Number(inv.amount_kes ?? 0);
+      const proportionalOutstandingKes = amountUsd > 0
+        ? (invoiceOutstandingUsd / amountUsd) * amountKes
+        : 0;
+
+      acc.usd += invoiceOutstandingUsd;
+      acc.kes += Math.max(0, proportionalOutstandingKes);
     }
     return acc;
   }, { usd: 0, kes: 0 }), [invoices]);
@@ -167,6 +175,9 @@ export default function RevenuePage() {
       if (sortKey === 'amount') {
         aValue = Number(a.amount_usd || 0);
         bValue = Number(b.amount_usd || 0);
+      } else if (sortKey === 'created_at') {
+        aValue = a.created_at ? new Date(a.created_at).getTime() : 0;
+        bValue = b.created_at ? new Date(b.created_at).getTime() : 0;
       } else if (sortKey === 'due_date') {
         aValue = a.due_date ? new Date(a.due_date).getTime() : 0;
         bValue = b.due_date ? new Date(b.due_date).getTime() : 0;
