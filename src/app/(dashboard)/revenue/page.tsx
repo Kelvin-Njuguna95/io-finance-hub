@@ -107,8 +107,12 @@ export default function RevenuePage() {
         payment_status,
         total_paid,
         balance_outstanding,
+        created_at,
+        updated_at,
+        notes,
+        created_by,
         projects(name),
-        payments(id, amount_usd, payment_date, payment_method, reference)
+        payments(id, amount_usd, payment_date, payment_method, reference, notes, invoice_id, amount_kes, recorded_by, created_at, updated_at)
       `)
       .order('created_at', { ascending: false });
 
