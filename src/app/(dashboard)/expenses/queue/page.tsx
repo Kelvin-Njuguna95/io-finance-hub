@@ -95,11 +95,12 @@ function variancePercent(budgeted: number, actual: number) {
 // -----------------------------------------------
 
 function getMonthOptions() {
-  return Array.from({ length: 12 }, (_, i) => {
+  return Array.from({ length: 19 }, (_, idx) => {
+    const i = idx - 12; // 12 months back through 6 months ahead
     const d = new Date();
-    d.setMonth(d.getMonth() - i);
+    d.setMonth(d.getMonth() + i);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  });
+  }).reverse();
 }
 
 // -----------------------------------------------
@@ -157,8 +158,35 @@ export default function ExpenseQueuePage() {
   }, []);
 
   useEffect(() => {
+    async function syncToLatestPendingMonth() {
+      const { data } = await supabase
+        .from('pending_expenses')
+        .select('year_month')
+        .eq('status', 'pending_auth')
+        .order('year_month', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data?.year_month && data.year_month !== selectedMonth) {
+        setSelectedMonth(data.year_month);
+      }
+    }
+    syncToLatestPendingMonth();
+  }, []);
+
+  useEffect(() => {
     loadItems();
     setSelected(new Set());
+  }, [selectedMonth]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`expense-queue-${selectedMonth}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_expenses' }, () => loadItems())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => loadItems())
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [selectedMonth]);
 
   // -----------------------------------------------
@@ -272,8 +300,26 @@ export default function ExpenseQueuePage() {
   }
 
   async function handleCarryForward(item: PendingExpense) {
+    const reason = window.prompt('Carry-forward reason (required):');
+    if (!reason?.trim()) {
+      toast.error('Reason is required');
+      return;
+    }
+    const targetMonth = window.prompt('Target month (YYYY-MM):');
+    if (!targetMonth?.trim()) {
+      toast.error('Target month is required');
+      return;
+    }
+    if (targetMonth <= selectedMonth) {
+      toast.error('Target month must be after the selected month');
+      return;
+    }
     try {
-      await callAction('carry_forward', { id: item.id });
+      await callAction('carry_forward', {
+        id: item.id,
+        carry_reason: reason.trim(),
+        target_month: targetMonth.trim(),
+      });
       toast.success('Expense carried forward');
       loadItems();
     } catch (e: unknown) {
@@ -282,8 +328,13 @@ export default function ExpenseQueuePage() {
   }
 
   async function handleFlagForReview(item: PendingExpense) {
+    const reviewNotes = window.prompt('Review reason (required):');
+    if (!reviewNotes?.trim()) {
+      toast.error('Review reason is required');
+      return;
+    }
     try {
-      await callAction('under_review', { id: item.id });
+      await callAction('under_review', { id: item.id, review_notes: reviewNotes.trim() });
       toast.success('Expense flagged for review');
       loadItems();
     } catch (e: unknown) {
@@ -308,6 +359,36 @@ export default function ExpenseQueuePage() {
       loadItems();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Bulk confirm failed');
+    }
+  }
+
+  async function handleBulkCarryForward() {
+    const toCarry = filtered.filter((i) => selected.has(i.id) && i.status === 'pending_auth');
+    if (toCarry.length === 0) {
+      toast.error('No pending items selected');
+      return;
+    }
+    const reason = window.prompt('Carry-forward reason for selected items (required):');
+    if (!reason?.trim()) {
+      toast.error('Reason is required');
+      return;
+    }
+    const targetMonth = window.prompt('Target month for selected items (YYYY-MM):');
+    if (!targetMonth?.trim() || targetMonth <= selectedMonth) {
+      toast.error('A future target month is required');
+      return;
+    }
+    try {
+      await Promise.all(toCarry.map((item) => callAction('carry_forward', {
+        id: item.id,
+        carry_reason: reason.trim(),
+        target_month: targetMonth.trim(),
+      })));
+      toast.success(`${toCarry.length} expense(s) carried forward`);
+      setSelected(new Set());
+      loadItems();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Bulk carry forward failed');
     }
   }
 
@@ -463,6 +544,9 @@ export default function ExpenseQueuePage() {
             <Button size="sm" onClick={handleBulkConfirm}>
               Confirm All Selected
             </Button>
+            <Button size="sm" variant="outline" onClick={handleBulkCarryForward}>
+              Carry Forward Selected
+            </Button>
           </div>
         )}
 
@@ -577,6 +661,8 @@ export default function ExpenseQueuePage() {
                                     size="sm"
                                     variant="outline"
                                     className="h-7 text-xs text-red-600"
+                                    disabled={user?.role !== 'cfo'}
+                                    hidden={user?.role !== 'cfo'}
                                     onClick={() => {
                                       setVoidDialog(item);
                                       setVoidReason('');
@@ -621,6 +707,8 @@ export default function ExpenseQueuePage() {
                                     size="sm"
                                     variant="outline"
                                     className="h-7 text-xs text-red-600"
+                                    disabled={user?.role !== 'cfo'}
+                                    hidden={user?.role !== 'cfo'}
                                     onClick={() => {
                                       setVoidDialog(item);
                                       setVoidReason('');

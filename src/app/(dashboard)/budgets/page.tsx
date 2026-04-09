@@ -180,9 +180,10 @@ export default function BudgetsPage() {
   }
 
   function canDeleteBudget(b: BudgetRow): boolean {
+    if (user?.role === 'cfo') return true;
+    if (user?.role === 'accountant' && b.created_by === user?.id) return true;
     if (b.latest_status !== 'draft') return false;
     if (b.created_by === user?.id) return true;
-    if (user?.role === 'cfo') return true;
     return false;
   }
 

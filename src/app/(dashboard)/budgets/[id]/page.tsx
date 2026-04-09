@@ -222,16 +222,22 @@ export default function BudgetDetailPage() {
     // Auto-populate pending expenses from approved budget items
     try {
       const headers = await getAuthHeaders();
-      await fetch('/api/expense-lifecycle', {
+      const lifecycleRes = await fetch('/api/expense-lifecycle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({
           action: 'auto_populate',
           budget_version_id: activeVersion.id,
+          budget_id: budget!.id,
         }),
       });
+      const lifecycleData = await lifecycleRes.json().catch(() => ({ success: false, error: 'Failed to queue expenses' }));
+      if (!lifecycleRes.ok || !lifecycleData.success) {
+        throw new Error(lifecycleData.error || 'Failed to queue expenses');
+      }
     } catch (e) {
       console.error('Failed to auto-populate expenses:', e);
+      toast.error(e instanceof Error ? e.message : 'Budget approved but expense queue population failed');
     }
 
     toast.success('Budget approved — expenses queued');
