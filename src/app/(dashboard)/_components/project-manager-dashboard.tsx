@@ -15,6 +15,7 @@ import {
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
+import { getPmReviewQueueCount } from '@/lib/queries/budgets';
 
 interface ProjectData {
   name: string;
@@ -78,11 +79,9 @@ export function ProjectManagerDashboard({ userId }: Props) {
         .eq('year_month', currentMonth);
 
       // Get pending budgets for PM review
-      const { data: pendingRes } = await supabase.from('budget_versions')
-        .select('id', { count: 'exact', head: true })
-        .in('status', ['submitted', 'pm_review']);
+      const { count: pmReviewCount } = await getPmReviewQueueCount(supabase, pids);
 
-      setPendingBudgets((pendingRes as any)?.count || 0);
+      setPendingBudgets(pmReviewCount || 0);
 
       // Build maps
       const invMap = new Map<string, number>();

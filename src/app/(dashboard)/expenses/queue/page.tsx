@@ -19,6 +19,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { formatCurrency, formatDate, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { toast } from 'sonner';
 import { DollarSign, CheckCircle, Clock, TrendingDown } from 'lucide-react';
+import { EXPENSE_STATUS } from '@/lib/constants/status';
+import { getPendingExpensesByMonth } from '@/lib/queries/expenses';
 
 // -----------------------------------------------
 // Types
@@ -139,11 +141,7 @@ export default function ExpenseQueuePage() {
 
   async function loadItems() {
     setLoading(true);
-    const { data } = await supabase
-      .from('pending_expenses')
-      .select('*, projects(name), departments(name)')
-      .eq('year_month', selectedMonth)
-      .order('created_at');
+    const { data } = await getPendingExpensesByMonth(supabase, selectedMonth);
 
     setItems((data as PendingExpense[] | null) || []);
     setLoading(false);
@@ -192,9 +190,9 @@ export default function ExpenseQueuePage() {
 
   const totalBudgeted = filtered.reduce((s, i) => s + Number(i.budgeted_amount_kes), 0);
   const totalConfirmed = filtered
-    .filter((i) => i.status === 'confirmed')
+    .filter((i) => i.status === EXPENSE_STATUS.CONFIRMED)
     .reduce((s, i) => s + Number(i.actual_amount_kes || 0), 0);
-  const pendingCount = filtered.filter((i) => i.status === 'pending_auth').length;
+  const pendingCount = filtered.filter((i) => i.status === EXPENSE_STATUS.PENDING_AUTH).length;
   const totalActual = filtered.reduce((s, i) => s + Number(i.actual_amount_kes || i.budgeted_amount_kes), 0);
   const overallVariance = totalActual - totalBudgeted;
 

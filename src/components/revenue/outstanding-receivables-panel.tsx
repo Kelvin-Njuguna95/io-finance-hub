@@ -9,6 +9,7 @@ import { formatCurrency } from '@/lib/format';
 import { getAgingBucket } from '@/lib/backdated-utils';
 import { DollarSign, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { getOutstandingInvoices, getInvoiceOutstandingTotal } from '@/lib/queries/invoices';
 
 interface BucketSummary {
   label: string;
@@ -35,10 +36,7 @@ export function OutstandingReceivablesPanel() {
     async function loadReceivables() {
       const supabase = createClient();
 
-      const { data: invoices } = await supabase
-        .from('invoices')
-        .select('id, amount_usd, invoice_date, payments(amount_usd)')
-        .in('status', ['sent', 'partially_paid', 'overdue']);
+      const { data: invoices } = await getOutstandingInvoices(supabase);
 
       if (!invoices) {
         setLoading(false);
@@ -55,11 +53,7 @@ export function OutstandingReceivablesPanel() {
       let total = 0;
 
       for (const inv of invoices) {
-        const paid = (inv.payments || []).reduce(
-          (sum: number, p: any) => sum + Number(p.amount_usd),
-          0
-        );
-        const outstanding = Number(inv.amount_usd) - paid;
+        const outstanding = getInvoiceOutstandingTotal(inv as any);
         if (outstanding <= 0) continue;
 
         const aging = getAgingBucket(inv.invoice_date);

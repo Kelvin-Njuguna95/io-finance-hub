@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { getUserErrorMessage } from '@/lib/errors';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency } from '@/components/reports/executive-kit';
+import { getInvoiceOutstandingTotal, getOutstandingInvoices } from '@/lib/queries/invoices';
 
 interface OutstandingInvoice {
   id: string;
@@ -76,16 +77,12 @@ export default function OutstandingReceivablesPage() {
     setLoading(true);
     const supabase = createClient();
 
-    const { data } = await supabase
-      .from('invoices')
-      .select('*, projects(name), payments(id, amount_usd, payment_date, payment_method, reference)')
-      .in('status', ['sent', 'partially_paid', 'overdue'])
-      .order('invoice_date', { ascending: true });
+    const { data } = await getOutstandingInvoices(supabase);
 
     const processed: OutstandingInvoice[] = (data || [])
       .map((inv: any) => {
         const totalPaid = (inv.payments || []).reduce((s: number, p: any) => s + Number(p.amount_usd), 0);
-        const balance = Number(inv.amount_usd) - totalPaid;
+        const balance = getInvoiceOutstandingTotal(inv as any);
         const paymentStatus = computePaymentStatus(Number(inv.amount_usd), totalPaid);
         const aging = getAgingBucket(inv.invoice_date);
         const isBackdatedInv = isBackdated(inv.description);
@@ -236,7 +233,7 @@ export default function OutstandingReceivablesPage() {
         {/* Summary Cards */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <ExecutiveKpiCard label="Total Outstanding" value={formatCompactCurrency(totalOutstanding, 'USD')} trend="Watch weekly" />
-          <ExecutiveKpiCard label="Overdue 90+ Days" value={overdue90Total === 0 ? '$0.0' : formatCompactCurrency(overdue90Total, 'USD')} trend={overdue90Total === 0 ? 'Clean' : 'Action Needed'} positive={overdue90Total === 0} />
+          <ExecutiveKpiCard label="Overdue 90+ Days" value={overdue90Total === 0 ? formatCurrency(0, 'USD') : formatCompactCurrency(overdue90Total, 'USD')} trend={overdue90Total === 0 ? 'Clean' : 'Action Needed'} positive={overdue90Total === 0} />
           <ExecutiveKpiCard label="Avg Days Outstanding" value={`${avgDaysOutstanding} days`} trend="Cycle speed" />
           <ExecutiveKpiCard label="Invoices Outstanding" value={`${invoices.length}`} trend="Open ledger" />
         </div>
@@ -250,7 +247,7 @@ export default function OutstandingReceivablesPage() {
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={agingChartData} layout="vertical" margin={{ left: 80, right: 40 }}>
-                  <XAxis type="number" tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} />
+                  <XAxis type="number" tickFormatter={(v: number) => `USD ${(v / 1000).toFixed(0)}k`} />
                   <YAxis type="category" dataKey="bucket" width={80} />
                   <Tooltip
                     formatter={(value) => [formatCurrency(Number(value), 'USD'), 'Total']}

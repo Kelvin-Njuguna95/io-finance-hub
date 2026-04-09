@@ -2,13 +2,10 @@
 // Formatting utilities for IO Finance Hub
 // ============================================================
 
+import { formatKES, formatUSD } from '@/lib/utils/currency';
+
 export function formatCurrency(amount: number, currency: 'USD' | 'KES' = 'KES'): string {
-  const decimals = currency === 'USD' ? 4 : 2;
-  const symbol = currency === 'USD' ? '$' : 'KES ';
-  return `${symbol}${amount.toLocaleString('en-US', {
-    minimumFractionDigits: decimals > 2 ? 2 : decimals,
-    maximumFractionDigits: decimals,
-  })}`;
+  return currency === 'USD' ? formatUSD(amount) : formatKES(amount);
 }
 
 export function formatPercent(value: number, decimals = 1): string {

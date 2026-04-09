@@ -17,6 +17,7 @@ import { Plus, Trash2, Save, Send, AlertTriangle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Project, Department } from '@/types/database';
 import { getUserErrorMessage } from '@/lib/errors';
+import { getActiveProjects, getAssignedActiveProjects } from '@/lib/queries/projects';
 
 interface LineItem {
   id: string;
@@ -74,20 +75,13 @@ export default function NewBudgetPage() {
 
       if (user?.role === 'team_leader') {
         // Load only assigned projects
-        const { data: assignments } = await supabase
-          .from('user_project_assignments')
-          .select('project_id')
-          .eq('user_id', user.id);
-        const pids = (assignments || []).map((a: { project_id: string }) => a.project_id);
-        if (pids.length > 0) {
-          const { data } = await supabase.from('projects').select('*').in('id', pids).eq('is_active', true);
-          setProjects(data || []);
-        }
+        const { data: assignedProjects } = await getAssignedActiveProjects(supabase, user.id);
+        setProjects((assignedProjects || []) as Project[]);
         setScopeType('project');
       } else if (user?.role === 'accountant') {
         // Accountant can submit for ANY active project or department
         const [projectsRes, departmentsRes] = await Promise.all([
-          supabase.from('projects').select('*').eq('is_active', true).order('name'),
+          getActiveProjects(supabase),
           supabase.from('departments').select('*').order('name'),
         ]);
         setProjects(projectsRes.data || []);
@@ -95,21 +89,14 @@ export default function NewBudgetPage() {
         setScopeType('project');
       } else if (user?.role === 'project_manager') {
         // PMs are directors — load their assigned projects AND all departments
-        const { data: assignments } = await supabase
-          .from('user_project_assignments')
-          .select('project_id')
-          .eq('user_id', user.id);
-        const pids = (assignments || []).map((a: { project_id: string }) => a.project_id);
-        if (pids.length > 0) {
-          const { data } = await supabase.from('projects').select('*').in('id', pids).eq('is_active', true);
-          setProjects(data || []);
-        }
+        const { data: assignedProjects } = await getAssignedActiveProjects(supabase, user.id);
+        setProjects((assignedProjects || []) as Project[]);
         const { data: deptData } = await supabase.from('departments').select('*').order('name');
         setDepartments(deptData || []);
         setScopeType('project');
       } else if (user?.role === 'cfo') {
         const [projRes, deptRes] = await Promise.all([
-          supabase.from('projects').select('*').eq('is_active', true).order('name'),
+          getActiveProjects(supabase),
           supabase.from('departments').select('*').order('name'),
         ]);
         setProjects(projRes.data || []);
