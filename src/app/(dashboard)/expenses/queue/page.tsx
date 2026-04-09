@@ -121,6 +121,7 @@ export default function ExpenseQueuePage() {
   const [items, setItems] = useState<PendingExpense[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasPendingItems, setHasPendingItems] = useState(true);
 
   // Selection
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -166,6 +167,7 @@ export default function ExpenseQueuePage() {
         .order('year_month', { ascending: false })
         .limit(1)
         .maybeSingle();
+      setHasPendingItems(Boolean(data?.year_month));
       if (data?.year_month && data.year_month !== selectedMonth) {
         setSelectedMonth(data.year_month);
       }
@@ -474,7 +476,7 @@ export default function ExpenseQueuePage() {
 
       <div className="space-y-6 p-6">
         {/* Backfill banner — show when no items and user is CFO */}
-        {items.length === 0 && canAct && (
+        {items.length === 0 && canAct && hasPendingItems && (
           <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-4">
             <div>
               <p className="text-sm font-medium text-amber-800">No pending expenses found for this month.</p>
@@ -559,7 +561,9 @@ export default function ExpenseQueuePage() {
               </div>
             ) : filtered.length === 0 ? (
               <div className="flex items-center justify-center py-16 text-sm text-slate-400">
-                No pending expenses for this period
+                {hasPendingItems
+                  ? 'No pending expenses for this period'
+                  : 'No pending expenses this month — all budgets are up to date'}
               </div>
             ) : (
               <Table>
