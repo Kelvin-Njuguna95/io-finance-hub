@@ -289,7 +289,7 @@ export async function POST(request: Request) {
 
     const [limitCountRes, limitAmountRes] = await Promise.all([
       admin.from('system_settings').select('value').eq('key', 'misc_topup_monthly_limit_count').single(),
-      admin.from('system_settings').select('value').eq('key', 'misc_topup_monthly_limit_amount').single(),
+      admin.from('system_settings').select('value').eq('key', 'misc_topup_monthly_limit_kes').single(),
     ]);
 
     const topupLimitCount = parseInt(limitCountRes.data?.value || '3', 10);
