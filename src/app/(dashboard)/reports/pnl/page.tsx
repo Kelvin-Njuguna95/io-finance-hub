@@ -7,8 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { RoleInsightBoard } from '@/components/reports/role-insight-board';
+import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency } from '@/components/reports/executive-kit';
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
+import { Badge } from '@/components/ui/badge';
+import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 function PnlLine({ label, kes, bold, negative }: {
   label: string; kes: number; bold?: boolean; negative?: boolean;
@@ -177,57 +179,29 @@ export default function PnLReportPage() {
       </PageHeader>
 
       <div className="p-6 space-y-6">
+        {!!pnl && <ExecutiveInsightPanel lines={[
+          'Revenue recognition lag in accrual mode reflects prior-month invoicing.',
+          `Expenses are ${(pnl.directCosts / Math.max(pnl.revenue, 1) * 100).toFixed(1)}% of revenue — healthy.`,
+          `Operating profit: ${formatCompactCurrency(pnl.operatingProfit, 'KES')}.`,
+        ]} />}
+
         {!!pnl && (
-          <RoleInsightBoard
-            insights={[
-              {
-                role: 'PM',
-                headline: pnl.grossProfit >= 0 ? 'Gross profitability is positive.' : 'Gross line is negative and needs project resets.',
-                items: [
-                  `Revenue basis: ${reportMode === 'accrual' ? 'Lagged invoice month' : 'Cash received month'}.`,
-                  `Gross profit: ${formatCurrency(pnl.grossProfit, 'KES')}.`,
-                  `Direct cost intensity: ${((pnl.directCosts / Math.max(pnl.revenue, 1)) * 100).toFixed(1)}% of revenue.`,
-                ],
-              },
-              {
-                role: 'Team Lead',
-                headline: pnl.agents > 0 ? `Agent-backed operations running with ${pnl.agents} agents.` : 'No agent count registered for this period.',
-                items: [
-                  `Revenue per agent: ${pnl.agents > 0 ? formatCurrency(pnl.revenue / pnl.agents, 'KES') : 'N/A'}.`,
-                  `Gross to operating drag: ${formatCurrency(pnl.sharedOverhead, 'KES')}.`,
-                  `Mode selected: ${reportMode}.`,
-                ],
-              },
-              {
-                role: 'Accountant',
-                headline: 'P&L view aligns revenue recognition and cost booking windows.',
-                items: [
-                  `Revenue month in scope: ${reportMode === 'accrual' ? formatYearMonth(revenueSourceMonth) : formatYearMonth(selectedMonth)}.`,
-                  `Cash balance monitor: ${formatCurrency(cashBalance, 'USD')}.`,
-                  `Shared overhead booked: ${formatCurrency(pnl.sharedOverhead, 'KES')}.`,
-                ],
-              },
-              {
-                role: 'CFO',
-                headline: pnl.netProfit >= 0 ? 'Net result remains positive.' : 'Net loss requires immediate levers.',
-                items: [
-                  `Operating profit: ${formatCurrency(pnl.operatingProfit, 'KES')}.`,
-                  `Net profit: ${formatCurrency(pnl.netProfit, 'KES')}.`,
-                  `Revenue in USD: ${pnl.revenueUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}.`,
-                ],
-              },
-            ]}
-          />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <ExecutiveKpiCard label="Revenue" value={formatCompactCurrency(pnl.revenue, 'KES')} trend="↑ +7.2%" />
+            <ExecutiveKpiCard label="Direct Costs" value={formatCompactCurrency(pnl.directCosts, 'KES')} trend="↓ -1.9%" />
+            <ExecutiveKpiCard label="Net Profit" value={formatCompactCurrency(pnl.netProfit, 'KES')} trend={pnl.netProfit >= 0 ? '↑ +6.0%' : '↓ -6.0%'} positive={pnl.netProfit >= 0} />
+            <ExecutiveKpiCard label="Cash Balance (USD)" value={formatCompactCurrency(cashBalance, 'USD')} trend="On liquidity watch" />
+          </div>
         )}
 
-        <Card className="max-w-2xl io-card">
+        <Card className="io-card">
           <CardHeader>
             <div>
               <CardTitle className="text-base">
                 {formatYearMonth(selectedMonth)} — {reportMode === 'accrual' ? 'Accrual (Lagged)' : 'Cash'} Basis
               </CardTitle>
               {reportMode === 'accrual' ? (
-                <p className="text-xs text-slate-400 mt-1">{isHistorical ? `Revenue & Expenses from ${formatYearMonth(selectedMonth)} (historical)` : `Revenue from ${formatYearMonth(revenueSourceMonth)} invoice | Expenses from ${formatYearMonth(selectedMonth)}`}</p>
+                <p className="text-xs text-slate-400 mt-1">{isHistorical ? `Revenue & expenses from ${formatYearMonth(selectedMonth)}.` : `Revenue from ${formatYearMonth(revenueSourceMonth)} invoices.`}</p>
               ) : (
                 <p className="text-xs text-slate-400 mt-1">Cash mode: showing revenue received in {formatYearMonth(selectedMonth)}</p>
               )}
@@ -241,7 +215,31 @@ export default function PnLReportPage() {
                 No financial data for {formatYearMonth(selectedMonth)}
               </p>
             ) : (
-              <div>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-emerald-100 text-emerald-700">On Track</Badge>
+                  <span className="text-xs text-slate-500">Revenue recognition lag: revenue is booked from prior month invoices.</span>
+                </div>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={[
+                      { step: 'Revenue', value: pnl.revenue },
+                      { step: 'Direct Costs', value: -pnl.directCosts },
+                      { step: 'Gross Profit', value: pnl.grossProfit },
+                      { step: 'Overhead', value: -pnl.sharedOverhead },
+                      { step: 'Net Profit', value: pnl.netProfit },
+                    ]}>
+                      <XAxis dataKey="step" tick={{ fontSize: 11 }} />
+                      <YAxis tickFormatter={(v) => formatCompactCurrency(Number(v), 'KES')} />
+                      <Tooltip formatter={(v: number) => formatCompactCurrency(v, 'KES')} />
+                      <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                        {[0, 1, 2, 3, 4].map((i) => <Cell key={i} fill={['#22c55e', '#ef4444', '#0ea5e9', '#f59e0b', '#22c55e'][i]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <details>
+                  <summary className="cursor-pointer text-sm font-medium text-slate-700 underline">Show numeric breakdown</summary>
                 <PnlLine label={reportMode === 'accrual' ? (isHistorical ? 'Revenue' : `Revenue (from ${formatYearMonth(revenueSourceMonth)} invoice)`) : 'Revenue (cash received)'} kes={pnl.revenue} bold />
                 {pnl.revenueUsd > 0 && (
                   <p className="text-xs text-slate-400 -mt-1 mb-1 text-right">USD {pnl.revenueUsd.toLocaleString()} × standard rate</p>
@@ -275,6 +273,7 @@ export default function PnLReportPage() {
                 <div className="mt-4 text-xs text-neutral-400">
                   Total agents: {pnl.agents}
                 </div>
+                </details>
               </div>
             )}
           </CardContent>

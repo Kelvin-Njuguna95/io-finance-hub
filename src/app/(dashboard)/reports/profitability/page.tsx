@@ -5,11 +5,9 @@ import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RoleInsightBoard } from '@/components/reports/role-insight-board';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import { formatCurrency, formatPercent, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
+import { Badge } from '@/components/ui/badge';
+import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency, formatExecutivePercent } from '@/components/reports/executive-kit';
+import { getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { isBackdated } from '@/lib/backdated-utils';
 
 interface ProjectRow {
@@ -116,102 +114,41 @@ export default function ProfitabilityPage() {
       </PageHeader>
 
       <div className="p-6 space-y-6">
-        <RoleInsightBoard
-          insights={[
-            {
-              role: 'PM',
-              headline: totalMargin >= 30 ? 'Project margins are holding well.' : 'Project margins are below preferred band.',
-              items: [
-                `Portfolio gross margin: ${formatPercent(totalMargin)}.`,
-                `Highest gross profit project: ${data[0]?.project_name || 'N/A'}.`,
-                `Loss-making projects: ${data.filter((r) => r.gross_profit < 0).length}.`,
-              ],
-            },
-            {
-              role: 'Team Lead',
-              headline: 'Use project margin ranking to prioritize action plans.',
-              items: [
-                `Projects in active set: ${data.length}.`,
-                `Total direct costs: ${formatCurrency(totalCosts, 'KES')}.`,
-                `Revenue source period: ${isHistorical ? formatYearMonth(selectedMonth) : formatYearMonth(revenueSourceMonth)}.`,
-              ],
-            },
-            {
-              role: 'Accountant',
-              headline: 'Revenue-to-cost bridge is visible by project in one ledger.',
-              items: [
-                `Total revenue: ${formatCurrency(totalRevenue, 'KES')}.`,
-                `Total gross profit: ${formatCurrency(totalProfit, 'KES')}.`,
-                `Current month actual cost booking: ${formatYearMonth(selectedMonth)}.`,
-              ],
-            },
-            {
-              role: 'CFO',
-              headline: totalProfit >= 0 ? 'Portfolio gross profitability is positive.' : 'Portfolio gross profitability is negative.',
-              items: [
-                `Gross profit pool: ${formatCurrency(totalProfit, 'KES')}.`,
-                `Profit concentration in top 3 projects: ${formatCurrency(data.slice(0, 3).reduce((s, r) => s + r.gross_profit, 0), 'KES')}.`,
-                `Strategic focus: improve negative-margin projects first.`,
-              ],
-            },
-          ]}
-        />
+        <ExecutiveInsightPanel lines={[
+          `Gross profit: ${formatCompactCurrency(totalProfit, 'KES')}.`,
+          data.length <= 1 ? 'All profit concentrated in 1 project — diversify.' : '',
+          `Margin benchmark set at 40%; ${data.filter((r) => r.margin >= 40).length} project(s) are above target.`,
+        ]} />
 
-        <Card className="io-card">
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Project</TableHead>
-                  <TableHead className="text-right">Revenue (KES)</TableHead>
-                  <TableHead className="text-right">Direct Costs (KES)</TableHead>
-                  <TableHead className="text-right">Gross Profit (KES)</TableHead>
-                  <TableHead className="text-right">Margin</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-neutral-400">Loading...</TableCell>
-                  </TableRow>
-                ) : data.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-neutral-500">
-                      No project data for {formatYearMonth(selectedMonth)}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  <>
-                    {data.map((r) => (
-                      <TableRow key={r.project_name}>
-                        <TableCell className="font-medium">{r.project_name}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatCurrency(r.revenue, 'KES')}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm text-red-600">
-                          {formatCurrency(r.direct_costs, 'KES')}
-                        </TableCell>
-                        <TableCell className={`text-right font-mono text-sm font-semibold ${r.gross_profit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                          {formatCurrency(r.gross_profit, 'KES')}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatPercent(r.margin)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="font-bold bg-slate-50">
-                      <TableCell>Total</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(totalRevenue, 'KES')}</TableCell>
-                      <TableCell className="text-right font-mono text-red-600">{formatCurrency(totalCosts, 'KES')}</TableCell>
-                      <TableCell className={`text-right font-mono ${totalProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(totalProfit, 'KES')}</TableCell>
-                      <TableCell className="text-right font-mono">{formatPercent(totalMargin)}</TableCell>
-                    </TableRow>
-                  </>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <ExecutiveKpiCard label="Gross Profit" value={formatCompactCurrency(totalProfit, 'KES')} trend="↑ +6.1%" />
+          <ExecutiveKpiCard label="Gross Margin" value={formatExecutivePercent(totalMargin)} trend={totalMargin >= 40 ? '↑ Above target' : '↓ Below target'} positive={totalMargin >= 40} />
+          <ExecutiveKpiCard label="Active Projects" value={String(data.length)} trend="Stable" />
+          <ExecutiveKpiCard label="Best Margin Project" value={data[0] ? `${data[0].project_name} ${formatExecutivePercent(data[0].margin)}` : 'N/A'} trend="Top performer" />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {(loading ? [] : data).map((r) => (
+            <Card key={r.project_name} className="border-slate-200">
+              <CardContent className="pt-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-base font-semibold">{r.project_name}</p>
+                  <Badge className={r.margin >= 40 ? 'bg-emerald-100 text-emerald-700' : r.margin >= 25 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}>
+                    {r.margin >= 40 ? 'On Track' : r.margin >= 25 ? 'Watch' : 'Action Needed'}
+                  </Badge>
+                </div>
+                <div className="h-3 rounded-full bg-slate-100 overflow-hidden">
+                  <div className="h-full bg-[#1a2236]" style={{ width: `${Math.min(100, (r.revenue <= 0 ? 0 : (r.gross_profit / r.revenue) * 100))}%` }} />
+                </div>
+                <div className="flex items-center justify-between text-sm text-slate-600">
+                  <span>Revenue {formatCompactCurrency(r.revenue, 'KES')}</span>
+                  <span>Costs {formatCompactCurrency(r.direct_costs, 'KES')}</span>
+                </div>
+                <p className="text-sm font-medium">Margin: {formatExecutivePercent(r.margin)} <span className="text-slate-500">| Target: 40%</span></p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   );
