@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { getLaggedMonth } from '@/lib/report-utils';
 import { isBackdated } from '@/lib/backdated-utils';
@@ -51,6 +51,15 @@ function PnlSection({ label, bold, negative, amount }: { label: string; bold?: b
   );
 }
 
+function MetricCard({ label, value, accent, tone }: { label: string; value: string; accent: string; tone?: 'default' | 'good' | 'bad' }) {
+  return (
+    <div className={`rounded-xl border p-4 shadow-sm ${accent} ${tone === 'good' ? 'bg-emerald-50 border-emerald-200' : tone === 'bad' ? 'bg-red-50 border-red-200' : 'bg-white'}`}>
+      <p className="text-xs uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="mt-2 text-lg font-semibold font-mono text-slate-900">{value}</p>
+    </div>
+  );
+}
+
 export default function MonthlyPnlReport() {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
   const [view, setView] = useState<'summary' | 'detailed'>('summary');
@@ -59,7 +68,6 @@ export default function MonthlyPnlReport() {
   const [userRole, setUserRole] = useState<string>('');
 
   const [revenueSourceMonth, setRevenueSourceMonth] = useState(getLaggedMonth(selectedMonth));
-  const [isHistorical, setIsHistorical] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -80,17 +88,15 @@ export default function MonthlyPnlReport() {
         .eq('year_month', selectedMonth)
         .single();
       const historical = !!(snapshot?.data_source && snapshot.data_source.startsWith('historical_seed'));
-      setIsHistorical(historical);
       const revMonth = historical ? selectedMonth : getLaggedMonth(selectedMonth);
       setRevenueSourceMonth(revMonth);
 
-      const [projRes, invRes, projExpRes, sharedExpRes, rateRes, catRes, projAssign] = await Promise.all([
+      const [projRes, invRes, projExpRes, sharedExpRes, rateRes, projAssign] = await Promise.all([
         supabase.from('projects').select('id, name, director_tag').eq('is_active', true),
         supabase.from('invoices').select('project_id, amount_usd, amount_kes, description').eq('billing_period', revMonth),
         supabase.from('expenses').select('id, project_id, expense_category_id, amount_kes, description, expense_date, vendor, expense_categories(name)').eq('year_month', selectedMonth).eq('expense_type', 'project_expense'),
         supabase.from('expenses').select('id, project_id, expense_category_id, amount_kes, description, expense_date, vendor, expense_categories(name)').eq('year_month', selectedMonth).eq('expense_type', 'shared_expense'),
         supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single(),
-        supabase.from('expense_categories').select('id, name'),
         supabase.from('user_project_assignments').select('project_id').eq('user_id', user?.id || ''),
       ]);
 
@@ -330,112 +336,135 @@ export default function MonthlyPnlReport() {
         ) : !pnl ? (
           <Card className="io-card"><CardContent className="p-8 text-center text-slate-400">No data for {formatYearMonth(selectedMonth)}</CardContent></Card>
         ) : (
-          <Card className="io-card max-w-3xl">
-            <CardHeader className="bg-[#0f172a] text-white rounded-t-lg">
-              <div className="flex items-center justify-between">
+          <Card className="io-card max-w-6xl overflow-hidden border-slate-200">
+            <CardHeader className="bg-gradient-to-r from-[#0f172a] via-[#12203c] to-[#1e293b] text-white rounded-t-lg border-b border-white/10">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <CardTitle className="text-lg text-white">IO FINANCE HUB</CardTitle>
                   <p className="text-xs text-slate-300 mt-1">Monthly Income Statement</p>
                 </div>
-                <div className="text-right">
+                <div className="text-left md:text-right">
                   <p className="text-sm font-semibold">{formatYearMonth(selectedMonth)}</p>
                   <p className="text-xs text-slate-300">Revenue: {formatYearMonth(revenueSourceMonth)} invoices</p>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-6 space-y-1">
-              {/* REVENUE */}
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mt-2">Revenue</p>
-              <Separator className="mb-1" />
-              {pnl.projectRevenues.map(p => (
-                <PnlSection key={p.name} label={p.name} amount={p.revenue} />
-              ))}
-              <Separator className="my-1" />
-              <PnlSection label="Total Revenue" amount={pnl.totalRevenue} bold />
-
-              {/* DIRECT COSTS */}
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mt-4">Direct Costs</p>
-              <Separator className="mb-1" />
-              {pnl.directCosts.map(c => (
-                <div key={c.category}>
-                  <PnlSection label={c.category} amount={c.amount} />
-                  {view === 'detailed' && c.items && (
-                    <div className="ml-6 mb-2 space-y-0.5">
-                      {c.items.map((item, i) => (
-                        <div key={i} className="flex items-center justify-between text-xs text-slate-400">
-                          <span>{item.date} | {item.description} | {item.paid_to}</span>
-                          <span className="font-mono">{formatCurrency(item.amount, 'KES')}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-              <Separator className="my-1" />
-              <PnlSection label="Total Direct Costs" amount={pnl.totalDirectCosts} bold />
-
-              {/* GROSS PROFIT */}
-              <div className="bg-slate-50 rounded px-3 py-2 mt-2">
-                <PnlSection label="GROSS PROFIT" amount={pnl.grossProfit} bold negative />
-                <div className="flex justify-between text-xs text-slate-400">
-                  <span>Gross Margin</span>
-                  <span>{pnl.grossMargin.toFixed(1)}%</span>
-                </div>
+            <CardContent className="space-y-6 bg-slate-50 p-6">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <MetricCard label="Total Revenue" value={formatCurrency(pnl.totalRevenue, 'KES')} accent="ring-1 ring-sky-100" />
+                <MetricCard label="Total Direct Costs" value={formatCurrency(pnl.totalDirectCosts, 'KES')} accent="ring-1 ring-amber-100" />
+                <MetricCard
+                  label="Operating Profit"
+                  value={formatCurrency(pnl.operatingProfit, 'KES')}
+                  accent="ring-1 ring-violet-100"
+                  tone={pnl.operatingProfit >= 0 ? 'good' : 'bad'}
+                />
+                <MetricCard
+                  label="Net Margin"
+                  value={pnl.netProfit > 0 ? `${pnl.netMargin.toFixed(1)}%` : 'N/A'}
+                  accent="ring-1 ring-slate-200"
+                  tone={pnl.netProfit >= 0 ? 'good' : 'bad'}
+                />
               </div>
 
-              {/* SHARED OVERHEAD */}
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mt-4">Shared Overhead</p>
-              <Separator className="mb-1" />
-              {pnl.overheadGroups.map(c => (
-                <div key={c.category}>
-                  <PnlSection label={c.category} amount={c.amount} />
-                  {view === 'detailed' && c.items && (
-                    <div className="ml-6 mb-2 space-y-0.5">
-                      {c.items.map((item, i) => (
-                        <div key={i} className="flex items-center justify-between text-xs text-slate-400">
-                          <span>{item.date} | {item.description} | {item.paid_to}</span>
-                          <span className="font-mono">{formatCurrency(item.amount, 'KES')}</span>
+              <div className="grid gap-4 xl:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Revenue Streams</p>
+                  <Separator className="my-2" />
+                  {pnl.projectRevenues.map(p => (
+                    <PnlSection key={p.name} label={p.name} amount={p.revenue} />
+                  ))}
+                  <Separator className="my-1" />
+                  <PnlSection label="Total Revenue" amount={pnl.totalRevenue} bold />
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Direct Costs</p>
+                  <Separator className="my-2" />
+                  {pnl.directCosts.map(c => (
+                    <div key={c.category}>
+                      <PnlSection label={c.category} amount={c.amount} />
+                      {view === 'detailed' && c.items && (
+                        <div className="ml-6 mb-2 space-y-0.5">
+                          {c.items.map((item, i) => (
+                            <div key={i} className="flex items-center justify-between text-xs text-slate-400">
+                              <span>{item.date} | {item.description} | {item.paid_to}</span>
+                              <span className="font-mono">{formatCurrency(item.amount, 'KES')}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
+                  ))}
+                  <Separator className="my-1" />
+                  <PnlSection label="Total Direct Costs" amount={pnl.totalDirectCosts} bold />
                 </div>
-              ))}
-              <Separator className="my-1" />
-              <PnlSection label="Total Overhead" amount={pnl.totalOverhead} bold />
 
-              {/* OPERATING PROFIT */}
-              <div className="bg-slate-50 rounded px-3 py-2 mt-2">
-                <PnlSection label="OPERATING PROFIT / (LOSS)" amount={pnl.operatingProfit} bold negative />
-                <div className="flex justify-between text-xs text-slate-400">
-                  <span>Operating Margin</span>
-                  <span>{pnl.operatingProfit > 0 ? pnl.operatingMargin.toFixed(1) + '%' : 'N/A'}</span>
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Shared Overhead</p>
+                  <Separator className="my-2" />
+                  {pnl.overheadGroups.map(c => (
+                    <div key={c.category}>
+                      <PnlSection label={c.category} amount={c.amount} />
+                      {view === 'detailed' && c.items && (
+                        <div className="ml-6 mb-2 space-y-0.5">
+                          {c.items.map((item, i) => (
+                            <div key={i} className="flex items-center justify-between text-xs text-slate-400">
+                              <span>{item.date} | {item.description} | {item.paid_to}</span>
+                              <span className="font-mono">{formatCurrency(item.amount, 'KES')}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <Separator className="my-1" />
+                  <PnlSection label="Total Overhead" amount={pnl.totalOverhead} bold />
                 </div>
-              </div>
 
-              {/* NET PROFIT */}
-              <div className={`rounded px-3 py-2 mt-2 ${pnl.netProfit >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
-                <PnlSection label="NET PROFIT / (LOSS)" amount={pnl.netProfit} bold negative />
-                <div className="flex justify-between text-xs text-slate-400">
-                  <span>Net Margin</span>
-                  <span>{pnl.netProfit > 0 ? pnl.netMargin.toFixed(1) + '%' : 'N/A'}</span>
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Profitability</p>
+                  <Separator className="my-2" />
+                  <div className="space-y-3">
+                    <div className="rounded-lg bg-slate-50 px-3 py-2">
+                      <PnlSection label="GROSS PROFIT" amount={pnl.grossProfit} bold negative />
+                      <div className="flex justify-between text-xs text-slate-400">
+                        <span>Gross Margin</span>
+                        <span>{pnl.grossMargin.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 px-3 py-2">
+                      <PnlSection label="OPERATING PROFIT / (LOSS)" amount={pnl.operatingProfit} bold negative />
+                      <div className="flex justify-between text-xs text-slate-400">
+                        <span>Operating Margin</span>
+                        <span>{pnl.operatingProfit > 0 ? `${pnl.operatingMargin.toFixed(1)}%` : 'N/A'}</span>
+                      </div>
+                    </div>
+                    <div className={`rounded-lg px-3 py-2 ${pnl.netProfit >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                      <PnlSection label="NET PROFIT / (LOSS)" amount={pnl.netProfit} bold negative />
+                      <div className="flex justify-between text-xs text-slate-400">
+                        <span>Net Margin</span>
+                        <span>{pnl.netProfit > 0 ? `${pnl.netMargin.toFixed(1)}%` : 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* DISTRIBUTABLE PROFIT - CFO only */}
               {userRole === 'cfo' && pnl.distributable.some(d => d.profit > 0) && (
-                <>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mt-4">Distributable Profit</p>
-                  <Separator className="mb-1" />
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Distributable Profit</p>
+                  <Separator className="my-2" />
                   {pnl.distributable.filter(d => d.profit > 0).map(d => (
-                    <div key={d.project} className="flex items-center justify-between py-1 text-sm">
+                    <div key={d.project} className="flex flex-col gap-1 py-1 text-sm md:flex-row md:items-center md:justify-between">
                       <span>{d.project}</span>
                       <span className="font-mono text-xs">
                         {d.director} 70%: {formatCurrency(d.directorShare, 'KES')} | Co 30%: {formatCurrency(d.companyShare, 'KES')}
                       </span>
                     </div>
                   ))}
-                </>
+                </div>
               )}
             </CardContent>
           </Card>
