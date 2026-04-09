@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 export async function POST(request: Request) {
-  const auth = await getAuthUserProfile(request);
-  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
-  const { user, profile, admin } = auth;
+  try {
+    const auth = await getAuthUserProfile(request);
+    if ('error' in auth) return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
+    const { user, profile, admin } = auth;
 
   const body = await request.json();
   const { budget_id } = body;
@@ -108,5 +110,8 @@ export async function POST(request: Request) {
     reason: profile.role === 'accountant' ? 'Accountant withdrew budget back to draft' : 'TL withdrew budget back to draft',
   });
 
-  return NextResponse.json({ success: true, message: 'Budget withdrawn to draft' });
+    return NextResponse.json({ success: true, message: 'Budget withdrawn to draft' });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to withdraw budget.', 'BUDGET_WITHDRAW_ERROR');
+  }
 }

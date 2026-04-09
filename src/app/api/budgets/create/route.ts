@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient, getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 export async function POST(request: Request) {
-  const auth = await getAuthUserProfile(request);
-  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
-  const { user, profile, admin } = auth;
+  try {
+    const auth = await getAuthUserProfile(request);
+    if ('error' in auth) return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
+    const { user, profile, admin } = auth;
 
   // Only these roles can create budgets
   if (!['cfo', 'team_leader', 'project_manager', 'accountant'].includes(profile.role)) {
@@ -145,10 +147,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Items creation failed: ${itemsError.message}` }, { status: 500 });
   }
 
-  return NextResponse.json({
-    success: true,
-    budget_id: budget.id,
-    version_id: version.id,
-    status: submitStatus,
-  });
+    return NextResponse.json({
+      success: true,
+      budget_id: budget.id,
+      version_id: version.id,
+      status: submitStatus,
+    });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to create budget.', 'BUDGET_CREATE_ERROR');
+  }
 }

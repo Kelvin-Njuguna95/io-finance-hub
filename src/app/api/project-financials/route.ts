@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 function createAdminClient() {
   return createClient(
@@ -10,9 +11,10 @@ function createAdminClient() {
 }
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('Authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const authHeader = request.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    if (!token) return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
 
   const admin = createAdminClient();
   const { data: { user } } = await admin.auth.getUser(token);
@@ -251,26 +253,29 @@ export async function GET(request: Request) {
     computed_at: new Date().toISOString(),
   }, { onConflict: 'project_id,period_month' });
 
-  return NextResponse.json({
-    project_name: project?.name,
-    year_month: yearMonth,
-    health: {
-      score,
-      score_band: scoreBand,
-      biggest_drag: biggestDrag,
-      budget_score: budgetScore,
-      margin_score: marginScore,
-      misc_score: miscScore,
-      timeliness_score: timelinessScore,
-      agent_score: agentScore,
-      misc_coverage_pct: Number(miscCoveragePct.toFixed(1)),
-      misc_report_status: miscStatus,
-    },
-    revenue: { invoice_amount: invoiceAmount, invoice_status: laggedInvoice?.status || 'not_raised', total_paid: totalPaid, outstanding, invoice_date: laggedInvoice?.invoice_date, billing_period: laggedInvoice?.billing_period, revenue_source_month: revenueSourceMonth },
-    expenses: { total: totalExpenses, by_category: expenseByCategory, items: expenses || [] },
-    budget: { total: totalBudget, utilisation: budgetUtilisation, variance: budgetVariance, items: budgetItems, has_approved: !!approvedVersion },
-    agents: { count: agentCount, revenue_per_agent: agentCount > 0 ? invoiceAmount / agentCount : 0, cost_per_agent: agentCount > 0 ? totalExpenses / agentCount : 0, contribution_per_agent: agentCount > 0 ? (invoiceAmount - totalExpenses) / agentCount : 0 },
-    trends: prevMonths,
-    hints: hints.slice(0, 4),
-  });
+    return NextResponse.json({
+      project_name: project?.name,
+      year_month: yearMonth,
+      health: {
+        score,
+        score_band: scoreBand,
+        biggest_drag: biggestDrag,
+        budget_score: budgetScore,
+        margin_score: marginScore,
+        misc_score: miscScore,
+        timeliness_score: timelinessScore,
+        agent_score: agentScore,
+        misc_coverage_pct: Number(miscCoveragePct.toFixed(1)),
+        misc_report_status: miscStatus,
+      },
+      revenue: { invoice_amount: invoiceAmount, invoice_status: laggedInvoice?.status || 'not_raised', total_paid: totalPaid, outstanding, invoice_date: laggedInvoice?.invoice_date, billing_period: laggedInvoice?.billing_period, revenue_source_month: revenueSourceMonth },
+      expenses: { total: totalExpenses, by_category: expenseByCategory, items: expenses || [] },
+      budget: { total: totalBudget, utilisation: budgetUtilisation, variance: budgetVariance, items: budgetItems, has_approved: !!approvedVersion },
+      agents: { count: agentCount, revenue_per_agent: agentCount > 0 ? invoiceAmount / agentCount : 0, cost_per_agent: agentCount > 0 ? totalExpenses / agentCount : 0, contribution_per_agent: agentCount > 0 ? (invoiceAmount - totalExpenses) / agentCount : 0 },
+      trends: prevMonths,
+      hints: hints.slice(0, 4),
+    });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to load project financials.', 'PROJECT_FINANCIALS_ERROR');
+  }
 }

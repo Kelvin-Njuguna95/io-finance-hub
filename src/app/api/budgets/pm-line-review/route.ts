@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 // POST — apply line-item decisions or submit final review
 export async function POST(request: Request) {
-  const auth = await getAuthUserProfile(request);
-  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
-  const { user, profile, admin } = auth;
+  try {
+    const auth = await getAuthUserProfile(request);
+    if ('error' in auth) return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
+    const { user, profile, admin } = auth;
 
   if (!['project_manager', 'cfo'].includes(profile.role)) {
     return NextResponse.json({ error: 'Only PM or CFO can review line items' }, { status: 403 });
@@ -188,5 +190,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, summary });
   }
 
-  return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid action', code: 'BAD_REQUEST' }, { status: 400 });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to process line-item review.', 'PM_LINE_REVIEW_ERROR');
+  }
 }

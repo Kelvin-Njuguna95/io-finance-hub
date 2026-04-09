@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile } from '@/lib/supabase/admin';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 export async function POST(request: Request) {
-  const auth = await getAuthUserProfile(request);
-  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
-  const { user, profile, admin } = auth;
+  try {
+    const auth = await getAuthUserProfile(request);
+    if ('error' in auth) return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
+    const { user, profile, admin } = auth;
 
   const body = await request.json();
   const { budget_id, project_id, project_name, year_month, total_kes, submitted_by_role, existing_tl_budget } = body;
@@ -76,5 +78,8 @@ export async function POST(request: Request) {
     });
   }
 
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to send budget notifications.', 'BUDGET_NOTIFY_ERROR');
+  }
 }

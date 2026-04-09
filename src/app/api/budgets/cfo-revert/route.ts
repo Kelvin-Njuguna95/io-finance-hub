@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertRole, assertMonthOpen } from '@/lib/supabase/admin';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 export async function POST(request: Request) {
-  const auth = await getAuthUserProfile(request);
-  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
-  const { user, profile, admin } = auth;
+  try {
+    const auth = await getAuthUserProfile(request);
+    if ('error' in auth) return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
+    const { user, profile, admin } = auth;
 
   const roleErr = assertRole(profile, ['cfo']);
   if (roleErr) return NextResponse.json({ error: 'Only CFO can revert budgets' }, { status: roleErr.status });
@@ -143,5 +145,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, message: 'Budget deleted' });
   }
 
-  return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid action', code: 'BAD_REQUEST' }, { status: 400 });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to process CFO budget action.', 'CFO_REVERT_ERROR');
+  }
 }
