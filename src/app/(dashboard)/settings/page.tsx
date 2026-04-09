@@ -33,6 +33,9 @@ interface SettingDef {
   type: 'number' | 'toggle' | 'text' | 'readonly';
   unit?: string;
   defaultValue?: string;
+  min?: number;
+  max?: number;
+  step?: string;
 }
 
 interface NotificationPreference {
@@ -65,6 +68,19 @@ const SECTIONS: {
   settings: SettingDef[];
 }[] = [
   {
+    id: 'treasury',
+    title: 'Treasury & Automation',
+    icon: SettingsIcon,
+    settings: [
+      { key: 'standard_exchange_rate', label: 'Standard Exchange Rate (USD/KES)', description: 'Official treasury conversion rate used across reports and profitability calculations', type: 'number', unit: 'KES/USD', defaultValue: '129.5', min: 1, max: 500, step: '0.0001' },
+      { key: 'bank_balance_usd', label: 'Standing Bank Balance (USD)', description: 'Authoritative USD treasury balance used for liquidity and cash flow visibility', type: 'number', unit: 'USD', defaultValue: '0', min: 0, step: '0.01' },
+      { key: 'eod_auto_send_enabled', label: 'EOD Auto-Send Enabled', description: 'Enable scheduled EOD automation without requiring manual intervention', type: 'toggle', defaultValue: 'true' },
+      { key: 'eod_auto_send_on_expense', label: 'Trigger on Expense Activity', description: 'Auto-send EOD if at least one expense was logged today', type: 'toggle', defaultValue: 'true' },
+      { key: 'eod_auto_send_on_withdrawal', label: 'Trigger on Withdrawal Activity', description: 'Auto-send EOD if at least one withdrawal was logged today', type: 'toggle', defaultValue: 'true' },
+      { key: 'eod_auto_send_on_cash_received', label: 'Trigger on Cash Received Activity', description: 'Auto-send EOD if at least one customer payment (cash received) was logged today', type: 'toggle', defaultValue: 'true' },
+    ],
+  },
+  {
     id: 'thresholds',
     title: 'Thresholds & Alerts',
     icon: AlertTriangle,
@@ -79,8 +95,8 @@ const SECTIONS: {
     title: 'Budget Controls',
     icon: FileText,
     settings: [
-      { key: 'standard_exchange_rate', label: 'Standard Exchange Rate (USD/KES)', description: 'Default rate for USD to KES conversion across all calculations', type: 'number', unit: 'KES/USD', defaultValue: '129.5' },
-      { key: 'bank_balance_usd', label: 'Standing Bank Balance (USD)', description: 'Current standing bank balance used for cash flow calculations', type: 'number', unit: 'USD', defaultValue: '0' },
+      { key: 'financial_closure_day', label: 'Financial Closure Day', description: 'Recommended business day for monthly finance close (1-31)', type: 'number', unit: 'day', defaultValue: '5', min: 1, max: 31 },
+      { key: 'finance_alert_email', label: 'Finance Alert Contact', description: 'Primary escalation email for high-risk finance alerts', type: 'text', defaultValue: 'cfo@company.com' },
     ],
   },
   {
@@ -183,27 +199,55 @@ export default function SettingsPage() {
   async function handleSave() {
     const supabase = createClient();
     const allKeys = SECTIONS.flatMap((s) => s.settings.map((d) => d.key));
+    const allDefs = SECTIONS.flatMap((s) => s.settings);
+
+    for (const def of allDefs) {
+      if (def.type !== 'number') continue;
+      const raw = values[def.key];
+      if (raw === undefined || raw === '') continue;
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed)) {
+        toast.error(`${def.label} must be a valid number`);
+        return;
+      }
+      if (def.min !== undefined && parsed < def.min) {
+        toast.error(`${def.label} must be at least ${def.min}`);
+        return;
+      }
+      if (def.max !== undefined && parsed > def.max) {
+        toast.error(`${def.label} must be at most ${def.max}`);
+        return;
+      }
+    }
 
     for (const key of allKeys) {
       if (values[key] === undefined) continue;
       const existing = settings.find((s) => s.key === key);
       if (existing) {
         if (values[key] !== existing.value) {
-          await supabase.from('system_settings').update({
+          const { error } = await supabase.from('system_settings').update({
             value: values[key],
             updated_by: user?.id,
             updated_at: new Date().toISOString(),
           }).eq('id', existing.id);
+          if (error) {
+            toast.error(`Failed saving ${key}: ${error.message}`);
+            return;
+          }
         }
       } else {
         // Insert new setting
-        const def = SECTIONS.flatMap((s) => s.settings).find((d) => d.key === key);
-        await supabase.from('system_settings').insert({
+        const def = allDefs.find((d) => d.key === key);
+        const { error } = await supabase.from('system_settings').insert({
           key,
           value: values[key] || def?.defaultValue || '',
           description: def?.description || '',
           updated_by: user?.id,
         });
+        if (error) {
+          toast.error(`Failed creating ${key}: ${error.message}`);
+          return;
+        }
       }
     }
 
@@ -387,6 +431,9 @@ export default function SettingsPage() {
                             value={val}
                             onChange={(e) => setValue(def.key, e.target.value)}
                             className="max-w-xs"
+                            min={def.type === 'number' ? def.min : undefined}
+                            max={def.type === 'number' ? def.max : undefined}
+                            step={def.type === 'number' ? (def.step || 'any') : undefined}
                           />
                           {def.unit && (
                             <span className="text-xs text-slate-400">{def.unit}</span>
