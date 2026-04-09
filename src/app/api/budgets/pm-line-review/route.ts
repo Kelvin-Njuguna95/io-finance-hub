@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
 
+const PM_ROLES = ['project_manager', 'cfo'] as const;
+
 // POST — apply line-item decisions or submit final review
 export async function POST(request: Request) {
   try {
@@ -9,7 +11,7 @@ export async function POST(request: Request) {
     if ('error' in auth) return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
     const { user, profile, admin } = auth;
 
-  if (!['project_manager', 'cfo'].includes(profile.role)) {
+  if (!PM_ROLES.includes(profile.role as (typeof PM_ROLES)[number])) {
     return NextResponse.json({ error: 'Only PM or CFO can review line items' }, { status: 403 });
   }
 

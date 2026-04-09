@@ -2,13 +2,15 @@ import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
 
+const PM_ROLES = ['project_manager', 'cfo'] as const;
+
 export async function POST(request: Request) {
   try {
     const auth = await getAuthUserProfile(request);
     if ('error' in auth) return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
     const { user, profile, admin } = auth;
 
-  if (profile.role !== 'project_manager' && profile.role !== 'cfo') {
+  if (!PM_ROLES.includes(profile.role as (typeof PM_ROLES)[number])) {
     return NextResponse.json({ error: 'Only PMs can review TL budgets' }, { status: 403 });
   }
 
