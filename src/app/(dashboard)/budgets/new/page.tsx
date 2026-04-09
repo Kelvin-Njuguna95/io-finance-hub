@@ -85,9 +85,13 @@ export default function NewBudgetPage() {
         }
         setScopeType('project');
       } else if (user?.role === 'accountant') {
-        // Accountant can submit for ANY active project
-        const { data } = await supabase.from('projects').select('*').eq('is_active', true).order('name');
-        setProjects(data || []);
+        // Accountant can submit for ANY active project or department
+        const [projectsRes, departmentsRes] = await Promise.all([
+          supabase.from('projects').select('*').eq('is_active', true).order('name'),
+          supabase.from('departments').select('*').order('name'),
+        ]);
+        setProjects(projectsRes.data || []);
+        setDepartments(departmentsRes.data || []);
         setScopeType('project');
       } else if (user?.role === 'project_manager') {
         // PMs are directors — load their assigned projects AND all departments
@@ -115,19 +119,26 @@ export default function NewBudgetPage() {
     if (user) load();
   }, [user]);
 
-  // Check for existing budgets when project/month changes (accountant only)
+  // Check for existing budgets when scope/month changes
   useEffect(() => {
     async function checkExisting() {
-      if (!scopeId || !yearMonth || scopeType !== 'project') {
+      if (!scopeId || !yearMonth) {
         setExistingBudgets([]);
         return;
       }
       const supabase = createClient();
-      const { data } = await supabase
+      const query = supabase
         .from('budgets')
         .select('id, submitted_by_role, created_by, budget_versions(status, total_amount_kes, submitted_at, submitted_by)')
-        .eq('project_id', scopeId)
         .eq('year_month', yearMonth);
+
+      if (scopeType === 'project') {
+        query.eq('project_id', scopeId);
+      } else {
+        query.eq('department_id', scopeId);
+      }
+
+      const { data } = await query;
 
       if (!data || data.length === 0) {
         setExistingBudgets([]);
@@ -304,7 +315,9 @@ export default function NewBudgetPage() {
 
       // Send notifications and audit log if submitting
       if (submit) {
-        const projectName = projects.find(p => p.id === scopeId)?.name || 'Unknown';
+        const scopeName = scopeType === 'project'
+          ? projects.find((p) => p.id === scopeId)?.name ?? 'Unknown'
+          : departments.find((d) => d.id === scopeId)?.name ?? 'Unknown';
         try {
           await fetch('/api/budgets/accountant-submit-notify', {
             method: 'POST',
@@ -314,12 +327,15 @@ export default function NewBudgetPage() {
             },
             body: JSON.stringify({
               budget_id: createData.budget_id,
-              project_id: scopeId,
-              project_name: projectName,
+              ...(scopeType === 'project'
+                ? { project_id: scopeId, project_name: scopeName }
+                : { department_id: scopeId, department_name: scopeName }),
               year_month: yearMonth,
               total_kes: totalKes,
               submitted_by_role: submittedByRole,
               existing_tl_budget: existingBudgets.some(b => b.submitted_by_role === 'team_leader'),
+              scope_type: scopeType,
+              scope_name: scopeName,
             }),
           });
         } catch (e) {
@@ -339,7 +355,7 @@ export default function NewBudgetPage() {
 
   return (
     <div>
-      <PageHeader title="New Budget" description={isAccountant ? 'Submit a project budget on behalf of a project' : 'Create a new budget submission'} />
+      <PageHeader title="New Budget" description={isAccountant ? 'Submit a project or department budget' : 'Create a new budget submission'} />
 
       <div className="p-6 max-w-4xl space-y-6">
         {/* Scope selection */}
@@ -349,7 +365,7 @@ export default function NewBudgetPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {(user?.role === 'cfo' || user?.role === 'project_manager') && (
+              {(user?.role === 'cfo' || user?.role === 'project_manager' || user?.role === 'accountant') && (
                 <div className="space-y-1">
                   <Label>Scope Type</Label>
                   <Select value={scopeType} onValueChange={(v) => { if (v) { setScopeType(v as 'project' | 'department'); setScopeId(''); } }}>
@@ -418,6 +434,15 @@ export default function NewBudgetPage() {
                 <div className="flex items-center gap-2 text-blue-700 text-sm">
                   <Info className="h-4 w-4" />
                   No budget submitted yet for this period. You are the first to submit.
+                </div>
+              </div>
+            )}
+
+            {scopeType === 'department' && scopeId && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                <div className="flex items-center gap-2 text-blue-700 text-sm">
+                  <Info className="h-4 w-4" />
+                  Department expenditures are classified as <strong>shared costs</strong> and will be distributed across projects during P&amp;L reporting.
                 </div>
               </div>
             )}
