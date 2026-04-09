@@ -57,13 +57,6 @@ export default function InvoicesPage() {
       query = query.eq('billing_period', selectedMonth);
     }
     const { data, error } = await query;
-
-    if (selectedMonth !== 'all') {
-      query = query.eq('billing_period', selectedMonth);
-    }
-
-    const { data, error } = await query;
-
     if (error) {
       toast.error('Failed to load invoices');
       return;
