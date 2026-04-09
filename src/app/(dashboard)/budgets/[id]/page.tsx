@@ -228,6 +228,7 @@ export default function BudgetDetailPage() {
         body: JSON.stringify({
           action: 'auto_populate',
           budget_version_id: activeVersion.id,
+          budget_id: budget!.id,
         }),
       });
     } catch (e) {
