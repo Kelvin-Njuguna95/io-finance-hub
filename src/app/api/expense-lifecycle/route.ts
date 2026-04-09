@@ -289,7 +289,7 @@ export async function POST(request: Request) {
     const yearMonth = body.year_month;
 
     // Find all approved budget versions
-    let budgetQuery = admin
+    const budgetQuery = admin
       .from('budget_versions')
       .select('id, budget_id, budget_items(*)')
       .eq('status', 'approved');
