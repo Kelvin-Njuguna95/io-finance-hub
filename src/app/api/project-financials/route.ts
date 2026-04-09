@@ -109,9 +109,11 @@ export async function GET(request: Request) {
   for (let i = 1; i <= 6; i++) {
     const d = new Date(parseInt(yearMonth.split('-')[0]), parseInt(yearMonth.split('-')[1]) - 1 - i, 1);
     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const revSrcDate = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+    const revenueYm = `${revSrcDate.getFullYear()}-${String(revSrcDate.getMonth() + 1).padStart(2, '0')}`;
 
     const [invRes, expRes, agRes] = await Promise.all([
-      admin.from('invoices').select('amount_kes').eq('project_id', projectId).eq('billing_period', ym),
+      admin.from('invoices').select('amount_kes').eq('project_id', projectId).eq('billing_period', revenueYm),
       admin.from('expenses').select('amount_kes').eq('project_id', projectId).eq('year_month', ym).eq('expense_type', 'project_expense'),
       admin.from('agent_counts').select('agent_count').eq('project_id', projectId).eq('year_month', ym).single(),
     ]);

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency, formatExecutivePercent } from '@/components/reports/executive-kit';
 import { getCurrentYearMonth, formatYearMonth } from '@/lib/format';
+import { getUnifiedServicePeriodLabel } from '@/lib/report-utils';
 import { isBackdated } from '@/lib/backdated-utils';
 
 interface ProjectRow {
@@ -24,6 +25,7 @@ export default function ProfitabilityPage() {
   const [loading, setLoading] = useState(true);
   const [revenueSourceMonth, setRevenueSourceMonth] = useState('');
   const [isHistorical, setIsHistorical] = useState(false);
+  const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
 
   useEffect(() => {
     async function load() {
@@ -100,7 +102,7 @@ export default function ProfitabilityPage() {
 
   return (
     <div>
-      <PageHeader title="Project Profitability" description={isHistorical ? 'Revenue & Expenses from ' + formatYearMonth(selectedMonth) + ' (historical data)' : 'Revenue from ' + formatYearMonth(revenueSourceMonth) + ' invoice | Expenses from ' + formatYearMonth(selectedMonth)}>
+      <PageHeader title="Project Profitability" description={isHistorical ? 'Revenue & Expenses from ' + formatYearMonth(selectedMonth) + ' (historical data)' : servicePeriodLabel}>
         <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
           <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>

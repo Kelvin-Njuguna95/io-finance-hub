@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency } from '@/components/reports/executive-kit';
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
+import { getUnifiedServicePeriodLabel } from '@/lib/report-utils';
 import { Badge } from '@/components/ui/badge';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
@@ -45,6 +46,7 @@ export default function PnLReportPage() {
 
   const [revenueSourceMonth, setRevenueSourceMonth] = useState('');
   const [isHistorical, setIsHistorical] = useState(false);
+  const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
 
   useEffect(() => {
     async function load() {
@@ -159,7 +161,7 @@ export default function PnLReportPage() {
 
   return (
     <div>
-      <PageHeader title="Profit & Loss" description="Company P&L statement">
+      <PageHeader title="Profit & Loss" description={reportMode === 'accrual' ? servicePeriodLabel : "Company P&L statement"}>
         <Tabs value={reportMode} onValueChange={(v) => setReportMode(v as 'accrual' | 'cash')}>
           <TabsList>
             <TabsTrigger value="accrual">Accrual</TabsTrigger>
@@ -198,10 +200,10 @@ export default function PnLReportPage() {
           <CardHeader>
             <div>
               <CardTitle className="text-base">
-                {formatYearMonth(selectedMonth)} — {reportMode === 'accrual' ? 'Accrual (Lagged)' : 'Cash'} Basis
+                {reportMode === 'accrual' ? `${servicePeriodLabel} — Accrual (Lagged)` : `${formatYearMonth(selectedMonth)} — Cash Basis`}
               </CardTitle>
               {reportMode === 'accrual' ? (
-                <p className="text-xs text-slate-400 mt-1">{isHistorical ? `Revenue & expenses from ${formatYearMonth(selectedMonth)}.` : `Revenue from ${formatYearMonth(revenueSourceMonth)} invoices.`}</p>
+                <p className="text-xs text-slate-400 mt-1">{isHistorical ? `Revenue & expenses from ${formatYearMonth(selectedMonth)}.` : `Revenue and expenses are both matched to ${formatYearMonth(revenueSourceMonth)} service period. Revenue from ${formatYearMonth(revenueSourceMonth)} invoices. Expenses paid in ${formatYearMonth(selectedMonth)}.`}</p>
               ) : (
                 <p className="text-xs text-slate-400 mt-1">Cash mode: showing revenue received in {formatYearMonth(selectedMonth)}</p>
               )}
@@ -240,13 +242,13 @@ export default function PnLReportPage() {
                 </div>
                 <details>
                   <summary className="cursor-pointer text-sm font-medium text-slate-700 underline">Show numeric breakdown</summary>
-                <PnlLine label={reportMode === 'accrual' ? (isHistorical ? 'Revenue' : `Revenue (from ${formatYearMonth(revenueSourceMonth)} invoice)`) : 'Revenue (cash received)'} kes={pnl.revenue} bold />
+                <PnlLine label={reportMode === 'accrual' ? (isHistorical ? 'Revenue' : `Revenue — ${formatYearMonth(revenueSourceMonth)} invoice`) : 'Revenue (cash received)'} kes={pnl.revenue} bold />
                 {pnl.revenueUsd > 0 && (
                   <p className="text-xs text-slate-400 -mt-1 mb-1 text-right">USD {pnl.revenueUsd.toLocaleString()} × standard rate</p>
                 )}
-                <PnlLine label="Direct Costs" kes={-pnl.directCosts} negative />
+                <PnlLine label={reportMode === 'accrual' ? `Expenses — ${formatYearMonth(selectedMonth)} actuals (${formatYearMonth(revenueSourceMonth)} service period)` : 'Direct Costs'} kes={-pnl.directCosts} negative />
                 <Separator className="my-1" />
-                <PnlLine label="Gross Profit" kes={pnl.grossProfit} bold />
+                <PnlLine label={reportMode === 'accrual' ? `Gross Profit — ${formatYearMonth(revenueSourceMonth)} service period` : 'Gross Profit'} kes={pnl.grossProfit} bold />
                 <PnlLine label="Shared Overhead" kes={-pnl.sharedOverhead} negative />
                 <Separator className="my-1" />
                 <PnlLine label="Operating Profit" kes={pnl.operatingProfit} bold />

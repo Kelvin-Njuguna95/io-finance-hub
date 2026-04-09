@@ -46,9 +46,9 @@ interface IndexPoint {
 interface CashFlowPoint {
   month: string;
   label: string;
-  recognised: number;
+  serviceRevenue: number;
+  serviceExpenses: number;
   cashReceived: number;
-  outstanding: number;
 }
 
 interface AgentEfficiency {
@@ -76,9 +76,12 @@ function InsightBadge({ text }: { text: string }) {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   const hasUndistributed = payload.some((e: any) => e.dataKey === 'Undistributed' && e.value > 0);
+  const paymentMonth = payload?.[0]?.payload?.month;
+  const paidIn = paymentMonth ? new Date(parseInt(String(paymentMonth).split('-')[0]), parseInt(String(paymentMonth).split('-')[1]) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : null;
   return (
     <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs">
       <p className="font-semibold mb-1">{label}</p>
+      {paidIn && <p className="text-slate-500 mb-1">Paid in: {paidIn}</p>}
       {payload.map((entry: any, i: number) => (
         <p key={i} style={{ color: entry.color }}>
           {entry.name}: {typeof entry.value === 'number' ? formatKesShort(entry.value) : entry.value}
@@ -186,7 +189,8 @@ export default function TrendsPage() {
 
       for (const m of months) {
         const revenueMonth = historicalMonths.has(m) ? m : getLaggedMonth(m);
-        const label = shortMonth(m);
+        const serviceMonth = getLaggedMonth(m);
+        const label = shortMonth(serviceMonth);
 
         // Revenue (direct for historical, lagged for live)
         const mInvoices = invoices.filter(i => i.billing_period === revenueMonth);
@@ -257,9 +261,9 @@ export default function TrendsPage() {
         cfData.push({
           month: m,
           label,
-          recognised: revenue,
+          serviceRevenue: revenue,
+          serviceExpenses: directExpenses + overhead,
           cashReceived,
-          outstanding: Math.max(0, revenue - cashReceived),
         });
 
         // Agent efficiency
@@ -269,7 +273,7 @@ export default function TrendsPage() {
           month: m,
           label,
           revenuePerAgent: totalAgents > 0 ? revenue / totalAgents : 0,
-          costPerAgent: totalAgents > 0 ? directExpenses / totalAgents : 0,
+          costPerAgent: totalAgents > 0 ? (directExpenses + overhead) / totalAgents : 0,
           agentCount: totalAgents,
         });
 
@@ -406,7 +410,7 @@ export default function TrendsPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <ExecutiveKpiCard label="Net Profit" value={formatCompactCurrency(monthlyData.at(-1)?.netProfit || 0, 'KES')} trend="↑ Momentum" />
             <ExecutiveKpiCard label="Total Revenue" value={formatCompactCurrency(monthlyData.at(-1)?.revenue || 0, 'KES')} trend="↑ Growth" />
-            <ExecutiveKpiCard label="Avg Outstanding" value={formatCompactCurrency(cashFlow.reduce((s, c) => s + c.outstanding, 0) / Math.max(cashFlow.length, 1), 'KES')} trend="Watch weekly" />
+            <ExecutiveKpiCard label="Avg Service Expenses" value={formatCompactCurrency(cashFlow.reduce((s, c) => s + c.serviceExpenses, 0) / Math.max(cashFlow.length, 1), 'KES')} trend="Paid next month" />
             <ExecutiveKpiCard label="Revenue Growth" value="Trending ↑" trend="On Track" />
           </div>
         )}
@@ -414,7 +418,7 @@ export default function TrendsPage() {
         {/* CHART 1: Revenue vs Expenses */}
         <Card className="io-card">
           <CardHeader className="flex-row items-center justify-between">
-            <CardTitle className="text-base">Revenue vs Expenses</CardTitle>
+            <CardTitle className="text-base">Revenue vs Expenses (Service Period)</CardTitle>
             <ChartStatusBadge status={(monthlyData.at(-1)?.netProfit || 0) >= 0 ? 'On Track' : 'Action Needed'} />
           </CardHeader>
           <CardContent>
@@ -428,7 +432,7 @@ export default function TrendsPage() {
                   <Legend />
                   <ReferenceLine y={0} stroke="#94a3b8" strokeWidth={1.5} />
                   <Bar dataKey="revenue" name="Revenue" fill={CHART_COLORS.navy} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="directExpenses" name="Direct Expenses" fill={CHART_COLORS.red} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="directExpenses" name="Direct Expenses (paid next month)" fill={CHART_COLORS.red} radius={[4, 4, 0, 0]} />
                   <Bar dataKey="overhead" name="Overhead" fill={CHART_COLORS.amber} radius={[4, 4, 0, 0]} />
                   <Line type="monotone" dataKey="netProfit" name="Net Profit" stroke={CHART_COLORS.gold} strokeWidth={3} dot={{ r: 5, fill: CHART_COLORS.gold }} />
                 </ComposedChart>
@@ -461,7 +465,7 @@ export default function TrendsPage() {
 
         {/* CHART 3: Expense Composition Stack */}
         <Card className="io-card">
-          <CardHeader><CardTitle className="text-base">Expense Composition</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Expense Composition (Service Period)</CardTitle></CardHeader>
           <CardContent>
             {loading ? <ChartSkeleton /> : (
               <ResponsiveContainer width="100%" height={360}>
@@ -503,7 +507,7 @@ export default function TrendsPage() {
 
         {/* CHART 5: Cash Flow Timing Gap */}
         <Card className="io-card">
-          <CardHeader><CardTitle className="text-base">Cash Flow Timing Gap</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Cash Flow Timing Gap (Accrual vs Cash)</CardTitle></CardHeader>
           <CardContent>
             {loading ? <ChartSkeleton /> : (
               <ResponsiveContainer width="100%" height={360}>
@@ -513,9 +517,9 @@ export default function TrendsPage() {
                   <YAxis tickFormatter={formatKesShort} tick={{ fontSize: 11 }} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
-                  <Bar dataKey="recognised" name="Recognised Revenue" fill={CHART_COLORS.navy} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="cashReceived" name="Cash Received" fill={CHART_COLORS.gold} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="outstanding" name="Outstanding" fill={CHART_COLORS.amber} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="serviceRevenue" name="Service Period Revenue (lagged)" fill={CHART_COLORS.navy} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="serviceExpenses" name="Service Period Expenses (paid next month)" fill={CHART_COLORS.red} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="cashReceived" name="Cash Received (payment date)" fill={CHART_COLORS.gold} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
