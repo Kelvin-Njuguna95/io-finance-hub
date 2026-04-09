@@ -298,6 +298,54 @@ export default function MonthlyPnlReport() {
     doc.save(`IO_PnL_${selectedMonth}.pdf`);
   }, [pnl, selectedMonth, revenueSourceMonth, userRole]);
 
+  const allInsights = pnl ? [
+    {
+      role: 'PM',
+      headline: pnl.grossMargin >= 35 ? 'Delivery margins are healthy this month.' : 'Margin pressure needs project-level corrections.',
+      items: [
+        `Gross margin: ${pnl.grossMargin.toFixed(1)}%.`,
+        `Direct costs are ${((pnl.totalDirectCosts / Math.max(pnl.totalRevenue, 1)) * 100).toFixed(1)}% of revenue.`,
+        `Top revenue concentration: ${pnl.projectRevenues[0]?.name || 'N/A'}.`,
+      ],
+    },
+    {
+      role: 'Team Lead',
+      headline: view === 'detailed' ? 'Detailed mode is active for execution review.' : 'Switch to Detailed to inspect spend lines quickly.',
+      items: [
+        `Direct cost lines: ${pnl.directCosts.length} categories.`,
+        `Overhead categories: ${pnl.overheadGroups.length}.`,
+        `Operating margin: ${pnl.operatingMargin.toFixed(1)}%.`,
+      ],
+    },
+    {
+      role: 'Accountant',
+      headline: pnl.totalOverhead > 0 ? 'Shared overhead is materially impacting operating profit.' : 'No shared overhead captured this month.',
+      items: [
+        `Shared overhead: ${formatCurrency(pnl.totalOverhead, 'KES')}.`,
+        `Revenue recognition source: ${formatYearMonth(revenueSourceMonth)} invoices.`,
+        `Net profit: ${formatCurrency(pnl.netProfit, 'KES')}.`,
+      ],
+    },
+    {
+      role: 'CFO',
+      headline: pnl.netProfit >= 0 ? 'Company remains profitable on current mix.' : 'Month is in net loss and needs intervention.',
+      items: [
+        `Net margin: ${pnl.netProfit > 0 ? `${pnl.netMargin.toFixed(1)}%` : 'N/A'}.`,
+        `Gross to net bridge impact: ${formatCurrency(pnl.totalOverhead, 'KES')} overhead.`,
+        `Distributable-positive projects: ${pnl.distributable.filter((d) => d.profit > 0).length}.`,
+      ],
+    },
+  ] : [];
+
+  const insightRoleByUserRole: Record<string, string> = {
+    project_manager: 'PM',
+    team_leader: 'Team Lead',
+    accountant: 'Accountant',
+    cfo: 'CFO',
+  };
+
+  const targetedInsights = userRole ? allInsights.filter((insight) => insight.role === insightRoleByUserRole[userRole]) : [];
+
   return (
     <div>
       <PageHeader title="Monthly P&L Report" description="Structured income statement">
@@ -339,46 +387,7 @@ export default function MonthlyPnlReport() {
           <Card className="io-card"><CardContent className="p-8 text-center text-slate-400">No data for {formatYearMonth(selectedMonth)}</CardContent></Card>
         ) : (
           <>
-            <RoleInsightBoard
-              insights={[
-                {
-                  role: 'PM',
-                  headline: pnl.grossMargin >= 35 ? 'Delivery margins are healthy this month.' : 'Margin pressure needs project-level corrections.',
-                  items: [
-                    `Gross margin: ${pnl.grossMargin.toFixed(1)}%.`,
-                    `Direct costs are ${((pnl.totalDirectCosts / Math.max(pnl.totalRevenue, 1)) * 100).toFixed(1)}% of revenue.`,
-                    `Top revenue concentration: ${pnl.projectRevenues[0]?.name || 'N/A'}.`,
-                  ],
-                },
-                {
-                  role: 'Team Lead',
-                  headline: view === 'detailed' ? 'Detailed mode is active for execution review.' : 'Switch to Detailed to inspect spend lines quickly.',
-                  items: [
-                    `Direct cost lines: ${pnl.directCosts.length} categories.`,
-                    `Overhead categories: ${pnl.overheadGroups.length}.`,
-                    `Operating margin: ${pnl.operatingMargin.toFixed(1)}%.`,
-                  ],
-                },
-                {
-                  role: 'Accountant',
-                  headline: pnl.totalOverhead > 0 ? 'Shared overhead is materially impacting operating profit.' : 'No shared overhead captured this month.',
-                  items: [
-                    `Shared overhead: ${formatCurrency(pnl.totalOverhead, 'KES')}.`,
-                    `Revenue recognition source: ${formatYearMonth(revenueSourceMonth)} invoices.`,
-                    `Net profit: ${formatCurrency(pnl.netProfit, 'KES')}.`,
-                  ],
-                },
-                {
-                  role: 'CFO',
-                  headline: pnl.netProfit >= 0 ? 'Company remains profitable on current mix.' : 'Month is in net loss and needs intervention.',
-                  items: [
-                    `Net margin: ${pnl.netProfit > 0 ? `${pnl.netMargin.toFixed(1)}%` : 'N/A'}.`,
-                    `Gross to net bridge impact: ${formatCurrency(pnl.totalOverhead, 'KES')} overhead.`,
-                    `Distributable-positive projects: ${pnl.distributable.filter((d) => d.profit > 0).length}.`,
-                  ],
-                },
-              ]}
-            />
+            <RoleInsightBoard insights={targetedInsights} />
 
             <Card className="io-card max-w-6xl overflow-hidden border-slate-200">
               <CardHeader className="bg-gradient-to-r from-[#0f172a] via-[#12203c] to-[#1e293b] text-white rounded-t-lg border-b border-white/10">
