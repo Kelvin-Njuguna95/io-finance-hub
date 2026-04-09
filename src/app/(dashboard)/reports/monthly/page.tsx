@@ -354,6 +354,7 @@ export default function MonthlyPnlReport() {
     }
   })();
 
+
   return (
     <div>
       <PageHeader title="Monthly P&L Report" description="Structured income statement">
