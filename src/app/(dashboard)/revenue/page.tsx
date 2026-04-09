@@ -23,6 +23,12 @@ import { toast } from 'sonner';
 import { getStatusBadgeClass } from '@/lib/status';
 import { getUserErrorMessage } from '@/lib/errors';
 import type { Invoice, Payment } from '@/types/database';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 
 export default function RevenuePage() {
@@ -34,6 +40,11 @@ export default function RevenuePage() {
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [bankBalance, setBankBalance] = useState(0);
+  const [paymentInvoice, setPaymentInvoice] = useState<(Invoice & { project_name?: string; payments?: { amount_usd: number }[] }) | null>(null);
+  const [paymentAmountUsd, setPaymentAmountUsd] = useState(0);
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paymentNotes, setPaymentNotes] = useState('');
+  const [submittingPayment, setSubmittingPayment] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -109,6 +120,111 @@ export default function RevenuePage() {
   }, 0), [invoices]);
   const canCreate = user?.role === 'cfo' || user?.role === 'accountant';
 
+  const paymentContext = useMemo(() => {
+    if (!paymentInvoice) return null;
+    const totalPaid = (paymentInvoice.payments || []).reduce((s, p) => s + Number(p.amount_usd), 0);
+    const outstanding = Math.max(0, Number(paymentInvoice.amount_usd) - totalPaid);
+    return { totalPaid, outstanding };
+  }, [paymentInvoice]);
+
+  function openPaymentDialog(inv: Invoice & { project_name?: string; payments?: { amount_usd: number }[] }) {
+    const totalPaid = (inv.payments || []).reduce((s, p) => s + Number(p.amount_usd), 0);
+    const outstanding = Math.max(0, Number(inv.amount_usd) - totalPaid);
+    setPaymentInvoice(inv);
+    setPaymentAmountUsd(outstanding);
+    setPaymentDate(new Date().toISOString().split('T')[0]);
+    setPaymentNotes('');
+  }
+
+  function closePaymentDialog() {
+    if (submittingPayment) return;
+    setPaymentInvoice(null);
+    setPaymentAmountUsd(0);
+    setPaymentNotes('');
+  }
+
+  async function submitInvoicePayment() {
+    if (!paymentInvoice || !paymentContext) return;
+    if (paymentAmountUsd <= 0) {
+      toast.error('Paid amount must be greater than 0');
+      return;
+    }
+    if (paymentAmountUsd > paymentContext.outstanding) {
+      toast.error('Paid amount cannot exceed outstanding balance');
+      return;
+    }
+    if (!user?.id) {
+      toast.error(getUserErrorMessage());
+      return;
+    }
+
+    setSubmittingPayment(true);
+    const supabase = createClient();
+    const { error: paymentError } = await supabase.from('payments').insert({
+      invoice_id: paymentInvoice.id,
+      payment_date: paymentDate,
+      amount_usd: paymentAmountUsd,
+      amount_kes: 0,
+      notes: paymentNotes || null,
+      recorded_by: user.id,
+    });
+
+    if (paymentError) {
+      setSubmittingPayment(false);
+      toast.error(getUserErrorMessage());
+      return;
+    }
+
+    const remainingOutstanding = Math.max(0, paymentContext.outstanding - paymentAmountUsd);
+    const nextStatus = remainingOutstanding === 0 ? 'paid' : 'partially_paid';
+    const { error: invoiceError } = await supabase
+      .from('invoices')
+      .update({ status: nextStatus })
+      .eq('id', paymentInvoice.id);
+
+    if (invoiceError) {
+      setSubmittingPayment(false);
+      toast.error(getUserErrorMessage());
+      return;
+    }
+
+    setInvoices((prev) => prev.map((inv: any) => (
+      inv.id === paymentInvoice.id
+        ? {
+          ...inv,
+          status: nextStatus,
+          payments: [...(inv.payments || []), { amount_usd: paymentAmountUsd }],
+        }
+        : inv
+    )));
+
+    if (paymentDate.startsWith(selectedMonth)) {
+      setPayments((prev) => [
+        {
+          id: `temp-${Date.now()}`,
+          invoice_id: paymentInvoice.id,
+          payment_date: paymentDate,
+          amount_usd: paymentAmountUsd,
+          amount_kes: 0,
+          payment_method: null,
+          reference: null,
+          notes: paymentNotes || null,
+          recorded_by: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          invoice_number: paymentInvoice.invoice_number,
+          project_name: paymentInvoice.project_name,
+        },
+        ...prev,
+      ]);
+    }
+
+    setBankBalance((prev) => prev + paymentAmountUsd);
+    toast.success(`Payment of ${formatCurrency(paymentAmountUsd, 'USD')} recorded for ${paymentInvoice.invoice_number}`);
+    setSubmittingPayment(false);
+    closePaymentDialog();
+  }
+
   return (
     <div>
       <PageHeader title="Revenue" description="Invoices & payments">
@@ -150,6 +266,66 @@ export default function RevenuePage() {
         onClose={() => setShowPaymentDialog(false)}
         onSaved={() => { setShowPaymentDialog(false); window.location.reload(); }}
       />
+      <Dialog open={Boolean(paymentInvoice)} onOpenChange={(open) => { if (!open) closePaymentDialog(); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Record Payment</DialogTitle>
+            <DialogDescription>
+              Capture payment details for this invoice.
+            </DialogDescription>
+          </DialogHeader>
+
+          {paymentInvoice && paymentContext && (
+            <div className="space-y-4">
+              <div className="rounded-md border bg-muted/30 p-3 space-y-2 text-sm">
+                <div><span className="font-medium">Invoice:</span> {paymentInvoice.invoice_number}</div>
+                <div><span className="font-medium">Project:</span> {paymentInvoice.project_name || '—'}</div>
+                <div><span className="font-medium">Outstanding:</span> {formatCurrency(paymentContext.outstanding, 'USD')}</div>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="inline-paid-amount">Paid Amount (USD)</Label>
+                <Input
+                  id="inline-paid-amount"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={paymentAmountUsd || ''}
+                  onChange={(e) => setPaymentAmountUsd(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="inline-payment-date">Payment Date</Label>
+                <Input
+                  id="inline-payment-date"
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="inline-payment-notes">Notes</Label>
+                <Textarea
+                  id="inline-payment-notes"
+                  value={paymentNotes}
+                  onChange={(e) => setPaymentNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Optional notes"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closePaymentDialog} disabled={submittingPayment}>Cancel</Button>
+            <Button onClick={submitInvoicePayment} disabled={submittingPayment}>
+              {submittingPayment ? 'Saving...' : 'Submit Payment'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="p-6 space-y-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -237,6 +413,11 @@ export default function RevenuePage() {
                           {canCreate && (
                             <TableCell>
                               <div className="flex gap-1">
+                                {outstandingAmount > 0 && (
+                                  <Button variant="outline" size="sm" className="text-xs" onClick={() => openPaymentDialog(inv)}>
+                                    Record Payment
+                                  </Button>
+                                )}
                                 <Button variant="ghost" size="sm" className="text-xs" onClick={async () => {
                                   if (!confirm('Delete this invoice? This cannot be undone.')) return;
                                   const supabase = createClient();
