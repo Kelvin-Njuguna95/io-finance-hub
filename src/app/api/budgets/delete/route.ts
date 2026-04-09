@@ -48,16 +48,10 @@ export async function POST(request: Request) {
     if (!assignment) return NextResponse.json({ error: 'Not your project' }, { status: 403 });
   }
 
-  // Check status — only draft budgets can be deleted
+  // Check status
   const versions = (budget as any).budget_versions || [];
   const currentVersion = versions.find((v: any) => v.version_number === budget.current_version);
   const currentStatus = currentVersion?.status ?? 'draft';
-
-  if (currentStatus !== 'draft') {
-    return NextResponse.json({
-      error: `Cannot delete a budget with status '${currentStatus}'. Only draft budgets can be deleted.`
-    }, { status: 400 });
-  }
 
   // Check if any expenses are linked to this budget (prevent orphans)
   const { count: expenseCount } = await admin
@@ -70,6 +64,12 @@ export async function POST(request: Request) {
       error: `Cannot delete: ${expenseCount} expense(s) are linked to this budget. Remove them first.`
     }, { status: 400 });
   }
+
+  // Also load pending expense count (auto-generated queue rows)
+  const { count: pendingCount } = await admin
+    .from('pending_expenses')
+    .select('id', { count: 'exact', head: true })
+    .eq('budget_id', budget_id);
 
   // Get project name for audit
   let projectName = '—';
@@ -87,9 +87,13 @@ export async function POST(request: Request) {
     year_month: budget.year_month,
     total_amount_kes: currentVersion?.total_amount_kes || 0,
     version_count: versions.length,
+    status: currentStatus,
+    pending_expense_count: pendingCount || 0,
   };
 
-  // Delete: withdrawal logs → items → approvals → versions → budget
+  // Delete in FK-safe order:
+  // pending_expenses -> withdrawal logs -> items/approvals -> versions -> budget
+  await admin.from('pending_expenses').delete().eq('budget_id', budget_id);
   await admin.from('budget_withdrawal_log').delete().eq('budget_id', budget_id);
   for (const v of versions) {
     await admin.from('budget_items').delete().eq('budget_version_id', v.id);
@@ -111,7 +115,7 @@ export async function POST(request: Request) {
     record_id: budget_id,
     old_values: snapshot,
     new_values: null,
-    reason: `${profile.full_name} permanently deleted draft budget`,
+    reason: `${profile.full_name} permanently deleted ${currentStatus} budget`,
   });
 
     return NextResponse.json({ success: true, message: 'Budget deleted permanently' });
