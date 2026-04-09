@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RoleInsightBoard } from '@/components/reports/role-insight-board';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -114,7 +115,48 @@ export default function ProfitabilityPage() {
         </Select>
       </PageHeader>
 
-      <div className="p-6">
+      <div className="p-6 space-y-6">
+        <RoleInsightBoard
+          insights={[
+            {
+              role: 'PM',
+              headline: totalMargin >= 30 ? 'Project margins are holding well.' : 'Project margins are below preferred band.',
+              items: [
+                `Portfolio gross margin: ${formatPercent(totalMargin)}.`,
+                `Highest gross profit project: ${data[0]?.project_name || 'N/A'}.`,
+                `Loss-making projects: ${data.filter((r) => r.gross_profit < 0).length}.`,
+              ],
+            },
+            {
+              role: 'Team Lead',
+              headline: 'Use project margin ranking to prioritize action plans.',
+              items: [
+                `Projects in active set: ${data.length}.`,
+                `Total direct costs: ${formatCurrency(totalCosts, 'KES')}.`,
+                `Revenue source period: ${isHistorical ? formatYearMonth(selectedMonth) : formatYearMonth(revenueSourceMonth)}.`,
+              ],
+            },
+            {
+              role: 'Accountant',
+              headline: 'Revenue-to-cost bridge is visible by project in one ledger.',
+              items: [
+                `Total revenue: ${formatCurrency(totalRevenue, 'KES')}.`,
+                `Total gross profit: ${formatCurrency(totalProfit, 'KES')}.`,
+                `Current month actual cost booking: ${formatYearMonth(selectedMonth)}.`,
+              ],
+            },
+            {
+              role: 'CFO',
+              headline: totalProfit >= 0 ? 'Portfolio gross profitability is positive.' : 'Portfolio gross profitability is negative.',
+              items: [
+                `Gross profit pool: ${formatCurrency(totalProfit, 'KES')}.`,
+                `Profit concentration in top 3 projects: ${formatCurrency(data.slice(0, 3).reduce((s, r) => s + r.gross_profit, 0), 'KES')}.`,
+                `Strategic focus: improve negative-margin projects first.`,
+              ],
+            },
+          ]}
+        />
+
         <Card className="io-card">
           <CardContent className="p-0">
             <Table>

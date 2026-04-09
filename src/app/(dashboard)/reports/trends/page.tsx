@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RoleInsightBoard } from '@/components/reports/role-insight-board';
 import { formatCurrency, formatYearMonth } from '@/lib/format';
 import { getLaggedMonth, getMonthRange, shortMonth, formatKesShort, CHART_COLORS, getProjectColor } from '@/lib/report-utils';
 import { isBackdated } from '@/lib/backdated-utils';
@@ -395,6 +396,50 @@ export default function TrendsPage() {
       </PageHeader>
 
       <div className="p-6 space-y-8">
+        {!loading && (
+          <RoleInsightBoard
+            title="Strategic Insights by Role"
+            insights={[
+              {
+                role: 'PM',
+                headline: monthlyData.at(-1)?.margin && monthlyData.at(-1)!.margin >= 25 ? 'Recent margin trend is favorable.' : 'Recent margin trend needs attention.',
+                items: [
+                  `Latest month margin: ${monthlyData.at(-1) ? `${monthlyData.at(-1)!.margin.toFixed(1)}%` : 'N/A'}.`,
+                  `Trend window: ${rangeMonths} months.`,
+                  `${insights[0] || 'Track project profitability curve for variance spikes.'}`,
+                ],
+              },
+              {
+                role: 'Team Lead',
+                headline: 'Operational efficiency can be read from project and agent trend lines.',
+                items: [
+                  `Projects in trend view: ${projectNames.length}.`,
+                  `Latest revenue/agent: ${agentEff.at(-1) ? formatCurrency(agentEff.at(-1)!.revenuePerAgent, 'KES') : 'N/A'}.`,
+                  `Latest cost/agent: ${agentEff.at(-1) ? formatCurrency(agentEff.at(-1)!.costPerAgent, 'KES') : 'N/A'}.`,
+                ],
+              },
+              {
+                role: 'Accountant',
+                headline: 'Revenue recognition and cash timing gaps are visualized together.',
+                items: [
+                  `Latest recognised revenue: ${monthlyData.at(-1) ? formatCurrency(monthlyData.at(-1)!.revenue, 'KES') : 'N/A'}.`,
+                  `Latest cash received: ${cashFlow.at(-1) ? formatCurrency(cashFlow.at(-1)!.cashReceived, 'KES') : 'N/A'}.`,
+                  `${insights[1] || 'Review expense composition shifts for posting quality.'}`,
+                ],
+              },
+              {
+                role: 'CFO',
+                headline: monthlyData.at(-1)?.netProfit && monthlyData.at(-1)!.netProfit >= 0 ? 'Portfolio ends the period in profit.' : 'Portfolio closes the period in loss.',
+                items: [
+                  `Latest net profit: ${monthlyData.at(-1) ? formatCurrency(monthlyData.at(-1)!.netProfit, 'KES') : 'N/A'}.`,
+                  `Revenue vs expense index spread: ${indexData.at(-1) ? (indexData.at(-1)!.revenueIndex - indexData.at(-1)!.expenseIndex).toFixed(1) : 'N/A'} pts.`,
+                  `${insights[2] || 'Use growth divergence as an early warning signal.'}`,
+                ],
+              },
+            ]}
+          />
+        )}
+
         {/* CHART 1: Revenue vs Expenses */}
         <Card className="io-card">
           <CardHeader><CardTitle className="text-base">Revenue vs Expenses</CardTitle></CardHeader>

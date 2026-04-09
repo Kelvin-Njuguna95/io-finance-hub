@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { isBackdated, cleanNotes, getAgingBucket, computePaymentStatus } from '@/lib/backdated-utils';
+import { RoleInsightBoard } from '@/components/reports/role-insight-board';
 import { DollarSign, Clock, AlertTriangle, Download, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { getUserErrorMessage } from '@/lib/errors';
@@ -227,6 +228,47 @@ export default function OutstandingReceivablesPage() {
       </PageHeader>
 
       <div className="p-6 space-y-6">
+        <RoleInsightBoard
+          insights={[
+            {
+              role: 'PM',
+              headline: overdue90Count > 0 ? 'Collections risk is elevated for long-aging invoices.' : 'Aging profile is currently healthy.',
+              items: [
+                `Total outstanding: ${formatCurrency(totalOutstanding, 'USD')}.`,
+                `90+ day exposure: ${formatCurrency(overdue90Total, 'USD')}.`,
+                `Weighted average age: ${avgDaysOutstanding} days.`,
+              ],
+            },
+            {
+              role: 'Team Lead',
+              headline: 'Use aging buckets to prioritize project-level payment follow-ups.',
+              items: [
+                `Invoices awaiting closure: ${invoices.length}.`,
+                `Backdated outstanding invoices: ${backdatedCount}.`,
+                `Largest open balance: ${formatCurrency(Math.max(...invoices.map((i) => i.balance), 0), 'USD')}.`,
+              ],
+            },
+            {
+              role: 'Accountant',
+              headline: canAct ? 'You can record payments directly from this view.' : 'Payment actions are restricted to finance roles.',
+              items: [
+                `Partial/paid states are reflected in real time from payment ledger.`,
+                `CSV export supports offline reconciliations.`,
+                `Outstanding rows are filtered to balances above zero only.`,
+              ],
+            },
+            {
+              role: 'CFO',
+              headline: overdue90Total > totalOutstanding * 0.3 ? 'High long-tail receivable risk requires escalation.' : 'Long-tail risk remains controlled.',
+              items: [
+                `90+ share of outstanding: ${totalOutstanding > 0 ? ((overdue90Total / totalOutstanding) * 100).toFixed(1) : '0'}%.`,
+                `Collection priority count: ${overdue90Count} invoice(s).`,
+                `Recommend weekly review until aging mix improves.`,
+              ],
+            },
+          ]}
+        />
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
