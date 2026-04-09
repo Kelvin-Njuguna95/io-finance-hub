@@ -16,6 +16,7 @@ import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/form
 import { Plus, Trash2, Save, Send, AlertTriangle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Project, Department } from '@/types/database';
+import { getUserErrorMessage } from '@/lib/errors';
 
 interface LineItem {
   id: string;
@@ -244,84 +245,96 @@ export default function NewBudgetPage() {
       toast.error('All line items must have a description');
       return;
     }
+    if (items.some((i) => i.quantity <= 0 || i.unit_cost_kes <= 0)) {
+      toast.error('Each line item must have quantity and amount greater than zero.');
+      return;
+    }
+    if (totalKes <= 0) {
+      toast.error('Total budget amount must be greater than zero.');
+      return;
+    }
     if (submit && miscGateBlocked) {
       toast.error('Cannot submit — misc report gate is blocking. See the warning above.');
       return;
     }
 
     setSaving(true);
-    const supabase = createClient();
+    try {
+      const supabase = createClient();
 
-    // Determine submitted_by_role
-    const submittedByRole = isAccountant ? 'accountant' : 'team_leader';
+      // Determine submitted_by_role
+      const submittedByRole = isAccountant ? 'accountant' : 'team_leader';
 
-    // Get auth session for API calls
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
-      toast.error('Session expired. Please log in again.');
-      setSaving(false);
-      return;
-    }
-
-    // Create budget via API (bypasses RLS, uses admin client)
-    const createRes = await fetch('/api/budgets/create', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        scope_type: scopeType,
-        scope_id: scopeId,
-        year_month: yearMonth,
-        notes,
-        items: items.map(item => ({
-          description: item.description,
-          category: item.category || null,
-          quantity: item.quantity,
-          unit_cost_kes: item.unit_cost_kes,
-          notes: item.notes || null,
-        })),
-        submit,
-      }),
-    });
-
-    const createData = await createRes.json();
-
-    if (!createRes.ok) {
-      toast.error(createData.error || 'Failed to create budget');
-      setSaving(false);
-      return;
-    }
-
-    // Send notifications and audit log if submitting
-    if (submit) {
-      const projectName = projects.find(p => p.id === scopeId)?.name || 'Unknown';
-      try {
-        await fetch('/api/budgets/accountant-submit-notify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            budget_id: createData.budget_id,
-            project_id: scopeId,
-            project_name: projectName,
-            year_month: yearMonth,
-            total_kes: totalKes,
-            submitted_by_role: submittedByRole,
-            existing_tl_budget: existingBudgets.some(b => b.submitted_by_role === 'team_leader'),
-          }),
-        });
-      } catch (e) {
-        // Non-blocking — notifications are best-effort
-        console.error('Notification failed:', e);
+      // Get auth session for API calls
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Session expired. Please log in again.');
+        return;
       }
-    }
 
-    toast.success(submit ? 'Budget submitted for PM review' : 'Budget saved as draft');
-    router.push('/budgets');
+      // Create budget via API (bypasses RLS, uses admin client)
+      const createRes = await fetch('/api/budgets/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          scope_type: scopeType,
+          scope_id: scopeId,
+          year_month: yearMonth,
+          notes,
+          items: items.map(item => ({
+            description: item.description,
+            category: item.category || null,
+            quantity: item.quantity,
+            unit_cost_kes: item.unit_cost_kes,
+            notes: item.notes || null,
+          })),
+          submit,
+        }),
+      });
+
+      const createData = await createRes.json();
+
+      if (!createRes.ok) {
+        toast.error(getUserErrorMessage(createData?.error, 'Failed to create budget'));
+        return;
+      }
+
+      // Send notifications and audit log if submitting
+      if (submit) {
+        const projectName = projects.find(p => p.id === scopeId)?.name || 'Unknown';
+        try {
+          await fetch('/api/budgets/accountant-submit-notify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              budget_id: createData.budget_id,
+              project_id: scopeId,
+              project_name: projectName,
+              year_month: yearMonth,
+              total_kes: totalKes,
+              submitted_by_role: submittedByRole,
+              existing_tl_budget: existingBudgets.some(b => b.submitted_by_role === 'team_leader'),
+            }),
+          });
+        } catch (e) {
+          // Non-blocking — notifications are best-effort
+          console.error('Notification failed:', e);
+        }
+      }
+
+      toast.success(submit ? 'Budget submitted for PM review' : 'Budget saved as draft');
+      router.push('/budgets');
+    } catch (error) {
+      toast.error(getUserErrorMessage(error, 'Could not save budget right now. Please try again.'));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (

@@ -486,7 +486,9 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
   useEffect(() => { loadData(); }, [loadData]);
 
   async function handleTopUpSubmit() {
-    if (!project || !topUpAmount || !topUpPurpose || topUpPurpose.length < 10) {
+    const parsedAmount = parseFloat(topUpAmount);
+    const normalizedPurpose = topUpPurpose.trim();
+    if (!project || !Number.isFinite(parsedAmount) || parsedAmount <= 0 || normalizedPurpose.length < 10) {
       toast.error('Amount required and purpose must be at least 10 characters.');
       return;
     }
@@ -499,19 +501,19 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
         action: 'submit_topup',
         project_id: project.id,
         period_month: selectedMonth,
-        amount: parseFloat(topUpAmount),
-        purpose: topUpPurpose,
+        amount: parsedAmount,
+        purpose: normalizedPurpose,
       }),
     });
     const data = await res.json();
     if (res.ok) {
-      toast.success(`Top-up of ${formatCurrency(parseFloat(topUpAmount), 'KES')} recorded.`);
+      toast.success(`Top-up of ${formatCurrency(parsedAmount, 'KES')} recorded.`);
       setShowTopUp(false);
       setTopUpAmount('');
       setTopUpPurpose('');
       loadData();
     } else {
-      toast.error(data.error || 'Failed to submit top-up.');
+      toast.error(getUserErrorMessage(data?.error, 'Failed to submit top-up.'));
     }
     setSubmittingTopUp(false);
   }
@@ -949,7 +951,7 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowTopUp(false)}>Cancel</Button>
-            <Button onClick={handleTopUpSubmit} disabled={submittingTopUp || !topUpAmount || topUpPurpose.length < 10}>
+            <Button onClick={handleTopUpSubmit} disabled={submittingTopUp || !topUpAmount || parseFloat(topUpAmount) <= 0 || topUpPurpose.trim().length < 10}>
               Submit Top-Up
             </Button>
           </DialogFooter>
@@ -2373,7 +2375,9 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
   }
 
   async function handleRaiseRequest() {
-    if (!raiseProjectId || !raiseAmount || !raisePurpose || raisePurpose.length < 10) {
+    const parsedAmount = parseFloat(raiseAmount);
+    const normalizedPurpose = raisePurpose.trim();
+    if (!raiseProjectId || !Number.isFinite(parsedAmount) || parsedAmount <= 0 || normalizedPurpose.length < 10) {
       toast.error('Select project, enter amount, and provide purpose (min 10 chars).');
       return;
     }
@@ -2387,8 +2391,8 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
         action: 'accountant_raise',
         project_id: raiseProjectId,
         period_month: periodMonth,
-        amount: parseFloat(raiseAmount),
-        purpose: raisePurpose,
+        amount: parsedAmount,
+        purpose: normalizedPurpose,
         accountant_notes: raiseNotes || undefined,
       }),
     });
@@ -2402,7 +2406,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
       setRaiseNotes('');
       loadData();
     } else {
-      toast.error(data.error || 'Failed to raise request.');
+      toast.error(getUserErrorMessage(data?.error, 'Failed to raise request.'));
     }
     setRaising(false);
   }
@@ -2411,6 +2415,16 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
     if (!reviseDrawId) return;
     const draw = returnedDraws.find((d: any) => d.id === reviseDrawId);
     if (!draw) return;
+    const nextAmount = reviseAmount ? parseFloat(reviseAmount) : Number(draw.amount_requested || 0);
+    const nextPurpose = (revisePurpose || draw.purpose || '').trim();
+    if (!Number.isFinite(nextAmount) || nextAmount <= 0) {
+      toast.error('Amount must be greater than zero.');
+      return;
+    }
+    if (nextPurpose.length < 10) {
+      toast.error('Purpose must be at least 10 characters.');
+      return;
+    }
     setRevising(true);
     const headers = await getAuthHeaders();
     const res = await fetch('/api/misc-draws', {
@@ -2421,8 +2435,8 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
         project_id: draw.project_id,
         period_month: selectedMonth,
         draw_id: reviseDrawId,
-        amount: reviseAmount ? parseFloat(reviseAmount) : undefined,
-        purpose: revisePurpose || undefined,
+        amount: nextAmount,
+        purpose: nextPurpose,
         accountant_notes: reviseNotes || undefined,
       }),
     });
@@ -2435,7 +2449,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
       setReviseNotes('');
       loadData();
     } else {
-      toast.error(data.error || 'Failed to revise request.');
+      toast.error(getUserErrorMessage(data?.error, 'Failed to revise request.'));
     }
     setRevising(false);
   }
@@ -2459,7 +2473,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
       loadData();
     } else {
       const data = await res.json();
-      toast.error(data.error || 'Failed to delete.');
+      toast.error(getUserErrorMessage(data?.error, 'Failed to delete.'));
     }
   }
 
@@ -2612,7 +2626,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowRaiseForm(false)}>Cancel</Button>
-            <Button onClick={handleRaiseRequest} disabled={raising || !raiseProjectId || !raiseAmount || raisePurpose.length < 10} className="bg-purple-600 hover:bg-purple-700 text-white">
+            <Button onClick={handleRaiseRequest} disabled={raising || !raiseProjectId || !raiseAmount || parseFloat(raiseAmount) <= 0 || raisePurpose.trim().length < 10} className="bg-purple-600 hover:bg-purple-700 text-white">
               {raising ? 'Raising...' : 'Raise Request'}
             </Button>
           </DialogFooter>
@@ -2653,7 +2667,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
           })()}
           <DialogFooter>
             <Button variant="outline" onClick={() => setReviseDrawId(null)}>Cancel</Button>
-            <Button onClick={handleReviseRequest} disabled={revising} className="bg-purple-600 hover:bg-purple-700 text-white">
+            <Button onClick={handleReviseRequest} disabled={revising || (!!reviseAmount && parseFloat(reviseAmount) <= 0) || revisePurpose.trim().length < 10} className="bg-purple-600 hover:bg-purple-700 text-white">
               {revising ? 'Resubmitting...' : 'Revise & Resubmit'}
             </Button>
           </DialogFooter>

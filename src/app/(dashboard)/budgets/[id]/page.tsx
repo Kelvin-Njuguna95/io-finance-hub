@@ -23,6 +23,7 @@ import { formatCurrency, formatDateTime, capitalize } from '@/lib/format';
 import { Check, X, History } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Budget, BudgetVersion, BudgetItem, BudgetApproval } from '@/types/database';
+import { getUserErrorMessage } from '@/lib/errors';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-slate-100 text-slate-600',
@@ -53,6 +54,8 @@ export default function BudgetDetailPage() {
   const [returnComments, setReturnComments] = useState('');
   const [pmRejectReason, setPmRejectReason] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [lineActionId, setLineActionId] = useState<string | null>(null);
 
   async function getAuthHeaders(): Promise<Record<string, string>> {
     const supabase = createClient();
@@ -368,6 +371,7 @@ export default function BudgetDetailPage() {
   const canPmReview = isPm && activeVersion?.status === 'pm_review';
   // CFO can also do line-item review on pm_review, pm_approved, submitted budgets
   const canLineReview = canPmReview || (isCfo && ['pm_review', 'pm_approved', 'submitted', 'under_review'].includes(activeVersion?.status || ''));
+  const pendingLineItems = items.filter((i: any) => !i.pm_status || i.pm_status === 'pending').length;
   const [adjustItem, setAdjustItem] = useState<any>(null);
   const [adjustAmount, setAdjustAmount] = useState(0);
   const [adjustReason, setAdjustReason] = useState('');
@@ -395,18 +399,44 @@ export default function BudgetDetailPage() {
     load();
   }
 
+  async function markPmReviewOpenedDirect() {
+    if (!budget?.id || budget.pm_review_opened_at) return;
+    const supabase = createClient();
+    await supabase.from('budgets').update({
+      pm_review_opened_at: new Date().toISOString(),
+      pm_reviewer_id: user?.id || null,
+    }).eq('id', budget.id);
+  }
+
+  useEffect(() => {
+    if (canPmReview && budget?.id && !budget.pm_review_opened_at) {
+      markPmReviewOpenedDirect().then(() => load()).catch((e) => console.error('Failed to mark PM review opened:', e));
+    }
+  }, [budget?.id, budget?.pm_review_opened_at, canPmReview]);
+
   return (
     <div>
       <PageHeader title={`Budget — ${scopeName}`} description={`${budget?.year_month || ''} · Submitted by ${budgetSubmittedByRole === 'accountant' ? 'Accountant' : 'Team Leader'}`}>
         {canPmReview && (
           <div className="flex gap-2">
             <Button onClick={async () => {
-              const headers = await getAuthHeaders();
-              const res = await fetch('/api/budgets/pm-line-review', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
-                body: JSON.stringify({ action: 'submit_review', budget_id: id }) });
-              const data = await res.json();
-              if (data.success) { toast.success('Review submitted — sent to CFO'); load(); } else { toast.error(data.error); }
-            }} disabled={processing} className="gap-1 bg-teal-600 hover:bg-teal-700" size="sm">
+              if (pendingLineItems > 0) {
+                toast.error('Please action all line items before submitting review.');
+                return;
+              }
+              setSubmittingReview(true);
+              try {
+                const headers = await getAuthHeaders();
+                const res = await fetch('/api/budgets/pm-line-review', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
+                  body: JSON.stringify({ action: 'submit_review', budget_id: id }) });
+                const data = await res.json();
+                if (data.success) { toast.success('Review submitted — sent to CFO'); load(); } else { toast.error(getUserErrorMessage(data?.error, 'Failed to submit PM review.')); }
+              } catch (error) {
+                toast.error(getUserErrorMessage(error, 'Failed to submit PM review.'));
+              } finally {
+                setSubmittingReview(false);
+              }
+            }} disabled={processing || submittingReview || pendingLineItems > 0} className="gap-1 bg-teal-600 hover:bg-teal-700" size="sm">
               <Check className="h-4 w-4" /> Submit Review
             </Button>
             <Button variant="outline" size="sm" onClick={() => setShowReturnDialog(true)} disabled={processing} className="gap-1 text-amber-600">
@@ -545,7 +575,7 @@ export default function BudgetDetailPage() {
                   load();
                 }} className="gap-1 text-rose-600">Remove All Pending</Button>
                 <span className="text-xs text-slate-400">
-                  {items.filter((i: any) => (i as any).pm_status === 'pending' || !(i as any).pm_status).length} pending
+                  {pendingLineItems} pending
                 </span>
               </div>
             )}
@@ -637,11 +667,19 @@ export default function BudgetDetailPage() {
                           <TableCell>
                             <div className="flex gap-1 flex-wrap">
                               {pmStatus !== 'approved' && (
-                                <Button variant="ghost" size="sm" className="text-xs text-emerald-600 h-7" onClick={async () => {
-                                  const headers = await getAuthHeaders();
-                                  await fetch('/api/budgets/pm-line-review', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
-                                    body: JSON.stringify({ action: 'update_item', item_id: item.id, budget_id: id, pm_status: 'approved' }) });
-                                  load();
+                                <Button variant="ghost" size="sm" className="text-xs text-emerald-600 h-7" disabled={lineActionId === item.id} onClick={async () => {
+                                  setLineActionId(item.id);
+                                  try {
+                                    const headers = await getAuthHeaders();
+                                    const res = await fetch('/api/budgets/pm-line-review', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
+                                      body: JSON.stringify({ action: 'update_item', item_id: item.id, budget_id: id, pm_status: 'approved' }) });
+                                    const data = await res.json();
+                                    if (!data.success) toast.error(getUserErrorMessage(data?.error, 'Unable to approve line item.'));
+                                    await markPmReviewOpenedDirect();
+                                    load();
+                                  } finally {
+                                    setLineActionId(null);
+                                  }
                                 }}>Approve</Button>
                               )}
                               {pmStatus !== 'adjusted' && (
@@ -652,21 +690,27 @@ export default function BudgetDetailPage() {
                                 }}>Adjust</Button>
                               )}
                               {pmStatus !== 'removed' && (
-                                <Button variant="ghost" size="sm" className="text-xs text-rose-600 h-7" onClick={() => {
+                                <Button variant="ghost" size="sm" className="text-xs text-rose-600 h-7" disabled={lineActionId === item.id} onClick={() => {
                                   const reason = prompt('Reason for removing this line item:');
                                   if (!reason) return;
+                                  setLineActionId(item.id);
                                   getAuthHeaders().then(headers => {
                                     fetch('/api/budgets/pm-line-review', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
-                                      body: JSON.stringify({ action: 'update_item', item_id: item.id, budget_id: id, pm_status: 'removed', reason }) }).then(() => load());
-                                  });
+                                      body: JSON.stringify({ action: 'update_item', item_id: item.id, budget_id: id, pm_status: 'removed', reason }) }).then(() => markPmReviewOpenedDirect()).then(() => load()).finally(() => setLineActionId(null));
+                                  }).catch(() => setLineActionId(null));
                                 }}>Remove</Button>
                               )}
                               {pmStatus !== 'pending' && (
-                                <Button variant="ghost" size="sm" className="text-xs text-slate-400 h-7" onClick={async () => {
-                                  const headers = await getAuthHeaders();
-                                  await fetch('/api/budgets/pm-line-review', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
-                                    body: JSON.stringify({ action: 'update_item', item_id: item.id, budget_id: id, pm_status: 'pending' }) });
-                                  load();
+                                <Button variant="ghost" size="sm" className="text-xs text-slate-400 h-7" disabled={lineActionId === item.id} onClick={async () => {
+                                  setLineActionId(item.id);
+                                  try {
+                                    const headers = await getAuthHeaders();
+                                    await fetch('/api/budgets/pm-line-review', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
+                                      body: JSON.stringify({ action: 'update_item', item_id: item.id, budget_id: id, pm_status: 'pending' }) });
+                                    load();
+                                  } finally {
+                                    setLineActionId(null);
+                                  }
                                 }}>Undo</Button>
                               )}
                             </div>
@@ -895,14 +939,18 @@ export default function BudgetDetailPage() {
             <Button variant="outline" onClick={() => setAdjustItem(null)}>Cancel</Button>
             <Button onClick={async () => {
               if (adjustAmount <= 0 || !adjustReason.trim()) { toast.error('Amount and reason required'); return; }
+              if (user?.role !== 'cfo' && adjustAmount > Number(adjustItem?.amount_kes || 0)) {
+                toast.error('Adjusted amount cannot be higher than the submitted amount.');
+                return;
+              }
               const headers = await getAuthHeaders();
               const res = await fetch('/api/budgets/pm-line-review', {
                 method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
                 body: JSON.stringify({ action: 'update_item', item_id: adjustItem.id, budget_id: id, pm_status: 'adjusted', pm_approved_amount: adjustAmount, reason: adjustReason }),
               });
               const data = await res.json();
-              if (data.success) { toast.success('Amount adjusted'); setAdjustItem(null); load(); } else { toast.error(data.error); }
-            }} disabled={adjustAmount <= 0 || !adjustReason.trim()}>Save Adjustment</Button>
+              if (data.success) { toast.success('Amount adjusted'); setAdjustItem(null); await markPmReviewOpenedDirect(); load(); } else { toast.error(getUserErrorMessage(data?.error, 'Unable to save adjustment.')); }
+            }} disabled={adjustAmount <= 0 || !adjustReason.trim() || (user?.role !== 'cfo' && adjustAmount > Number(adjustItem?.amount_kes || 0))}>Save Adjustment</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

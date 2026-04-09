@@ -123,14 +123,14 @@ export async function POST(request: Request) {
   // Action: submit final review
   if (action === 'submit_review' && budget_id) {
     // Get budget and check all items reviewed
-    const { data: budget } = await admin.from('budgets').select('*, budget_versions(id, budget_items(*))').eq('id', budget_id).single();
+    const { data: budget } = await admin.from('budgets').select('*, budget_versions(id, version_number, budget_items(*))').eq('id', budget_id).single();
     if (!budget) return NextResponse.json({ error: 'Budget not found' }, { status: 404 });
 
     const versions = (budget as any).budget_versions || [];
     const currentVersion = versions.find((v: any) => v.version_number === budget.current_version) || versions[0];
     const allItems = currentVersion?.budget_items || [];
 
-    const pending = allItems.filter((i: any) => i.pm_status === 'pending');
+    const pending = allItems.filter((i: any) => !i.pm_status || i.pm_status === 'pending');
     if (pending.length > 0) {
       return NextResponse.json({ error: `${pending.length} line items still pending review` }, { status: 400 });
     }
