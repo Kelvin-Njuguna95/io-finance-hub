@@ -39,6 +39,19 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
   const [backdatedReason, setBackdatedReason] = useState('');
   const [saving, setSaving] = useState(false);
 
+  function resetForm() {
+    setProjectId('');
+    setInvoiceNumber('');
+    setInvoiceDate(new Date().toISOString().split('T')[0]);
+    setDueDate('');
+    setBillingPeriod(getCurrentYearMonth());
+    setAmountUsd(0);
+    setAmountKes(0);
+    setDescription('');
+    setIsBackdated(false);
+    setBackdatedReason('');
+  }
+
   useEffect(() => {
     if (!open) return;
     async function load() {
@@ -57,6 +70,10 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
 
     if (isBackdated && !backdatedReason.trim()) {
       toast.error('Reason for late entry is required for backdated invoices');
+      return;
+    }
+    if (dueDate && invoiceDate && new Date(dueDate) < new Date(invoiceDate)) {
+      toast.error('Due date cannot be earlier than invoice date');
       return;
     }
 
@@ -87,9 +104,10 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
     });
 
     if (error) {
-      toast.error(getUserErrorMessage());
+      toast.error(getUserErrorMessage(error, 'Failed to create invoice. Please review the form and try again.'));
     } else {
       toast.success('Invoice created');
+      resetForm();
       onSaved();
       onClose();
     }

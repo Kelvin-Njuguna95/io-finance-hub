@@ -69,7 +69,7 @@ export default function RevenuePage() {
   const { user } = useUser();
   const [invoices, setInvoices] = useState<RevenueInvoice[]>([]);
   const [payments, setPayments] = useState<(Payment & { invoice_number?: string; project_name?: string })[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
+  const [selectedMonth, setSelectedMonth] = useState<'all' | string>(getCurrentYearMonth());
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [bankBalance, setBankBalance] = useState(0);
@@ -91,7 +91,7 @@ export default function RevenuePage() {
 
     const { data: invoiceData, error: invoiceError } = await supabase
       .from('invoices')
-      .select('id, invoice_number, project_id, client_name, amount_usd, amount_kes, payment_status, total_paid, balance_outstanding, due_date, created_at, year_month, billing_period, invoice_date, status, description, notes, projects(name)')
+      .select('id, invoice_number, project_id, client_name, amount_usd, amount_kes, payment_status, total_paid, balance_outstanding, due_date, created_at, billing_period, invoice_date, status, description, notes, projects(name)')
       .order('created_at', { ascending: false });
 
     if (invoiceError) {
@@ -114,7 +114,7 @@ export default function RevenuePage() {
 
     const monthPayments = (payData || []).filter((p: Record<string, unknown>) => {
       const pd = p.payment_date as string;
-      return pd && pd.startsWith(selectedMonth);
+      return selectedMonth === 'all' ? Boolean(pd) : (pd && pd.startsWith(selectedMonth));
     });
 
     setPayments(
@@ -136,13 +136,19 @@ export default function RevenuePage() {
     loadData();
   }, [loadData]);
 
-  const totalInvoicedUsd = useMemo(() => invoices
+  const scopedInvoices = useMemo(() => (
+    selectedMonth === 'all'
+      ? invoices
+      : invoices.filter((i) => i.billing_period === selectedMonth)
+  ), [invoices, selectedMonth]);
+
+  const totalInvoicedUsd = useMemo(() => scopedInvoices
     .filter((i: RevenueInvoice) => !isBackdated(i.description))
-    .reduce((s, i) => s + Number(i.amount_usd), 0), [invoices]);
+    .reduce((s, i) => s + Number(i.amount_usd), 0), [scopedInvoices]);
 
   const totalCashReceivedUsd = useMemo(() => payments.reduce((s, p) => s + Number(p.amount_usd), 0), [payments]);
 
-  const outstandingTotals = useMemo(() => invoices.reduce((acc, inv) => {
+  const outstandingTotals = useMemo(() => scopedInvoices.reduce((acc, inv) => {
     const computedStatus = normalizeStatus(inv);
     if (computedStatus !== 'paid') {
       const invoiceOutstandingUsd = Math.max(0, Number(inv.balance_outstanding ?? 0));
@@ -156,7 +162,7 @@ export default function RevenuePage() {
       acc.kes += Math.max(0, proportionalOutstandingKes);
     }
     return acc;
-  }, { usd: 0, kes: 0 }), [invoices]);
+  }, { usd: 0, kes: 0 }), [scopedInvoices]);
 
   const paymentContext = useMemo(() => {
     if (!paymentInvoice) return null;
@@ -166,8 +172,8 @@ export default function RevenuePage() {
 
   const filteredInvoices = useMemo(() => {
     const base = invoiceFilter === 'all'
-      ? invoices
-      : invoices.filter((inv) => normalizeStatus(inv) === invoiceFilter);
+      ? scopedInvoices
+      : scopedInvoices.filter((inv) => normalizeStatus(inv) === invoiceFilter);
 
     return [...base].sort((a, b) => {
       let aValue: string | number = '';
@@ -190,7 +196,7 @@ export default function RevenuePage() {
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [invoiceFilter, invoices, sortDirection, sortKey]);
+  }, [invoiceFilter, scopedInvoices, sortDirection, sortKey]);
 
   function openPaymentDialog(inv: RevenueInvoice) {
     const outstanding = Math.max(0, Number(inv.balance_outstanding ?? 0));
@@ -333,6 +339,7 @@ export default function RevenuePage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">All months</SelectItem>
             {Array.from({ length: 12 }, (_, i) => {
               const d = new Date();
               d.setMonth(d.getMonth() - i);
@@ -614,7 +621,7 @@ export default function RevenuePage() {
                     {payments.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-8 text-neutral-500">
-                          No payments for {formatYearMonth(selectedMonth)}
+                          {selectedMonth === 'all' ? 'No payments found' : `No payments for ${formatYearMonth(selectedMonth)}`}
                         </TableCell>
                       </TableRow>
                     ) : (
