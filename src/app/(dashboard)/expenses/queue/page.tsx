@@ -95,11 +95,12 @@ function variancePercent(budgeted: number, actual: number) {
 // -----------------------------------------------
 
 function getMonthOptions() {
-  return Array.from({ length: 12 }, (_, i) => {
+  return Array.from({ length: 19 }, (_, idx) => {
+    const i = idx - 12; // 12 months back through 6 months ahead
     const d = new Date();
-    d.setMonth(d.getMonth() - i);
+    d.setMonth(d.getMonth() + i);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  });
+  }).reverse();
 }
 
 // -----------------------------------------------
@@ -154,6 +155,22 @@ export default function ExpenseQueuePage() {
 
   useEffect(() => {
     loadProjects();
+  }, []);
+
+  useEffect(() => {
+    async function syncToLatestPendingMonth() {
+      const { data } = await supabase
+        .from('pending_expenses')
+        .select('year_month')
+        .eq('status', 'pending_auth')
+        .order('year_month', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data?.year_month && data.year_month !== selectedMonth) {
+        setSelectedMonth(data.year_month);
+      }
+    }
+    syncToLatestPendingMonth();
   }, []);
 
   useEffect(() => {
