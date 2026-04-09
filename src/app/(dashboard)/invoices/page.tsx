@@ -171,9 +171,9 @@ export default function InvoicesPage() {
             </TabsList>
           </Tabs>
 
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/revenue">Go to Revenue Overview</Link>
-          </Button>
+          <Link href="/revenue">
+            <Button variant="ghost" size="sm">Go to Revenue Overview</Button>
+          </Link>
         </div>
 
         <Card>

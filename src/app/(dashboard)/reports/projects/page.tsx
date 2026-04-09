@@ -19,6 +19,8 @@ import {
 } from 'recharts';
 import { BarChart3, TrendingUp, Users, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { FileDown } from 'lucide-react';
+import { exportSimpleReportPdf } from '@/lib/pdf-export';
 
 interface ProjectComparison {
   name: string;
@@ -59,7 +61,13 @@ export default function ProjectComparisonPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
-        setUserRole(profile?.role || '');
+        const role = profile?.role || '';
+        setUserRole(role);
+        if (!['cfo', 'accountant'].includes(role)) {
+          setData([]);
+          setLoading(false);
+          return;
+        }
       }
 
       // Detect historical months — use direct matching
@@ -177,6 +185,15 @@ export default function ProjectComparisonPage() {
   const totalProfit = data.reduce((s, r) => s + r.distributableProfit, 0);
   const totalAgents = data.reduce((s, r) => s + r.agentCount, 0);
 
+  async function exportPdf() {
+    await exportSimpleReportPdf(
+      'Project Comparison',
+      isHistorical ? `Historical month ${selectedMonth}` : servicePeriodLabel,
+      data.slice(0, 120).map((r) => `${r.name} | revenue ${r.revenue.toFixed(2)} | direct ${r.directExpenses.toFixed(2)} | distributable ${r.distributableProfit.toFixed(2)}`),
+      `IO_Project_Comparison_${selectedMonth}.pdf`,
+    );
+  }
+
   // Radar data
   const radarDimensions = ['Gross Margin', 'Budget Util', 'Rev/Agent', 'Cost Eff'];
   const radarData = radarDimensions.map((dim, i) => {
@@ -189,6 +206,15 @@ export default function ProjectComparisonPage() {
 
   return (
     <div>
+      {userRole && !['cfo', 'accountant'].includes(userRole) ? (
+        <div>
+          <PageHeader title="Project Comparison" description="Access restricted" />
+          <div className="p-6 text-sm text-slate-500">
+            Only CFO and Accountant roles can access project comparison analytics.
+          </div>
+        </div>
+      ) : (
+      <>
       <PageHeader title="Project Comparison" description={isHistorical ? `Revenue & Expenses from ${formatYearMonth(selectedMonth)} (historical)` : servicePeriodLabel}>
         <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
           <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
@@ -200,6 +226,9 @@ export default function ProjectComparisonPage() {
             })}
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={exportPdf}>
+          <FileDown className="h-4 w-4 mr-1" /> Export PDF
+        </Button>
       </PageHeader>
 
       <div className="p-6 space-y-6">
@@ -293,6 +322,8 @@ export default function ProjectComparisonPage() {
           </Card>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

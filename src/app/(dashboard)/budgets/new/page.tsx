@@ -15,10 +15,11 @@ import { Separator } from '@/components/ui/separator';
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { Plus, Trash2, Save, Send, AlertTriangle, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Project, Department } from '@/types/database';
+import type { Department } from '@/types/database';
 import { getUserErrorMessage } from '@/lib/errors';
 import { getActiveProjects, getAssignedActiveProjects } from '@/lib/queries/projects';
 import { canSubmitDepartmentBudget } from '@/lib/permissions';
+import { ROLE_LABELS } from '@/types/database';
 
 interface LineItem {
   id: string;
@@ -44,7 +45,7 @@ function generateId() {
 export default function NewBudgetPage() {
   const { user } = useUser();
   const router = useRouter();
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [scopeType, setScopeType] = useState<'project' | 'department'>('project');
   const [scopeId, setScopeId] = useState('');
@@ -78,7 +79,7 @@ export default function NewBudgetPage() {
       if (user?.role === 'team_leader') {
         // Load only assigned projects
         const { data: assignedProjects } = await getAssignedActiveProjects(supabase, user.id);
-        setProjects((assignedProjects || []) as Project[]);
+        setProjects(assignedProjects || []);
         setScopeType('project');
       } else if (user?.role === 'accountant') {
         // Accountant can submit for ANY active project or department
@@ -91,8 +92,16 @@ export default function NewBudgetPage() {
         setScopeType('project');
       } else if (user?.role === 'project_manager') {
         const { data: assignedProjects } = await getAssignedActiveProjects(supabase, user.id);
-        setProjects((assignedProjects || []) as Project[]);
+        setProjects(assignedProjects || []);
         setScopeType('project');
+      } else if (user?.role === 'department_head') {
+        const { data: departmentsRes } = await supabase
+          .from('departments')
+          .select('*')
+          .eq('owner_user_id', user.id)
+          .order('name');
+        setDepartments(departmentsRes || []);
+        setScopeType('department');
       } else if (user?.role === 'cfo') {
         const [projRes, deptRes] = await Promise.all([
           getActiveProjects(supabase),
@@ -271,9 +280,11 @@ export default function NewBudgetPage() {
         ? 'accountant'
         : user?.role === 'project_manager'
           ? 'project_manager'
-          : user?.role === 'cfo'
-            ? 'cfo'
-            : 'team_leader';
+          : user?.role === 'department_head'
+            ? 'department_head'
+            : user?.role === 'cfo'
+              ? 'cfo'
+              : 'team_leader';
 
       // Get auth session for API calls
       const { data: { session } } = await supabase.auth.getSession();
@@ -424,7 +435,7 @@ export default function NewBudgetPage() {
                 </p>
                 {existingBudgets.map((eb, i) => (
                   <p key={i} className="text-sm text-amber-700 pl-2">
-                    — Submitted by <strong>{eb.submitted_by_name}</strong> ({eb.submitted_by_role === 'accountant' ? 'Accountant' : 'Team Leader'})
+                    — Submitted by <strong>{eb.submitted_by_name}</strong> ({ROLE_LABELS[eb.submitted_by_role as keyof typeof ROLE_LABELS] || eb.submitted_by_role})
                     {eb.status !== 'draft' && <> · {formatCurrency(eb.total_kes, 'KES')} · Status: {eb.status}</>}
                   </p>
                 ))}

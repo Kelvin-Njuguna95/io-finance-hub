@@ -576,7 +576,7 @@ export default function SettingsPage() {
                 <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
                   <p className="text-sm font-medium text-amber-900">Historical Seed Cleanup</p>
                   <p className="mt-1 text-xs text-amber-800">
-                    Use this action only when you need to roll back seeded historical records before reseeding.
+                    Use this action only when you need to permanently remove previously-seeded historical records.
                   </p>
                   <Button
                     variant="destructive"

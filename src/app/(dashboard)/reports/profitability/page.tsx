@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +11,8 @@ import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency, formatE
 import { getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { getUnifiedServicePeriodLabel } from '@/lib/report-utils';
 import { isBackdated } from '@/lib/backdated-utils';
+import { FileDown } from 'lucide-react';
+import { exportSimpleReportPdf } from '@/lib/pdf-export';
 
 interface ProjectRow {
   project_name: string;
@@ -100,6 +103,15 @@ export default function ProfitabilityPage() {
   const totalProfit = data.reduce((s, r) => s + r.gross_profit, 0);
   const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue * 100) : 0;
 
+  async function exportPdf() {
+    await exportSimpleReportPdf(
+      'Project Profitability',
+      isHistorical ? `Historical month ${selectedMonth}` : servicePeriodLabel,
+      data.slice(0, 120).map((r) => `${r.project_name} | revenue ${r.revenue.toFixed(2)} | costs ${r.direct_costs.toFixed(2)} | margin ${r.margin.toFixed(1)}%`),
+      `IO_Project_Profitability_${selectedMonth}.pdf`,
+    );
+  }
+
   return (
     <div>
       <PageHeader title="Project Profitability" description={isHistorical ? 'Revenue & Expenses from ' + formatYearMonth(selectedMonth) + ' (historical data)' : servicePeriodLabel}>
@@ -113,6 +125,9 @@ export default function ProfitabilityPage() {
             })}
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={exportPdf}>
+          <FileDown className="h-4 w-4 mr-1" /> Export PDF
+        </Button>
       </PageHeader>
 
       <div className="p-6 space-y-6">

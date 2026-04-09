@@ -376,7 +376,7 @@ export default function MonthlyPnlReport() {
                       ]}>
                         <XAxis dataKey="stage" tick={{ fontSize: 11 }} />
                         <YAxis tickFormatter={(v) => formatCompactCurrency(Number(v), 'KES')} />
-                        <Tooltip formatter={(v: number) => formatCompactCurrency(v, 'KES')} />
+                        <Tooltip formatter={(v: unknown) => formatCompactCurrency(Number(v || 0), 'KES')} />
                         <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                           {[0, 1, 2, 3, 4].map((i) => <Cell key={i} fill={['#22c55e', '#ef4444', '#0ea5e9', '#f59e0b', '#22c55e'][i]} />)}
                         </Bar>
@@ -403,7 +403,7 @@ export default function MonthlyPnlReport() {
                         >
                           {pnl.directCosts.map((_, i) => <Cell key={i} fill={['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#a855f7'][i % 5]} />)}
                         </Pie>
-                        <Tooltip formatter={(v: number) => formatCompactCurrency(v, 'KES')} />
+                        <Tooltip formatter={(v: unknown) => formatCompactCurrency(Number(v || 0), 'KES')} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>

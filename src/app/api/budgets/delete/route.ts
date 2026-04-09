@@ -91,6 +91,20 @@ export async function POST(request: Request) {
     pending_expense_count: pendingCount || 0,
   };
 
+  // Audit log must succeed BEFORE delete.
+  const { error: auditError } = await admin.from('audit_logs').insert({
+    user_id: user.id,
+    action: 'budget_deleted',
+    table_name: 'budgets',
+    record_id: budget_id,
+    old_values: snapshot,
+    new_values: null,
+    reason: `${profile.full_name} permanently deleted ${currentStatus} budget`,
+  });
+  if (auditError) {
+    return NextResponse.json({ error: `Audit log failed: ${auditError.message}` }, { status: 500 });
+  }
+
   // Delete in FK-safe order:
   // pending_expenses -> withdrawal logs -> items/approvals -> versions -> budget
   await admin.from('pending_expenses').delete().eq('budget_id', budget_id);
@@ -106,17 +120,6 @@ export async function POST(request: Request) {
   if (deleteError) {
     return NextResponse.json({ error: `Delete failed: ${deleteError.message}` }, { status: 500 });
   }
-
-  // Audit log
-  await admin.from('audit_logs').insert({
-    user_id: user.id,
-    action: 'budget_deleted',
-    table_name: 'budgets',
-    record_id: budget_id,
-    old_values: snapshot,
-    new_values: null,
-    reason: `${profile.full_name} permanently deleted ${currentStatus} budget`,
-  });
 
     return NextResponse.json({ success: true, message: 'Budget deleted permanently' });
   } catch (error) {

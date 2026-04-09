@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient, getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
+import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
 
 export async function POST(request: Request) {
@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     const { user, profile, admin } = auth;
 
   // Only these roles can create budgets
-  if (!['cfo', 'team_leader', 'project_manager', 'accountant'].includes(profile.role)) {
+  if (!['cfo', 'team_leader', 'project_manager', 'accountant', 'department_head'].includes(profile.role)) {
     return NextResponse.json({ error: 'Not authorized to create budgets' }, { status: 403 });
   }
 
@@ -26,6 +26,9 @@ export async function POST(request: Request) {
   if (!scope_id || !year_month) {
     return NextResponse.json({ error: 'scope_id and year_month required' }, { status: 400 });
   }
+  if (scope_type !== 'project' && scope_type !== 'department') {
+    return NextResponse.json({ error: 'scope_type must be "project" or "department"' }, { status: 400 });
+  }
 
   // Month lock enforcement
   const monthErr = await assertMonthOpen(admin, year_month);
@@ -41,6 +44,7 @@ export async function POST(request: Request) {
   const isTeamLeader = profile.role === 'team_leader';
   const isProjectManager = profile.role === 'project_manager';
   const isCfo = profile.role === 'cfo';
+  const isDepartmentHead = profile.role === 'department_head';
 
   // TL: verify project assignment
   if (isTeamLeader) {
@@ -56,6 +60,18 @@ export async function POST(request: Request) {
 
   if (isProjectManager && scope_type !== 'project') {
     return NextResponse.json({ error: 'Project managers can only create project budgets' }, { status: 403 });
+  }
+  if (isDepartmentHead && scope_type !== 'department') {
+    return NextResponse.json({ error: 'Department heads can only create department budgets' }, { status: 403 });
+  }
+  if (isDepartmentHead && scope_type === 'department') {
+    const { data: department } = await admin
+      .from('departments')
+      .select('id')
+      .eq('id', scope_id)
+      .eq('owner_user_id', user.id)
+      .single();
+    if (!department) return NextResponse.json({ error: 'Not allowed to budget for this department' }, { status: 403 });
   }
 
   // PM: verify department/project assignment
@@ -74,6 +90,49 @@ export async function POST(request: Request) {
   if (isAccountant) submittedByRole = 'accountant';
   else if (isProjectManager) submittedByRole = 'project_manager';
   else if (isCfo) submittedByRole = 'cfo';
+  else if (isDepartmentHead) submittedByRole = 'department_head';
+
+  // Misc gate (backend enforcement): for project budget submissions, prior-month misc report must be submitted.
+  if (submit && scope_type === 'project' && !isCfo) {
+    const prevDate = new Date(parseInt(year_month.split('-')[0]), parseInt(year_month.split('-')[1]) - 2, 1);
+    const prevMonth = prevDate.getFullYear() + '-' + String(prevDate.getMonth() + 1).padStart(2, '0');
+    const { data: gateSetting } = await admin
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'misc_gate_start_month')
+      .single();
+    const gateStartMonth = gateSetting?.value || '2026-04';
+    if (prevMonth >= gateStartMonth) {
+      const { data: miscAllocation } = await admin
+        .from('misc_allocations')
+        .select('id')
+        .eq('project_id', scope_id)
+        .eq('period_month', prevMonth)
+        .eq('is_active', true)
+        .limit(1);
+
+      const hasMiscAllocation = (miscAllocation?.length || 0) > 0;
+      if (!hasMiscAllocation) {
+        // No misc allocation configured in prior month, so misc gate is not applicable.
+      } else {
+      const { data: miscReport } = await admin
+        .from('misc_reports')
+        .select('id, status')
+        .eq('project_id', scope_id)
+        .eq('period_month', prevMonth)
+        .in('status', ['submitted', 'cfo_reviewed'])
+        .limit(1);
+      if (!miscReport || miscReport.length === 0) {
+        return NextResponse.json({
+          error: 'MISC_GATE_BLOCKED',
+          message: `The misc report for ${prevMonth} has not been submitted. Submit the misc report before creating a budget.`,
+          gate: 'MISC_REPORT_GATE_BLOCKED',
+          prev_month: prevMonth,
+        }, { status: 422 });
+      }
+      }
+    }
+  }
 
   // Determine status by routing chain
   let submitStatus: string;

@@ -355,9 +355,11 @@ export default function RevenuePage() {
         </Select>
         {canCreate && (
           <div className="flex gap-2">
-            <Button size="sm" variant="secondary" asChild>
-              <Link href="/invoices">Manage Invoices</Link>
-            </Button>
+            <Link href="/invoices">
+              <Button size="sm" variant="secondary">
+                Manage Invoices
+              </Button>
+            </Link>
             <Button size="sm" className="gap-1" onClick={() => setShowInvoiceDialog(true)}>
               <Plus className="h-4 w-4" /> Invoice
             </Button>
@@ -496,7 +498,7 @@ export default function RevenuePage() {
               <CardContent className="space-y-4 p-4">
                 <div className="flex flex-wrap items-center gap-3">
                   <Label className="text-sm">Status Filter</Label>
-                  <Select value={invoiceFilter} onValueChange={(v: InvoiceFilter) => setInvoiceFilter(v)}>
+                  <Select value={invoiceFilter} onValueChange={(v) => setInvoiceFilter((v ?? 'all') as InvoiceFilter)}>
                     <SelectTrigger className="w-[200px]">
                       <SelectValue placeholder="Filter by status" />
                     </SelectTrigger>
@@ -657,9 +659,11 @@ export default function RevenuePage() {
                   <p className="text-sm text-neutral-600">
                     Open receivables with a remaining balance.
                   </p>
-                  <Button asChild variant="ghost" size="sm">
-                    <Link href="/reports/outstanding">Open detailed aging report</Link>
-                  </Button>
+                  <Link href="/reports/outstanding">
+                    <Button variant="ghost" size="sm">
+                      Open detailed aging report
+                    </Button>
+                  </Link>
                 </div>
 
                 <Table>
