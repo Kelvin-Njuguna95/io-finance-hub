@@ -15,6 +15,20 @@ export function getLaggedMonth(ym: string): string {
   return prevDate.getFullYear() + '-' + String(prevDate.getMonth() + 1).padStart(2, '0');
 }
 
+export function getNextMonth(ym: string): string {
+  const nextDate = new Date(parseInt(ym.split('-')[0]), parseInt(ym.split('-')[1]), 1);
+  return nextDate.getFullYear() + '-' + String(nextDate.getMonth() + 1).padStart(2, '0');
+}
+
+export function getUnifiedServicePeriodLabel(paymentMonth: string): string {
+  const serviceMonth = getLaggedMonth(paymentMonth);
+  const [serviceYear, serviceMon] = serviceMonth.split('-');
+  const [paymentYear, paymentMon] = paymentMonth.split('-');
+  const serviceText = new Date(parseInt(serviceYear), parseInt(serviceMon) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const paymentText = new Date(parseInt(paymentYear), parseInt(paymentMon) - 1, 1).toLocaleDateString('en-US', { month: 'long' });
+  return `${serviceText} (paid in ${paymentText})`;
+}
+
 /**
  * Determine the revenue source month for a given expense month.
  * Historical (seeded) months use direct matching; live months use lagged (prev month).

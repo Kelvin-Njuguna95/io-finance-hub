@@ -12,6 +12,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { formatCurrency, formatPercent, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
+import { getLaggedMonth, getUnifiedServicePeriodLabel } from '@/lib/report-utils';
 
 interface BvaRow {
   scope: string;
@@ -29,6 +30,8 @@ export default function BudgetVsActualPage() {
   const [loading, setLoading] = useState(true);
 
   const [revenueSourceMonth, setRevenueSourceMonth] = useState('');
+  const serviceMonth = getLaggedMonth(selectedMonth);
+  const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
 
   useEffect(() => {
     async function load() {
@@ -140,7 +143,7 @@ export default function BudgetVsActualPage() {
 
   return (
     <div>
-      <PageHeader title="Budget vs Actual" description={'Revenue from ' + formatYearMonth(revenueSourceMonth) + ' | Expenses from ' + formatYearMonth(selectedMonth)}>
+      <PageHeader title="Budget vs Actual" description={servicePeriodLabel}>
         <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
           <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -177,7 +180,7 @@ export default function BudgetVsActualPage() {
                   <TableHead>Scope</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Budget (KES)</TableHead>
-                  <TableHead className="text-right">Actual (KES)</TableHead>
+                  <TableHead className="text-right">Actual Expenses (service period)</TableHead>
                   <TableHead className="text-right">Variance</TableHead>
                   <TableHead className="text-right">Utilization</TableHead>
                 </TableRow>
@@ -245,6 +248,7 @@ export default function BudgetVsActualPage() {
         <Card className="io-card max-w-lg">
           <CardContent className="p-4 space-y-2">
             <p className="text-sm font-semibold text-slate-700">P&L Summary (Lagged)</p>
+            <p className="text-xs text-slate-500">Expenses recorded in {formatYearMonth(selectedMonth)}, matched to {formatYearMonth(serviceMonth)} service period.</p>
             <div className="flex justify-between text-sm">
               <span>Revenue ({formatYearMonth(revenueSourceMonth)} invoice)</span>
               <span className="font-mono font-semibold">{formatCurrency(laggedRevenue, 'KES')}</span>

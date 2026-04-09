@@ -11,13 +11,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { formatCurrency, formatPercent, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
-import { getLaggedMonth } from '@/lib/report-utils';
+import { getLaggedMonth, getUnifiedServicePeriodLabel, getProjectColor } from '@/lib/report-utils';
 import { isBackdated } from '@/lib/backdated-utils';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Legend, Tooltip,
 } from 'recharts';
-import { getProjectColor } from '@/lib/report-utils';
 import { BarChart3, TrendingUp, Users, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -50,6 +49,7 @@ export default function ProjectComparisonPage() {
 
   const [revenueSourceMonth, setRevenueSourceMonth] = useState(getLaggedMonth(selectedMonth));
   const [isHistorical, setIsHistorical] = useState(false);
+  const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
 
   useEffect(() => {
     async function load() {
@@ -189,7 +189,7 @@ export default function ProjectComparisonPage() {
 
   return (
     <div>
-      <PageHeader title="Project Comparison" description={isHistorical ? `Revenue & Expenses from ${formatYearMonth(selectedMonth)} (historical)` : `Revenue from ${formatYearMonth(revenueSourceMonth)} | Expenses from ${formatYearMonth(selectedMonth)}`}>
+      <PageHeader title="Project Comparison" description={isHistorical ? `Revenue & Expenses from ${formatYearMonth(selectedMonth)} (historical)` : servicePeriodLabel}>
         <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
           <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>

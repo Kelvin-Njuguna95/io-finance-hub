@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency, formatExecutivePercent } from '@/components/reports/executive-kit';
 
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
-import { getLaggedMonth } from '@/lib/report-utils';
+import { getLaggedMonth, getUnifiedServicePeriodLabel } from '@/lib/report-utils';
 import { isBackdated } from '@/lib/backdated-utils';
 import { FileDown } from 'lucide-react';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, PieChart, Pie } from 'recharts';
@@ -71,6 +71,7 @@ export default function MonthlyPnlReport() {
   const [userRole, setUserRole] = useState<string>('');
 
   const [revenueSourceMonth, setRevenueSourceMonth] = useState(getLaggedMonth(selectedMonth));
+  const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
 
   useEffect(() => {
     async function load() {
@@ -225,8 +226,8 @@ export default function MonthlyPnlReport() {
     doc.setFontSize(10);
     doc.text('Monthly Income Statement', 14, 22);
     doc.setFontSize(9);
-    doc.text(formatYearMonth(selectedMonth), 196, 14, { align: 'right' });
-    doc.text(`Revenue recognition: ${formatYearMonth(revenueSourceMonth)} invoices`, 196, 22, { align: 'right' });
+    doc.text(servicePeriodLabel, 196, 14, { align: 'right' });
+    doc.text(`Revenue: ${formatYearMonth(revenueSourceMonth)} invoices | Expenses paid: ${formatYearMonth(selectedMonth)}`, 196, 22, { align: 'right' });
 
     // Gold accent line
     doc.setDrawColor(gold);
@@ -299,11 +300,11 @@ export default function MonthlyPnlReport() {
     doc.text(`Impact Outsourcing Limited | Generated: ${new Date().toLocaleString('en-US', { timeZone: 'Africa/Nairobi' })}`, 105, 290, { align: 'center' });
 
     doc.save(`IO_PnL_${selectedMonth}.pdf`);
-  }, [pnl, selectedMonth, revenueSourceMonth, userRole]);
+  }, [pnl, selectedMonth, revenueSourceMonth, userRole, servicePeriodLabel]);
 
   return (
     <div>
-      <PageHeader title="Monthly P&L Report" description="Structured income statement">
+      <PageHeader title="Monthly P&L Report" description={servicePeriodLabel}>
         <Tabs value={view} onValueChange={(v) => v && setView(v as 'summary' | 'detailed')}>
           <TabsList>
             <TabsTrigger value="summary">Summary</TabsTrigger>
@@ -327,7 +328,7 @@ export default function MonthlyPnlReport() {
 
       <div className="p-6 space-y-6">
         <p className="text-xs text-slate-400 mb-4">
-          Revenue shown is from {formatYearMonth(revenueSourceMonth)} invoices. Expenses shown are {formatYearMonth(selectedMonth)} actuals.
+          Revenue and expenses are both matched to the service period. Showing {formatYearMonth(revenueSourceMonth)} service period. Revenue from {formatYearMonth(revenueSourceMonth)} invoices. Expenses paid in {formatYearMonth(selectedMonth)}.
         </p>
 
         {loading ? (
