@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RoleInsightBoard } from '@/components/reports/role-insight-board';
+
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { getLaggedMonth } from '@/lib/report-utils';
 import { isBackdated } from '@/lib/backdated-utils';
@@ -320,7 +322,7 @@ export default function MonthlyPnlReport() {
         </Button>
       </PageHeader>
 
-      <div className="p-6">
+      <div className="p-6 space-y-6">
         <p className="text-xs text-slate-400 mb-4">
           Revenue shown is from {formatYearMonth(revenueSourceMonth)} invoices. Expenses shown are {formatYearMonth(selectedMonth)} actuals.
         </p>
@@ -336,8 +338,51 @@ export default function MonthlyPnlReport() {
         ) : !pnl ? (
           <Card className="io-card"><CardContent className="p-8 text-center text-slate-400">No data for {formatYearMonth(selectedMonth)}</CardContent></Card>
         ) : (
-          <Card className="io-card max-w-6xl overflow-hidden border-slate-200">
-            <CardHeader className="bg-gradient-to-r from-[#0f172a] via-[#12203c] to-[#1e293b] text-white rounded-t-lg border-b border-white/10">
+          <>
+            <RoleInsightBoard
+              insights={[
+                {
+                  role: 'PM',
+                  headline: pnl.grossMargin >= 35 ? 'Delivery margins are healthy this month.' : 'Margin pressure needs project-level corrections.',
+                  items: [
+                    `Gross margin: ${pnl.grossMargin.toFixed(1)}%.`,
+                    `Direct costs are ${((pnl.totalDirectCosts / Math.max(pnl.totalRevenue, 1)) * 100).toFixed(1)}% of revenue.`,
+                    `Top revenue concentration: ${pnl.projectRevenues[0]?.name || 'N/A'}.`,
+                  ],
+                },
+                {
+                  role: 'Team Lead',
+                  headline: view === 'detailed' ? 'Detailed mode is active for execution review.' : 'Switch to Detailed to inspect spend lines quickly.',
+                  items: [
+                    `Direct cost lines: ${pnl.directCosts.length} categories.`,
+                    `Overhead categories: ${pnl.overheadGroups.length}.`,
+                    `Operating margin: ${pnl.operatingMargin.toFixed(1)}%.`,
+                  ],
+                },
+                {
+                  role: 'Accountant',
+                  headline: pnl.totalOverhead > 0 ? 'Shared overhead is materially impacting operating profit.' : 'No shared overhead captured this month.',
+                  items: [
+                    `Shared overhead: ${formatCurrency(pnl.totalOverhead, 'KES')}.`,
+                    `Revenue recognition source: ${formatYearMonth(revenueSourceMonth)} invoices.`,
+                    `Net profit: ${formatCurrency(pnl.netProfit, 'KES')}.`,
+                  ],
+                },
+                {
+                  role: 'CFO',
+                  headline: pnl.netProfit >= 0 ? 'Company remains profitable on current mix.' : 'Month is in net loss and needs intervention.',
+                  items: [
+                    `Net margin: ${pnl.netProfit > 0 ? `${pnl.netMargin.toFixed(1)}%` : 'N/A'}.`,
+                    `Gross to net bridge impact: ${formatCurrency(pnl.totalOverhead, 'KES')} overhead.`,
+                    `Distributable-positive projects: ${pnl.distributable.filter((d) => d.profit > 0).length}.`,
+                  ],
+                },
+              ]}
+            />
+
+            <Card className="io-card max-w-6xl overflow-hidden border-slate-200">
+              <CardHeader className="bg-gradient-to-r from-[#0f172a] via-[#12203c] to-[#1e293b] text-white rounded-t-lg border-b border-white/10">
+
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <CardTitle className="text-lg text-white">IO FINANCE HUB</CardTitle>
@@ -348,8 +393,9 @@ export default function MonthlyPnlReport() {
                   <p className="text-xs text-slate-300">Revenue: {formatYearMonth(revenueSourceMonth)} invoices</p>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-6 bg-slate-50 p-6">
+              </CardHeader>
+              <CardContent className="space-y-6 bg-slate-50 p-6">
+
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <MetricCard label="Total Revenue" value={formatCurrency(pnl.totalRevenue, 'KES')} accent="ring-1 ring-sky-100" />
                 <MetricCard label="Total Direct Costs" value={formatCurrency(pnl.totalDirectCosts, 'KES')} accent="ring-1 ring-amber-100" />
@@ -466,8 +512,9 @@ export default function MonthlyPnlReport() {
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </>
         )}
       </div>
     </div>

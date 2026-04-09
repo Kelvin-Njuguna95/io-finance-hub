@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { StatCard } from '@/components/layout/stat-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RoleInsightBoard } from '@/components/reports/role-insight-board';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -200,6 +201,47 @@ export default function ProjectComparisonPage() {
       </PageHeader>
 
       <div className="p-6 space-y-6">
+        <RoleInsightBoard
+          insights={[
+            {
+              role: 'PM',
+              headline: totalProfit >= 0 ? 'Portfolio distributable performance is positive.' : 'Portfolio distributable performance is negative.',
+              items: [
+                `Total distributable: ${formatCurrency(totalProfit, 'KES')}.`,
+                `Median net margin: ${data.length ? formatPercent([...data].sort((a, b) => a.netMargin - b.netMargin)[Math.floor(data.length / 2)].netMargin) : 'N/A'}.`,
+                `Positive projects: ${data.filter((p) => p.distributableProfit > 0).length}/${data.length}.`,
+              ],
+            },
+            {
+              role: 'Team Lead',
+              headline: totalAgents > 0 ? `Operational footprint includes ${totalAgents} agents.` : 'No agent footprint recorded this month.',
+              items: [
+                `Revenue per agent (portfolio): ${totalAgents > 0 ? formatCurrency(totalRevenue / totalAgents, 'KES') : 'N/A'}.`,
+                `Cost per agent (portfolio): ${totalAgents > 0 ? formatCurrency(totalExpenses / totalAgents, 'KES') : 'N/A'}.`,
+                `Bottom projects by net margin: ${data.slice(-2).map((p) => p.name).join(', ') || 'N/A'}.`,
+              ],
+            },
+            {
+              role: 'Accountant',
+              headline: 'Direct and allocated overhead are reconciled at project level.',
+              items: [
+                `Total direct expenses: ${formatCurrency(totalExpenses, 'KES')}.`,
+                `Revenue source: ${isHistorical ? formatYearMonth(selectedMonth) : formatYearMonth(revenueSourceMonth)}.`,
+                `Rows available for review: ${data.length}.`,
+              ],
+            },
+            {
+              role: 'CFO',
+              headline: data[0]?.distributableProfit > 0 ? `${data[0]?.name} leads distributable returns.` : 'No project currently generating distributable upside.',
+              items: [
+                `Top project distributable: ${data[0] ? formatCurrency(data[0].distributableProfit, 'KES') : 'N/A'}.`,
+                `Total revenue: ${formatCurrency(totalRevenue, 'KES')}.`,
+                `Director-level attribution appears in table when CFO role is active.`,
+              ],
+            },
+          ]}
+        />
+
         {/* Summary cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard title="Total Revenue" value={formatCurrency(totalRevenue, 'KES')} icon={DollarSign} />
