@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import type { Project, Department } from '@/types/database';
 import { getUserErrorMessage } from '@/lib/errors';
 import { getActiveProjects, getAssignedActiveProjects } from '@/lib/queries/projects';
+import { canSubmitDepartmentBudget } from '@/lib/permissions';
 
 interface LineItem {
   id: string;
@@ -59,6 +60,7 @@ export default function NewBudgetPage() {
   const [miscGateMessage, setMiscGateMessage] = useState('');
 
   const isAccountant = user?.role === 'accountant';
+  const canCreateDepartmentBudget = canSubmitDepartmentBudget(user?.role);
 
   useEffect(() => {
     async function load() {
@@ -88,11 +90,8 @@ export default function NewBudgetPage() {
         setDepartments(departmentsRes.data || []);
         setScopeType('project');
       } else if (user?.role === 'project_manager') {
-        // PMs are directors — load their assigned projects AND all departments
         const { data: assignedProjects } = await getAssignedActiveProjects(supabase, user.id);
         setProjects((assignedProjects || []) as Project[]);
-        const { data: deptData } = await supabase.from('departments').select('*').order('name');
-        setDepartments(deptData || []);
         setScopeType('project');
       } else if (user?.role === 'cfo') {
         const [projRes, deptRes] = await Promise.all([
@@ -107,6 +106,13 @@ export default function NewBudgetPage() {
   }, [user]);
 
   // Check for existing budgets when scope/month changes
+  useEffect(() => {
+    if (!canCreateDepartmentBudget && scopeType === 'department') {
+      setScopeType('project');
+      setScopeId('');
+    }
+  }, [canCreateDepartmentBudget, scopeType]);
+
   useEffect(() => {
     async function checkExisting() {
       if (!scopeId || !yearMonth) {
@@ -261,7 +267,13 @@ export default function NewBudgetPage() {
       const supabase = createClient();
 
       // Determine submitted_by_role
-      const submittedByRole = isAccountant ? 'accountant' : 'team_leader';
+      const submittedByRole = user?.role === 'accountant'
+        ? 'accountant'
+        : user?.role === 'project_manager'
+          ? 'project_manager'
+          : user?.role === 'cfo'
+            ? 'cfo'
+            : 'team_leader';
 
       // Get auth session for API calls
       const { data: { session } } = await supabase.auth.getSession();
@@ -331,7 +343,13 @@ export default function NewBudgetPage() {
         }
       }
 
-      toast.success(submit ? 'Budget submitted for PM review' : 'Budget saved as draft');
+      const submittedStatus = createData?.status as string | undefined;
+      const successMessage = submit
+        ? submittedStatus === 'pm_review'
+          ? 'Budget submitted for PM review'
+          : 'Budget submitted to CFO queue'
+        : 'Budget saved as draft';
+      toast.success(successMessage);
       router.push('/budgets');
     } catch (error) {
       toast.error(getUserErrorMessage(error, 'Could not save budget right now. Please try again.'));
@@ -359,7 +377,7 @@ export default function NewBudgetPage() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="project">Project</SelectItem>
-                      <SelectItem value="department">Department</SelectItem>
+                      {canCreateDepartmentBudget && <SelectItem value="department">Department</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
