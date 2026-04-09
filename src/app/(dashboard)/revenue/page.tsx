@@ -18,7 +18,7 @@ import { InvoiceFormDialog } from '@/components/revenue/invoice-form-dialog';
 import { PaymentFormDialog } from '@/components/revenue/payment-form-dialog';
 import { formatCurrency, formatDate, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
 import { Plus, DollarSign, FileText, CreditCard, CalendarClock, ChevronDown, ChevronUp } from 'lucide-react';
-import { isBackdated } from '@/lib/backdated-utils';
+import { getAgingBucket, isBackdated } from '@/lib/backdated-utils';
 import { toast } from 'sonner';
 import { getUserErrorMessage } from '@/lib/errors';
 import type { Invoice, Payment } from '@/types/database';
@@ -31,6 +31,8 @@ import { Textarea } from '@/components/ui/textarea';
 
 
 type RevenueInvoice = Invoice & {
+  projects?: { name?: string | null } | null;
+  payments?: Payment[];
   project_name?: string;
   client_name?: string;
   payment_status?: string;
@@ -68,7 +70,6 @@ function getStatusBadgeClass(status: InvoiceFilter) {
 export default function RevenuePage() {
   const { user } = useUser();
   const [invoices, setInvoices] = useState<RevenueInvoice[]>([]);
-  const [payments, setPayments] = useState<(Payment & { invoice_number?: string; project_name?: string })[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<'all' | string>(getCurrentYearMonth());
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
@@ -91,7 +92,28 @@ export default function RevenuePage() {
 
     const { data: invoiceData, error: invoiceError } = await supabase
       .from('invoices')
-      .select('*, projects(name)')
+      .select(`
+        id,
+        invoice_number,
+        project_id,
+        invoice_date,
+        due_date,
+        billing_period,
+        amount_usd,
+        amount_kes,
+        status,
+        description,
+        client_name,
+        payment_status,
+        total_paid,
+        balance_outstanding,
+        created_at,
+        updated_at,
+        notes,
+        created_by,
+        projects(name),
+        payments(id, amount_usd, payment_date, payment_method, reference, notes, invoice_id, amount_kes, recorded_by, created_at, updated_at)
+      `)
       .order('created_at', { ascending: false });
 
     if (invoiceError) {
@@ -100,38 +122,21 @@ export default function RevenuePage() {
     } else {
       setInvoices((invoiceData || []).map((i: any) => ({
         ...i,
+        payments: i.payments || [],
         payment_status: i.payment_status || i.status || 'unpaid',
-        total_paid: Number(i.total_paid ?? 0),
-        balance_outstanding: Number(i.balance_outstanding ?? Number(i.amount_usd) - Number(i.total_paid ?? 0)),
+        total_paid: (i.payments || []).reduce((sum: number, payment: any) => sum + Number(payment.amount_usd || 0), 0),
+        balance_outstanding: Math.max(0, Number(i.amount_usd || 0) - (i.payments || []).reduce((sum: number, payment: any) => sum + Number(payment.amount_usd || 0), 0)),
         project_name: i.projects?.name,
         client_name: i.client_name,
       })));
     }
-
-    const { data: payData } = await supabase
-      .from('payments')
-      .select('*, invoices(invoice_number, project_id, projects(name))')
-      .order('payment_date', { ascending: false });
-
-    const monthPayments = (payData || []).filter((p: Record<string, unknown>) => {
-      const pd = p.payment_date as string;
-      return selectedMonth === 'all' ? Boolean(pd) : (pd && pd.startsWith(selectedMonth));
-    });
-
-    setPayments(
-      monthPayments.map((p: Record<string, unknown>) => ({
-        ...p,
-        invoice_number: (p.invoices as Record<string, unknown>)?.invoice_number as string | undefined,
-        project_name: ((p.invoices as Record<string, unknown>)?.projects as Record<string, unknown>)?.name as string | undefined,
-      })) as (Payment & { invoice_number?: string; project_name?: string })[]
-    );
 
     const { data: balSetting } = await supabase.from('system_settings').select('value').eq('key', 'bank_balance_usd').single();
     const standingBal = parseFloat(balSetting?.value || '0');
     const { data: allWd } = await supabase.from('withdrawals').select('amount_usd');
     const totalWd = (allWd || []).reduce((s: number, w: any) => s + Number(w.amount_usd), 0);
     setBankBalance(standingBal - totalWd);
-  }, [selectedMonth]);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -147,12 +152,30 @@ export default function RevenuePage() {
     .filter((i: RevenueInvoice) => !isBackdated(i.description))
     .reduce((s, i) => s + Number(i.amount_usd), 0), [scopedInvoices]);
 
-  const totalCashReceivedUsd = useMemo(() => payments.reduce((s, p) => s + Number(p.amount_usd), 0), [payments]);
+  const allPayments = useMemo(() => (
+    invoices
+      .flatMap((inv) => (inv.payments ?? []).map((payment) => ({
+        ...payment,
+        invoice_number: inv.invoice_number,
+        project_name: inv.projects?.name,
+      })))
+      .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
+  ), [invoices]);
+
+  const filteredPayments = useMemo(() => (
+    selectedMonth === 'all'
+      ? allPayments
+      : allPayments.filter((payment) => payment.payment_date?.startsWith(selectedMonth))
+  ), [allPayments, selectedMonth]);
+
+  const totalCashReceivedUsd = useMemo(() => invoices
+    .flatMap((inv) => inv.payments ?? [])
+    .reduce((sum, payment) => sum + Number(payment.amount_usd || 0), 0), [invoices]);
 
   const outstandingTotals = useMemo(() => scopedInvoices.reduce((acc, inv) => {
-    const computedStatus = normalizeStatus(inv);
-    if (computedStatus !== 'paid') {
-      const invoiceOutstandingUsd = Math.max(0, Number(inv.balance_outstanding ?? 0));
+    const paidUsd = (inv.payments ?? []).reduce((sum, payment) => sum + Number(payment.amount_usd || 0), 0);
+    const invoiceOutstandingUsd = Math.max(0, Number(inv.amount_usd ?? 0) - paidUsd);
+    if (invoiceOutstandingUsd > 0) {
       const amountUsd = Number(inv.amount_usd ?? 0);
       const amountKes = Number(inv.amount_kes ?? 0);
       const proportionalOutstandingKes = amountUsd > 0
@@ -167,7 +190,8 @@ export default function RevenuePage() {
 
   const paymentContext = useMemo(() => {
     if (!paymentInvoice) return null;
-    const outstanding = Math.max(0, Number(paymentInvoice.balance_outstanding ?? 0));
+    const paidUsd = (paymentInvoice.payments ?? []).reduce((sum, payment) => sum + Number(payment.amount_usd || 0), 0);
+    const outstanding = Math.max(0, Number(paymentInvoice.amount_usd ?? 0) - paidUsd);
     return { outstanding };
   }, [paymentInvoice]);
 
@@ -201,7 +225,10 @@ export default function RevenuePage() {
 
   const outstandingInvoices = useMemo(() => {
     return [...invoices]
-      .filter((inv) => Number(inv.balance_outstanding ?? 0) > 0)
+      .filter((inv) => {
+        const paidUsd = (inv.payments ?? []).reduce((sum, payment) => sum + Number(payment.amount_usd || 0), 0);
+        return Math.max(0, Number(inv.amount_usd ?? 0) - paidUsd) > 0;
+      })
       .sort((a, b) => {
         const aDays = getAgingBucket(a.invoice_date).days;
         const bDays = getAgingBucket(b.invoice_date).days;
@@ -210,7 +237,8 @@ export default function RevenuePage() {
   }, [invoices]);
 
   function openPaymentDialog(inv: RevenueInvoice) {
-    const outstanding = Math.max(0, Number(inv.balance_outstanding ?? 0));
+    const paidUsd = (inv.payments ?? []).reduce((sum, payment) => sum + Number(payment.amount_usd || 0), 0);
+    const outstanding = Math.max(0, Number(inv.amount_usd ?? 0) - paidUsd);
     setPaymentInvoice(inv);
     setPaymentAmountUsd(outstanding);
     setPaymentDate(new Date().toISOString().split('T')[0]);
@@ -285,40 +313,7 @@ export default function RevenuePage() {
       return;
     }
 
-    setInvoices((prev) => prev.map((inv) => (
-      inv.id === paymentInvoice.id
-        ? {
-          ...inv,
-          total_paid: nextTotalPaid,
-          balance_outstanding: remainingOutstanding,
-          payment_status: nextStatus,
-          status: nextStatus as any,
-        }
-        : inv
-    )));
-
-    if (paymentDate.startsWith(selectedMonth)) {
-      setPayments((prev) => [
-        {
-          id: `temp-${Date.now()}`,
-          invoice_id: paymentInvoice.id,
-          payment_date: paymentDate,
-          amount_usd: paymentAmountUsd,
-          amount_kes: 0,
-          payment_method: null,
-          reference: null,
-          notes: paymentNotes || null,
-          recorded_by: user.id,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          invoice_number: paymentInvoice.invoice_number,
-          project_name: paymentInvoice.project_name,
-        },
-        ...prev,
-      ]);
-    }
-
-    setBankBalance((prev) => prev + paymentAmountUsd);
+    await loadData();
     toast.success(`Payment of ${formatCurrency(paymentAmountUsd, 'USD')} recorded for ${paymentInvoice.invoice_number}`);
     setSubmittingPayment(false);
     closePaymentDialog();
@@ -335,8 +330,7 @@ export default function RevenuePage() {
       return;
     }
 
-    setInvoices((prev) => prev.filter((inv) => inv.id !== invoice.id));
-    setPayments((prev) => prev.filter((pay) => pay.invoice_id !== invoice.id));
+    await loadData();
     toast.success('Invoice deleted');
     setDeletingInvoiceId(null);
     setConfirmDeleteInvoice(null);
@@ -553,7 +547,8 @@ export default function RevenuePage() {
                     ) : (
                       filteredInvoices.map((inv) => {
                         const normalizedStatus = normalizeStatus(inv);
-                        const outstandingAmount = Number(inv.balance_outstanding ?? 0);
+                        const paidAmount = (inv.payments ?? []).reduce((sum, payment) => sum + Number(payment.amount_usd || 0), 0);
+                        const outstandingAmount = Math.max(0, Number(inv.amount_usd ?? 0) - paidAmount);
                         const rowBusy = deletingInvoiceId === inv.id || (submittingPayment && paymentInvoice?.id === inv.id);
 
                         return (
@@ -570,7 +565,7 @@ export default function RevenuePage() {
                             <TableCell>{inv.client_name || '—'}</TableCell>
                             <TableCell className="font-mono text-sm">{formatCurrency(Number(inv.amount_usd || 0), 'USD')}</TableCell>
                             <TableCell className="font-mono text-sm">{inv.amount_kes ? formatCurrency(Number(inv.amount_kes), 'KES') : '—'}</TableCell>
-                            <TableCell className="font-mono text-sm text-emerald-600">{formatCurrency(Number(inv.total_paid || 0), 'USD')}</TableCell>
+                            <TableCell className="font-mono text-sm text-emerald-600">{formatCurrency(paidAmount, 'USD')}</TableCell>
                             <TableCell className={`font-mono text-sm font-semibold ${outstandingAmount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                               {formatCurrency(outstandingAmount, 'USD')}
                             </TableCell>
@@ -630,14 +625,14 @@ export default function RevenuePage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {payments.length === 0 ? (
+                    {filteredPayments.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-8 text-neutral-500">
                           {selectedMonth === 'all' ? 'No payments found' : `No payments for ${formatYearMonth(selectedMonth)}`}
                         </TableCell>
                       </TableRow>
                     ) : (
-                      payments.map((p) => (
+                      filteredPayments.map((p) => (
                         <TableRow key={p.id}>
                           <TableCell>{formatDate(p.payment_date)}</TableCell>
                           <TableCell className="font-medium">{p.invoice_number}</TableCell>
@@ -688,7 +683,8 @@ export default function RevenuePage() {
                       </TableRow>
                     ) : (
                       outstandingInvoices.map((inv) => {
-                        const outstandingAmount = Number(inv.balance_outstanding ?? 0);
+                        const paidAmount = (inv.payments ?? []).reduce((sum, payment) => sum + Number(payment.amount_usd || 0), 0);
+                        const outstandingAmount = Math.max(0, Number(inv.amount_usd ?? 0) - paidAmount);
                         const aging = getAgingBucket(inv.invoice_date);
 
                         return (
