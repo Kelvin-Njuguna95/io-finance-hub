@@ -154,7 +154,37 @@ export async function GET(request: Request) {
 
   const agentScore = agentCount > 0 ? 100 : 0;
   const timelinessScore = approvedVersion ? 100 : (budget ? 50 : 0);
-  const miscScore = 70; // Default — would check misc report status
+  const periodDate = `${yearMonth}-01`;
+  const [{ data: miscReport }, { data: miscReportItems }, { data: miscDraws }] = await Promise.all([
+    admin.from('misc_reports').select('id, status, total_drawn').eq('project_id', projectId).eq('period_month', periodDate).maybeSingle(),
+    admin
+      .from('misc_report_items')
+      .select('amount, misc_reports!inner(project_id, period_month)')
+      .eq('misc_reports.project_id', projectId)
+      .eq('misc_reports.period_month', periodDate),
+    admin.from('misc_draws').select('amount_approved, status').eq('project_id', projectId).eq('period_month', periodDate),
+  ]);
+
+  const activeDrawn = (miscDraws || [])
+    .filter((d: any) => !['pending_pm_approval', 'declined', 'deleted'].includes(String(d.status)))
+    .reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+  const reportedMisc = (miscReportItems || []).reduce((s: number, i: any) => s + Number(i.amount || 0), 0);
+  const miscBase = Number(miscReport?.total_drawn || 0) > 0 ? Number(miscReport?.total_drawn || 0) : activeDrawn;
+  const miscCoveragePct = miscBase > 0 ? (reportedMisc / miscBase) * 100 : 100;
+
+  let miscScore = 0;
+  const miscStatus = miscReport?.status || 'not_submitted';
+  if (miscBase <= 0 && !miscReport) {
+    miscScore = 100; // no misc activity to report
+  } else if (miscStatus === 'cfo_reviewed') {
+    miscScore = 100;
+  } else if (miscStatus === 'submitted') {
+    miscScore = miscCoveragePct >= 90 ? 90 : miscCoveragePct >= 75 ? 75 : 60;
+  } else if (miscStatus === 'draft') {
+    miscScore = miscCoveragePct >= 80 ? 60 : miscCoveragePct >= 50 ? 45 : 30;
+  } else {
+    miscScore = miscCoveragePct >= 80 ? 65 : 35;
+  }
 
   const score = Math.round(
     budgetScore * 0.30 + marginScore * 0.35 + miscScore * 0.15 + timelinessScore * 0.10 + agentScore * 0.10
@@ -165,6 +195,7 @@ export async function GET(request: Request) {
   const drags = [
     { name: 'Budget utilisation', score: budgetScore },
     { name: 'Gross margin', score: marginScore },
+    { name: 'Misc reporting', score: miscScore },
     { name: 'Agent count', score: agentScore },
     { name: 'Budget submission', score: timelinessScore },
   ].sort((a, b) => a.score - b.score);
@@ -182,6 +213,15 @@ export async function GET(request: Request) {
   }
   if (expenseByCategory.length > 0 && expenseByCategory[0].pct > 50) hints.push({ icon: '🔍', text: `${expenseByCategory[0].name} makes up ${expenseByCategory[0].pct.toFixed(0)}% of total expenses. This is unusually concentrated.`, severity: 'info' });
   if (agentCount === 0) hints.push({ icon: '❗', text: `Agent count not entered for this month. Enter it to see productivity metrics.`, severity: 'critical' });
+  if (miscScore < 70) {
+    hints.push({
+      icon: '🧾',
+      text: miscBase > 0
+        ? `Misc reporting is incomplete (${miscCoveragePct.toFixed(0)}% itemised for ${yearMonth}). Record remaining misc lines.`
+        : `Misc report status is '${miscStatus}'. Submit and reconcile misc reporting for ${yearMonth}.`,
+      severity: miscScore < 50 ? 'warning' : 'info',
+    });
+  }
   if (prevMonths.length > 0) {
     const lastMonth = prevMonths[prevMonths.length - 1];
     if (lastMonth && invoiceAmount > 0 && lastMonth.revenue > 0) {
@@ -212,7 +252,18 @@ export async function GET(request: Request) {
   return NextResponse.json({
     project_name: project?.name,
     year_month: yearMonth,
-    health: { score, score_band: scoreBand, biggest_drag: biggestDrag, budget_score: budgetScore, margin_score: marginScore, misc_score: miscScore, timeliness_score: timelinessScore, agent_score: agentScore },
+    health: {
+      score,
+      score_band: scoreBand,
+      biggest_drag: biggestDrag,
+      budget_score: budgetScore,
+      margin_score: marginScore,
+      misc_score: miscScore,
+      timeliness_score: timelinessScore,
+      agent_score: agentScore,
+      misc_coverage_pct: Number(miscCoveragePct.toFixed(1)),
+      misc_report_status: miscStatus,
+    },
     revenue: { invoice_amount: invoiceAmount, invoice_status: laggedInvoice?.status || 'not_raised', total_paid: totalPaid, outstanding, invoice_date: laggedInvoice?.invoice_date, billing_period: laggedInvoice?.billing_period, revenue_source_month: revenueSourceMonth },
     expenses: { total: totalExpenses, by_category: expenseByCategory, items: expenses || [] },
     budget: { total: totalBudget, utilisation: budgetUtilisation, variance: budgetVariance, items: budgetItems, has_approved: !!approvedVersion },
