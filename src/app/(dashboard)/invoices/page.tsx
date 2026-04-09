@@ -62,7 +62,6 @@ export default function InvoicesPage() {
   }, [selectedMonth]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadInvoices();
   }, [loadInvoices]);
 

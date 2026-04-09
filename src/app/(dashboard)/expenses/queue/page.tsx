@@ -156,13 +156,11 @@ export default function ExpenseQueuePage() {
 
   useEffect(() => {
     loadProjects();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     loadItems();
     setSelected(new Set());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth]);
 
   // -----------------------------------------------
