@@ -210,7 +210,8 @@ export default function ProfitSharePage() {
     load();
   }
 
-  const isCfo = user?.role === 'cfo';
+  const userRole = user?.role ?? null;
+  const isCfo = userRole === 'cfo';
   const totalDirectorShare = shares.reduce((s, r) => s + r.director_share, 0);
   const totalCompanyShare = shares.reduce((s, r) => s + r.company_share, 0);
   const totalDistributable = shares.reduce((s, r) => s + (r.distributable_profit > 0 ? r.distributable_profit : 0), 0);
@@ -225,6 +226,15 @@ export default function ProfitSharePage() {
   return (
     <div>
       <PageHeader title="Profit Share" description={'70/30 distribution — revenue from ' + formatYearMonth(revenueSourceMonth) + ' invoice'}>
+        {userRole === 'cfo' && (
+          <Button
+            onClick={() => {
+              window.location.href = '/profit-share/payouts';
+            }}
+          >
+            + Initiate Payout
+          </Button>
+        )}
         <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
           <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
