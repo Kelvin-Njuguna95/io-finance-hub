@@ -27,101 +27,149 @@ interface BvaRow {
   utilization_pct: number;
 }
 
+interface BudgetVersionRow {
+  total_amount_kes: number | null;
+  status: string | null;
+  version_number: number | null;
+}
+
+interface BudgetScopeRow {
+  id: string;
+  project_id: string | null;
+  pm_approved_total: number | null;
+  projects: Array<{ name: string | null }> | null;
+  departments: Array<{ name: string | null }> | null;
+  budget_versions: BudgetVersionRow[] | null;
+}
+
+interface ExpenseRow {
+  budget_id: string | null;
+  project_id: string | null;
+  amount_kes: number | null;
+}
+
 export default function BudgetVsActualPage() {
   const [rows, setRows] = useState<BvaRow[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
   const [laggedRevenue, setLaggedRevenue] = useState(0);
   const [loading, setLoading] = useState(true);
-
-  const [revenueSourceMonth, setRevenueSourceMonth] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [revenueSourceMonth, setRevenueSourceMonth] = useState(getLaggedMonth(getCurrentYearMonth()));
   const serviceMonth = getLaggedMonth(selectedMonth);
   const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
+      setLoadError(null);
       const supabase = createClient();
+      try {
+        // Detect historical months — use direct matching
+        const { data: snapshot, error: snapshotError } = await supabase
+          .from('monthly_financial_snapshots')
+          .select('data_source')
+          .eq('year_month', selectedMonth)
+          .maybeSingle();
+        if (snapshotError) {
+          console.error('Monthly snapshot lookup failed:', snapshotError);
+        }
 
-      // Detect historical months — use direct matching
-      const { data: snapshot } = await supabase
-        .from('monthly_financial_snapshots')
-        .select('data_source')
-        .eq('year_month', selectedMonth)
-        .single();
-      const historical = !!(snapshot?.data_source && snapshot.data_source.startsWith('historical_seed'));
-      let revMonth: string;
-      if (historical) {
-        revMonth = selectedMonth;
-      } else {
-        const prevDate = new Date(parseInt(selectedMonth.split('-')[0]), parseInt(selectedMonth.split('-')[1]) - 2, 1);
-        revMonth = prevDate.getFullYear() + '-' + String(prevDate.getMonth() + 1).padStart(2, '0');
+        const historical = Boolean(snapshot?.data_source?.startsWith('historical_seed'));
+        const revMonth = historical ? selectedMonth : getLaggedMonth(selectedMonth);
+        setRevenueSourceMonth(revMonth);
+
+        const [{ data: budgetData, error: budgetError }, expenseResult] = await Promise.all([
+          supabase
+            .from('budgets')
+            .select('id, project_id, pm_approved_total, projects(name), departments(name), budget_versions(total_amount_kes, status, version_number)')
+            .eq('year_month', selectedMonth),
+          getConfirmedExpensesByMonth(supabase, selectedMonth),
+        ]);
+
+        if (budgetError) {
+          console.error('Budget query failed:', budgetError);
+          setLoadError('Unable to load budgets for the selected month.');
+        }
+        if (expenseResult.error) {
+          console.error('Expense query failed:', expenseResult.error);
+          setLoadError('Unable to load expenses for the selected month.');
+        }
+
+        const budgets = (budgetData ?? []) as BudgetScopeRow[];
+        const expenses = (expenseResult.data ?? []) as ExpenseRow[];
+
+        const expenseByBudget = new Map<string, number>();
+        expenses.forEach((expense) => {
+          if (!expense.budget_id) return;
+          const amount = Number(expense.amount_kes ?? 0);
+          expenseByBudget.set(expense.budget_id, (expenseByBudget.get(expense.budget_id) ?? 0) + amount);
+        });
+
+        const expenseByProject = new Map<string, number>();
+        expenses.forEach((expense) => {
+          if (!expense.project_id) return;
+          const amount = Number(expense.amount_kes ?? 0);
+          expenseByProject.set(expense.project_id, (expenseByProject.get(expense.project_id) ?? 0) + amount);
+        });
+
+        const result: BvaRow[] = budgets.map((budget) => {
+          const versions = budget.budget_versions ?? [];
+          const approved = versions.find((version) => version.status === 'approved');
+          const pmApproved = versions.find((version) => version.status === 'pm_approved');
+          const latest = [...versions].sort(
+            (a, b) => Number(b.version_number ?? 0) - Number(a.version_number ?? 0)
+          )[0];
+          const bestVersion = approved ?? pmApproved ?? latest;
+
+          const budgetKes = budget.pm_approved_total
+            ? Number(budget.pm_approved_total)
+            : Number(bestVersion?.total_amount_kes ?? 0);
+          const bestStatus = approved
+            ? 'approved'
+            : (pmApproved?.status ?? bestVersion?.status ?? 'draft');
+          const actualKes =
+            expenseByBudget.get(budget.id) ??
+            (budget.project_id ? (expenseByProject.get(budget.project_id) ?? 0) : 0);
+          const variance = budgetKes - actualKes;
+          const utilization = budgetKes > 0 ? (actualKes / budgetKes) * 100 : 0;
+
+          return {
+            scope: budget.projects?.[0]?.name ?? budget.departments?.[0]?.name ?? '—',
+            status: bestStatus,
+            budget_kes: budgetKes,
+            actual_kes: actualKes,
+            variance_kes: variance,
+            utilization_pct: utilization,
+          };
+        });
+
+        setRows(result);
+
+        const [{ data: invoiceData, error: invoiceError }, { data: rateSetting, error: rateError }] = await Promise.all([
+          supabase.from('invoices').select('amount_usd, amount_kes').eq('billing_period', revMonth),
+          supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').maybeSingle(),
+        ]);
+        if (invoiceError) {
+          console.error('Invoice query failed:', invoiceError);
+          setLoadError('Unable to load lagged revenue for the selected month.');
+        }
+        if (rateError) {
+          console.error('Exchange-rate query failed:', rateError);
+        }
+
+        const stdRate = parseFloat(rateSetting?.value ?? '129.5');
+        const invoices = invoiceData ?? [];
+        const revUsd = invoices.reduce((sum, invoice) => sum + Number(invoice.amount_usd ?? 0), 0);
+        const revKes = invoices.reduce((sum, invoice) => sum + Number(invoice.amount_kes ?? 0), 0);
+        setLaggedRevenue(revKes > 0 ? revKes : Math.round(revUsd * stdRate * 100) / 100);
+      } catch (error) {
+        console.error('Budget vs Actual page error:', error);
+        setRows([]);
+        setLaggedRevenue(0);
+        setLoadError('Unable to load Budget vs Actual data. Please try again.');
+      } finally {
+        setLoading(false);
       }
-      setRevenueSourceMonth(revMonth);
-
-      // Get ALL budgets for this month (not just approved)
-      const { data: budgets } = await supabase
-        .from('budgets')
-        .select('id, project_id, department_id, pm_approved_total, projects(name), departments(name), budget_versions(total_amount_kes, status, version_number)')
-        .eq('year_month', selectedMonth);
-
-      // Get expenses for this month
-      const { data: expenses } = await getConfirmedExpensesByMonth(supabase, selectedMonth);
-
-      // Expense by budget
-      const expenseByBudget = new Map<string, number>();
-      (expenses || []).forEach((e: /* // */ any) => {
-        if (e.budget_id) {
-          expenseByBudget.set(e.budget_id, (expenseByBudget.get(e.budget_id) || 0) + Number(e.amount_kes));
-        }
-      });
-
-      // Expense by project (for budgets without direct link)
-      const expenseByProject = new Map<string, number>();
-      (expenses || []).forEach((e: /* // */ any) => {
-        if (e.project_id) {
-          expenseByProject.set(e.project_id, (expenseByProject.get(e.project_id) || 0) + Number(e.amount_kes));
-        }
-      });
-
-      const result: BvaRow[] = (budgets || []).map((b: /* // */ any) => {
-        const versions = b.budget_versions || [];
-        // Find the best version: approved > pm_approved > latest
-        const approved = versions.find((v: /* // */ any) => v.status === 'approved');
-        const pmApproved = versions.find((v: /* // */ any) => v.status === 'pm_approved');
-        const latest = versions.sort((a: /* // */ any, b: /* // */ any) => b.version_number - a.version_number)[0];
-        const bestVersion = approved || pmApproved || latest;
-
-        // Use pm_approved_total if available, otherwise version total
-        const budgetKes = b.pm_approved_total
-          ? Number(b.pm_approved_total)
-          : Number(bestVersion?.total_amount_kes || 0);
-
-        const bestStatus = approved ? 'approved' : pmApproved ? 'pm_approved' : bestVersion?.status || 'draft';
-        const actualKes = expenseByBudget.get(b.id) || (b.project_id ? expenseByProject.get(b.project_id) || 0 : 0);
-        const variance = budgetKes - actualKes;
-        const utilization = budgetKes > 0 ? (actualKes / budgetKes) * 100 : 0;
-
-        return {
-          scope: b.projects?.name || b.departments?.name || '—',
-          status: bestStatus,
-          budget_kes: budgetKes,
-          actual_kes: actualKes,
-          variance_kes: variance,
-          utilization_pct: utilization,
-        };
-      });
-
-      setRows(result);
-
-      // Get lagged revenue
-      const { data: invRes } = await supabase.from('invoices').select('amount_usd, amount_kes').eq('billing_period', revMonth);
-      const { data: rateSetting } = await supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single();
-      const stdRate = parseFloat(rateSetting?.value || '129.5');
-      const revUsd = (invRes || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_usd), 0);
-      const revKes = (invRes || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes), 0);
-      setLaggedRevenue(revKes > 0 ? revKes : Math.round(revUsd * stdRate * 100) / 100);
-
-      setLoading(false);
     }
     load();
   }, [selectedMonth]);
@@ -170,6 +218,17 @@ export default function BudgetVsActualPage() {
       </PageHeader>
 
       <div className="p-6 space-y-6">
+        {loadError && (
+          <Card className="border-rose-200 bg-rose-50">
+            <CardContent className="flex flex-col gap-3 p-4">
+              <p className="text-sm text-rose-700">{loadError}</p>
+              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         <ExecutiveInsightPanel lines={[
           `Expenses are ${formatPercent((totalActual / Math.max(laggedRevenue, 1)) * 100)} of revenue.`,
           grossProfit >= 0 ? `Profitable — ${formatCompactCurrency(grossProfit, 'KES')} net profit this period.` : 'Lagged P&L is negative this cycle.',

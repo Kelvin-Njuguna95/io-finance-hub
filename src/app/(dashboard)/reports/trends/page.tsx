@@ -106,7 +106,7 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
     <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs">
       <p className="font-semibold mb-1">{label}</p>
       {paidIn && <p className="text-slate-500 mb-1">Paid in: {paidIn}</p>}
-      {payload.map((entry, i: number) => (
+      {(payload ?? []).map((entry, i: number) => (
         <p key={i} style={{ color: entry.color }}>
           {entry.name}: {typeof entry.value === 'number' ? formatKesShort(entry.value) : (entry.value ?? '—')}
         </p>
