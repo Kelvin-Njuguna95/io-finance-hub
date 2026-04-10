@@ -80,7 +80,7 @@ export default function MiscPage() {
   if (!user) {
     return (
       <div>
-        <PageHeader title="Misc Draws" description="Loading..." />
+        <PageHeader title="Misc Draws" description="Please wait" />
         <div className="p-6 text-center text-slate-400">Loading user data...</div>
       </div>
     );
@@ -127,12 +127,12 @@ export default function MiscPage() {
   );
 }
 
-function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: any; selectedMonth: string }) {
+function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any; selectedMonth: string }) {
   const [loading, setLoading] = useState(true);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState</* // */ any[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState('');
-  const [report, setReport] = useState<any>(null);
-  const [items, setItems] = useState<any[]>([]);
+  const [report, setReport] = useState</* // */ any>(null);
+  const [items, setItems] = useState</* // */ any[]>([]);
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
   const reportMonth = getPrevMonth(selectedMonth);
@@ -181,7 +181,7 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: any; selecte
     ]);
   }
 
-  function updateItem(idx: number, field: string, value: any) {
+  function updateItem(idx: number, field: string, value: /* // */ any) {
     setItems((prev) => prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item)));
   }
 
@@ -204,9 +204,9 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: any; selecte
       .eq('is_active', true)
       .single();
 
-    const totalDrawn = (draws || []).reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
-    const standingAmount = (draws || []).find((d: any) => d.draw_type === 'standing')?.amount_approved || Number(alloc?.monthly_amount || 0);
-    const topUpTotal = (draws || []).filter((d: any) => d.draw_type === 'top_up').reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+    const totalDrawn = (draws || []).reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
+    const standingAmount = (draws || []).find((d: /* // */ any) => d.draw_type === 'standing')?.amount_approved || Number(alloc?.monthly_amount || 0);
+    const topUpTotal = (draws || []).filter((d: /* // */ any) => d.draw_type === 'top_up').reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
 
     const { data: newReport, error } = await supabase.from('misc_reports').insert({
       project_id: selectedProjectId,
@@ -288,7 +288,7 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: any; selecte
                 <SelectValue placeholder={loading ? 'Loading projects...' : 'Select project'} />
               </SelectTrigger>
               <SelectContent>
-                {projects.map((p: any) => (
+                {projects.map((p: /* // */ any) => (
                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -363,7 +363,7 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: any; selecte
   );
 }
 
-function TeamLeaderMiscView({ user, selectedMonth }: { user: any; selectedMonth: string }) {
+function TeamLeaderMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth: string }) {
   return <PmMiscView user={user} selectedMonth={selectedMonth} />;
 }
 
@@ -371,26 +371,26 @@ function TeamLeaderMiscView({ user, selectedMonth }: { user: any; selectedMonth:
 // PM VIEW
 // ══════════════════════════════════════════════════════════════════
 
-function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string }) {
+function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth: string }) {
   const [loading, setLoading] = useState(true);
-  const [project, setProject] = useState<any>(null);
-  const [apiData, setApiData] = useState<any>(null);
+  const [project, setProject] = useState</* // */ any>(null);
+  const [apiData, setApiData] = useState</* // */ any>(null);
   const [showTopUp, setShowTopUp] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState('');
   const [topUpPurpose, setTopUpPurpose] = useState('');
   const [submittingTopUp, setSubmittingTopUp] = useState(false);
 
   // Report state
-  const [prevReport, setPrevReport] = useState<any>(null);
-  const [prevReportItems, setPrevReportItems] = useState<any[]>([]);
-  const [prevDraws, setPrevDraws] = useState<any[]>([]);
+  const [prevReport, setPrevReport] = useState</* // */ any>(null);
+  const [prevReportItems, setPrevReportItems] = useState</* // */ any[]>([]);
+  const [prevDraws, setPrevDraws] = useState</* // */ any[]>([]);
   const [reportEditing, setReportEditing] = useState(false);
   const [varianceExplanation, setVarianceExplanation] = useState('');
   const [savingReport, setSavingReport] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
 
   // Pending PM approvals (accountant-raised draws)
-  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState</* // */ any[]>([]);
   const [approveDrawId, setApproveDrawId] = useState<string | null>(null);
   const [declineDrawId, setDeclineDrawId] = useState<string | null>(null);
   const [declineReason, setDeclineReason] = useState('');
@@ -410,12 +410,12 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
       .select('project_id, projects(id, name, is_active)')
       .eq('user_id', user.id);
 
-    const activeProject = (assignments || []).find((a: any) => a.projects?.is_active);
+    const activeProject = (assignments || []).find((a: /* // */ any) => a.projects?.is_active);
     if (!activeProject) {
       setLoading(false);
       return;
     }
-    const proj = activeProject.projects as any;
+    const proj = activeProject.projects as /* // */ any;
     setProject(proj);
 
     // Fetch current month data from API
@@ -585,11 +585,11 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
   async function handleCreateReport() {
     if (!project) return;
     const supabase = createClient();
-    const totalDrawn = prevDraws.reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+    const totalDrawn = prevDraws.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
     const { data: alloc } = await supabase.from('misc_allocations').select('monthly_amount').eq('project_id', project.id).single();
     const monthlyAmount = alloc?.monthly_amount || 0;
-    const standingAmount = prevDraws.find((d: any) => d.draw_type === 'standing')?.amount_approved || monthlyAmount;
-    const topUpTotal = prevDraws.filter((d: any) => d.draw_type === 'top_up').reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+    const standingAmount = prevDraws.find((d: /* // */ any) => d.draw_type === 'standing')?.amount_approved || monthlyAmount;
+    const topUpTotal = prevDraws.filter((d: /* // */ any) => d.draw_type === 'top_up').reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
 
     const { data, error } = await supabase.from('misc_reports').insert({
       project_id: project.id,
@@ -619,7 +619,7 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
     setReportEditing(true);
   }
 
-  function updateReportItem(idx: number, field: string, value: any) {
+  function updateReportItem(idx: number, field: string, value: /* // */ any) {
     setPrevReportItems(prevReportItems.map((item, i) => i === idx ? { ...item, [field]: value } : item));
   }
 
@@ -658,7 +658,7 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
     if (!prevReport?.id) return;
     await handleSaveDraft();
     const totalItemised = prevReportItems.reduce((s, i) => s + Number(i.amount || 0), 0);
-    const totalDrawn = prevReport.total_drawn || prevDraws.reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+    const totalDrawn = prevReport.total_drawn || prevDraws.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
     const pct = totalDrawn > 0 ? (totalItemised / totalDrawn) * 100 : 100;
 
     if (pct < 80 && !varianceExplanation.trim()) {
@@ -703,9 +703,9 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
   const totalAvailable = allocation.monthly_amount + topUpTotal;
   const prevStatus = apiData?.prev_report_status;
 
-  const flaggedDraws = draws.filter((d: any) => d.cfo_flagged);
-  const reportItemsTotal = prevReportItems.reduce((s: number, i: any) => s + Number(i.amount || 0), 0);
-  const totalDrawnForReport = prevReport?.total_drawn || prevDraws.reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+  const flaggedDraws = draws.filter((d: /* // */ any) => d.cfo_flagged);
+  const reportItemsTotal = prevReportItems.reduce((s: number, i: /* // */ any) => s + Number(i.amount || 0), 0);
+  const totalDrawnForReport = prevReport?.total_drawn || prevDraws.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
   const unaccounted = totalDrawnForReport - reportItemsTotal;
   const itemisationPct = totalDrawnForReport > 0 ? (reportItemsTotal / totalDrawnForReport) * 100 : 100;
 
@@ -778,11 +778,11 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pendingApprovals.map((d: any) => (
+                {pendingApprovals.map((d: /* // */ any) => (
                   <TableRow key={d.id}>
                     <TableCell className="text-sm">
                       <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-xs">Accountant</Badge>
-                      <span className="ml-1 text-xs text-slate-500">{(d.users as any)?.full_name || '—'}</span>
+                      <span className="ml-1 text-xs text-slate-500">{(d.users as /* // */ any)?.full_name || '—'}</span>
                     </TableCell>
                     <TableCell className="font-medium text-sm max-w-[200px] truncate">{d.purpose}</TableCell>
                     <TableCell>
@@ -854,7 +854,7 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
                   <TableCell colSpan={9} className="text-center py-6 text-slate-400">No draws for this month.</TableCell>
                 </TableRow>
               ) : (
-                draws.filter((d: any) => d.status !== 'deleted').map((d: any, idx: number) => (
+                draws.filter((d: /* // */ any) => d.status !== 'deleted').map((d: /* // */ any, idx: number) => (
                   <TableRow key={d.id}>
                     <TableCell className="text-slate-400">{idx + 1}</TableCell>
                     <TableCell className="text-sm">{formatDate(d.created_at)}</TableCell>
@@ -993,7 +993,7 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {prevReportItems.map((item: any, idx: number) => (
+                      {prevReportItems.map((item: /* // */ any, idx: number) => (
                         <TableRow key={idx}>
                           <TableCell className="text-slate-400">{idx + 1}</TableCell>
                           <TableCell>
@@ -1019,7 +1019,7 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="">None</SelectItem>
-                                  {prevDraws.map((d: any) => (
+                                  {prevDraws.map((d: /* // */ any) => (
                                     <SelectItem key={d.id} value={d.id}>
                                       {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'} &mdash; {formatCurrency(Number(d.amount_approved), 'KES')}
                                     </SelectItem>
@@ -1057,7 +1057,7 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
                     </Button>
                     <Button
                       onClick={() => setShowSubmitConfirm(true)}
-                      disabled={savingReport || prevReportItems.filter((i: any) => i.description?.trim() && i.amount > 0).length === 0}
+                      disabled={savingReport || prevReportItems.filter((i: /* // */ any) => i.description?.trim() && i.amount > 0).length === 0}
                       className="btn-gradient text-white gap-1"
                     >
                       <Send className="h-4 w-4" /> Submit Report
@@ -1120,7 +1120,7 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {flaggedDraws.map((d: any) => (
+              {flaggedDraws.map((d: /* // */ any) => (
                 <div key={d.id} className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm">
                   <div className="flex justify-between mb-1">
                     <strong>{d.draw_type === 'standing' ? 'Standing' : 'Top-Up'} &mdash; {formatCurrency(Number(d.amount_approved), 'KES')}</strong>
@@ -1142,13 +1142,13 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
             <DialogDescription>Approve this accountant-raised misc draw request.</DialogDescription>
           </DialogHeader>
           {approveDrawId && (() => {
-            const draw = pendingApprovals.find((d: any) => d.id === approveDrawId);
+            const draw = pendingApprovals.find((d: /* // */ any) => d.id === approveDrawId);
             return draw ? (
               <div className="space-y-3 text-sm">
                 <div className="rounded-lg border bg-emerald-50 p-3 space-y-1">
                   <div className="flex justify-between"><span className="text-slate-400">Purpose:</span><strong>{draw.purpose}</strong></div>
                   <div className="flex justify-between"><span className="text-slate-400">Amount:</span><strong>{formatCurrency(Number(draw.amount_requested), 'KES')}</strong></div>
-                  <div className="flex justify-between"><span className="text-slate-400">Raised by:</span><strong>{(draw.users as any)?.full_name || 'Accountant'}</strong></div>
+                  <div className="flex justify-between"><span className="text-slate-400">Raised by:</span><strong>{(draw.users as /* // */ any)?.full_name || 'Accountant'}</strong></div>
                   {draw.accountant_notes && <div className="flex justify-between"><span className="text-slate-400">Notes:</span><strong>{draw.accountant_notes}</strong></div>}
                 </div>
                 <p className="text-slate-500">Approving will mark this draw as active and available for expense recording.</p>
@@ -1212,35 +1212,35 @@ function PmMiscView({ user, selectedMonth }: { user: any; selectedMonth: string 
 // CFO VIEW — Full Accountability Dashboard
 // ══════════════════════════════════════════════════════════════════
 
-function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string }) {
+function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth: string }) {
   const [loading, setLoading] = useState(true);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState</* // */ any[]>([]);
   const [allocations, setAllocations] = useState<Map<string, number>>(new Map());
-  const [allDraws, setAllDraws] = useState<any[]>([]);
-  const [reports, setReports] = useState<any[]>([]);
-  const [drawsFeed, setDrawsFeed] = useState<any[]>([]);
+  const [allDraws, setAllDraws] = useState</* // */ any[]>([]);
+  const [reports, setReports] = useState</* // */ any[]>([]);
+  const [drawsFeed, setDrawsFeed] = useState</* // */ any[]>([]);
   const [feedPage, setFeedPage] = useState(0);
 
   // Accountant misc requests (company-wide, from accountant_misc_requests)
-  const [acctRequests, setAcctRequests] = useState<any[]>([]);
+  const [acctRequests, setAcctRequests] = useState</* // */ any[]>([]);
 
   // Company-wide expenses for the month (all types)
-  const [monthExpenses, setMonthExpenses] = useState<any[]>([]);
+  const [monthExpenses, setMonthExpenses] = useState</* // */ any[]>([]);
 
   // Red flags
-  const [redFlags, setRedFlags] = useState<any[]>([]);
+  const [redFlags, setRedFlags] = useState</* // */ any[]>([]);
 
   // Report detail drilldown
-  const [detailProject, setDetailProject] = useState<any>(null);
-  const [detailDraws, setDetailDraws] = useState<any[]>([]);
-  const [detailReportItems, setDetailReportItems] = useState<any[]>([]);
+  const [detailProject, setDetailProject] = useState</* // */ any>(null);
+  const [detailDraws, setDetailDraws] = useState</* // */ any[]>([]);
+  const [detailReportItems, setDetailReportItems] = useState</* // */ any[]>([]);
 
   // Misc report review
-  const [reviewReport, setReviewReport] = useState<any>(null);
-  const [reviewItems, setReviewItems] = useState<any[]>([]);
+  const [reviewReport, setReviewReport] = useState</* // */ any>(null);
+  const [reviewItems, setReviewItems] = useState</* // */ any[]>([]);
 
   // Flag dialog
-  const [flagDraw, setFlagDraw] = useState<any>(null);
+  const [flagDraw, setFlagDraw] = useState</* // */ any>(null);
   const [flagReason, setFlagReason] = useState('');
 
   // Active tab
@@ -1268,7 +1268,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
     const projs = projRes.data || [];
     setProjects(projs);
 
-    const allocMap = new Map((allocRes.data || []).map((a: any) => [a.project_id, Number(a.monthly_amount)]));
+    const allocMap = new Map((allocRes.data || []).map((a: /* // */ any) => [a.project_id, Number(a.monthly_amount)]));
     setAllocations(allocMap);
 
     const draws = drawsRes.data || [];
@@ -1311,7 +1311,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
     }
   }
 
-  async function openProjectDetail(project: any) {
+  async function openProjectDetail(project: /* // */ any) {
     setDetailProject(project);
     const supabase = createClient();
     const periodDate = selectedMonth + '-01';
@@ -1328,7 +1328,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
     }
   }
 
-  async function openReviewReport(report: any) {
+  async function openReviewReport(report: /* // */ any) {
     setReviewReport(report);
     const supabase = createClient();
     const { data } = await supabase.from('misc_report_items').select('*').eq('misc_report_id', report.id).order('expense_date');
@@ -1360,19 +1360,19 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
   const topUpCountAll = topUpDraws.length;
   const topUpTotalAll = topUpDraws.reduce((s, d) => s + Number(d.amount_approved || 0), 0);
 
-  const reportMap = new Map(reports.map((r: any) => [r.project_id, r]));
+  const reportMap = new Map(reports.map((r: /* // */ any) => [r.project_id, r]));
   const projectsWithAlloc = projects.filter((p) => allocations.has(p.id));
   const allProjectsWithActivity = projects.filter((p) => allocations.has(p.id) || allDraws.some((d) => d.project_id === p.id));
   const pendingReportCount = projectsWithAlloc.filter((p) => !reportMap.has(p.id) || reportMap.get(p.id)?.status === 'draft').length;
 
   const overspendProjects = projectsWithAlloc.filter((p) => {
     const alloc = allocations.get(p.id) || 0;
-    const drawn = allDraws.filter((d) => d.project_id === p.id).reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+    const drawn = allDraws.filter((d) => d.project_id === p.id).reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
     return drawn > alloc;
   });
   const overspendTotal = overspendProjects.reduce((s, p) => {
     const alloc = allocations.get(p.id) || 0;
-    const drawn = allDraws.filter((d: any) => d.project_id === p.id).reduce((sum: number, d: any) => sum + Number(d.amount_approved || 0), 0);
+    const drawn = allDraws.filter((d: /* // */ any) => d.project_id === p.id).reduce((sum: number, d: /* // */ any) => sum + Number(d.amount_approved || 0), 0);
     return s + (drawn - alloc);
   }, 0);
 
@@ -1387,18 +1387,18 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
   const acctTotalApproved = acctApproved.reduce((s, r) => s + Number(r.amount_approved || 0), 0);
 
   // Expense breakdown by type
-  const miscExpenses = monthExpenses.filter((e: any) => (e.description || '').toLowerCase().includes('misc'));
-  const projectExpenses = monthExpenses.filter((e: any) => e.expense_type === 'project_expense');
-  const sharedExpenses = monthExpenses.filter((e: any) => e.expense_type === 'shared_expense');
+  const miscExpenses = monthExpenses.filter((e: /* // */ any) => (e.description || '').toLowerCase().includes('misc'));
+  const projectExpenses = monthExpenses.filter((e: /* // */ any) => e.expense_type === 'project_expense');
+  const sharedExpenses = monthExpenses.filter((e: /* // */ any) => e.expense_type === 'shared_expense');
   const totalProjectExpenseKes = projectExpenses.reduce((s, e) => s + Number(e.amount_kes || 0), 0);
   const totalSharedExpenseKes = sharedExpenses.reduce((s, e) => s + Number(e.amount_kes || 0), 0);
-  const totalAllExpenseKes = monthExpenses.reduce((s: number, e: any) => s + Number(e.amount_kes || 0), 0);
+  const totalAllExpenseKes = monthExpenses.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes || 0), 0);
 
   // Expense by project
   const expenseByProject = new Map<string, { name: string; total: number; count: number }>();
-  projectExpenses.forEach((e: any) => {
+  projectExpenses.forEach((e: /* // */ any) => {
     const pid = e.project_id;
-    const existing = expenseByProject.get(pid) || { name: (e.projects as any)?.name || 'Unknown', total: 0, count: 0 };
+    const existing = expenseByProject.get(pid) || { name: (e.projects as /* // */ any)?.name || 'Unknown', total: 0, count: 0 };
     existing.total += Number(e.amount_kes || 0);
     existing.count += 1;
     expenseByProject.set(pid, existing);
@@ -1406,14 +1406,14 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
 
   // Expense by category
   const expenseByCategory = new Map<string, number>();
-  monthExpenses.forEach((e: any) => {
-    const cat = (e.expense_categories as any)?.name || (e.expense_type === 'shared_expense' ? 'Shared/Overhead' : 'Uncategorised');
+  monthExpenses.forEach((e: /* // */ any) => {
+    const cat = (e.expense_categories as /* // */ any)?.name || (e.expense_type === 'shared_expense' ? 'Shared/Overhead' : 'Uncategorised');
     expenseByCategory.set(cat, (expenseByCategory.get(cat) || 0) + Number(e.amount_kes || 0));
   });
   const categoryList = Array.from(expenseByCategory.entries()).sort((a, b) => b[1] - a[1]);
 
   // Red flags related to misc / expenses
-  const miscFlags = redFlags.filter((f: any) => {
+  const miscFlags = redFlags.filter((f: /* // */ any) => {
     const desc = (f.description || '').toLowerCase();
     const title = (f.title || '').toLowerCase();
     return desc.includes('misc') || desc.includes('expense') || desc.includes('overspend')
@@ -1494,7 +1494,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Misc-linked</span>
-                    <span className="font-mono font-medium">{formatCurrency(miscExpenses.reduce((s: number, e: any) => s + Number(e.amount_kes || 0), 0), 'KES')}</span>
+                    <span className="font-mono font-medium">{formatCurrency(miscExpenses.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes || 0), 0), 'KES')}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between text-xs text-slate-400">
@@ -1587,7 +1587,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
                   <div className="text-center p-3 rounded-lg bg-amber-50">
                     <div className="text-xl font-bold text-amber-700">{acctPending.length}</div>
                     <div className="text-slate-500">Pending Approval</div>
-                    <div className="font-mono text-xs">{formatCurrency(acctPending.reduce((s: number, r: any) => s + Number(r.amount_requested || 0), 0), 'KES')}</div>
+                    <div className="font-mono text-xs">{formatCurrency(acctPending.reduce((s: number, r: /* // */ any) => s + Number(r.amount_requested || 0), 0), 'KES')}</div>
                   </div>
                   <div className="text-center p-3 rounded-lg bg-emerald-50">
                     <div className="text-xl font-bold text-emerald-700">{acctApproved.length}</div>
@@ -1617,7 +1617,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {allActiveFlags.slice(0, 5).map((f: any) => (
+                  {allActiveFlags.slice(0, 5).map((f: /* // */ any) => (
                     <div key={f.id} className="flex items-start gap-3 rounded-lg border border-rose-100 bg-rose-50/50 p-3 text-sm">
                       <AlertTriangle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
                         f.severity === 'critical' ? 'text-rose-600' : f.severity === 'high' ? 'text-orange-500' : 'text-amber-500'
@@ -1677,13 +1677,13 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
                     allProjectsWithActivity.map((p) => {
                       const alloc = allocations.get(p.id) || 0;
                       const projDraws = allDraws.filter((d) => d.project_id === p.id);
-                      const drawn = projDraws.reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+                      const drawn = projDraws.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
                       const remaining = alloc - drawn;
                       const topUps = projDraws.filter((d) => d.draw_type === 'top_up').length;
                       const report = reportMap.get(p.id);
                       const reportStatus = report?.status || 'not_submitted';
-                      const allExpensed = projDraws.length > 0 && projDraws.every((d: any) => d.expense_id);
-                      const flagged = projDraws.filter((d: any) => d.cfo_flagged).length;
+                      const allExpensed = projDraws.length > 0 && projDraws.every((d: /* // */ any) => d.expense_id);
+                      const flagged = projDraws.filter((d: /* // */ any) => d.cfo_flagged).length;
 
                       const isOverspend = remaining < 0;
                       const isReportOverdue = !report && projDraws.length > 0;
@@ -1740,7 +1740,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
                 <div className="space-y-3">
                   {projectsWithAlloc.map((p) => {
                     const alloc = allocations.get(p.id) || 0;
-                    const drawn = allDraws.filter((d) => d.project_id === p.id).reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+                    const drawn = allDraws.filter((d) => d.project_id === p.id).reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
                     const pct = alloc > 0 ? (drawn / alloc) * 100 : 0;
                     const isOver = pct > 100;
                     const isUnder = pct < 30;
@@ -1794,7 +1794,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
                   </TableHeader>
                   <TableBody>
                     {projectsWithAlloc.filter((p) => !reportMap.has(p.id) || reportMap.get(p.id)?.status === 'draft').map((p) => {
-                      const drawn = allDraws.filter((d) => d.project_id === p.id).reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+                      const drawn = allDraws.filter((d) => d.project_id === p.id).reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
                       return (
                         <TableRow key={p.id} className="bg-amber-50/50">
                           <TableCell className="font-medium">{p.name}</TableCell>
@@ -1814,7 +1814,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
           )}
 
           {/* Submitted Reports to Review */}
-          {reports.filter((r: any) => r.status === 'submitted').length > 0 && (
+          {reports.filter((r: /* // */ any) => r.status === 'submitted').length > 0 && (
             <Card className="io-card border-blue-200">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2 text-blue-700">
@@ -1835,9 +1835,9 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {reports.filter((r: any) => r.status === 'submitted').map((r: any) => (
+                    {reports.filter((r: /* // */ any) => r.status === 'submitted').map((r: /* // */ any) => (
                       <TableRow key={r.id}>
-                        <TableCell className="font-medium">{(r.projects as any)?.name || 'Unknown'}</TableCell>
+                        <TableCell className="font-medium">{(r.projects as /* // */ any)?.name || 'Unknown'}</TableCell>
                         <TableCell className="text-sm text-slate-500">{r.period_month}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(r.total_allocated), 'KES')}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(r.total_claimed), 'KES')}</TableCell>
@@ -1861,10 +1861,10 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
       {activeTab === 'accountant' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <StatCard title="Pending Requests" value={String(acctPending.length)} subtitle={formatCurrency(acctPending.reduce((s: number, r: any) => s + Number(r.amount_requested || 0), 0), 'KES')} icon={Clock} className={acctPending.length > 0 ? 'border-amber-200' : ''} />
+            <StatCard title="Pending Requests" value={String(acctPending.length)} subtitle={formatCurrency(acctPending.reduce((s: number, r: /* // */ any) => s + Number(r.amount_requested || 0), 0), 'KES')} icon={Clock} className={acctPending.length > 0 ? 'border-amber-200' : ''} />
             <StatCard title="Approved" value={String(acctApproved.length)} subtitle={formatCurrency(acctTotalApproved, 'KES')} icon={CheckCircle2} />
             <StatCard title="Declined" value={String(acctRequests.filter((r) => r.status === 'declined').length)} icon={AlertCircle} />
-            <StatCard title="Total Requested (All)" value={formatCurrency(acctRequests.reduce((s: number, r: any) => s + Number(r.amount_requested || 0), 0), 'KES')} icon={DollarSign} />
+            <StatCard title="Total Requested (All)" value={formatCurrency(acctRequests.reduce((s: number, r: /* // */ any) => s + Number(r.amount_requested || 0), 0), 'KES')} icon={DollarSign} />
           </div>
 
           <Card className="io-card">
@@ -1890,11 +1890,11 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
                       <TableCell colSpan={7} className="text-center py-6 text-slate-400">No accountant misc requests found.</TableCell>
                     </TableRow>
                   ) : (
-                    acctRequests.map((r: any) => (
+                    acctRequests.map((r: /* // */ any) => (
                       <TableRow key={r.id} className={r.status === 'pending' ? 'bg-amber-50/50' : ''}>
                         <TableCell className="text-sm text-slate-500">{formatDate(r.created_at)}</TableCell>
                         <TableCell className="font-medium text-sm max-w-[200px] truncate">{r.purpose}</TableCell>
-                        <TableCell className="text-sm">{(r.users as any)?.full_name || '—'}</TableCell>
+                        <TableCell className="text-sm">{(r.users as /* // */ any)?.full_name || '—'}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(r.amount_requested), 'KES')}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{r.amount_approved ? formatCurrency(Number(r.amount_approved), 'KES') : '—'}</TableCell>
                         <TableCell>
@@ -1923,8 +1923,8 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <StatCard title="Active Red Flags" value={String(allActiveFlags.length)} icon={AlertTriangle} className={allActiveFlags.length > 0 ? 'border-rose-200 bg-rose-50/30' : ''} />
-            <StatCard title="Critical / High" value={String(allActiveFlags.filter((f: any) => f.severity === 'critical' || f.severity === 'high').length)} icon={AlertTriangle} className="border-orange-200" />
-            <StatCard title="Medium" value={String(allActiveFlags.filter((f: any) => f.severity === 'medium').length)} icon={AlertCircle} />
+            <StatCard title="Critical / High" value={String(allActiveFlags.filter((f: /* // */ any) => f.severity === 'critical' || f.severity === 'high').length)} icon={AlertTriangle} className="border-orange-200" />
+            <StatCard title="Medium" value={String(allActiveFlags.filter((f: /* // */ any) => f.severity === 'medium').length)} icon={AlertCircle} />
             <StatCard title="Misc/Expense Related" value={String(miscFlags.length)} icon={Flag} />
           </div>
 
@@ -1953,7 +1953,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {allActiveFlags.map((f: any) => (
+                    {allActiveFlags.map((f: /* // */ any) => (
                       <TableRow key={f.id} className={
                         f.severity === 'critical' ? 'bg-rose-50/50' : f.severity === 'high' ? 'bg-orange-50/30' : ''
                       }>
@@ -1992,18 +1992,18 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
               <p className="text-sm text-slate-400 text-center py-8">No draws for this period.</p>
             ) : (
               <div className="space-y-2">
-                {paginatedFeed.map((d: any) => (
+                {paginatedFeed.map((d: /* // */ any) => (
                   <div key={d.id} className={`flex items-center justify-between rounded-lg border p-3 text-sm ${d.cfo_flagged ? 'border-rose-200 bg-rose-50/30' : ''}`}>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-slate-400 text-xs">{timeAgo(d.created_at)}</span>
-                        <strong>{(d.projects as any)?.name || 'Unknown'}</strong>
+                        <strong>{(d.projects as /* // */ any)?.name || 'Unknown'}</strong>
                         <span>—</span>
                         <span className="font-mono">{formatCurrency(Number(d.amount_approved), 'KES')}</span>
                         <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-[#1e293b] text-white text-xs' : 'bg-amber-100 text-amber-800 text-xs'}>
                           {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'}
                         </Badge>
-                        <span className="text-slate-400">— {(d.users as any)?.full_name || 'Unknown'}</span>
+                        <span className="text-slate-400">— {(d.users as /* // */ any)?.full_name || 'Unknown'}</span>
                         {d.raised_by_role === 'accountant' && (
                           <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px]">Delegated</Badge>
                         )}
@@ -2071,7 +2071,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {detailDraws.map((d: any) => (
+                  {detailDraws.map((d: /* // */ any) => (
                     <TableRow key={d.id} className={d.cfo_flagged ? 'bg-rose-50/50' : ''}>
                       <TableCell className="text-sm">{formatDate(d.created_at)}</TableCell>
                       <TableCell>
@@ -2093,7 +2093,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
                   ))}
                   <TableRow className="font-bold bg-slate-50">
                     <TableCell colSpan={3} className="text-right">Total</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(detailDraws.reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0), 'KES')}</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(detailDraws.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0), 'KES')}</TableCell>
                     <TableCell colSpan={2}></TableCell>
                   </TableRow>
                 </TableBody>
@@ -2117,7 +2117,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {detailReportItems.map((item: any, idx: number) => (
+                  {detailReportItems.map((item: /* // */ any, idx: number) => (
                     <TableRow key={item.id}>
                       <TableCell className="text-slate-400 text-sm">{idx + 1}</TableCell>
                       <TableCell className="text-sm">{formatDate(item.expense_date)}</TableCell>
@@ -2127,7 +2127,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
                   ))}
                   <TableRow className="font-bold bg-slate-50">
                     <TableCell colSpan={3} className="text-right">Total Claimed</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(detailReportItems.reduce((s: number, i: any) => s + Number(i.amount || 0), 0), 'KES')}</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(detailReportItems.reduce((s: number, i: /* // */ any) => s + Number(i.amount || 0), 0), 'KES')}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -2144,7 +2144,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
       <Dialog open={!!reviewReport} onOpenChange={() => setReviewReport(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Review Misc Report — {(reviewReport?.projects as any)?.name}</DialogTitle>
+            <DialogTitle>Review Misc Report — {(reviewReport?.projects as /* // */ any)?.name}</DialogTitle>
             <DialogDescription>Period: {reviewReport?.period_month}</DialogDescription>
           </DialogHeader>
           <div className="flex gap-4 text-sm mb-3">
@@ -2169,7 +2169,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
               </TableRow>
             </TableHeader>
             <TableBody>
-              {reviewItems.map((item: any) => (
+              {reviewItems.map((item: /* // */ any) => (
                 <TableRow key={item.id}>
                   <TableCell className="text-sm">{formatDate(item.expense_date)}</TableCell>
                   <TableCell className="font-medium text-sm">{item.description}</TableCell>
@@ -2179,7 +2179,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
               {reviewItems.length > 0 && (
                 <TableRow className="font-bold bg-slate-50">
                   <TableCell colSpan={2} className="text-right">Total</TableCell>
-                  <TableCell className="text-right font-mono">{formatCurrency(reviewItems.reduce((s: number, i: any) => s + Number(i.amount || 0), 0), 'KES')}</TableCell>
+                  <TableCell className="text-right font-mono">{formatCurrency(reviewItems.reduce((s: number, i: /* // */ any) => s + Number(i.amount || 0), 0), 'KES')}</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -2199,7 +2199,7 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
           <DialogHeader>
             <DialogTitle>Flag Misc Draw</DialogTitle>
             <DialogDescription>
-              Flag this draw for {(flagDraw?.projects as any)?.name} — {formatCurrency(Number(flagDraw?.amount_approved || 0), 'KES')}
+              Flag this draw for {(flagDraw?.projects as /* // */ any)?.name} — {formatCurrency(Number(flagDraw?.amount_approved || 0), 'KES')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -2220,16 +2220,16 @@ function CfoMiscView({ user, selectedMonth }: { user: any; selectedMonth: string
 // ACCOUNTANT VIEW
 // ══════════════════════════════════════════════════════════════════
 
-function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth: string }) {
+function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth: string }) {
   const [loading, setLoading] = useState(true);
-  const [pendingDraws, setPendingDraws] = useState<any[]>([]);
-  const [recordedDraws, setRecordedDraws] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [reports, setReports] = useState<any[]>([]);
-  const [allDrawsByProject, setAllDrawsByProject] = useState<Map<string, any[]>>(new Map());
+  const [pendingDraws, setPendingDraws] = useState</* // */ any[]>([]);
+  const [recordedDraws, setRecordedDraws] = useState</* // */ any[]>([]);
+  const [projects, setProjects] = useState</* // */ any[]>([]);
+  const [reports, setReports] = useState</* // */ any[]>([]);
+  const [allDrawsByProject, setAllDrawsByProject] = useState<Map<string, /* // */ any[]>>(new Map());
 
   // Record expense dialog
-  const [recordDraw, setRecordDraw] = useState<any>(null);
+  const [recordDraw, setRecordDraw] = useState</* // */ any>(null);
   const [recording, setRecording] = useState(false);
 
   // Raise request state
@@ -2241,8 +2241,8 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
   const [raising, setRaising] = useState(false);
 
   // Returned (declined) requests
-  const [returnedDraws, setReturnedDraws] = useState<any[]>([]);
-  const [myPendingDraws, setMyPendingDraws] = useState<any[]>([]);
+  const [returnedDraws, setReturnedDraws] = useState</* // */ any[]>([]);
+  const [myPendingDraws, setMyPendingDraws] = useState</* // */ any[]>([]);
   const [reviseDrawId, setReviseDrawId] = useState<string | null>(null);
   const [reviseAmount, setReviseAmount] = useState('');
   const [revisePurpose, setRevisePurpose] = useState('');
@@ -2280,7 +2280,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
       .from('misc_draws')
       .select('*')
       .eq('period_month', periodDate);
-    const byProject = new Map<string, any[]>();
+    const byProject = new Map<string, /* // */ any[]>();
     for (const d of (allDraws || [])) {
       const arr = byProject.get(d.project_id) || [];
       arr.push(d);
@@ -2352,7 +2352,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
       accountant_notified_at: new Date().toISOString(),
     }).eq('id', recordDraw.id);
 
-    const projectName = (recordDraw.projects as any)?.name || 'Unknown';
+    const projectName = (recordDraw.projects as /* // */ any)?.name || 'Unknown';
     toast.success(`Expense recorded for ${projectName} misc draw.`);
     setRecordDraw(null);
     setRecording(false);
@@ -2398,7 +2398,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
 
   async function handleReviseRequest() {
     if (!reviseDrawId) return;
-    const draw = returnedDraws.find((d: any) => d.id === reviseDrawId);
+    const draw = returnedDraws.find((d: /* // */ any) => d.id === reviseDrawId);
     if (!draw) return;
     const nextAmount = reviseAmount ? parseFloat(reviseAmount) : Number(draw.amount_requested || 0);
     const nextPurpose = (revisePurpose || draw.purpose || '').trim();
@@ -2441,7 +2441,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
 
   async function handleAccountantDeleteDraw(drawId: string) {
     const headers = await getAuthHeaders();
-    const draw = [...returnedDraws, ...myPendingDraws].find((d: any) => d.id === drawId);
+    const draw = [...returnedDraws, ...myPendingDraws].find((d: /* // */ any) => d.id === drawId);
     if (!draw) return;
     const res = await fetch('/api/misc-draws', {
       method: 'POST',
@@ -2468,7 +2468,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
 
   const pendingTotal = pendingDraws.reduce((s, d) => s + Number(d.amount_approved || 0), 0);
   const recordedTotal = recordedDraws.reduce((s, d) => s + Number(d.amount_approved || 0), 0);
-  const reportsSubmitted = reports.filter((r: any) => r.status === 'submitted' || r.status === 'cfo_reviewed').length;
+  const reportsSubmitted = reports.filter((r: /* // */ any) => r.status === 'submitted' || r.status === 'cfo_reviewed').length;
   const totalProjectsWithDraws = allDrawsByProject.size;
 
   return (
@@ -2512,10 +2512,10 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
             <div className="mb-4">
               <p className="text-xs font-semibold text-purple-700 mb-2">Pending PM Approval ({myPendingDraws.length})</p>
               <div className="space-y-2">
-                {myPendingDraws.map((d: any) => (
+                {myPendingDraws.map((d: /* // */ any) => (
                   <div key={d.id} className="flex items-center justify-between rounded-lg border border-purple-200 bg-purple-50/50 p-3 text-sm">
                     <div>
-                      <strong>{(d.projects as any)?.name}</strong> &mdash; {formatCurrency(Number(d.amount_requested), 'KES')}
+                      <strong>{(d.projects as /* // */ any)?.name}</strong> &mdash; {formatCurrency(Number(d.amount_requested), 'KES')}
                       <p className="text-xs text-slate-500 truncate max-w-md">{d.purpose}</p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -2535,10 +2535,10 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
             <div>
               <p className="text-xs font-semibold text-rose-700 mb-2">Returned Requests ({returnedDraws.length})</p>
               <div className="space-y-2">
-                {returnedDraws.map((d: any) => (
+                {returnedDraws.map((d: /* // */ any) => (
                   <div key={d.id} className="rounded-lg border border-rose-200 bg-rose-50/50 p-3 text-sm">
                     <div className="flex items-center justify-between mb-1">
-                      <strong>{(d.projects as any)?.name}</strong>
+                      <strong>{(d.projects as /* // */ any)?.name}</strong>
                       <div className="flex gap-1">
                         <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => {
                           setReviseDrawId(d.id);
@@ -2587,7 +2587,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
                   <SelectValue placeholder="Select project..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {projects.map((p: any) => (
+                  {projects.map((p: /* // */ any) => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -2626,7 +2626,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
             <DialogDescription>Adjust the request and resubmit for PM approval.</DialogDescription>
           </DialogHeader>
           {reviseDrawId && (() => {
-            const draw = returnedDraws.find((d: any) => d.id === reviseDrawId);
+            const draw = returnedDraws.find((d: /* // */ any) => d.id === reviseDrawId);
             return draw ? (
               <div className="space-y-4">
                 {draw.pm_decline_reason && (
@@ -2686,12 +2686,12 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
                   <TableCell colSpan={7} className="text-center py-6 text-slate-400">All draws have been recorded. You are up to date.</TableCell>
                 </TableRow>
               ) : (
-                pendingDraws.map((d: any) => {
+                pendingDraws.map((d: /* // */ any) => {
                   const daysPending = Math.floor((Date.now() - new Date(d.created_at).getTime()) / 86400000);
                   return (
                     <TableRow key={d.id} className={daysPending > 2 ? 'bg-amber-50/50' : ''}>
-                      <TableCell className="font-medium">{(d.projects as any)?.name || '—'}</TableCell>
-                      <TableCell className="text-sm">{(d.users as any)?.full_name || '—'}</TableCell>
+                      <TableCell className="font-medium">{(d.projects as /* // */ any)?.name || '—'}</TableCell>
+                      <TableCell className="text-sm">{(d.users as /* // */ any)?.full_name || '—'}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-[#1e293b] text-white' : 'bg-amber-100 text-amber-800'}>
                           {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'}
@@ -2738,10 +2738,10 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
               ) : (
                 projects.filter((p) => allDrawsByProject.has(p.id)).map((p) => {
                   const projDraws = allDrawsByProject.get(p.id) || [];
-                  const totalDrawnProj = projDraws.reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
-                  const totalExpensed = projDraws.filter((d: any) => d.expense_id).reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
-                  const report = reports.find((r: any) => r.project_id === p.id);
-                  const allRecorded = projDraws.every((d: any) => d.expense_id);
+                  const totalDrawnProj = projDraws.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
+                  const totalExpensed = projDraws.filter((d: /* // */ any) => d.expense_id).reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
+                  const report = reports.find((r: /* // */ any) => r.project_id === p.id);
+                  const allRecorded = projDraws.every((d: /* // */ any) => d.expense_id);
 
                   return (
                     <TableRow key={p.id}>
@@ -2762,7 +2762,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
                           <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">All Recorded</Badge>
                         ) : (
                           <Badge variant="secondary" className="bg-amber-100 text-amber-700">
-                            {projDraws.filter((d: any) => !d.expense_id).length} Pending
+                            {projDraws.filter((d: /* // */ any) => !d.expense_id).length} Pending
                           </Badge>
                         )}
                       </TableCell>
@@ -2785,7 +2785,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: any; selectedMonth:
           {recordDraw && (
             <div className="space-y-3 text-sm">
               <div className="rounded-lg border bg-slate-50 p-3 space-y-1">
-                <div className="flex justify-between"><span className="text-slate-400">Project:</span><strong>{(recordDraw.projects as any)?.name}</strong></div>
+                <div className="flex justify-between"><span className="text-slate-400">Project:</span><strong>{(recordDraw.projects as /* // */ any)?.name}</strong></div>
                 <div className="flex justify-between"><span className="text-slate-400">Amount:</span><strong>{formatCurrency(Number(recordDraw.amount_approved), 'KES')}</strong></div>
                 <div className="flex justify-between"><span className="text-slate-400">Purpose:</span><strong>{recordDraw.purpose || 'Standing allocation'}</strong></div>
                 <div className="flex justify-between"><span className="text-slate-400">Date:</span><strong>{formatDate(recordDraw.created_at)}</strong></div>

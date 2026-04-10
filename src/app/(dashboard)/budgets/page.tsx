@@ -126,9 +126,9 @@ export default function BudgetsPage() {
 
     // Get user names for created_by
     const userIds = new Set<string>();
-    (data || []).forEach((b: any) => { if (b.created_by) userIds.add(b.created_by); });
+    (data || []).forEach((b: /* // */ any) => { if (b.created_by) userIds.add(b.created_by); });
     const { data: users } = await supabase.from('users').select('id, full_name').in('id', Array.from(userIds));
-    const nameMap = new Map((users || []).map((u: any) => [u.id, u.full_name]));
+    const nameMap = new Map((users || []).map((u: /* // */ any) => [u.id, u.full_name]));
 
     const rows: BudgetRow[] = (data || []).map((b: Record<string, unknown>) => {
       const versions = (b.budget_versions as Record<string, unknown>[]) || [];

@@ -36,7 +36,7 @@ export async function GET(request: Request) {
   if ('error' in auth) return auth.error;
 
   const { admin } = auth;
-  const db = admin as any;
+  const db = admin as /* // */ any;
   const scans = [
     db.from('monthly_financial_snapshots').select('id', { count: 'exact', head: true }).eq('data_source', 'historical_seed_q1_2026'),
     db.from('invoices').select('id', { count: 'exact', head: true }).ilike('source_note', '%Seeded from IO Financial Tracker Q1 2026%'),
@@ -69,7 +69,7 @@ export async function DELETE(request: Request) {
   if ('error' in auth) return auth.error;
 
   const { admin, authUser } = auth;
-  const db = admin as any;
+  const db = admin as /* // */ any;
   const countDelete = async (buildQuery: () => any): Promise<number> => {
     const q = buildQuery();
     const { data } = await q.select('id');

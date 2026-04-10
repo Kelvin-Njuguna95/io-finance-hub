@@ -66,7 +66,7 @@ export default function BudgetAccuracyPage() {
         setUserRole(role);
         if (role === 'team_leader' || role === 'project_manager') {
           const { data: assigns } = await supabase.from('user_project_assignments').select('project_id').eq('user_id', user.id);
-          assignedProjects = (assigns || []).map((a: any) => a.project_id);
+          assignedProjects = (assigns || []).map((a: /* // */ any) => a.project_id);
         }
       }
       const isRestricted = role === 'team_leader' || role === 'project_manager';
@@ -78,14 +78,14 @@ export default function BudgetAccuracyPage() {
       ]);
 
       const projects = (projRes.data || []).filter(p => !isRestricted || assignedProjects.includes(p.id));
-      const budgets = (budRes.data || []).filter((b: any) => !isRestricted || assignedProjects.includes(b.project_id));
-      const expenses = (expRes.data || []).filter((e: any) => !isRestricted || assignedProjects.includes(e.project_id));
+      const budgets = (budRes.data || []).filter((b: /* // */ any) => !isRestricted || assignedProjects.includes(b.project_id));
+      const expenses = (expRes.data || []).filter((e: /* // */ any) => !isRestricted || assignedProjects.includes(e.project_id));
       const projMap = new Map(projects.map(p => [p.id, p.name]));
       const projNameSet = new Set<string>();
 
       // Build expense by project+month
       const expByPM = new Map<string, number>();
-      expenses.forEach((e: any) => {
+      expenses.forEach((e: /* // */ any) => {
         const key = `${e.project_id}|${e.year_month}`;
         expByPM.set(key, (expByPM.get(key) || 0) + Number(e.amount_kes));
       });
@@ -94,12 +94,12 @@ export default function BudgetAccuracyPage() {
       const allRows: AccuracyRow[] = [];
       const freqMap = new Map<string, { over: number; under: number; on: number }>();
 
-      budgets.forEach((b: any) => {
+      budgets.forEach((b: /* // */ any) => {
         if (!b.project_id || !projMap.has(b.project_id)) return;
         const projName = projMap.get(b.project_id)!;
         projNameSet.add(projName);
 
-        const approved = (b.budget_versions || []).find((v: any) => v.status === 'approved');
+        const approved = (b.budget_versions || []).find((v: /* // */ any) => v.status === 'approved');
         const budgeted = b.pm_approved_total ? Number(b.pm_approved_total) : Number(approved?.total_amount_kes || 0);
         if (budgeted === 0) return;
 
@@ -212,7 +212,7 @@ export default function BudgetAccuracyPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-neutral-400">Loading...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-neutral-400">Please wait</TableCell></TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="text-center py-8 text-neutral-500">No budget data available</TableCell></TableRow>
                 ) : rows.map((r, i) => (

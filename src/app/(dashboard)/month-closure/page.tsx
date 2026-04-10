@@ -71,7 +71,7 @@ export default function MonthClosurePage() {
       .eq('period_month', periodMonth)
       .eq('status', 'approved');
 
-    if ((approvedReqs as any)?.length > 0 || (approvedReqs as any)?.count > 0) {
+    if ((approvedReqs as /* // */ any)?.length > 0 || (approvedReqs as /* // */ any)?.count > 0) {
       const { data: miscReport } = await supabase
         .from('accountant_misc_report')
         .select('status')

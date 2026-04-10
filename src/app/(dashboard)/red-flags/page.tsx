@@ -35,7 +35,7 @@ export default function RedFlagsPage() {
 
     if (user?.role === 'project_manager') {
       const { data: assigned } = await supabase.from('user_project_assignments').select('project_id').eq('user_id', user.id);
-      const projectIds = new Set((assigned || []).map((a: any) => a.project_id));
+      const projectIds = new Set((assigned || []).map((a: /* // */ any) => a.project_id));
       setFlags((data || []).filter((flag) => flag.project_id && projectIds.has(flag.project_id)));
       return;
     }

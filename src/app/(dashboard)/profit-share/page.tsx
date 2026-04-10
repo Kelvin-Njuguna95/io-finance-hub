@@ -58,7 +58,7 @@ export default function ProfitSharePage() {
       .order('director_tag');
 
     if (existingRecords && existingRecords.length > 0) {
-      setShares(existingRecords.map((r: any) => ({
+      setShares(existingRecords.map((r: /* // */ any) => ({
         project_name: r.projects?.name || '—',
         director_tag: r.director_tag,
         revenue: 0,
@@ -83,18 +83,18 @@ export default function ProfitSharePage() {
     const { data: expenses } = await supabase.from('expenses').select('project_id, amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense');
 
     const invMap = new Map<string, number>();
-    (invoices || []).forEach((i: any) => {
+    (invoices || []).forEach((i: /* // */ any) => {
       const kes = Number(i.amount_kes) > 0 ? Number(i.amount_kes) : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
       invMap.set(i.project_id, (invMap.get(i.project_id) || 0) + kes);
     });
 
     const expMap = new Map<string, number>();
-    (expenses || []).forEach((e: any) => {
+    (expenses || []).forEach((e: /* // */ any) => {
       expMap.set(e.project_id, (expMap.get(e.project_id) || 0) + Number(e.amount_kes));
     });
 
     const rows: ProjectShare[] = (projects || [])
-      .map((p: any) => {
+      .map((p: /* // */ any) => {
         const revenue = invMap.get(p.id) || 0;
         const directCosts = expMap.get(p.id) || 0;
         const distributable = revenue - directCosts;
@@ -201,7 +201,7 @@ export default function ProfitSharePage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-neutral-400">Loading...</TableCell>
+                    <TableCell colSpan={9} className="text-center py-8 text-neutral-400">Please wait</TableCell>
                   </TableRow>
                 ) : shares.length === 0 ? (
                   <TableRow>

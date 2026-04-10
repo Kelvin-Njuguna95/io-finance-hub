@@ -82,8 +82,8 @@ export default function PnLReportPage() {
         supabase.from('payments').select('amount_usd'),
       ]);
       const standingBal = parseFloat(balRes.data?.value || '0');
-      const totalWithdrawn = (wdRes.data || []).reduce((s: number, w: any) => s + Number(w.amount_usd), 0);
-      const totalPaid = (payRes2.data || []).reduce((s: number, p: any) => s + Number(p.amount_usd), 0);
+      const totalWithdrawn = (wdRes.data || []).reduce((s: number, w: /* // */ any) => s + Number(w.amount_usd), 0);
+      const totalPaid = (payRes2.data || []).reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd), 0);
       setCashBalance(standingBal - totalWithdrawn + totalPaid);
 
       if (snapshot && Number(snapshot.total_revenue_kes) > 0) {
@@ -92,7 +92,7 @@ export default function PnLReportPage() {
           .from('agent_counts')
           .select('agent_count')
           .eq('year_month', selectedMonth);
-        const liveAgents = (agentData || []).reduce((s: number, a: any) => s + Number(a.agent_count || 0), 0);
+        const liveAgents = (agentData || []).reduce((s: number, a: /* // */ any) => s + Number(a.agent_count || 0), 0);
 
         setPnl({
           revenue: snapshot.total_revenue_kes,
@@ -131,21 +131,21 @@ export default function PnLReportPage() {
 
       if (reportMode === 'accrual') {
         // Lagged: previous month invoice converted to KES
-        revenueUsd = (invRes.data || []).reduce((s: number, i: any) => s + Number(i.amount_usd), 0);
-        const revKes = (invRes.data || []).reduce((s: number, i: any) => s + Number(i.amount_kes), 0);
+        revenueUsd = (invRes.data || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_usd), 0);
+        const revKes = (invRes.data || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes), 0);
         revenue = revKes > 0 ? revKes : Math.round(revenueUsd * stdRate * 100) / 100;
       } else {
         // Cash mode: payments received in this month
-        const monthPayments = (payRes.data || []).filter((p: any) => p.payment_date?.startsWith(selectedMonth));
-        revenueUsd = monthPayments.reduce((s: number, p: any) => s + Number(p.amount_usd), 0);
+        const monthPayments = (payRes.data || []).filter((p: /* // */ any) => p.payment_date?.startsWith(selectedMonth));
+        revenueUsd = monthPayments.reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd), 0);
         revenue = Math.round(revenueUsd * stdRate * 100) / 100;
       }
 
-      const directCosts = (projExpRes.data || []).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
-      const sharedOverhead = (sharedExpRes.data || []).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+      const directCosts = (projExpRes.data || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
+      const sharedOverhead = (sharedExpRes.data || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
       const grossProfit = revenue - directCosts;
       const operatingProfit = grossProfit - sharedOverhead;
-      const agents = (agentRes.data || []).reduce((s: number, a: any) => s + Number(a.agent_count || 0), 0);
+      const agents = (agentRes.data || []).reduce((s: number, a: /* // */ any) => s + Number(a.agent_count || 0), 0);
 
       setPnl({
         revenue,
@@ -234,7 +234,7 @@ export default function PnLReportPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <p className="text-sm text-neutral-400 py-8 text-center">Loading...</p>
+              <p className="text-sm text-neutral-400 py-8 text-center">Please wait</p>
             ) : !pnl ? (
               <p className="text-sm text-neutral-500 py-8 text-center">
                 No financial data for {formatYearMonth(selectedMonth)}

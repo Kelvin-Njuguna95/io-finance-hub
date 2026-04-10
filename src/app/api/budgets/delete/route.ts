@@ -49,8 +49,8 @@ export async function POST(request: Request) {
   }
 
   // Check status
-  const versions = (budget as any).budget_versions || [];
-  const currentVersion = versions.find((v: any) => v.version_number === budget.current_version);
+  const versions = (budget as /* // */ any).budget_versions || [];
+  const currentVersion = versions.find((v: /* // */ any) => v.version_number === budget.current_version);
   const currentStatus = currentVersion?.status ?? 'draft';
 
   // Check if any expenses are linked to this budget (prevent orphans)

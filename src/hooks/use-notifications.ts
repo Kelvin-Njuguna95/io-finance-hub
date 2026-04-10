@@ -56,7 +56,7 @@ export function useNotifications() {
       return;
     }
 
-    const items = (data || []).map((n: any) => ({
+    const items = (data || []).map((n: /* // */ any) => ({
       ...n,
       body: n.body || n.message || null,
       is_read: n.is_read ?? n.read ?? false,

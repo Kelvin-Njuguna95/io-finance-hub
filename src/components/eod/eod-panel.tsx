@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 interface EodStatus {
   report_date: string;
   already_sent: boolean;
-  existing_report: any;
+  existing_report: /* // */ any;
   has_activity: boolean;
   summary: {
     expense_count: number;
@@ -110,7 +110,7 @@ export function EodPanel() {
     return (
       <Card>
         <CardHeader><CardTitle className="text-sm font-medium">End of Day Report</CardTitle></CardHeader>
-        <CardContent><p className="text-sm text-neutral-400">Loading...</p></CardContent>
+        <CardContent><p className="text-sm text-neutral-400">Please wait</p></CardContent>
       </Card>
     );
   }

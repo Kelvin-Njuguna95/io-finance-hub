@@ -130,7 +130,7 @@ export default function BudgetDetailPage() {
   }
 
   const [showAutoRejectDialog, setShowAutoRejectDialog] = useState(false);
-  const [siblingBudgets, setSiblingBudgets] = useState<any[]>([]);
+  const [siblingBudgets, setSiblingBudgets] = useState</* // */ any[]>([]);
   const [autoRejectChoice, setAutoRejectChoice] = useState<'leave' | 'reject'>('leave');
 
   async function checkSiblingBudgets() {
@@ -150,7 +150,7 @@ export default function BudgetDetailPage() {
 
     // Check for sibling budgets (same project/month, different budget)
     const siblings = await checkSiblingBudgets();
-    const activeSiblings = siblings.filter((s: any) => {
+    const activeSiblings = siblings.filter((s: /* // */ any) => {
       const v = (s.budget_versions || [])[0];
       return v && !['rejected', 'draft'].includes(v.status);
     });
@@ -170,19 +170,19 @@ export default function BudgetDetailPage() {
     const supabase = createClient();
 
     // Calculate approved total from line items (if PM reviewed them)
-    const approvedItems = items.filter((i: any) => ['approved', 'adjusted'].includes(i.pm_status));
-    const removedItems = items.filter((i: any) => i.pm_status === 'removed');
+    const approvedItems = items.filter((i: /* // */ any) => ['approved', 'adjusted'].includes(i.pm_status));
+    const removedItems = items.filter((i: /* // */ any) => i.pm_status === 'removed');
     const hasLineReview = approvedItems.length > 0 || removedItems.length > 0;
 
     if (hasLineReview) {
-      const approvedTotal = approvedItems.reduce((s: number, i: any) => s + Number(i.pm_approved_amount || 0), 0);
-      const originalTotal = items.reduce((s: number, i: any) => s + Number(i.amount_kes || 0), 0);
+      const approvedTotal = approvedItems.reduce((s: number, i: /* // */ any) => s + Number(i.pm_approved_amount || 0), 0);
+      const originalTotal = items.reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes || 0), 0);
       await supabase.from('budgets').update({
         pm_original_total: originalTotal,
         pm_approved_total: approvedTotal,
         pm_review_summary: {
           approved_count: approvedItems.length,
-          adjusted_count: items.filter((i: any) => i.pm_status === 'adjusted').length,
+          adjusted_count: items.filter((i: /* // */ any) => i.pm_status === 'adjusted').length,
           removed_count: removedItems.length,
           original_total: originalTotal,
           approved_total: approvedTotal,
@@ -213,8 +213,8 @@ export default function BudgetDetailPage() {
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({
           approved_budget_id: budget!.id,
-          sibling_budget_ids: siblingBudgets.map((s: any) => s.id),
-          approved_submitted_by_role: (budget as any)?.submitted_by_role || 'team_leader',
+          sibling_budget_ids: siblingBudgets.map((s: /* // */ any) => s.id),
+          approved_submitted_by_role: (budget as /* // */ any)?.submitted_by_role || 'team_leader',
         }),
       });
     }
@@ -292,7 +292,7 @@ export default function BudgetDetailPage() {
   const isAccountant = user?.role === 'accountant';
   const isTl = user?.role === 'team_leader';
   const isOwnBudget = budget?.created_by === user?.id;
-  const budgetSubmittedByRole = (budget as any)?.submitted_by_role || 'team_leader';
+  const budgetSubmittedByRole = (budget as /* // */ any)?.submitted_by_role || 'team_leader';
   // TL can edit their own returned/draft budgets; Accountant can edit their own returned/draft budgets
   const canTlEdit = (isTl && (activeVersion?.status === 'returned_to_tl' || activeVersion?.status === 'draft'))
     || (isAccountant && isOwnBudget && budgetSubmittedByRole === 'accountant' && (activeVersion?.status === 'returned_to_tl' || activeVersion?.status === 'draft'));
@@ -308,7 +308,7 @@ export default function BudgetDetailPage() {
     async function loadCats() {
       const supabase = createClient();
       const { data } = await supabase.from('expense_categories').select('name').eq('is_active', true).neq('name', 'Administration').order('name');
-      setCategories((data || []).map((c: any) => c.name));
+      setCategories((data || []).map((c: /* // */ any) => c.name));
     }
     loadCats();
   }, []);
@@ -325,7 +325,7 @@ export default function BudgetDetailPage() {
     // Update version total
     if (activeVersion) {
       const { data: allItems } = await supabase.from('budget_items').select('amount_kes').eq('budget_version_id', activeVersion.id);
-      const newTotal = (allItems || []).reduce((s: number, i: any) => s + Number(i.amount_kes), 0);
+      const newTotal = (allItems || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes), 0);
       await supabase.from('budget_versions').update({ total_amount_kes: newTotal }).eq('id', activeVersion.id);
     }
     setEditingItem(null);
@@ -341,7 +341,7 @@ export default function BudgetDetailPage() {
     // Update version total
     if (activeVersion) {
       const { data: allItems } = await supabase.from('budget_items').select('amount_kes').eq('budget_version_id', activeVersion.id);
-      const newTotal = (allItems || []).reduce((s: number, i: any) => s + Number(i.amount_kes), 0);
+      const newTotal = (allItems || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes), 0);
       await supabase.from('budget_versions').update({ total_amount_kes: newTotal }).eq('id', activeVersion.id);
     }
     toast.success('Line item removed');
@@ -374,7 +374,7 @@ export default function BudgetDetailPage() {
     toast.success('Budget resubmitted for PM review');
     load();
   }
-  const pendingLineItems = items.filter((i: any) => !i.pm_status || i.pm_status === 'pending').length;
+  const pendingLineItems = items.filter((i: /* // */ any) => !i.pm_status || i.pm_status === 'pending').length;
   const canCfoApprove = isCfo && (
     activeVersion?.status === 'pm_approved'
     || activeVersion?.status === 'under_review'
@@ -384,7 +384,7 @@ export default function BudgetDetailPage() {
   const canPmReview = isPmOrCfo && activeVersion?.status === 'pm_review';
   // CFO can also do line-item review on pm_review, pm_approved, submitted budgets
   const canLineReview = canPmReview || (isCfo && ['pm_review', 'pm_approved', 'submitted', 'under_review'].includes(activeVersion?.status || ''));
-  const [adjustItem, setAdjustItem] = useState<any>(null);
+  const [adjustItem, setAdjustItem] = useState</* // */ any>(null);
   const [adjustAmount, setAdjustAmount] = useState(0);
   const [adjustReason, setAdjustReason] = useState('');
 
@@ -478,8 +478,9 @@ export default function BudgetDetailPage() {
         {isCfo && activeVersion?.status === 'approved' && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={async () => {
-              const reason = prompt('Why are you sending this back to the TL?');
-              if (!reason) return;
+              const proceed = window.confirm('Send this budget back to TL?');
+              if (!proceed) return;
+              const reason = 'Returned by CFO';
               const headers = await getAuthHeaders();
               const res = await fetch('/api/budgets/cfo-revert', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
                 body: JSON.stringify({ budget_id: id, action: 'send_back', reason }) });
@@ -487,10 +488,9 @@ export default function BudgetDetailPage() {
               if (data.success) { toast.success('Budget sent back to TL'); load(); } else { toast.error(data.error); }
             }} className="text-amber-600">Send Back to TL</Button>
             <Button variant="destructive" size="sm" onClick={async () => {
-              const typed = prompt('Type DELETE to confirm permanent deletion:');
-              if (typed !== 'DELETE') { toast.error('Deletion cancelled'); return; }
-              const reason = prompt('Reason for deletion:');
-              if (!reason) return;
+              const proceed = window.confirm('Delete this budget permanently?');
+              if (!proceed) { toast.error('Deletion cancelled'); return; }
+              const reason = 'Deleted by CFO';
               const headers = await getAuthHeaders();
               const res = await fetch('/api/budgets/cfo-revert', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
                 body: JSON.stringify({ budget_id: id, action: 'delete', reason }) });
@@ -530,20 +530,20 @@ export default function BudgetDetailPage() {
               </Card>
             )}
 
-            {(activeVersion as any)?.pm_return_reason && activeVersion?.status === 'returned_to_tl' && (
+            {(activeVersion as /* // */ any)?.pm_return_reason && activeVersion?.status === 'returned_to_tl' && (
               <Card className="border-amber-200 bg-amber-50">
                 <CardContent className="p-4">
                   <p className="text-sm font-medium text-amber-800">Returned by PM</p>
-                  <p className="text-sm text-amber-700 mt-1">{(activeVersion as any).pm_return_reason}</p>
+                  <p className="text-sm text-amber-700 mt-1">{(activeVersion as /* // */ any).pm_return_reason}</p>
                 </CardContent>
               </Card>
             )}
 
-            {(activeVersion as any)?.pm_rejection_reason && (
+            {(activeVersion as /* // */ any)?.pm_rejection_reason && (
               <Card className="border-red-200 bg-red-50">
                 <CardContent className="p-4">
                   <p className="text-sm font-medium text-red-800">Rejected by PM</p>
-                  <p className="text-sm text-red-700 mt-1">{(activeVersion as any).pm_rejection_reason}</p>
+                  <p className="text-sm text-red-700 mt-1">{(activeVersion as /* // */ any).pm_rejection_reason}</p>
                 </CardContent>
               </Card>
             )}
@@ -561,7 +561,7 @@ export default function BudgetDetailPage() {
             {canLineReview && (
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={async () => {
-                  const pendingIds = items.filter((i: any) => (i as any).pm_status === 'pending' || !(i as any).pm_status).map(i => i.id);
+                  const pendingIds = items.filter((i: /* // */ any) => (i as /* // */ any).pm_status === 'pending' || !(i as /* // */ any).pm_status).map(i => i.id);
                   if (pendingIds.length === 0) { toast.info('No pending items'); return; }
                   const headers = await getAuthHeaders();
                   await fetch('/api/budgets/pm-line-review', {
@@ -577,9 +577,10 @@ export default function BudgetDetailPage() {
                   </span>
                 )}
                 <Button variant="outline" size="sm" onClick={async () => {
-                  const reason = prompt('Reason for removing all pending items:');
-                  if (!reason) return;
-                  const pendingIds = items.filter((i: any) => (i as any).pm_status === 'pending' || !(i as any).pm_status).map(i => i.id);
+                  const proceed = window.confirm('Remove all pending items?');
+                  if (!proceed) return;
+                  const reason = 'Bulk remove';
+                  const pendingIds = items.filter((i: /* // */ any) => (i as /* // */ any).pm_status === 'pending' || !(i as /* // */ any).pm_status).map(i => i.id);
                   if (pendingIds.length === 0) { toast.info('No pending items'); return; }
                   const headers = await getAuthHeaders();
                   for (const itemId of pendingIds) {
@@ -615,7 +616,7 @@ export default function BudgetDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {items.map((item: any, idx) => {
+                    {items.map((item: /* // */ any, idx) => {
                       const pmStatus = item.pm_status || 'pending';
                       const isRemoved = pmStatus === 'removed';
                       return (
@@ -708,8 +709,9 @@ export default function BudgetDetailPage() {
                               )}
                               {pmStatus !== 'removed' && (
                                 <Button variant="ghost" size="sm" className="text-xs text-rose-600 h-7" disabled={lineActionId === item.id} onClick={() => {
-                                  const reason = prompt('Reason for removing this line item:');
-                                  if (!reason) return;
+                                  const proceed = window.confirm('Remove this line item?');
+                                  if (!proceed) return;
+                                  const reason = 'Removed item';
                                   setLineActionId(item.id);
                                   getAuthHeaders().then(headers => {
                                     fetch('/api/budgets/pm-line-review', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
@@ -740,12 +742,12 @@ export default function BudgetDetailPage() {
                       <TableRow className="font-semibold">
                         <TableCell colSpan={3} className="text-right">Total</TableCell>
                         <TableCell className="text-right font-mono">
-                          {formatCurrency(items.reduce((s: number, i: any) => s + Number(i.amount_kes), 0), 'KES')}
+                          {formatCurrency(items.reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes), 0), 'KES')}
                         </TableCell>
                         {(canLineReview || isPm || isCfo) && <TableCell></TableCell>}
                         {(canLineReview || isPm || isCfo) && (
                           <TableCell className="text-right font-mono text-emerald-700">
-                            {formatCurrency(items.filter((i: any) => ['approved', 'adjusted'].includes(i.pm_status)).reduce((s: number, i: any) => s + Number(i.pm_approved_amount || 0), 0), 'KES')}
+                            {formatCurrency(items.filter((i: /* // */ any) => ['approved', 'adjusted'].includes(i.pm_status)).reduce((s: number, i: /* // */ any) => s + Number(i.pm_approved_amount || 0), 0), 'KES')}
                           </TableCell>
                         )}
                         {(canLineReview || isPm || isCfo) && <TableCell></TableCell>}
@@ -894,7 +896,7 @@ export default function BudgetDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            {siblingBudgets.map((s: any) => {
+            {siblingBudgets.map((s: /* // */ any) => {
               const v = (s.budget_versions || [])[0];
               return (
                 <div key={s.id} className="rounded-md border p-3 text-sm flex justify-between">

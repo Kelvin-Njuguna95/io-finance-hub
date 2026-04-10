@@ -29,8 +29,8 @@ export function CfoDashboard() {
   const [snapshot, setSnapshot] = useState<MonthlyFinancialSnapshot | null>(null);
   const [redFlags, setRedFlags] = useState<RedFlag[]>([]);
   const [pendingBudgets, setPendingBudgets] = useState<(BudgetVersion & { budget_name?: string })[]>([]);
-  const [eodLogs, setEodLogs] = useState<any[]>([]);
-  const [healthScores, setHealthScores] = useState<any[]>([]);
+  const [eodLogs, setEodLogs] = useState</* // */ any[]>([]);
+  const [healthScores, setHealthScores] = useState</* // */ any[]>([]);
   const [bankBalance, setBankBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const currentMonth = getCurrentYearMonth();
@@ -92,12 +92,12 @@ export function CfoDashboard() {
 
       // Build live snapshot if DB snapshot is empty
       const stdRate = parseFloat(rateRes.data?.value || '129.5');
-      const laggedRevUsd = (laggedInvRes.data || []).reduce((s: number, i: any) => s + Number(i.amount_usd), 0);
-      const laggedRevKes = (laggedInvRes.data || []).reduce((s: number, i: any) => s + Number(i.amount_kes), 0);
+      const laggedRevUsd = (laggedInvRes.data || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_usd), 0);
+      const laggedRevKes = (laggedInvRes.data || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes), 0);
       // Convert USD to KES using standard exchange rate
       const revenueKes = laggedRevKes > 0 ? laggedRevKes : Math.round(laggedRevUsd * stdRate * 100) / 100;
-      const totalExpKes = (expenseRes.data || []).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
-      const totalAgents = (agentCountRes.data || []).reduce((s: number, a: any) => s + Number(a.agent_count || 0), 0);
+      const totalExpKes = (expenseRes.data || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
+      const totalAgents = (agentCountRes.data || []).reduce((s: number, a: /* // */ any) => s + Number(a.agent_count || 0), 0);
 
       // Use live data if no snapshot, or if snapshot revenue is 0
       const liveSnapshot = snapshotRes.data && Number(snapshotRes.data.total_revenue_kes) > 0
@@ -119,16 +119,16 @@ export function CfoDashboard() {
       const { data: balSetting } = await supabase.from('system_settings').select('value').eq('key', 'bank_balance_usd').single();
       const standingBalance = parseFloat(balSetting?.value || '0');
       const { data: allWithdrawals } = await supabase.from('withdrawals').select('amount_usd');
-      const totalWithdrawn = (allWithdrawals || []).reduce((s: number, w: any) => s + Number(w.amount_usd), 0);
+      const totalWithdrawn = (allWithdrawals || []).reduce((s: number, w: /* // */ any) => s + Number(w.amount_usd), 0);
       setBankBalance(standingBalance - totalWithdrawn);
 
       setRedFlags(flagsRes.data || []);
       setPendingBudgets(budgetsRes.data || []);
-      setEodLogs((eodRes.data || []).map((r: any) => ({
+      setEodLogs((eodRes.data || []).map((r: /* // */ any) => ({
         ...r,
         sender_name: r.users?.full_name || (r.trigger_type === 'auto' ? 'System' : '—'),
       })));
-      setHealthScores((healthRes.data || []).map((h: any) => ({
+      setHealthScores((healthRes.data || []).map((h: /* // */ any) => ({
         ...h,
         project_name: h.projects?.name || '—',
       })));
@@ -249,7 +249,7 @@ export function CfoDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-1.5">
-                {healthScores.map((h: any) => (
+                {healthScores.map((h: /* // */ any) => (
                   <div key={h.id} className="flex items-center justify-between rounded-md border p-3">
                     <div className="flex items-center gap-3">
                       <span className="text-lg">{h.score_band === 'healthy' ? '🟢' : h.score_band === 'watch' ? '🟡' : '🔴'}</span>
@@ -288,7 +288,7 @@ export function CfoDashboard() {
               <p className="text-sm text-neutral-500 py-4 text-center">No EOD reports sent yet</p>
             ) : (
               <div className="space-y-1.5">
-                {eodLogs.map((log: any) => (
+                {eodLogs.map((log: /* // */ any) => (
                   <div key={log.id} className="flex items-center justify-between rounded-md border p-2.5 text-sm hover:bg-slate-50 transition-colors">
                     <div className="flex items-center gap-3">
                       <span className="font-medium w-24">{log.report_date}</span>
@@ -341,9 +341,9 @@ export function CfoDashboard() {
                     {viewingEod.payload?.expenses?.length > 0 && (
                       <div>
                         <h4 className="font-semibold text-sm mb-2">Expenses Logged ({viewingEod.expense_count})</h4>
-                        {viewingEod.payload.expenses.map((e: any, i: number) => (
+                        {viewingEod.payload.expenses.map((e: /* // */ any, i: number) => (
                           <p key={i} className="text-sm text-slate-600 ml-3">
-                            • {(e as any).projects?.name || 'Shared'} — {(e as any).expense_categories?.name || '—'} — KES {Number(e.amount_kes).toLocaleString()} — {e.description}
+                            • {(e as /* // */ any).projects?.name || 'Shared'} — {(e as /* // */ any).expense_categories?.name || '—'} — KES {Number(e.amount_kes).toLocaleString()} — {e.description}
                           </p>
                         ))}
                       </div>
@@ -351,7 +351,7 @@ export function CfoDashboard() {
                     {viewingEod.payload?.withdrawals?.length > 0 && (
                       <div>
                         <h4 className="font-semibold text-sm mb-2">Withdrawals ({viewingEod.withdrawal_count})</h4>
-                        {viewingEod.payload.withdrawals.map((w: any, i: number) => (
+                        {viewingEod.payload.withdrawals.map((w: /* // */ any, i: number) => (
                           <p key={i} className="text-sm text-slate-600 ml-3">
                             • {w.director_tag} — USD {Number(w.amount_usd).toLocaleString()} @ {Number(w.exchange_rate).toFixed(2)} = KES {Number(w.amount_kes).toLocaleString()} — {w.forex_bureau || '—'}
                           </p>
@@ -361,9 +361,9 @@ export function CfoDashboard() {
                     {viewingEod.payload?.budget_actions?.length > 0 && (
                       <div>
                         <h4 className="font-semibold text-sm mb-2">Budget Actions ({viewingEod.budget_action_count})</h4>
-                        {viewingEod.payload.budget_actions.map((b: any, i: number) => (
+                        {viewingEod.payload.budget_actions.map((b: /* // */ any, i: number) => (
                           <p key={i} className="text-sm text-slate-600 ml-3">
-                            • {(b as any).budgets?.projects?.name || (b as any).budgets?.departments?.name || '—'} — {b.status}
+                            • {(b as /* // */ any).budgets?.projects?.name || (b as /* // */ any).budgets?.departments?.name || '—'} — {b.status}
                           </p>
                         ))}
                       </div>
