@@ -1,30 +1,22 @@
 import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   const supabase = await createClient();
   await supabase.auth.signOut();
 
-  // Clear all Supabase auth cookies
-  const response = NextResponse.redirect(new URL("/login", process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"), {
-    status: 302,
-  });
+  // Build absolute URL from the incoming request so it works on any host
+  const loginUrl = new URL("/login", request.nextUrl.origin);
 
-  // Delete every sb-* cookie to prevent middleware from re-authenticating
-  const cookieNames = ["sb-access-token", "sb-refresh-token"];
-  for (const name of cookieNames) {
-    response.cookies.delete(name);
+  const response = NextResponse.redirect(loginUrl, { status: 302 });
+
+  // Expire every Supabase cookie the browser may hold
+  const cookieStore = request.cookies;
+  for (const cookie of cookieStore.getAll()) {
+    if (cookie.name.startsWith("sb-")) {
+      response.cookies.delete(cookie.name);
+    }
   }
-
-  // Also clear cookies that match the Supabase project pattern
-  response.headers.append(
-    "Set-Cookie",
-    "sb-access-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax"
-  );
-  response.headers.append(
-    "Set-Cookie",
-    "sb-refresh-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax"
-  );
 
   return response;
 }
