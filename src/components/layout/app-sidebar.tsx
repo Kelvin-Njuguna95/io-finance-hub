@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { createBrowserClient } from '@supabase/ssr';
 import { useUser } from '@/hooks/use-user';
 import { useNotifications } from '@/hooks/use-notifications';
 import { getNavigation } from '@/lib/navigation';
@@ -49,22 +49,28 @@ export function AppSidebar() {
   const { user, loading } = useUser();
   const { unreadCount } = useNotifications();
   const pathname = usePathname();
-  const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   async function handleSignOut() {
     if (isSigningOut) return;
     setIsSigningOut(true);
-    const supabase = createClient();
+
     try {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      router.push('/login');
-      router.refresh();
+      if (error) {
+        console.error('Supabase signOut error:', error);
+        toast.error('Signed out locally. Refreshing login page…');
+      }
     } catch (error) {
-      console.error('Sign out failed:', error);
-      toast.error('Sign out failed. Please try again.');
+      console.error('Sign out exception:', error);
+      toast.error('Sign out encountered an issue. Redirecting to login…');
+    } finally {
       setIsSigningOut(false);
+      window.location.href = '/login';
     }
   }
 

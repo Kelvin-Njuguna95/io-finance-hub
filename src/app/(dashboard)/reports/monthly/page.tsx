@@ -461,9 +461,9 @@ export default function MonthlyPnlReport() {
                   {pnl.directCosts.map(c => (
                     <div key={c.category}>
                       <PnlSection label={c.category} amount={c.amount} />
-                      {view === 'detailed' && c.items && (
+                      {view === 'detailed' && (
                         <div className="ml-6 mb-2 space-y-0.5">
-                          {c.items.map((item, i) => (
+                          {(c.items ?? []).map((item, i) => (
                             <div key={i} className="flex items-center justify-between text-xs text-slate-400">
                               <span>{item.date} | {item.description} | {item.paid_to}</span>
                               <span className="font-mono">{formatCurrency(item.amount, 'KES')}</span>
@@ -483,9 +483,9 @@ export default function MonthlyPnlReport() {
                   {pnl.overheadGroups.map(c => (
                     <div key={c.category}>
                       <PnlSection label={c.category} amount={c.amount} />
-                      {view === 'detailed' && c.items && (
+                      {view === 'detailed' && (
                         <div className="ml-6 mb-2 space-y-0.5">
-                          {c.items.map((item, i) => (
+                          {(c.items ?? []).map((item, i) => (
                             <div key={i} className="flex items-center justify-between text-xs text-slate-400">
                               <span>{item.date} | {item.description} | {item.paid_to}</span>
                               <span className="font-mono">{formatCurrency(item.amount, 'KES')}</span>
