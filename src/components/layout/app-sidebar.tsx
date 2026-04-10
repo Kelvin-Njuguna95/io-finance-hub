@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import { useUser } from '@/hooks/use-user';
 import { useNotifications } from '@/hooks/use-notifications';
 import { getNavigation } from '@/lib/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { ROLE_LABELS } from '@/types/database';
 import { cn } from '@/lib/utils';
 import {
@@ -51,17 +50,16 @@ export function AppSidebar() {
 
   async function handleSignOut() {
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Supabase signOut error:', error);
-        toast.error('Signed out locally. Refreshing login page…');
+      const res = await fetch("/api/auth/signout", { method: "POST" });
+      if (res.redirected) {
+        window.location.href = res.url;
+        return;
       }
+      // Fallback: force navigate to login
+      window.location.href = "/login";
     } catch (error) {
-      console.error('Sign out exception:', error);
-      toast.error('Sign out encountered an issue. Redirecting to login…');
-    } finally {
-      window.location.href = '/login';
+      console.error("Sign-out error:", error);
+      window.location.href = "/login";
     }
   }
 
