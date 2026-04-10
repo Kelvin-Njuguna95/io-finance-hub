@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { useNotifications } from '@/hooks/use-notifications';
@@ -31,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ChevronsUpDown, LogOut, Wallet } from 'lucide-react';
+import { toast } from 'sonner';
 
 /**
  * Finance Hub sidebar. Built on the shadcn Sidebar primitive so we get
@@ -48,11 +50,22 @@ export function AppSidebar() {
   const { unreadCount } = useNotifications();
   const pathname = usePathname();
   const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   async function handleSignOut() {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
     const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push('/login');
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      router.push('/login');
+      router.refresh();
+    } catch (error) {
+      console.error('Sign out failed:', error);
+      toast.error('Sign out failed. Please try again.');
+      setIsSigningOut(false);
+    }
   }
 
   const initials = user?.full_name
@@ -211,9 +224,9 @@ export function AppSidebar() {
                 <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut}>
+              <DropdownMenuItem onClick={handleSignOut} disabled={isSigningOut}>
                 <LogOut className="size-4" aria-hidden />
-                <span>Sign out</span>
+                <span>{isSigningOut ? 'Signing out…' : 'Sign out'}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
