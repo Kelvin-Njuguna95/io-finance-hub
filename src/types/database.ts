@@ -2,7 +2,7 @@
 // IO Finance Hub — Database Types
 // ============================================================
 
-export type UserRole = 'cfo' | 'accountant' | 'team_leader' | 'project_manager';
+export type UserRole = 'cfo' | 'accountant' | 'team_leader' | 'project_manager' | 'department_head';
 export type DirectorEnum = 'kelvin' | 'evans' | 'dan' | 'gidraph' | 'victor';
 export type BudgetStatus = 'draft' | 'submitted' | 'under_review' | 'pm_review' | 'pm_approved' | 'pm_rejected' | 'returned_to_tl' | 'approved' | 'rejected';
 export type ExpenseType = 'project_expense' | 'shared_expense';
@@ -26,6 +26,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   accountant: 'Accountant',
   team_leader: 'Team Leader',
   project_manager: 'Project Manager',
+  department_head: 'Department Head',
 };
 
 // -----------------------------------------------
@@ -81,7 +82,9 @@ export interface Budget {
   year_month: string;
   current_version: number;
   created_by: string;
-  submitted_by_role: 'team_leader' | 'accountant' | null;
+  submitted_by_role: 'team_leader' | 'accountant' | 'project_manager' | 'cfo' | 'department_head' | null;
+  pm_review_opened_at?: string | null;
+  pm_reviewer_id?: string | null;
   created_at: string;
   updated_at: string;
 }

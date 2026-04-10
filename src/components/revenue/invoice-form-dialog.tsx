@@ -17,6 +17,8 @@ import { encodeBackdatedNotes, type BackdatedMeta } from '@/lib/backdated-utils'
 import { toast } from 'sonner';
 import type { Project } from '@/types/database';
 import { getUserErrorMessage } from '@/lib/errors';
+import { getActiveProjects } from '@/lib/queries/projects';
+import { INVOICE_STATUS } from '@/lib/constants/status';
 
 interface Props {
   open: boolean;
@@ -39,11 +41,24 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
   const [backdatedReason, setBackdatedReason] = useState('');
   const [saving, setSaving] = useState(false);
 
+  function resetForm() {
+    setProjectId('');
+    setInvoiceNumber('');
+    setInvoiceDate(new Date().toISOString().split('T')[0]);
+    setDueDate('');
+    setBillingPeriod(getCurrentYearMonth());
+    setAmountUsd(0);
+    setAmountKes(0);
+    setDescription('');
+    setIsBackdated(false);
+    setBackdatedReason('');
+  }
+
   useEffect(() => {
     if (!open) return;
     async function load() {
       const supabase = createClient();
-      const { data } = await supabase.from('projects').select('*').eq('is_active', true).order('name');
+      const { data } = await getActiveProjects(supabase);
       setProjects((data || []) as Project[]);
     }
     load();
@@ -57,6 +72,10 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
 
     if (isBackdated && !backdatedReason.trim()) {
       toast.error('Reason for late entry is required for backdated invoices');
+      return;
+    }
+    if (dueDate && invoiceDate && new Date(dueDate) < new Date(invoiceDate)) {
+      toast.error('Due date cannot be earlier than invoice date');
       return;
     }
 
@@ -81,15 +100,16 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
       billing_period: billingPeriod,
       amount_usd: amountUsd,
       amount_kes: amountKes,
-      status: 'sent',
+      status: INVOICE_STATUS.SENT,
       description: finalDescription,
       created_by: user!.id,
     });
 
     if (error) {
-      toast.error(getUserErrorMessage());
+      toast.error(getUserErrorMessage(error, 'Failed to create invoice. Please review the form and try again.'));
     } else {
       toast.success('Invoice created');
+      resetForm();
       onSaved();
       onClose();
     }

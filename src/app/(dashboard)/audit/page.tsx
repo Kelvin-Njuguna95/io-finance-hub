@@ -18,6 +18,7 @@ import { Separator } from '@/components/ui/separator';
 import { Download, Search, X } from 'lucide-react';
 import type { AuditLog } from '@/types/database';
 import { getStatusBadgeClass } from '@/lib/status';
+import { canViewAudit as canViewAuditPermission } from '@/lib/permissions';
 
 const ACTION_LABELS: Record<string, string> = {
   budget_submitted: 'Budget Submitted',
@@ -142,7 +143,7 @@ export default function AuditLogPage() {
   const [roleFilter, setRoleFilter] = useState('All');
 
   // Security audit note: access is server-backed by RLS/auth on audit_logs and user metadata tables.
-  const canViewAudit = user?.role === 'cfo' || user?.role === 'accountant';
+  const canViewAudit = canViewAuditPermission(user?.role);
 
   const fetchLogs = useCallback(async () => {
     if (!canViewAudit) {
@@ -188,9 +189,13 @@ export default function AuditLogPage() {
       };
     });
 
-    setRows(mappedRows);
+    const rowsForRole = user?.role === 'accountant'
+      ? mappedRows.filter((row) => row.user_role !== 'cfo')
+      : mappedRows;
+
+    setRows(rowsForRole);
     setLoading(false);
-  }, [canViewAudit, dateFrom, dateTo, entityFilter]);
+  }, [canViewAudit, dateFrom, dateTo, entityFilter, user?.role]);
 
   useEffect(() => {
     fetchLogs();
@@ -256,6 +261,24 @@ export default function AuditLogPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function exportPdf() {
+    const { default: jsPDF } = await import('jspdf');
+    const doc = new jsPDF();
+    doc.setFontSize(12);
+    doc.text(`IO Finance Hub Audit Log (${dateFrom} to ${dateTo})`, 14, 14);
+    let y = 24;
+    filteredRows.slice(0, 120).forEach((row, idx) => {
+      const line = `${idx + 1}. ${formatDateTimeInEAT(row.created_at)} | ${row.user_name} | ${ACTION_LABELS[row.action] || row.action} | ${row.table_name}`;
+      doc.text(line.slice(0, 180), 14, y);
+      y += 6;
+      if (y > 280) {
+        doc.addPage();
+        y = 14;
+      }
+    });
+    doc.save(`IO_Audit_Log_${dateFrom}_to_${dateTo}.pdf`);
+  }
+
   if (user && !canViewAudit) {
     return (
       <div>
@@ -272,6 +295,9 @@ export default function AuditLogPage() {
       <PageHeader title="Audit Log Viewer" description="Searchable, filterable trail of financial and operational changes">
         <Button variant="outline" size="sm" onClick={exportCsv} className="gap-1.5">
           <Download className="h-3.5 w-3.5" /> Export Audit CSV
+        </Button>
+        <Button variant="outline" size="sm" onClick={exportPdf} className="gap-1.5">
+          <Download className="h-3.5 w-3.5" /> Export Audit PDF
         </Button>
       </PageHeader>
 

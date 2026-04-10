@@ -15,7 +15,11 @@ import { Separator } from '@/components/ui/separator';
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { Plus, Trash2, Save, Send, AlertTriangle, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Project, Department } from '@/types/database';
+import type { Department } from '@/types/database';
+import { getUserErrorMessage } from '@/lib/errors';
+import { getActiveProjects, getAssignedActiveProjects } from '@/lib/queries/projects';
+import { canSubmitDepartmentBudget } from '@/lib/permissions';
+import { ROLE_LABELS } from '@/types/database';
 
 interface LineItem {
   id: string;
@@ -41,7 +45,7 @@ function generateId() {
 export default function NewBudgetPage() {
   const { user } = useUser();
   const router = useRouter();
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [scopeType, setScopeType] = useState<'project' | 'department'>('project');
   const [scopeId, setScopeId] = useState('');
@@ -57,6 +61,7 @@ export default function NewBudgetPage() {
   const [miscGateMessage, setMiscGateMessage] = useState('');
 
   const isAccountant = user?.role === 'accountant';
+  const canCreateDepartmentBudget = canSubmitDepartmentBudget(user?.role);
 
   useEffect(() => {
     async function load() {
@@ -73,38 +78,33 @@ export default function NewBudgetPage() {
 
       if (user?.role === 'team_leader') {
         // Load only assigned projects
-        const { data: assignments } = await supabase
-          .from('user_project_assignments')
-          .select('project_id')
-          .eq('user_id', user.id);
-        const pids = (assignments || []).map((a: { project_id: string }) => a.project_id);
-        if (pids.length > 0) {
-          const { data } = await supabase.from('projects').select('*').in('id', pids).eq('is_active', true);
-          setProjects(data || []);
-        }
+        const { data: assignedProjects } = await getAssignedActiveProjects(supabase, user.id);
+        setProjects(assignedProjects || []);
         setScopeType('project');
       } else if (user?.role === 'accountant') {
-        // Accountant can submit for ANY active project
-        const { data } = await supabase.from('projects').select('*').eq('is_active', true).order('name');
-        setProjects(data || []);
+        // Accountant can submit for ANY active project or department
+        const [projectsRes, departmentsRes] = await Promise.all([
+          getActiveProjects(supabase),
+          supabase.from('departments').select('*').order('name'),
+        ]);
+        setProjects(projectsRes.data || []);
+        setDepartments(departmentsRes.data || []);
         setScopeType('project');
       } else if (user?.role === 'project_manager') {
-        // PMs are directors — load their assigned projects AND all departments
-        const { data: assignments } = await supabase
-          .from('user_project_assignments')
-          .select('project_id')
-          .eq('user_id', user.id);
-        const pids = (assignments || []).map((a: { project_id: string }) => a.project_id);
-        if (pids.length > 0) {
-          const { data } = await supabase.from('projects').select('*').in('id', pids).eq('is_active', true);
-          setProjects(data || []);
-        }
-        const { data: deptData } = await supabase.from('departments').select('*').order('name');
-        setDepartments(deptData || []);
+        const { data: assignedProjects } = await getAssignedActiveProjects(supabase, user.id);
+        setProjects(assignedProjects || []);
         setScopeType('project');
+      } else if (user?.role === 'department_head') {
+        const { data: departmentsRes } = await supabase
+          .from('departments')
+          .select('*')
+          .eq('owner_user_id', user.id)
+          .order('name');
+        setDepartments(departmentsRes || []);
+        setScopeType('department');
       } else if (user?.role === 'cfo') {
         const [projRes, deptRes] = await Promise.all([
-          supabase.from('projects').select('*').eq('is_active', true).order('name'),
+          getActiveProjects(supabase),
           supabase.from('departments').select('*').order('name'),
         ]);
         setProjects(projRes.data || []);
@@ -114,19 +114,33 @@ export default function NewBudgetPage() {
     if (user) load();
   }, [user]);
 
-  // Check for existing budgets when project/month changes (accountant only)
+  // Check for existing budgets when scope/month changes
+  useEffect(() => {
+    if (!canCreateDepartmentBudget && scopeType === 'department') {
+      setScopeType('project');
+      setScopeId('');
+    }
+  }, [canCreateDepartmentBudget, scopeType]);
+
   useEffect(() => {
     async function checkExisting() {
-      if (!scopeId || !yearMonth || scopeType !== 'project') {
+      if (!scopeId || !yearMonth) {
         setExistingBudgets([]);
         return;
       }
       const supabase = createClient();
-      const { data } = await supabase
+      const query = supabase
         .from('budgets')
         .select('id, submitted_by_role, created_by, budget_versions(status, total_amount_kes, submitted_at, submitted_by)')
-        .eq('project_id', scopeId)
         .eq('year_month', yearMonth);
+
+      if (scopeType === 'project') {
+        query.eq('project_id', scopeId);
+      } else {
+        query.eq('department_id', scopeId);
+      }
+
+      const { data } = await query;
 
       if (!data || data.length === 0) {
         setExistingBudgets([]);
@@ -135,11 +149,11 @@ export default function NewBudgetPage() {
 
       // Get user names for submitters
       const userIds = new Set<string>();
-      data.forEach((b: any) => { if (b.created_by) userIds.add(b.created_by); });
+      data.forEach((b: /* // */ any) => { if (b.created_by) userIds.add(b.created_by); });
       const { data: users } = await supabase.from('users').select('id, full_name').in('id', Array.from(userIds));
-      const nameMap = new Map((users || []).map((u: any) => [u.id, u.full_name]));
+      const nameMap = new Map((users || []).map((u: /* // */ any) => [u.id, u.full_name]));
 
-      const infos: ExistingBudgetInfo[] = data.map((b: any) => {
+      const infos: ExistingBudgetInfo[] = data.map((b: /* // */ any) => {
         const vers = (b.budget_versions || [])[0];
         return {
           submitted_by_role: b.submitted_by_role || 'team_leader',
@@ -199,8 +213,8 @@ export default function NewBudgetPage() {
           .from('user_project_assignments')
           .select('user_id, users(full_name)')
           .eq('project_id', scopeId);
-        const pmAssign = projAssign?.find((a: any) => true); // Get any assigned user
-        const pmName = (pmAssign as any)?.users?.full_name || 'the Project Manager';
+        const pmAssign = projAssign?.find((a: /* // */ any) => true); // Get any assigned user
+        const pmName = (pmAssign as /* // */ any)?.users?.full_name || 'the Project Manager';
         const projectName = projects.find(p => p.id === scopeId)?.name || 'this project';
 
         setMiscGateBlocked(true);
@@ -244,89 +258,120 @@ export default function NewBudgetPage() {
       toast.error('All line items must have a description');
       return;
     }
+    if (items.some((i) => i.quantity <= 0 || i.unit_cost_kes <= 0)) {
+      toast.error('Each line item must have quantity and amount greater than zero.');
+      return;
+    }
+    if (totalKes <= 0) {
+      toast.error('Total budget amount must be greater than zero.');
+      return;
+    }
     if (submit && miscGateBlocked) {
       toast.error('Cannot submit — misc report gate is blocking. See the warning above.');
       return;
     }
 
     setSaving(true);
-    const supabase = createClient();
+    try {
+      const supabase = createClient();
 
-    // Determine submitted_by_role
-    const submittedByRole = isAccountant ? 'accountant' : 'team_leader';
+      // Determine submitted_by_role
+      const submittedByRole = user?.role === 'accountant'
+        ? 'accountant'
+        : user?.role === 'project_manager'
+          ? 'project_manager'
+          : user?.role === 'department_head'
+            ? 'department_head'
+            : user?.role === 'cfo'
+              ? 'cfo'
+              : 'team_leader';
 
-    // Get auth session for API calls
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
-      toast.error('Session expired. Please log in again.');
-      setSaving(false);
-      return;
-    }
-
-    // Create budget via API (bypasses RLS, uses admin client)
-    const createRes = await fetch('/api/budgets/create', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        scope_type: scopeType,
-        scope_id: scopeId,
-        year_month: yearMonth,
-        notes,
-        items: items.map(item => ({
-          description: item.description,
-          category: item.category || null,
-          quantity: item.quantity,
-          unit_cost_kes: item.unit_cost_kes,
-          notes: item.notes || null,
-        })),
-        submit,
-      }),
-    });
-
-    const createData = await createRes.json();
-
-    if (!createRes.ok) {
-      toast.error(createData.error || 'Failed to create budget');
-      setSaving(false);
-      return;
-    }
-
-    // Send notifications and audit log if submitting
-    if (submit) {
-      const projectName = projects.find(p => p.id === scopeId)?.name || 'Unknown';
-      try {
-        await fetch('/api/budgets/accountant-submit-notify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            budget_id: createData.budget_id,
-            project_id: scopeId,
-            project_name: projectName,
-            year_month: yearMonth,
-            total_kes: totalKes,
-            submitted_by_role: submittedByRole,
-            existing_tl_budget: existingBudgets.some(b => b.submitted_by_role === 'team_leader'),
-          }),
-        });
-      } catch (e) {
-        // Non-blocking — notifications are best-effort
-        console.error('Notification failed:', e);
+      // Get auth session for API calls
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Session expired. Please log in again.');
+        return;
       }
-    }
 
-    toast.success(submit ? 'Budget submitted for PM review' : 'Budget saved as draft');
-    router.push('/budgets');
+      // Create budget via API (bypasses RLS, uses admin client)
+      const createRes = await fetch('/api/budgets/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          scope_type: scopeType,
+          scope_id: scopeId,
+          year_month: yearMonth,
+          notes,
+          items: items.map(item => ({
+            description: item.description,
+            category: item.category || null,
+            quantity: item.quantity,
+            unit_cost_kes: item.unit_cost_kes,
+            notes: item.notes || null,
+          })),
+          submit,
+        }),
+      });
+
+      const createData = await createRes.json();
+
+      if (!createRes.ok) {
+        toast.error(getUserErrorMessage(createData?.error, 'Failed to create budget'));
+        return;
+      }
+
+      // Send notifications and audit log if submitting
+      if (submit) {
+        const scopeName = scopeType === 'project'
+          ? projects.find((p) => p.id === scopeId)?.name ?? 'Unknown'
+          : departments.find((d) => d.id === scopeId)?.name ?? 'Unknown';
+        try {
+          await fetch('/api/budgets/accountant-submit-notify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              budget_id: createData.budget_id,
+              ...(scopeType === 'project'
+                ? { project_id: scopeId, project_name: scopeName }
+                : { department_id: scopeId, department_name: scopeName }),
+              year_month: yearMonth,
+              total_kes: totalKes,
+              submitted_by_role: submittedByRole,
+              existing_tl_budget: existingBudgets.some(b => b.submitted_by_role === 'team_leader'),
+              scope_type: scopeType,
+              scope_name: scopeName,
+            }),
+          });
+        } catch (e) {
+          // Non-blocking — notifications are best-effort
+          console.error('Notification failed:', e);
+        }
+      }
+
+      const submittedStatus = createData?.status as string | undefined;
+      const successMessage = submit
+        ? submittedStatus === 'pm_review'
+          ? 'Budget submitted for PM review'
+          : 'Budget submitted to CFO queue'
+        : 'Budget saved as draft';
+      toast.success(successMessage);
+      router.push('/budgets');
+    } catch (error) {
+      toast.error(getUserErrorMessage(error, 'Could not save budget right now. Please try again.'));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div>
-      <PageHeader title="New Budget" description={isAccountant ? 'Submit a project budget on behalf of a project' : 'Create a new budget submission'} />
+      <PageHeader title="New Budget" description={isAccountant ? 'Submit a project or department budget' : 'Create a new budget submission'} />
 
       <div className="p-6 max-w-4xl space-y-6">
         {/* Scope selection */}
@@ -336,14 +381,14 @@ export default function NewBudgetPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {(user?.role === 'cfo' || user?.role === 'project_manager') && (
+              {(user?.role === 'cfo' || user?.role === 'project_manager' || user?.role === 'accountant') && (
                 <div className="space-y-1">
                   <Label>Scope Type</Label>
                   <Select value={scopeType} onValueChange={(v) => { if (v) { setScopeType(v as 'project' | 'department'); setScopeId(''); } }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="project">Project</SelectItem>
-                      <SelectItem value="department">Department</SelectItem>
+                      {canCreateDepartmentBudget && <SelectItem value="department">Department</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
@@ -390,7 +435,7 @@ export default function NewBudgetPage() {
                 </p>
                 {existingBudgets.map((eb, i) => (
                   <p key={i} className="text-sm text-amber-700 pl-2">
-                    — Submitted by <strong>{eb.submitted_by_name}</strong> ({eb.submitted_by_role === 'accountant' ? 'Accountant' : 'Team Leader'})
+                    — Submitted by <strong>{eb.submitted_by_name}</strong> ({ROLE_LABELS[eb.submitted_by_role as keyof typeof ROLE_LABELS] || eb.submitted_by_role})
                     {eb.status !== 'draft' && <> · {formatCurrency(eb.total_kes, 'KES')} · Status: {eb.status}</>}
                   </p>
                 ))}
@@ -405,6 +450,15 @@ export default function NewBudgetPage() {
                 <div className="flex items-center gap-2 text-blue-700 text-sm">
                   <Info className="h-4 w-4" />
                   No budget submitted yet for this period. You are the first to submit.
+                </div>
+              </div>
+            )}
+
+            {scopeType === 'department' && scopeId && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                <div className="flex items-center gap-2 text-blue-700 text-sm">
+                  <Info className="h-4 w-4" />
+                  Department expenditures are classified as <strong>shared costs</strong> and will be distributed across projects during P&amp;L reporting.
                 </div>
               </div>
             )}

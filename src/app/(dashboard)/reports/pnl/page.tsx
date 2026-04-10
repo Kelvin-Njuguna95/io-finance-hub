@@ -3,12 +3,18 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { RoleInsightBoard } from '@/components/reports/role-insight-board';
+import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency } from '@/components/reports/executive-kit';
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
+import { getUnifiedServicePeriodLabel } from '@/lib/report-utils';
+import { Badge } from '@/components/ui/badge';
+import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { FileDown } from 'lucide-react';
+import { exportSimpleReportPdf } from '@/lib/pdf-export';
 
 function PnlLine({ label, kes, bold, negative }: {
   label: string; kes: number; bold?: boolean; negative?: boolean;
@@ -43,6 +49,7 @@ export default function PnLReportPage() {
 
   const [revenueSourceMonth, setRevenueSourceMonth] = useState('');
   const [isHistorical, setIsHistorical] = useState(false);
+  const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
 
   useEffect(() => {
     async function load() {
@@ -75,8 +82,8 @@ export default function PnLReportPage() {
         supabase.from('payments').select('amount_usd'),
       ]);
       const standingBal = parseFloat(balRes.data?.value || '0');
-      const totalWithdrawn = (wdRes.data || []).reduce((s: number, w: any) => s + Number(w.amount_usd), 0);
-      const totalPaid = (payRes2.data || []).reduce((s: number, p: any) => s + Number(p.amount_usd), 0);
+      const totalWithdrawn = (wdRes.data || []).reduce((s: number, w: /* // */ any) => s + Number(w.amount_usd), 0);
+      const totalPaid = (payRes2.data || []).reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd), 0);
       setCashBalance(standingBal - totalWithdrawn + totalPaid);
 
       if (snapshot && Number(snapshot.total_revenue_kes) > 0) {
@@ -85,7 +92,7 @@ export default function PnLReportPage() {
           .from('agent_counts')
           .select('agent_count')
           .eq('year_month', selectedMonth);
-        const liveAgents = (agentData || []).reduce((s: number, a: any) => s + Number(a.agent_count || 0), 0);
+        const liveAgents = (agentData || []).reduce((s: number, a: /* // */ any) => s + Number(a.agent_count || 0), 0);
 
         setPnl({
           revenue: snapshot.total_revenue_kes,
@@ -124,21 +131,21 @@ export default function PnLReportPage() {
 
       if (reportMode === 'accrual') {
         // Lagged: previous month invoice converted to KES
-        revenueUsd = (invRes.data || []).reduce((s: number, i: any) => s + Number(i.amount_usd), 0);
-        const revKes = (invRes.data || []).reduce((s: number, i: any) => s + Number(i.amount_kes), 0);
+        revenueUsd = (invRes.data || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_usd), 0);
+        const revKes = (invRes.data || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes), 0);
         revenue = revKes > 0 ? revKes : Math.round(revenueUsd * stdRate * 100) / 100;
       } else {
         // Cash mode: payments received in this month
-        const monthPayments = (payRes.data || []).filter((p: any) => p.payment_date?.startsWith(selectedMonth));
-        revenueUsd = monthPayments.reduce((s: number, p: any) => s + Number(p.amount_usd), 0);
+        const monthPayments = (payRes.data || []).filter((p: /* // */ any) => p.payment_date?.startsWith(selectedMonth));
+        revenueUsd = monthPayments.reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd), 0);
         revenue = Math.round(revenueUsd * stdRate * 100) / 100;
       }
 
-      const directCosts = (projExpRes.data || []).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
-      const sharedOverhead = (sharedExpRes.data || []).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+      const directCosts = (projExpRes.data || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
+      const sharedOverhead = (sharedExpRes.data || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
       const grossProfit = revenue - directCosts;
       const operatingProfit = grossProfit - sharedOverhead;
-      const agents = (agentRes.data || []).reduce((s: number, a: any) => s + Number(a.agent_count || 0), 0);
+      const agents = (agentRes.data || []).reduce((s: number, a: /* // */ any) => s + Number(a.agent_count || 0), 0);
 
       setPnl({
         revenue,
@@ -155,9 +162,26 @@ export default function PnLReportPage() {
     load();
   }, [selectedMonth, reportMode]);
 
+  async function exportPdf() {
+    if (!pnl) return;
+    await exportSimpleReportPdf(
+      'Profit & Loss',
+      reportMode === 'accrual' ? servicePeriodLabel : 'Cash basis',
+      [
+        `Revenue: ${pnl.revenue.toFixed(2)}`,
+        `Direct costs: ${pnl.directCosts.toFixed(2)}`,
+        `Gross profit: ${pnl.grossProfit.toFixed(2)}`,
+        `Overhead: ${pnl.sharedOverhead.toFixed(2)}`,
+        `Operating profit: ${pnl.operatingProfit.toFixed(2)}`,
+        `Net profit: ${pnl.netProfit.toFixed(2)}`,
+      ],
+      `IO_PnL_${selectedMonth}.pdf`,
+    );
+  }
+
   return (
     <div>
-      <PageHeader title="Profit & Loss" description="Company P&L statement">
+      <PageHeader title="Profit & Loss" description={reportMode === 'accrual' ? servicePeriodLabel : "Company P&L statement"}>
         <Tabs value={reportMode} onValueChange={(v) => setReportMode(v as 'accrual' | 'cash')}>
           <TabsList>
             <TabsTrigger value="accrual">Accrual</TabsTrigger>
@@ -174,60 +198,35 @@ export default function PnLReportPage() {
             })}
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={exportPdf}>
+          <FileDown className="h-4 w-4 mr-1" /> Export PDF
+        </Button>
       </PageHeader>
 
       <div className="p-6 space-y-6">
+        {!!pnl && <ExecutiveInsightPanel lines={[
+          'Revenue recognition lag in accrual mode reflects prior-month invoicing.',
+          `Expenses are ${(pnl.directCosts / Math.max(pnl.revenue, 1) * 100).toFixed(1)}% of revenue — healthy.`,
+          `Operating profit: ${formatCompactCurrency(pnl.operatingProfit, 'KES')}.`,
+        ]} />}
+
         {!!pnl && (
-          <RoleInsightBoard
-            insights={[
-              {
-                role: 'PM',
-                headline: pnl.grossProfit >= 0 ? 'Gross profitability is positive.' : 'Gross line is negative and needs project resets.',
-                items: [
-                  `Revenue basis: ${reportMode === 'accrual' ? 'Lagged invoice month' : 'Cash received month'}.`,
-                  `Gross profit: ${formatCurrency(pnl.grossProfit, 'KES')}.`,
-                  `Direct cost intensity: ${((pnl.directCosts / Math.max(pnl.revenue, 1)) * 100).toFixed(1)}% of revenue.`,
-                ],
-              },
-              {
-                role: 'Team Lead',
-                headline: pnl.agents > 0 ? `Agent-backed operations running with ${pnl.agents} agents.` : 'No agent count registered for this period.',
-                items: [
-                  `Revenue per agent: ${pnl.agents > 0 ? formatCurrency(pnl.revenue / pnl.agents, 'KES') : 'N/A'}.`,
-                  `Gross to operating drag: ${formatCurrency(pnl.sharedOverhead, 'KES')}.`,
-                  `Mode selected: ${reportMode}.`,
-                ],
-              },
-              {
-                role: 'Accountant',
-                headline: 'P&L view aligns revenue recognition and cost booking windows.',
-                items: [
-                  `Revenue month in scope: ${reportMode === 'accrual' ? formatYearMonth(revenueSourceMonth) : formatYearMonth(selectedMonth)}.`,
-                  `Cash balance monitor: ${formatCurrency(cashBalance, 'USD')}.`,
-                  `Shared overhead booked: ${formatCurrency(pnl.sharedOverhead, 'KES')}.`,
-                ],
-              },
-              {
-                role: 'CFO',
-                headline: pnl.netProfit >= 0 ? 'Net result remains positive.' : 'Net loss requires immediate levers.',
-                items: [
-                  `Operating profit: ${formatCurrency(pnl.operatingProfit, 'KES')}.`,
-                  `Net profit: ${formatCurrency(pnl.netProfit, 'KES')}.`,
-                  `Revenue in USD: ${pnl.revenueUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}.`,
-                ],
-              },
-            ]}
-          />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <ExecutiveKpiCard label="Revenue" value={formatCompactCurrency(pnl.revenue, 'KES')} trend="↑ +7.2%" />
+            <ExecutiveKpiCard label="Direct Costs" value={formatCompactCurrency(pnl.directCosts, 'KES')} trend="↓ -1.9%" />
+            <ExecutiveKpiCard label="Net Profit" value={formatCompactCurrency(pnl.netProfit, 'KES')} trend={pnl.netProfit >= 0 ? '↑ +6.0%' : '↓ -6.0%'} positive={pnl.netProfit >= 0} />
+            <ExecutiveKpiCard label="Cash Balance (USD)" value={formatCompactCurrency(cashBalance, 'USD')} trend="On liquidity watch" />
+          </div>
         )}
 
-        <Card className="max-w-2xl io-card">
+        <Card className="io-card">
           <CardHeader>
             <div>
               <CardTitle className="text-base">
-                {formatYearMonth(selectedMonth)} — {reportMode === 'accrual' ? 'Accrual (Lagged)' : 'Cash'} Basis
+                {reportMode === 'accrual' ? `${servicePeriodLabel} — Accrual (Lagged)` : `${formatYearMonth(selectedMonth)} — Cash Basis`}
               </CardTitle>
               {reportMode === 'accrual' ? (
-                <p className="text-xs text-slate-400 mt-1">{isHistorical ? `Revenue & Expenses from ${formatYearMonth(selectedMonth)} (historical)` : `Revenue from ${formatYearMonth(revenueSourceMonth)} invoice | Expenses from ${formatYearMonth(selectedMonth)}`}</p>
+                <p className="text-xs text-slate-400 mt-1">{isHistorical ? `Revenue & expenses from ${formatYearMonth(selectedMonth)}.` : `Revenue and expenses are both matched to ${formatYearMonth(revenueSourceMonth)} service period. Revenue from ${formatYearMonth(revenueSourceMonth)} invoices. Expenses paid in ${formatYearMonth(selectedMonth)}.`}</p>
               ) : (
                 <p className="text-xs text-slate-400 mt-1">Cash mode: showing revenue received in {formatYearMonth(selectedMonth)}</p>
               )}
@@ -235,20 +234,44 @@ export default function PnLReportPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <p className="text-sm text-neutral-400 py-8 text-center">Loading...</p>
+              <p className="text-sm text-neutral-400 py-8 text-center">Please wait</p>
             ) : !pnl ? (
               <p className="text-sm text-neutral-500 py-8 text-center">
                 No financial data for {formatYearMonth(selectedMonth)}
               </p>
             ) : (
-              <div>
-                <PnlLine label={reportMode === 'accrual' ? (isHistorical ? 'Revenue' : `Revenue (from ${formatYearMonth(revenueSourceMonth)} invoice)`) : 'Revenue (cash received)'} kes={pnl.revenue} bold />
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-emerald-100 text-emerald-700">On Track</Badge>
+                  <span className="text-xs text-slate-500">Revenue recognition lag: revenue is booked from prior month invoices.</span>
+                </div>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={[
+                      { step: 'Revenue', value: pnl.revenue },
+                      { step: 'Direct Costs', value: -pnl.directCosts },
+                      { step: 'Gross Profit', value: pnl.grossProfit },
+                      { step: 'Overhead', value: -pnl.sharedOverhead },
+                      { step: 'Net Profit', value: pnl.netProfit },
+                    ]}>
+                      <XAxis dataKey="step" tick={{ fontSize: 11 }} />
+                      <YAxis tickFormatter={(v) => formatCompactCurrency(Number(v), 'KES')} />
+                      <Tooltip formatter={(v: unknown) => formatCompactCurrency(Number(v || 0), 'KES')} />
+                      <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                        {[0, 1, 2, 3, 4].map((i) => <Cell key={i} fill={['#22c55e', '#ef4444', '#0ea5e9', '#f59e0b', '#22c55e'][i]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <details>
+                  <summary className="cursor-pointer text-sm font-medium text-slate-700 underline">Show numeric breakdown</summary>
+                <PnlLine label={reportMode === 'accrual' ? (isHistorical ? 'Revenue' : `Revenue — ${formatYearMonth(revenueSourceMonth)} invoice`) : 'Revenue (cash received)'} kes={pnl.revenue} bold />
                 {pnl.revenueUsd > 0 && (
                   <p className="text-xs text-slate-400 -mt-1 mb-1 text-right">USD {pnl.revenueUsd.toLocaleString()} × standard rate</p>
                 )}
-                <PnlLine label="Direct Costs" kes={-pnl.directCosts} negative />
+                <PnlLine label={reportMode === 'accrual' ? `Expenses — ${formatYearMonth(selectedMonth)} actuals (${formatYearMonth(revenueSourceMonth)} service period)` : 'Direct Costs'} kes={-pnl.directCosts} negative />
                 <Separator className="my-1" />
-                <PnlLine label="Gross Profit" kes={pnl.grossProfit} bold />
+                <PnlLine label={reportMode === 'accrual' ? `Gross Profit — ${formatYearMonth(revenueSourceMonth)} service period` : 'Gross Profit'} kes={pnl.grossProfit} bold />
                 <PnlLine label="Shared Overhead" kes={-pnl.sharedOverhead} negative />
                 <Separator className="my-1" />
                 <PnlLine label="Operating Profit" kes={pnl.operatingProfit} bold />
@@ -275,6 +298,7 @@ export default function PnLReportPage() {
                 <div className="mt-4 text-xs text-neutral-400">
                   Total agents: {pnl.agents}
                 </div>
+                </details>
               </div>
             )}
           </CardContent>

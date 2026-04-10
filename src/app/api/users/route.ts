@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { createClient as createServerClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 // Admin client using service role key — only used server-side
 function createAdminClient() {
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     });
 
     if (authError) {
-      return NextResponse.json({ error: authError.message }, { status: 400 });
+    return NextResponse.json({ error: 'Failed to create authentication user', code: 'AUTH_CREATE_FAILED' }, { status: 400 });
     }
 
     // Create profile record in public.users
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     if (profileError) {
       // Rollback: delete the auth user if profile creation fails
       await adminClient.auth.admin.deleteUser(newAuthUser.user.id);
-      return NextResponse.json({ error: profileError.message }, { status: 400 });
+      return NextResponse.json({ error: 'Failed to create user profile', code: 'PROFILE_CREATE_FAILED' }, { status: 400 });
     }
 
     // Audit log
@@ -106,10 +106,7 @@ export async function POST(request: Request) {
         role,
       },
     });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Unknown error' },
-      { status: 500 }
-    );
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to create user.', 'USER_CREATE_ERROR');
   }
 }

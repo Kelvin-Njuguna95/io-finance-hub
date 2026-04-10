@@ -46,23 +46,23 @@ function isMiscBudgetItem(item: { category?: string | null; description?: string
 
 async function autoLogBudgetMiscDraws(
   admin: ReturnType<typeof createAdminClient>,
-  dbUser: any,
-  budget: any,
-  budgetItems: any[],
+  dbUser: /* // */ any,
+  budget: /* // */ any,
+  budgetItems: /* // */ /* // */ any[],
 ) {
   if (!budget?.project_id || !budget?.year_month || !budgetItems.length) return 0;
 
   const miscItems = budgetItems
-    .filter((item: any) => isMiscBudgetItem(item))
-    .filter((item: any) => Number(item.pm_approved_amount != null ? item.pm_approved_amount : item.amount_kes) > 0);
+    .filter((item: /* // */ any) => isMiscBudgetItem(item))
+    .filter((item: /* // */ any) => Number(item.pm_approved_amount != null ? item.pm_approved_amount : item.amount_kes) > 0);
 
   if (!miscItems.length) return 0;
 
   const { data: existingDraws } = await admin
     .from('misc_draws')
     .select('budget_item_id')
-    .in('budget_item_id', miscItems.map((item: any) => item.id));
-  const existing = new Set((existingDraws || []).map((d: any) => d.budget_item_id).filter(Boolean));
+    .in('budget_item_id', miscItems.map((item: /* // */ any) => item.id));
+  const existing = new Set((existingDraws || []).map((d: /* // */ any) => d.budget_item_id).filter(Boolean));
 
   const { data: assignment } = await admin
     .from('user_project_assignments')
@@ -73,8 +73,8 @@ async function autoLogBudgetMiscDraws(
 
   const now = new Date().toISOString();
   const rows = miscItems
-    .filter((item: any) => !existing.has(item.id))
-    .map((item: any) => {
+    .filter((item: /* // */ any) => !existing.has(item.id))
+    .map((item: /* // */ any) => {
       const amount = Number(item.pm_approved_amount != null ? item.pm_approved_amount : item.amount_kes);
       return {
         project_id: budget.project_id,
@@ -175,19 +175,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Only CFO or accountant can auto-populate expenses' }, { status: 403 });
     }
 
-    const { budget_version_id } = body;
-    if (!budget_version_id) {
-      return NextResponse.json({ success: false, error: 'budget_version_id required' }, { status: 400 });
+    const { budget_version_id, budget_id } = body;
+    if (!budget_version_id && !budget_id) {
+      return NextResponse.json({ success: false, error: 'budget_version_id or budget_id required' }, { status: 400 });
     }
 
     // Get budget version and its items
-    const { data: budgetVersion, error: bvErr } = await admin
-      .from('budget_versions')
-      .select('*, budget_items(*)')
-      .eq('id', budget_version_id)
-      .single();
+    let budgetVersion: /* // */ any = null;
+    if (budget_version_id) {
+      const { data } = await admin
+        .from('budget_versions')
+        .select('*, budget_items(*)')
+        .eq('id', budget_version_id)
+        .single();
+      budgetVersion = data;
+    } else {
+      const { data } = await admin
+        .from('budget_versions')
+        .select('*, budget_items(*)')
+        .eq('budget_id', budget_id)
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      budgetVersion = data;
+    }
 
-    if (bvErr || !budgetVersion) {
+    if (!budgetVersion) {
       return NextResponse.json({ success: false, error: 'Budget version not found' }, { status: 404 });
     }
 
@@ -206,12 +219,9 @@ export async function POST(request: Request) {
     const monthErr = await assertMonthOpen(admin, budget.year_month);
     if (monthErr) return NextResponse.json({ success: false, error: monthErr.message }, { status: monthErr.status });
 
-    // Filter items: include approved/adjusted items, OR all items if no PM review was done
+    // Filter items: include only PM-approved or adjusted items
     const allItems = budgetVersion.budget_items || [];
-    const hasLineReview = allItems.some((item: any) => ['approved', 'adjusted', 'removed'].includes(item.pm_status));
-    const eligibleItems = hasLineReview
-      ? allItems.filter((item: any) => ['approved', 'adjusted'].includes(item.pm_status))
-      : allItems.filter((item: any) => item.pm_status !== 'removed');
+    const eligibleItems = allItems.filter((item: /* // */ any) => ['approved', 'adjusted'].includes(item.pm_status));
 
     if (eligibleItems.length === 0) {
       return NextResponse.json({ success: false, error: 'No eligible budget items found' }, { status: 400 });
@@ -222,26 +232,33 @@ export async function POST(request: Request) {
     const { data: existingPE } = await admin
       .from('pending_expenses')
       .select('budget_item_id')
-      .eq('budget_version_id', budget_version_id);
-    (existingPE || []).forEach((pe: any) => existingItemIds.add(pe.budget_item_id));
+      .eq('budget_id', budget.id);
+    (existingPE || []).forEach((pe: /* // */ any) => existingItemIds.add(pe.budget_item_id));
 
-    const newItems = eligibleItems.filter((item: any) => !existingItemIds.has(item.id));
+    const newItems = eligibleItems.filter((item: /* // */ any) => !existingItemIds.has(item.id));
     if (newItems.length === 0) {
       return NextResponse.json({ success: true, data: [], message: 'All items already populated' });
     }
 
-    const pendingRows = newItems.map((item: any) => ({
-      budget_id: budget.id,
-      budget_version_id,
-      budget_item_id: item.id,
-      project_id: budget.project_id,
-      department_id: budget.department_id,
-      year_month: budget.year_month,
-      description: item.description,
-      category: item.category,
-      budgeted_amount_kes: item.pm_approved_amount != null ? item.pm_approved_amount : item.amount_kes,
-      status: 'pending_auth',
-    }));
+    const pendingRows = newItems.map((item: /* // */ any) => {
+      const budgetedAmountKes = item.pm_status === 'adjusted'
+        ? item.pm_approved_amount
+        : item.amount_kes;
+
+      return {
+        budget_id: budget.id,
+        budget_version_id: budgetVersion.id,
+        budget_item_id: item.id,
+        project_id: budget.project_id,
+        department_id: budget.department_id,
+        year_month: budget.year_month,
+        description: item.description,
+        category: item.category,
+        budgeted_amount_kes: budgetedAmountKes,
+        actual_amount_kes: null,
+        status: 'pending_auth',
+      };
+    });
 
     const { data: inserted, error: insertErr } = await admin
       .from('pending_expenses')
@@ -255,7 +272,7 @@ export async function POST(request: Request) {
     let miscLogged = 0;
     try {
       miscLogged = await autoLogBudgetMiscDraws(admin, dbUser, budget, newItems);
-    } catch (miscErr: any) {
+    } catch (miscErr: /* // */ any) {
       console.error('Failed to auto-log misc items from budget:', miscErr?.message || miscErr);
     }
 
@@ -264,16 +281,14 @@ export async function POST(request: Request) {
       user_id: dbUser.id,
       action: 'expense_auto_populate',
       table_name: 'pending_expenses',
-      record_id: budget_version_id,
+      record_id: budgetVersion.id,
       old_values: null,
       new_values: { count: inserted?.length, budget_id: budget.id, year_month: budget.year_month },
     });
 
     // Notify relevant users
-    await notifyRole(admin, 'cfo', 'Pending expenses auto-populated', `${inserted?.length} pending expense(s) created from budget for ${budget.year_month}.`, '/expenses');
-    if (!isCfo) {
-      await notifyRole(admin, 'accountant', 'Pending expenses auto-populated', `${inserted?.length} pending expense(s) created from budget for ${budget.year_month}.`, '/expenses');
-    }
+    await notifyRole(admin, 'cfo', 'Pending expenses auto-populated', `${inserted?.length} pending expense(s) created from budget for ${budget.year_month}.`, '/expenses/queue');
+    await notifyRole(admin, 'accountant', 'Pending expenses auto-populated', `${inserted?.length} pending expense(s) created from budget for ${budget.year_month}.`, '/expenses/queue');
 
     return NextResponse.json({ success: true, data: inserted, misc_logged: miscLogged });
   }
@@ -289,7 +304,7 @@ export async function POST(request: Request) {
     const yearMonth = body.year_month;
 
     // Find all approved budget versions
-    let budgetQuery = admin
+    const budgetQuery = admin
       .from('budget_versions')
       .select('id, budget_id, budget_items(*)')
       .eq('status', 'approved');
@@ -309,23 +324,23 @@ export async function POST(request: Request) {
       if (!budget) continue;
       if (yearMonth && budget.year_month !== yearMonth) continue;
 
-      const allItems = (bv as any).budget_items || [];
-      const hasLineReview = allItems.some((item: any) => ['approved', 'adjusted', 'removed'].includes(item.pm_status));
+      const allItems = (bv as /* // */ any).budget_items || [];
+      const hasLineReview = allItems.some((item: /* // */ any) => ['approved', 'adjusted', 'removed'].includes(item.pm_status));
       const eligibleItems = hasLineReview
-        ? allItems.filter((item: any) => ['approved', 'adjusted'].includes(item.pm_status))
-        : allItems.filter((item: any) => item.pm_status !== 'removed');
+        ? allItems.filter((item: /* // */ any) => ['approved', 'adjusted'].includes(item.pm_status))
+        : allItems.filter((item: /* // */ any) => item.pm_status !== 'removed');
 
       // Skip items already populated
       const { data: existingPE } = await admin
         .from('pending_expenses')
         .select('budget_item_id')
         .eq('budget_version_id', bv.id);
-      const existingIds = new Set((existingPE || []).map((pe: any) => pe.budget_item_id));
-      const newItems = eligibleItems.filter((item: any) => !existingIds.has(item.id));
+      const existingIds = new Set((existingPE || []).map((pe: /* // */ any) => pe.budget_item_id));
+      const newItems = eligibleItems.filter((item: /* // */ any) => !existingIds.has(item.id));
 
       if (newItems.length === 0) continue;
 
-      const rows = newItems.map((item: any) => ({
+      const rows = newItems.map((item: /* // */ any) => ({
         budget_id: budget.id,
         budget_version_id: bv.id,
         budget_item_id: item.id,
@@ -334,7 +349,7 @@ export async function POST(request: Request) {
         year_month: budget.year_month,
         description: item.description,
         category: item.category,
-        budgeted_amount_kes: item.pm_approved_amount != null ? item.pm_approved_amount : item.amount_kes,
+        budgeted_amount_kes: item.pm_approved_amount != null ? item.pm_approved_amount : 0,
         status: 'pending_auth',
       }));
 
@@ -343,7 +358,7 @@ export async function POST(request: Request) {
 
       try {
         await autoLogBudgetMiscDraws(admin, dbUser, budget, newItems);
-      } catch (miscErr: any) {
+      } catch (miscErr: /* // */ any) {
         console.error('Backfill misc auto-log failed:', miscErr?.message || miscErr);
       }
     }
@@ -370,6 +385,9 @@ export async function POST(request: Request) {
     if (!id || actual_amount_kes == null) {
       return NextResponse.json({ success: false, error: 'id and actual_amount_kes required' }, { status: 400 });
     }
+    if (Number(actual_amount_kes) <= 0) {
+      return NextResponse.json({ success: false, error: 'actual_amount_kes must be greater than 0' }, { status: 400 });
+    }
 
     // Get the pending expense
     const { data: pending } = await admin.from('pending_expenses').select('*').eq('id', id).single();
@@ -380,6 +398,10 @@ export async function POST(request: Request) {
     // Month lock enforcement
     const confirmMonthErr = await assertMonthOpen(admin, pending.year_month);
     if (confirmMonthErr) return NextResponse.json({ success: false, error: confirmMonthErr.message }, { status: confirmMonthErr.status });
+
+    if (!['pending_auth', 'under_review', 'modified'].includes(pending.status)) {
+      return NextResponse.json({ success: false, error: `Cannot confirm expense in status ${pending.status}` }, { status: 400 });
+    }
 
     const now = new Date().toISOString();
 
@@ -458,6 +480,7 @@ export async function POST(request: Request) {
 
     // Notify
     await notifyRole(admin, 'cfo', 'Expense confirmed', `Pending expense "${pending.description}" confirmed at KES ${actual_amount_kes.toLocaleString()} for ${pending.year_month}.`, '/expenses');
+    await recomputeExpenseVariancesForMonth(admin, pending.year_month);
 
     return NextResponse.json({ success: true, data: updated });
   }
@@ -474,6 +497,9 @@ export async function POST(request: Request) {
     if (!id || actual_amount_kes == null || !modified_reason?.trim()) {
       return NextResponse.json({ success: false, error: 'id, actual_amount_kes, and modified_reason required' }, { status: 400 });
     }
+    if (Number(actual_amount_kes) <= 0) {
+      return NextResponse.json({ success: false, error: 'actual_amount_kes must be greater than 0' }, { status: 400 });
+    }
 
     const { data: pending } = await admin.from('pending_expenses').select('*').eq('id', id).single();
     if (!pending) {
@@ -484,30 +510,73 @@ export async function POST(request: Request) {
     const modifyMonthErr = await assertMonthOpen(admin, pending.year_month);
     if (modifyMonthErr) return NextResponse.json({ success: false, error: modifyMonthErr.message }, { status: modifyMonthErr.status });
 
+    if (!['pending_auth', 'under_review'].includes(pending.status)) {
+      return NextResponse.json({ success: false, error: `Cannot modify expense in status ${pending.status}` }, { status: 400 });
+    }
+
+    const now = new Date().toISOString();
+
+    let expenseCategoryId: string | null = null;
+    if (pending.category) {
+      const { data: cat } = await admin.from('expense_categories').select('id').eq('name', pending.category).maybeSingle();
+      expenseCategoryId = cat?.id || null;
+    }
+
+    let overheadCategoryId: string | null = null;
+    if (!pending.project_id && pending.department_id && pending.category) {
+      const { data: ohCat } = await admin.from('overhead_categories').select('id').eq('name', pending.category).maybeSingle();
+      overheadCategoryId = ohCat?.id || null;
+    }
+
+    const isProjectExpense = !!pending.project_id;
+    const { data: expense, error: expErr } = await admin.from('expenses').insert({
+      budget_id: pending.budget_id,
+      budget_version_id: pending.budget_version_id,
+      expense_type: isProjectExpense ? 'project_expense' : 'shared_expense',
+      project_id: pending.project_id,
+      overhead_category_id: isProjectExpense ? null : overheadCategoryId,
+      expense_category_id: expenseCategoryId,
+      description: pending.description,
+      amount_usd: 0,
+      amount_kes: actual_amount_kes,
+      expense_date: now.split('T')[0],
+      year_month: pending.year_month,
+      vendor: null,
+      receipt_reference: null,
+      notes: `Modified & confirmed from pending expense ${id}. Reason: ${modified_reason}`,
+      entered_by: dbUser.id,
+    }).select().single();
+
+    if (expErr) {
+      return NextResponse.json({ success: false, error: expErr.message }, { status: 500 });
+    }
+
     const { data: updated, error: updErr } = await admin.from('pending_expenses').update({
-      status: 'modified',
+      status: 'confirmed',
       actual_amount_kes,
       modified_reason,
+      confirmed_by: dbUser.id,
+      confirmed_at: now,
+      expense_id: expense?.id,
     }).eq('id', id).select().single();
 
     if (updErr) {
       return NextResponse.json({ success: false, error: updErr.message }, { status: 500 });
     }
 
-    // Check variance
     await checkVarianceRedFlag(admin, dbUser, pending, actual_amount_kes);
 
-    // Audit log
     await admin.from('audit_logs').insert({
       user_id: dbUser.id,
       action: 'expense_modified',
       table_name: 'pending_expenses',
       record_id: id,
       old_values: { status: pending.status, budgeted_amount_kes: pending.budgeted_amount_kes },
-      new_values: { status: 'modified', actual_amount_kes, modified_reason },
+      new_values: { status: 'confirmed', actual_amount_kes, modified_reason, expense_id: expense?.id },
     });
 
     await notifyRole(admin, 'cfo', 'Expense modified', `Pending expense "${pending.description}" modified to KES ${actual_amount_kes.toLocaleString()}. Reason: ${modified_reason}`, '/expenses');
+    await recomputeExpenseVariancesForMonth(admin, pending.year_month);
 
     return NextResponse.json({ success: true, data: updated });
   }
@@ -516,13 +585,13 @@ export async function POST(request: Request) {
   // under_review
   // -----------------------------------------------------------
   if (action === 'under_review') {
-    if (!isCfo) {
-      return NextResponse.json({ success: false, error: 'Only CFO can flag expenses for review' }, { status: 403 });
+    if (!isCfoOrAccountant) {
+      return NextResponse.json({ success: false, error: 'Only CFO or accountant can flag expenses for review' }, { status: 403 });
     }
 
     const { id, review_notes } = body;
-    if (!id) {
-      return NextResponse.json({ success: false, error: 'id required' }, { status: 400 });
+    if (!id || !review_notes?.trim()) {
+      return NextResponse.json({ success: false, error: 'id and review_notes required' }, { status: 400 });
     }
 
     const { data: pending } = await admin.from('pending_expenses').select('*').eq('id', id).single();
@@ -536,7 +605,9 @@ export async function POST(request: Request) {
 
     const { data: updated, error: updErr } = await admin.from('pending_expenses').update({
       status: 'under_review',
-      review_notes: review_notes || null,
+      review_notes: review_notes.trim(),
+      reviewed_by: dbUser.id,
+      reviewed_at: new Date().toISOString(),
     }).eq('id', id).select().single();
 
     if (updErr) {
@@ -553,7 +624,8 @@ export async function POST(request: Request) {
       new_values: { status: 'under_review', review_notes },
     });
 
-    await notifyRole(admin, 'accountant', 'Expense flagged for review', `CFO flagged expense "${pending.description}" for review. ${review_notes ? 'Notes: ' + review_notes : ''}`, '/expenses');
+    await notifyRole(admin, 'accountant', 'Expense flagged for review', `Expense "${pending.description}" flagged for review. ${review_notes ? 'Notes: ' + review_notes : ''}`, '/expenses');
+    await recomputeExpenseVariancesForMonth(admin, pending.year_month);
 
     return NextResponse.json({ success: true, data: updated });
   }
@@ -604,6 +676,7 @@ export async function POST(request: Request) {
     });
 
     await notifyRole(admin, 'accountant', 'Expense voided', `CFO voided expense "${pending.description}" for ${pending.year_month}. Reason: ${void_reason}`, '/expenses');
+    await recomputeExpenseVariancesForMonth(admin, pending.year_month);
 
     return NextResponse.json({ success: true, data: updated });
   }
@@ -616,9 +689,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Only CFO or accountant can carry forward expenses' }, { status: 403 });
     }
 
-    const { id } = body;
-    if (!id) {
-      return NextResponse.json({ success: false, error: 'id required' }, { status: 400 });
+    const { id, carry_reason, target_month } = body;
+    if (!id || !carry_reason?.trim() || !target_month) {
+      return NextResponse.json({ success: false, error: 'id, carry_reason, and target_month required' }, { status: 400 });
     }
 
     const { data: pending } = await admin.from('pending_expenses').select('*').eq('id', id).single();
@@ -630,9 +703,14 @@ export async function POST(request: Request) {
     const cfMonthErr = await assertMonthOpen(admin, pending.year_month);
     if (cfMonthErr) return NextResponse.json({ success: false, error: cfMonthErr.message }, { status: cfMonthErr.status });
 
+    if (target_month <= pending.year_month) {
+      return NextResponse.json({ success: false, error: 'target_month must be after source month' }, { status: 400 });
+    }
+
     // Mark original as carried_forward
     const { error: updErr } = await admin.from('pending_expenses').update({
       status: 'carried_forward',
+      carry_reason: carry_reason.trim(),
     }).eq('id', id);
 
     if (updErr) {
@@ -640,7 +718,7 @@ export async function POST(request: Request) {
     }
 
     // Create new pending expense in the next month
-    const newYearMonth = nextMonth(pending.year_month);
+    const newYearMonth = target_month || nextMonth(pending.year_month);
 
     const { data: newPending, error: newErr } = await admin.from('pending_expenses').insert({
       budget_id: pending.budget_id,
@@ -671,6 +749,7 @@ export async function POST(request: Request) {
     });
 
     await notifyRole(admin, 'cfo', 'Expense carried forward', `Pending expense "${pending.description}" carried forward from ${pending.year_month} to ${newYearMonth}.`, '/expenses');
+    await recomputeExpenseVariancesForMonth(admin, pending.year_month);
 
     return NextResponse.json({ success: true, data: { original_id: id, new_pending: newPending } });
   }
@@ -689,8 +768,8 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
-    const results: any[] = [];
-    const errors: any[] = [];
+    const results: /* // */ /* // */ any[] = [];
+    const errors: /* // */ /* // */ any[] = [];
 
     for (const item of items) {
       const { id, actual_amount_kes } = item;
@@ -702,6 +781,10 @@ export async function POST(request: Request) {
       const { data: pending } = await admin.from('pending_expenses').select('*').eq('id', id).single();
       if (!pending) {
         errors.push({ id, error: 'Pending expense not found' });
+        continue;
+      }
+      if (!['pending_auth', 'under_review', 'modified'].includes(pending.status)) {
+        errors.push({ id, error: `Cannot confirm status ${pending.status}` });
         continue;
       }
 
@@ -781,6 +864,7 @@ export async function POST(request: Request) {
 
     // Single notification for the batch
     await notifyRole(admin, 'cfo', 'Bulk expense confirmation', `${results.length} expense(s) confirmed in bulk by ${dbUser.full_name}.`, '/expenses');
+    if (results.length > 0) await recomputeExpenseVariancesForMonth(admin, (results[0] as /* // */ any).year_month);
 
     return NextResponse.json({
       success: true,
@@ -942,8 +1026,8 @@ export async function POST(request: Request) {
 // =============================================================
 async function checkVarianceRedFlag(
   admin: ReturnType<typeof createAdminClient>,
-  dbUser: any,
-  pending: any,
+  dbUser: /* // */ any,
+  pending: /* // */ any,
   actualAmountKes: number,
 ) {
   const budgeted = Number(pending.budgeted_amount_kes || 0);
@@ -970,6 +1054,66 @@ async function checkVarianceRedFlag(
       year_month: pending.year_month,
       reference_id: pending.id,
       reference_table: 'pending_expenses',
+    });
+  }
+}
+
+async function recomputeExpenseVariancesForMonth(
+  admin: ReturnType<typeof createAdminClient>,
+  yearMonth: string,
+) {
+  const { data: pendingItems } = await admin
+    .from('pending_expenses')
+    .select('project_id, department_id, category, budgeted_amount_kes, actual_amount_kes, status')
+    .eq('year_month', yearMonth);
+
+  const groups = new Map<string, {
+    project_id: string | null;
+    department_id: string | null;
+    category: string | null;
+    budgeted: number;
+    actual: number;
+    confirmed: number;
+    pending: number;
+    voided: number;
+    modified: number;
+  }>();
+
+  for (const item of pendingItems || []) {
+    const key = `${item.project_id || ''}_${item.department_id || ''}_${item.category || ''}`;
+    const g = groups.get(key) || {
+      project_id: item.project_id,
+      department_id: item.department_id,
+      category: item.category,
+      budgeted: 0, actual: 0, confirmed: 0, pending: 0, voided: 0, modified: 0,
+    };
+    g.budgeted += Number(item.budgeted_amount_kes || 0);
+    g.actual += Number(item.actual_amount_kes || 0);
+    if (item.status === 'confirmed') g.confirmed++;
+    else if (item.status === 'voided') g.voided++;
+    else if (item.status === 'modified') g.modified++;
+    else g.pending++;
+    groups.set(key, g);
+  }
+
+  for (const g of groups.values()) {
+    const variancePct = g.budgeted === 0 ? 0 : ((g.actual - g.budgeted) / g.budgeted) * 100;
+    const accuracy = Math.round(Math.max(0, 100 - Math.abs(variancePct)) * 100) / 100;
+    await admin.from('expense_variances').upsert({
+      year_month: yearMonth,
+      project_id: g.project_id,
+      department_id: g.department_id,
+      category: g.category,
+      budgeted_total_kes: g.budgeted,
+      actual_total_kes: g.actual,
+      confirmed_count: g.confirmed,
+      pending_count: g.pending,
+      voided_count: g.voided,
+      modified_count: g.modified,
+      accuracy_score: accuracy,
+      computed_at: new Date().toISOString(),
+    }, {
+      onConflict: 'year_month,project_id,department_id,category',
     });
   }
 }

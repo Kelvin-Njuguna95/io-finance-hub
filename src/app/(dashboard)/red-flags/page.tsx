@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/hooks/use-user';
 import { PageHeader } from '@/components/layout/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,20 +13,39 @@ import { Check } from 'lucide-react';
 import type { RedFlag } from '@/types/database';
 import { toast } from 'sonner';
 import { getStatusBadgeClass } from '@/lib/status';
+import { getRedFlags } from '@/lib/queries/red-flags';
+import { canResolveRedFlags, canViewRedFlags } from '@/lib/permissions';
 
 export default function RedFlagsPage() {
+  const { user } = useUser();
   const [flags, setFlags] = useState<RedFlag[]>([]);
   const [filter, setFilter] = useState<'active' | 'resolved'>('active');
+  const canView = canViewRedFlags(user?.role);
+  const canResolve = canResolveRedFlags(user?.role);
 
-  useEffect(() => { load(); }, [filter]);
+  useEffect(() => { load(); }, [filter, user?.id, user?.role]);
 
   async function load() {
+    if (!canView) {
+      setFlags([]);
+      return;
+    }
     const supabase = createClient();
-    const { data } = await supabase
-      .from('red_flags')
-      .select('*')
-      .eq('is_resolved', filter === 'resolved')
-      .order('created_at', { ascending: false });
+    const { data } = await getRedFlags(supabase, filter === 'resolved');
+
+    if (user?.role === 'project_manager') {
+      const { data: assigned } = await supabase.from('user_project_assignments').select('project_id').eq('user_id', user.id);
+      const projectIds = new Set((assigned || []).map((a: /* // */ any) => a.project_id));
+      setFlags((data || []).filter((flag) => flag.project_id && projectIds.has(flag.project_id)));
+      return;
+    }
+
+    if (user?.role === 'accountant') {
+      const financialTypes = new Set(['profit_share', 'budget_variance', 'forecast_variance']);
+      setFlags((data || []).filter((flag) => !financialTypes.has(flag.flag_type)));
+      return;
+    }
+
     setFlags(data || []);
   }
 
@@ -39,6 +59,17 @@ export default function RedFlagsPage() {
     }).eq('id', id);
     toast.success('Flag resolved');
     load();
+  }
+
+  if (user && !canView) {
+    return (
+      <div>
+        <PageHeader title="Red Flags" description="Access restricted" />
+        <div className="p-6">
+          <p className="text-sm text-neutral-500">Your role does not have access to red flags.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -79,7 +110,7 @@ export default function RedFlagsPage() {
                       </p>
                     </div>
                   </div>
-                  {!flag.is_resolved && (
+                  {!flag.is_resolved && canResolve && (
                     <Button variant="ghost" size="sm" onClick={() => resolve(flag.id)} className="gap-1">
                       <Check className="h-3 w-3" /> Resolve Flag
                     </Button>

@@ -96,6 +96,7 @@ const accountantNav: NavGroup[] = [
     title: 'Overview',
     items: [
       { title: 'Dashboard', href: '/', icon: LayoutDashboard },
+      { title: 'Red Flags', href: '/red-flags', icon: AlertTriangle },
     ],
   },
   {
@@ -178,9 +179,6 @@ const projectManagerNav: NavGroup[] = [
     items: [
       { title: 'Budget Reviews', href: '/budgets', icon: ClipboardList },
       { title: 'Revenue', href: '/revenue', icon: DollarSign },
-      { title: 'Invoices', href: '/invoices', icon: FileText },
-      { title: 'Expenses', href: '/expenses', icon: Receipt },
-      { title: 'Withdrawals', href: '/withdrawals', icon: ArrowDownToLine },
     ],
   },
   {
@@ -213,5 +211,9 @@ export function getNavigation(role: UserRole): NavGroup[] {
       return teamLeaderNav;
     case 'project_manager':
       return projectManagerNav;
+    case 'department_head':
+      return accountantNav;
+    default:
+      return accountantNav;
   }
 }

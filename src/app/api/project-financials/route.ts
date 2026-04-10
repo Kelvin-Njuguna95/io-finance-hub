@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 function createAdminClient() {
   return createClient(
@@ -10,9 +11,10 @@ function createAdminClient() {
 }
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('Authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const authHeader = request.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    if (!token) return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
 
   const admin = createAdminClient();
   const { data: { user } } = await admin.auth.getUser(token);
@@ -55,7 +57,7 @@ export async function GET(request: Request) {
   const invoiceAmountKes = laggedInvoice ? Number(laggedInvoice.amount_kes) : 0;
   const invoiceAmountUsd = laggedInvoice ? Number(laggedInvoice.amount_usd) : 0;
   const invoiceAmount = invoiceAmountKes > 0 ? invoiceAmountKes : Math.round(invoiceAmountUsd * stdRate * 100) / 100;
-  const totalPaid = laggedInvoice ? (laggedInvoice.payments || []).reduce((s: number, p: any) => s + Number(p.amount_usd || 0), 0) : 0;
+  const totalPaid = laggedInvoice ? (laggedInvoice.payments || []).reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd || 0), 0) : 0;
   const outstanding = invoiceAmountUsd - totalPaid;
   const revenueSourceMonth = prevMonth;
 
@@ -65,11 +67,11 @@ export async function GET(request: Request) {
     .eq('project_id', projectId).eq('year_month', yearMonth).eq('expense_type', 'project_expense')
     .order('expense_date');
 
-  const totalExpenses = (expenses || []).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+  const totalExpenses = (expenses || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
 
   // Expense by category
   const catMap = new Map<string, number>();
-  (expenses || []).forEach((e: any) => {
+  (expenses || []).forEach((e: /* // */ any) => {
     const cat = e.expense_categories?.name || 'Uncategorised';
     catMap.set(cat, (catMap.get(cat) || 0) + Number(e.amount_kes));
   });
@@ -84,15 +86,15 @@ export async function GET(request: Request) {
 
   const budget = (budgets || [])[0];
   let approvedVersion = null;
-  let budgetItems: any[] = [];
+  let budgetItems: /* // */ /* // */ any[] = [];
   let totalBudget = 0;
 
   if (budget) {
-    const versions = (budget as any).budget_versions || [];
-    approvedVersion = versions.find((v: any) => v.status === 'approved');
+    const versions = (budget as /* // */ any).budget_versions || [];
+    approvedVersion = versions.find((v: /* // */ any) => v.status === 'approved');
     if (approvedVersion) {
-      budgetItems = (approvedVersion as any).budget_items || [];
-      totalBudget = Number((approvedVersion as any).total_amount_kes);
+      budgetItems = (approvedVersion as /* // */ any).budget_items || [];
+      totalBudget = Number((approvedVersion as /* // */ any).total_amount_kes);
     }
   }
 
@@ -105,19 +107,21 @@ export async function GET(request: Request) {
   const agentCount = agentData?.agent_count || 0;
 
   // Previous month data for trends
-  const prevMonths: any[] = [];
+  const prevMonths: /* // */ /* // */ any[] = [];
   for (let i = 1; i <= 6; i++) {
     const d = new Date(parseInt(yearMonth.split('-')[0]), parseInt(yearMonth.split('-')[1]) - 1 - i, 1);
     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const revSrcDate = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+    const revenueYm = `${revSrcDate.getFullYear()}-${String(revSrcDate.getMonth() + 1).padStart(2, '0')}`;
 
     const [invRes, expRes, agRes] = await Promise.all([
-      admin.from('invoices').select('amount_kes').eq('project_id', projectId).eq('billing_period', ym),
+      admin.from('invoices').select('amount_kes').eq('project_id', projectId).eq('billing_period', revenueYm),
       admin.from('expenses').select('amount_kes').eq('project_id', projectId).eq('year_month', ym).eq('expense_type', 'project_expense'),
       admin.from('agent_counts').select('agent_count').eq('project_id', projectId).eq('year_month', ym).single(),
     ]);
 
-    const rev = (invRes.data || []).reduce((s: number, i: any) => s + Number(i.amount_kes), 0);
-    const exp = (expRes.data || []).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+    const rev = (invRes.data || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes), 0);
+    const exp = (expRes.data || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
     const agents = agRes.data?.agent_count || 0;
 
     if (rev > 0 || exp > 0) {
@@ -166,9 +170,9 @@ export async function GET(request: Request) {
   ]);
 
   const activeDrawn = (miscDraws || [])
-    .filter((d: any) => !['pending_pm_approval', 'declined', 'deleted'].includes(String(d.status)))
-    .reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
-  const reportedMisc = (miscReportItems || []).reduce((s: number, i: any) => s + Number(i.amount || 0), 0);
+    .filter((d: /* // */ any) => !['pending_pm_approval', 'declined', 'deleted'].includes(String(d.status)))
+    .reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
+  const reportedMisc = (miscReportItems || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount || 0), 0);
   const miscBase = Number(miscReport?.total_drawn || 0) > 0 ? Number(miscReport?.total_drawn || 0) : activeDrawn;
   const miscCoveragePct = miscBase > 0 ? (reportedMisc / miscBase) * 100 : 100;
 
@@ -249,26 +253,29 @@ export async function GET(request: Request) {
     computed_at: new Date().toISOString(),
   }, { onConflict: 'project_id,period_month' });
 
-  return NextResponse.json({
-    project_name: project?.name,
-    year_month: yearMonth,
-    health: {
-      score,
-      score_band: scoreBand,
-      biggest_drag: biggestDrag,
-      budget_score: budgetScore,
-      margin_score: marginScore,
-      misc_score: miscScore,
-      timeliness_score: timelinessScore,
-      agent_score: agentScore,
-      misc_coverage_pct: Number(miscCoveragePct.toFixed(1)),
-      misc_report_status: miscStatus,
-    },
-    revenue: { invoice_amount: invoiceAmount, invoice_status: laggedInvoice?.status || 'not_raised', total_paid: totalPaid, outstanding, invoice_date: laggedInvoice?.invoice_date, billing_period: laggedInvoice?.billing_period, revenue_source_month: revenueSourceMonth },
-    expenses: { total: totalExpenses, by_category: expenseByCategory, items: expenses || [] },
-    budget: { total: totalBudget, utilisation: budgetUtilisation, variance: budgetVariance, items: budgetItems, has_approved: !!approvedVersion },
-    agents: { count: agentCount, revenue_per_agent: agentCount > 0 ? invoiceAmount / agentCount : 0, cost_per_agent: agentCount > 0 ? totalExpenses / agentCount : 0, contribution_per_agent: agentCount > 0 ? (invoiceAmount - totalExpenses) / agentCount : 0 },
-    trends: prevMonths,
-    hints: hints.slice(0, 4),
-  });
+    return NextResponse.json({
+      project_name: project?.name,
+      year_month: yearMonth,
+      health: {
+        score,
+        score_band: scoreBand,
+        biggest_drag: biggestDrag,
+        budget_score: budgetScore,
+        margin_score: marginScore,
+        misc_score: miscScore,
+        timeliness_score: timelinessScore,
+        agent_score: agentScore,
+        misc_coverage_pct: Number(miscCoveragePct.toFixed(1)),
+        misc_report_status: miscStatus,
+      },
+      revenue: { invoice_amount: invoiceAmount, invoice_status: laggedInvoice?.status || 'not_raised', total_paid: totalPaid, outstanding, invoice_date: laggedInvoice?.invoice_date, billing_period: laggedInvoice?.billing_period, revenue_source_month: revenueSourceMonth },
+      expenses: { total: totalExpenses, by_category: expenseByCategory, items: expenses || [] },
+      budget: { total: totalBudget, utilisation: budgetUtilisation, variance: budgetVariance, items: budgetItems, has_approved: !!approvedVersion },
+      agents: { count: agentCount, revenue_per_agent: agentCount > 0 ? invoiceAmount / agentCount : 0, cost_per_agent: agentCount > 0 ? totalExpenses / agentCount : 0, contribution_per_agent: agentCount > 0 ? (invoiceAmount - totalExpenses) / agentCount : 0 },
+      trends: prevMonths,
+      hints: hints.slice(0, 4),
+    });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to load project financials.', 'PROJECT_FINANCIALS_ERROR');
+  }
 }

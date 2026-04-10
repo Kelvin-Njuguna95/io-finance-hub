@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { PageHeader } from '@/components/layout/page-header';
-import { StatCard } from '@/components/layout/stat-card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,11 +18,13 @@ import {
 } from '@/components/ui/dialog';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { isBackdated, cleanNotes, getAgingBucket, computePaymentStatus } from '@/lib/backdated-utils';
-import { RoleInsightBoard } from '@/components/reports/role-insight-board';
-import { DollarSign, Clock, AlertTriangle, Download, FileText } from 'lucide-react';
+import { Download, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { getUserErrorMessage } from '@/lib/errors';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency } from '@/components/reports/executive-kit';
+import { getInvoiceOutstandingTotal, getOutstandingInvoices } from '@/lib/queries/invoices';
+import { exportSimpleReportPdf } from '@/lib/pdf-export';
 
 interface OutstandingInvoice {
   id: string;
@@ -77,16 +78,12 @@ export default function OutstandingReceivablesPage() {
     setLoading(true);
     const supabase = createClient();
 
-    const { data } = await supabase
-      .from('invoices')
-      .select('*, projects(name), payments(id, amount_usd, payment_date, payment_method, reference)')
-      .in('status', ['sent', 'partially_paid', 'overdue'])
-      .order('invoice_date', { ascending: true });
+    const { data } = await getOutstandingInvoices(supabase);
 
     const processed: OutstandingInvoice[] = (data || [])
-      .map((inv: any) => {
-        const totalPaid = (inv.payments || []).reduce((s: number, p: any) => s + Number(p.amount_usd), 0);
-        const balance = Number(inv.amount_usd) - totalPaid;
+      .map((inv: /* // */ any) => {
+        const totalPaid = (inv.payments || []).reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd), 0);
+        const balance = getInvoiceOutstandingTotal(inv as /* // */ any);
         const paymentStatus = computePaymentStatus(Number(inv.amount_usd), totalPaid);
         const aging = getAgingBucket(inv.invoice_date);
         const isBackdatedInv = isBackdated(inv.description);
@@ -166,6 +163,15 @@ export default function OutstandingReceivablesPage() {
     toast.success('CSV exported');
   }
 
+  async function exportPdf() {
+    await exportSimpleReportPdf(
+      'Outstanding Receivables',
+      'Unpaid invoices and aging analysis',
+      invoices.slice(0, 120).map((inv) => `${inv.invoice_number} | ${inv.project_name} | outstanding ${inv.balance.toFixed(2)} USD | aging ${inv.aging.bucket}`),
+      `IO_Outstanding_Receivables_${new Date().toISOString().split('T')[0]}.pdf`,
+    );
+  }
+
   // Record payment
   function openPaymentDialog(inv: OutstandingInvoice) {
     setSelectedInvoice(inv);
@@ -225,76 +231,24 @@ export default function OutstandingReceivablesPage() {
         <Button size="sm" variant="outline" className="gap-1" onClick={exportCSV}>
           <Download className="h-4 w-4" /> Export CSV
         </Button>
+        <Button size="sm" variant="outline" className="gap-1" onClick={exportPdf}>
+          <FileDown className="h-4 w-4" /> Export PDF
+        </Button>
       </PageHeader>
 
       <div className="p-6 space-y-6">
-        <RoleInsightBoard
-          insights={[
-            {
-              role: 'PM',
-              headline: overdue90Count > 0 ? 'Collections risk is elevated for long-aging invoices.' : 'Aging profile is currently healthy.',
-              items: [
-                `Total outstanding: ${formatCurrency(totalOutstanding, 'USD')}.`,
-                `90+ day exposure: ${formatCurrency(overdue90Total, 'USD')}.`,
-                `Weighted average age: ${avgDaysOutstanding} days.`,
-              ],
-            },
-            {
-              role: 'Team Lead',
-              headline: 'Use aging buckets to prioritize project-level payment follow-ups.',
-              items: [
-                `Invoices awaiting closure: ${invoices.length}.`,
-                `Backdated outstanding invoices: ${backdatedCount}.`,
-                `Largest open balance: ${formatCurrency(Math.max(...invoices.map((i) => i.balance), 0), 'USD')}.`,
-              ],
-            },
-            {
-              role: 'Accountant',
-              headline: canAct ? 'You can record payments directly from this view.' : 'Payment actions are restricted to finance roles.',
-              items: [
-                `Partial/paid states are reflected in real time from payment ledger.`,
-                `CSV export supports offline reconciliations.`,
-                `Outstanding rows are filtered to balances above zero only.`,
-              ],
-            },
-            {
-              role: 'CFO',
-              headline: overdue90Total > totalOutstanding * 0.3 ? 'High long-tail receivable risk requires escalation.' : 'Long-tail risk remains controlled.',
-              items: [
-                `90+ share of outstanding: ${totalOutstanding > 0 ? ((overdue90Total / totalOutstanding) * 100).toFixed(1) : '0'}%.`,
-                `Collection priority count: ${overdue90Count} invoice(s).`,
-                `Recommend weekly review until aging mix improves.`,
-              ],
-            },
-          ]}
-        />
+        <ExecutiveInsightPanel lines={[
+          overdue90Total === 0 ? 'Zero long-overdue debt — clean book.' : `90+ day debt at ${formatCompactCurrency(overdue90Total, 'USD')} needs action.`,
+          overdue90Count === 0 ? 'No urgent collections needed.' : `${overdue90Count} invoice(s) require immediate collections follow-up.`,
+          overdue90Total > 0 ? 'Recommend weekly review until aging mix improves.' : 'Collections healthy — no immediate action needed.',
+        ]} />
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Total Outstanding"
-            value={formatCurrency(totalOutstanding, 'USD')}
-            subtitle={`${invoices.length} invoices`}
-            icon={DollarSign}
-          />
-          <StatCard
-            title="Overdue (90+ days)"
-            value={formatCurrency(overdue90Total, 'USD')}
-            subtitle={`${overdue90Count} invoice${overdue90Count !== 1 ? 's' : ''}`}
-            icon={AlertTriangle}
-          />
-          <StatCard
-            title="Avg Days Outstanding"
-            value={`${avgDaysOutstanding} days`}
-            subtitle="Weighted by balance"
-            icon={Clock}
-          />
-          <StatCard
-            title="Backdated Invoices"
-            value={String(backdatedCount)}
-            subtitle="Outstanding backdated"
-            icon={FileText}
-          />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <ExecutiveKpiCard label="Total Outstanding" value={formatCompactCurrency(totalOutstanding, 'USD')} trend="Watch weekly" />
+          <ExecutiveKpiCard label="Overdue 90+ Days" value={overdue90Total === 0 ? formatCurrency(0, 'USD') : formatCompactCurrency(overdue90Total, 'USD')} trend={overdue90Total === 0 ? 'Clean' : 'Action Needed'} positive={overdue90Total === 0} />
+          <ExecutiveKpiCard label="Avg Days Outstanding" value={`${avgDaysOutstanding} days`} trend="Cycle speed" />
+          <ExecutiveKpiCard label="Invoices Outstanding" value={`${invoices.length}`} trend="Open ledger" />
         </div>
 
         {/* Aging Summary Bar Chart */}
@@ -306,7 +260,7 @@ export default function OutstandingReceivablesPage() {
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={agingChartData} layout="vertical" margin={{ left: 80, right: 40 }}>
-                  <XAxis type="number" tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} />
+                  <XAxis type="number" tickFormatter={(v: number) => `USD ${(v / 1000).toFixed(0)}k`} />
                   <YAxis type="category" dataKey="bucket" width={80} />
                   <Tooltip
                     formatter={(value) => [formatCurrency(Number(value), 'USD'), 'Total']}
@@ -344,7 +298,7 @@ export default function OutstandingReceivablesPage() {
                 {loading ? (
                   <TableRow>
                     <TableCell colSpan={canAct ? 10 : 9} className="text-center py-8 text-neutral-500">
-                      Loading...
+                      Please wait
                     </TableCell>
                   </TableRow>
                 ) : invoices.length === 0 ? (

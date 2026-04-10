@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
+import { apiErrorResponse } from '@/lib/api-errors';
+
+const PM_ROLES = ['project_manager', 'cfo'] as const;
 
 export async function POST(request: Request) {
-  const auth = await getAuthUserProfile(request);
-  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
-  const { user, profile, admin } = auth;
+  try {
+    const auth = await getAuthUserProfile(request);
+    if ('error' in auth) return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
+    const { user, profile, admin } = auth;
 
-  if (profile.role !== 'project_manager' && profile.role !== 'cfo') {
+  if (!PM_ROLES.includes(profile.role as (typeof PM_ROLES)[number])) {
     return NextResponse.json({ error: 'Only PMs can review TL budgets' }, { status: 403 });
   }
 
@@ -21,17 +25,17 @@ export async function POST(request: Request) {
   if (!budget) return NextResponse.json({ error: 'Budget not found' }, { status: 404 });
 
   // Month lock enforcement
-  const monthErr = await assertMonthOpen(admin, (budget as any).year_month);
+  const monthErr = await assertMonthOpen(admin, (budget as /* // */ any).year_month);
   if (monthErr) return NextResponse.json({ error: monthErr.message }, { status: monthErr.status });
 
   // Verify PM owns this project
   const { data: assignment } = await admin.from('user_project_assignments')
-    .select('id').eq('user_id', user.id).eq('project_id', (budget as any).project_id).single();
+    .select('id').eq('user_id', user.id).eq('project_id', (budget as /* // */ any).project_id).single();
   if (!assignment && profile?.role !== 'cfo') return NextResponse.json({ error: 'Not your project' }, { status: 403 });
 
   // Misc gate check — PM must have submitted previous month's misc report to approve
   if (action === 'approve' && profile?.role === 'project_manager') {
-    const budgetMonth = (budget as any).year_month;
+    const budgetMonth = (budget as /* // */ any).year_month;
     const prevDate = new Date(parseInt(budgetMonth.split('-')[0]), parseInt(budgetMonth.split('-')[1]) - 2, 1);
     const prevMonth = prevDate.getFullYear() + '-' + String(prevDate.getMonth() + 1).padStart(2, '0');
 
@@ -41,7 +45,7 @@ export async function POST(request: Request) {
     if (prevMonth >= gateStart) {
       const { data: miscReport } = await admin.from('misc_reports')
         .select('status')
-        .eq('project_id', (budget as any).project_id)
+        .eq('project_id', (budget as /* // */ any).project_id)
         .eq('period_month', prevMonth)
         .single();
 
@@ -56,8 +60,8 @@ export async function POST(request: Request) {
   }
 
   // Get current version
-  const versions = (budget as any).budget_versions || [];
-  const currentVersion = versions.find((v: any) => v.version_number === (budget as any).current_version);
+  const versions = (budget as /* // */ any).budget_versions || [];
+  const currentVersion = versions.find((v: /* // */ any) => v.version_number === (budget as /* // */ any).current_version);
   if (!currentVersion) return NextResponse.json({ error: 'No current version' }, { status: 400 });
 
   if (currentVersion.status !== 'pm_review') {
@@ -66,12 +70,12 @@ export async function POST(request: Request) {
 
   // Mark PM review opened
   await admin.from('budgets').update({
-    pm_review_opened_at: (budget as any).pm_review_opened_at || new Date().toISOString(),
+    pm_review_opened_at: (budget as /* // */ any).pm_review_opened_at || new Date().toISOString(),
     pm_reviewer_id: user.id,
   }).eq('id', budget_id);
 
   let newStatus = '';
-  const versionUpdate: any = {
+  const versionUpdate: /* // */ any = {
     pm_reviewed_by: user.id,
     pm_reviewed_at: new Date().toISOString(),
   };
@@ -93,9 +97,9 @@ export async function POST(request: Request) {
   await admin.from('budget_versions').update(versionUpdate).eq('id', currentVersion.id);
 
   // Get project and submitter info for notifications
-  const { data: project } = await admin.from('projects').select('name').eq('id', (budget as any).project_id).single();
-  const submitterId = (budget as any).created_by;
-  const isAccountantBudget = (budget as any).submitted_by_role === 'accountant';
+  const { data: project } = await admin.from('projects').select('name').eq('id', (budget as /* // */ any).project_id).single();
+  const submitterId = (budget as /* // */ any).created_by;
+  const isAccountantBudget = (budget as /* // */ any).submitted_by_role === 'accountant';
 
   // Notify the submitter (TL or Accountant)
   if (submitterId) {
@@ -142,5 +146,8 @@ export async function POST(request: Request) {
     new_values: { status: newStatus, comments },
   });
 
-  return NextResponse.json({ success: true, new_status: newStatus });
+    return NextResponse.json({ success: true, new_status: newStatus });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to process PM budget review.', 'PM_REVIEW_ERROR');
+  }
 }

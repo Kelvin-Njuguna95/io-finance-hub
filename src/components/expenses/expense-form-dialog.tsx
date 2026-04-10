@@ -15,6 +15,7 @@ import { getCurrentYearMonth } from '@/lib/format';
 import { toast } from 'sonner';
 import type { Project, ExpenseType } from '@/types/database';
 import { getUserErrorMessage } from '@/lib/errors';
+import { getActiveProjects } from '@/lib/queries/projects';
 
 interface ExpenseFormDialogProps {
   open: boolean;
@@ -80,7 +81,7 @@ export function ExpenseFormDialog({ open, onClose, onSaved }: ExpenseFormDialogP
       setBudgets(approvedBudgets);
 
       const [projRes, ohRes, ecRes] = await Promise.all([
-        supabase.from('projects').select('id, name').eq('is_active', true).order('name'),
+        getActiveProjects(supabase),
         supabase.from('overhead_categories').select('id, name').eq('is_active', true).order('name'),
         supabase.from('expense_categories').select('id, name').eq('is_active', true).order('name'),
       ]);

@@ -16,11 +16,13 @@ import {
 } from '@/components/ui/table';
 import { InvoiceFormDialog } from '@/components/revenue/invoice-form-dialog';
 import { PaymentFormDialog } from '@/components/revenue/payment-form-dialog';
-import { formatCurrency, formatDate, formatYearMonth, getCurrentYearMonth, capitalize } from '@/lib/format';
+import { formatCurrency, formatDate, formatYearMonth, capitalize } from '@/lib/format';
 import { getStatusBadgeClass } from '@/lib/status';
 import { getAgingBucket } from '@/lib/backdated-utils';
 import { toast } from 'sonner';
 import { DollarSign, FileText, AlertTriangle, Plus, CreditCard } from 'lucide-react';
+import { getAllInvoices, getInvoiceOutstandingTotal, getInvoicesByMonth } from '@/lib/queries/invoices';
+import { INVOICE_STATUS, OUTSTANDING_INVOICE_STATUSES } from '@/lib/constants/status';
 
 type InvoiceRow = {
   id: string;
@@ -38,7 +40,8 @@ type InvoiceRow = {
 
 export default function InvoicesPage() {
   const { user } = useUser();
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
+  const [selectedMonth, setSelectedMonth] = useState<'all' | string>('all');
+
   const [rows, setRows] = useState<InvoiceRow[]>([]);
   const [tab, setTab] = useState<'all' | 'outstanding'>('all');
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
@@ -48,12 +51,9 @@ export default function InvoicesPage() {
 
   const loadInvoices = useCallback(async () => {
     const supabase = createClient();
-    const { data, error } = await supabase
-      .from('invoices')
-      .select('id, invoice_number, project_id, invoice_date, due_date, billing_period, amount_usd, status, description, projects(name), payments(amount_usd)')
-      .eq('billing_period', selectedMonth)
-      .order('invoice_date', { ascending: false });
-
+    const { data, error } = selectedMonth === 'all'
+      ? await getAllInvoices(supabase)
+      : await getInvoicesByMonth(supabase, selectedMonth);
     if (error) {
       toast.error('Failed to load invoices');
       return;
@@ -62,16 +62,12 @@ export default function InvoicesPage() {
   }, [selectedMonth]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadInvoices();
   }, [loadInvoices]);
 
   const viewRows = useMemo(() => {
     if (tab === 'all') return rows;
-    return rows.filter((row) => {
-      const paid = (row.payments || []).reduce((s, p) => s + Number(p.amount_usd || 0), 0);
-      return Number(row.amount_usd) - paid > 0;
-    });
+    return rows.filter((row) => getInvoiceOutstandingTotal(row) > 0 && OUTSTANDING_INVOICE_STATUSES.includes(row.status as /* // */ any));
   }, [rows, tab]);
 
   const totals = useMemo(() => {
@@ -82,7 +78,7 @@ export default function InvoicesPage() {
       const paid = (r.payments || []).reduce((s, p) => s + Number(p.amount_usd || 0), 0);
       const outstanding = Number(r.amount_usd) - paid;
       if (outstanding <= 0) return false;
-      return getAgingBucket(r.invoice_date) !== 'current';
+      return getAgingBucket(r.invoice_date).days > 30;
     }).length;
     return { totalInvoiced, totalPaid, totalOutstanding, overdueCount };
   }, [rows]);
@@ -124,6 +120,8 @@ export default function InvoicesPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="all">All Months</SelectItem>
+
               {Array.from({ length: 12 }, (_, i) => {
                 const d = new Date();
                 d.setMonth(d.getMonth() - i);
@@ -173,9 +171,9 @@ export default function InvoicesPage() {
             </TabsList>
           </Tabs>
 
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/revenue">Go to Revenue Overview</Link>
-          </Button>
+          <Link href="/revenue">
+            <Button variant="ghost" size="sm">Go to Revenue Overview</Button>
+          </Link>
         </div>
 
         <Card>
@@ -198,7 +196,8 @@ export default function InvoicesPage() {
                 {viewRows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={canManage ? 9 : 8} className="py-8 text-center text-sm text-neutral-500">
-                      No invoices found for {formatYearMonth(selectedMonth)}
+                      {selectedMonth === 'all' ? 'No invoices found.' : `No invoices found for ${formatYearMonth(selectedMonth)}`}
+
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -229,11 +228,11 @@ export default function InvoicesPage() {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="draft">Draft</SelectItem>
-                                  <SelectItem value="sent">Sent</SelectItem>
-                                  <SelectItem value="partially_paid">Partially Paid</SelectItem>
-                                  <SelectItem value="paid">Paid</SelectItem>
-                                  <SelectItem value="overdue">Overdue</SelectItem>
+                                  <SelectItem value={INVOICE_STATUS.DRAFT}>Draft</SelectItem>
+                                  <SelectItem value={INVOICE_STATUS.SENT}>Sent</SelectItem>
+                                  <SelectItem value={INVOICE_STATUS.PARTIALLY_PAID}>Partially Paid</SelectItem>
+                                  <SelectItem value={INVOICE_STATUS.PAID}>Paid</SelectItem>
+                                  <SelectItem value={INVOICE_STATUS.OVERDUE}>Overdue</SelectItem>
                                 </SelectContent>
                               </Select>
                               <Button variant="ghost" size="sm" onClick={() => handleDeleteInvoice(row.id)}>
