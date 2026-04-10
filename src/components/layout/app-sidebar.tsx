@@ -230,9 +230,15 @@ export function AppSidebar() {
                 <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} disabled={isSigningOut}>
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  void handleSignOut();
+                }}
+                disabled={isSigningOut}
+              >
                 <LogOut className="size-4" aria-hidden />
-                <span>{isSigningOut ? 'Signing out…' : 'Sign out'}</span>
+                <span>{isSigningOut ? 'Signing out…' : 'Sign Out'}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
