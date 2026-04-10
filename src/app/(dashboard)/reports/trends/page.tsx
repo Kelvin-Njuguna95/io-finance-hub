@@ -69,6 +69,20 @@ interface ProfitSharePoint {
   [key: string]: number | string;
 }
 
+interface TooltipPayloadEntry {
+  color?: string;
+  dataKey?: string;
+  name?: string;
+  value?: number | string;
+  payload?: { month?: string };
+}
+
+interface TooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadEntry[];
+  label?: string;
+}
+
 function ChartSkeleton() {
   return <div className="h-80 bg-slate-50 rounded-lg animate-pulse flex items-center justify-center text-slate-300">Loading chart...</div>;
 }
@@ -77,18 +91,24 @@ function InsightBadge({ text }: { text: string }) {
   return <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm">{text}</div>;
 }
 
-const CustomTooltip = ({ active, payload, label }: /* // */ any) => {
+const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
   if (!active || !payload?.length) return null;
-  const hasUndistributed = payload.some((e: /* // */ any) => e.dataKey === 'Undistributed' && e.value > 0);
+  const hasUndistributed = payload.some((e) => e.dataKey === 'Undistributed' && typeof e.value === 'number' && e.value > 0);
   const paymentMonth = payload?.[0]?.payload?.month;
-  const paidIn = paymentMonth ? new Date(parseInt(String(paymentMonth).split('-')[0]), parseInt(String(paymentMonth).split('-')[1]) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : null;
+  const paidIn = paymentMonth
+    ? new Intl.DateTimeFormat('en-KE', {
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'Africa/Nairobi',
+      }).format(new Date(`${paymentMonth}-01T00:00:00+03:00`))
+    : null;
   return (
     <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs">
       <p className="font-semibold mb-1">{label}</p>
       {paidIn && <p className="text-slate-500 mb-1">Paid in: {paidIn}</p>}
-      {payload.map((entry: /* // */ any, i: number) => (
+      {payload.map((entry, i: number) => (
         <p key={i} style={{ color: entry.color }}>
-          {entry.name}: {typeof entry.value === 'number' ? formatKesShort(entry.value) : entry.value}
+          {entry.name}: {typeof entry.value === 'number' ? formatKesShort(entry.value) : (entry.value ?? '—')}
         </p>
       ))}
       {hasUndistributed && (
@@ -113,72 +133,83 @@ export default function TrendsPage() {
   const [directors, setDirectors] = useState<string[]>([]);
   const [userRole, setUserRole] = useState('');
   const [insights, setInsights] = useState<string[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const months = useMemo(() => getMonthRange(rangeMonths), [rangeMonths]);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const supabase = createClient();
+      setLoadError(null);
+      try {
+        const supabase = createClient();
 
-      const { data: { user } } = await supabase.auth.getUser();
-      let role = '';
-      let assignedProjects: string[] = [];
-      if (user) {
-        const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
-        role = profile?.role || '';
-        setUserRole(role);
-        if (role === 'team_leader' || role === 'project_manager') {
-          const { data: assigns } = await supabase.from('user_project_assignments').select('project_id').eq('user_id', user.id);
-          assignedProjects = (assigns || []).map((a: /* // */ any) => a.project_id);
+        const { data: { user } } = await supabase.auth.getUser();
+        let role = '';
+        let assignedProjects: string[] = [];
+        if (user) {
+          const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
+          role = profile?.role || '';
+          setUserRole(role);
+          if (role === 'team_leader' || role === 'project_manager') {
+            const { data: assigns } = await supabase.from('user_project_assignments').select('project_id').eq('user_id', user.id);
+            assignedProjects = (assigns || []).map((a: { project_id: string }) => a.project_id);
+          }
         }
-      }
-      const isRestricted = role === 'team_leader' || role === 'project_manager';
+        const isRestricted = role === 'team_leader' || role === 'project_manager';
 
       // Fetch all data needed
-      const [projRes, rateRes] = await Promise.all([
-        supabase.from('projects').select('id, name, director_tag').eq('is_active', true),
-        supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single(),
-      ]);
-      const stdRate = parseFloat(rateRes.data?.value || '129.5');
-      let projects = projRes.data || [];
-      if (isRestricted) projects = projects.filter(p => assignedProjects.includes(p.id));
+        const [projRes, rateRes] = await Promise.all([
+          supabase.from('projects').select('id, name, director_tag').eq('is_active', true),
+          supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single(),
+        ]);
+        if (projRes.error) throw projRes.error;
+        const stdRate = parseFloat(rateRes.data?.value || '129.5');
+        let projects = projRes.data || [];
+        if (isRestricted) projects = projects.filter(p => assignedProjects.includes(p.id));
 
       // Detect historical (seeded) months — these use direct matching, not lagged revenue
-      const { data: snapshots } = await supabase
-        .from('monthly_financial_snapshots')
-        .select('year_month, data_source')
-        .in('year_month', months);
-      const historicalMonths = new Set(
-        (snapshots || [])
-          .filter((s: /* // */ any) => s.data_source && s.data_source.startsWith('historical_seed'))
-          .map((s: /* // */ any) => s.year_month)
-      );
+        const { data: snapshots, error: snapshotsError } = await supabase
+          .from('monthly_financial_snapshots')
+          .select('year_month, data_source')
+          .in('year_month', months);
+        if (snapshotsError) throw snapshotsError;
+        const historicalMonths = new Set(
+          (snapshots || [])
+            .filter((s) => s.data_source && s.data_source.startsWith('historical_seed'))
+            .map((s) => s.year_month)
+        );
 
       // Revenue months needed (lagged for live months, direct for historical)
       const allRevenueMonths = months.map(m => historicalMonths.has(m) ? m : getLaggedMonth(m));
       const allMonthsNeeded = [...new Set([...months, ...allRevenueMonths])];
 
-      const [invRes, projExpRes, sharedExpRes, agentRes, payRes, psRecRes] = await Promise.all([
-        supabase.from('invoices').select('project_id, amount_usd, amount_kes, billing_period, description').in('billing_period', allRevenueMonths),
-        supabase.from('expenses').select('project_id, amount_kes, expense_type, expense_category_id, year_month, expense_categories(name)').in('year_month', months).eq('expense_type', 'project_expense'),
-        supabase.from('expenses').select('amount_kes, year_month, expense_categories(name)').in('year_month', months).eq('expense_type', 'shared_expense'),
-        supabase.from('agent_counts').select('project_id, agent_count, year_month').in('year_month', months),
-        supabase.from('payments').select('amount_usd, payment_date, invoice_id'),
-        supabase.from('profit_share_records').select('year_month, status, total_distributed').in('year_month', months),
-      ]);
+        const [invRes, projExpRes, sharedExpRes, agentRes, payRes, psRecRes] = await Promise.all([
+          supabase.from('invoices').select('project_id, amount_usd, amount_kes, billing_period, description').in('billing_period', allRevenueMonths),
+          supabase.from('expenses').select('project_id, amount_kes, expense_type, expense_category_id, year_month, expense_categories(name)').in('year_month', months).eq('expense_type', 'project_expense'),
+          supabase.from('expenses').select('amount_kes, year_month, expense_categories(name)').in('year_month', months).eq('expense_type', 'shared_expense'),
+          supabase.from('agent_counts').select('project_id, agent_count, year_month').in('year_month', months),
+          supabase.from('payments').select('amount_usd, payment_date, invoice_id'),
+          supabase.from('profit_share_records').select('year_month, status, total_distributed').in('year_month', months),
+        ]);
+        if (invRes.error) throw invRes.error;
+        if (projExpRes.error) throw projExpRes.error;
+        if (sharedExpRes.error) throw sharedExpRes.error;
+        if (agentRes.error) throw agentRes.error;
+        if (payRes.error) throw payRes.error;
+        if (psRecRes.error) throw psRecRes.error;
 
-      const invoices = (invRes.data || []).filter((i: /* // */ any) => !isBackdated(i.description));
-      const projExpenses = isRestricted
-        ? (projExpRes.data || []).filter((e: /* // */ any) => assignedProjects.includes(e.project_id))
-        : projExpRes.data || [];
-      const sharedExpenses = sharedExpRes.data || [];
-      const agentCounts = agentRes.data || [];
-      const payments = payRes.data || [];
-      const profitShareRecords = psRecRes.data || [];
+        const invoices = (invRes.data || []).filter((i) => !isBackdated(i.description));
+        const projExpenses = isRestricted
+          ? (projExpRes.data || []).filter((e) => assignedProjects.includes(e.project_id))
+          : projExpRes.data || [];
+        const sharedExpenses = sharedExpRes.data || [];
+        const agentCounts = agentRes.data || [];
+        const payments = payRes.data || [];
+        const profitShareRecords = psRecRes.data || [];
 
-      // Build monthly aggregates
-      const monthly: MonthData[] = [];
+        // Build monthly aggregates
+        const monthly: MonthData[] = [];
       const projTrends: ProjectTrend[] = [];
       const expComp: ExpenseComposition[] = [];
       const idxData: IndexPoint[] = [];
@@ -382,8 +413,24 @@ export default function TrendsPage() {
           }
         }
       }
-      setInsights(ins.slice(0, 5));
-      setLoading(false);
+        setInsights(ins.slice(0, 5));
+      } catch (error) {
+        console.error('Trends page error:', error);
+        setMonthlyData([]);
+        setProjectTrends([]);
+        setProjectNames([]);
+        setExpenseComp([]);
+        setExpenseCategories([]);
+        setIndexData([]);
+        setCashFlow([]);
+        setAgentEff([]);
+        setProfitShare([]);
+        setDirectors([]);
+        setInsights([]);
+        setLoadError('Unable to load trends data. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, [rangeMonths]);
@@ -417,19 +464,34 @@ export default function TrendsPage() {
       </PageHeader>
 
       <div className="p-6 space-y-8">
-        {!loading && <ExecutiveInsightPanel lines={[
+        {!loading && !loadError && <ExecutiveInsightPanel lines={[
           insights[0] || 'Revenue growing 2× faster than costs.',
           insights[1] || 'Collections trend is stable with low outstanding risk.',
           insights[2] || 'Revenue per agent remains the key productivity signal.',
         ]} />}
 
-        {!loading && (
+        {!loading && !loadError && (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <ExecutiveKpiCard label="Net Profit" value={formatCompactCurrency(monthlyData.at(-1)?.netProfit || 0, 'KES')} trend="↑ Momentum" />
             <ExecutiveKpiCard label="Total Revenue" value={formatCompactCurrency(monthlyData.at(-1)?.revenue || 0, 'KES')} trend="↑ Growth" />
             <ExecutiveKpiCard label="Avg Service Expenses" value={formatCompactCurrency(cashFlow.reduce((s, c) => s + c.serviceExpenses, 0) / Math.max(cashFlow.length, 1), 'KES')} trend="Paid next month" />
             <ExecutiveKpiCard label="Revenue Growth" value="Trending ↑" trend="On Track" />
           </div>
+        )}
+
+        {loadError && (
+          <Card className="io-card">
+            <CardContent className="py-12 text-center">
+              <p className="text-sm text-slate-500">{loadError}</p>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={() => window.location.reload()}
+              >
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
         )}
 
         {/* CHART 1: Revenue vs Expenses */}
