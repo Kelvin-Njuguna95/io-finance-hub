@@ -295,7 +295,8 @@ export default function WithdrawalsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Director</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Description</TableHead>
                   <TableHead className="text-right">USD</TableHead>
                   <TableHead className="text-right">Rate</TableHead>
                   <TableHead className="text-right">KES Received</TableHead>
@@ -307,7 +308,7 @@ export default function WithdrawalsPage() {
               <TableBody>
                 {withdrawals.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       No withdrawals for {formatYearMonth(selectedMonth)}
                     </TableCell>
                   </TableRow>
@@ -316,7 +317,29 @@ export default function WithdrawalsPage() {
                     {withdrawals.map((w) => (
                       <TableRow key={w.id}>
                         <TableCell>{formatDate(w.withdrawal_date)}</TableCell>
-                        <TableCell className="font-medium">{capitalize(w.director_tag)}</TableCell>
+                        <TableCell>
+                          {w.withdrawal_type === 'director_payout' ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                              💰 Director Payout
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                              Operations
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {w.withdrawal_type === 'director_payout' ? (
+                            <div>
+                              <p className="font-medium text-sm">{w.director_name || 'Director'} — Profit Share Payout</p>
+                              <p className="text-xs text-slate-500">
+                                {w.payout_type === 'full' ? 'Full payout' : 'Partial payout'} · {formatYearMonth(w.withdrawal_date.slice(0, 7))}
+                              </p>
+                            </div>
+                          ) : (
+                            capitalize(w.director_tag)
+                          )}
+                        </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {formatCurrency(Number(w.amount_usd), 'USD')}
                         </TableCell>
@@ -334,7 +357,7 @@ export default function WithdrawalsPage() {
                       </TableRow>
                     ))}
                     <TableRow className="font-semibold bg-muted/50">
-                      <TableCell colSpan={2} className="text-right">Totals</TableCell>
+                      <TableCell colSpan={3} className="text-right">Totals</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalWithdrawnUsd, 'USD')}</TableCell>
                       <TableCell className="text-right font-mono text-sm">{avgRate > 0 ? `Avg: ${avgRate.toFixed(2)}` : ''}</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalReceivedKes, 'KES')}</TableCell>
