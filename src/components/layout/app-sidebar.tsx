@@ -32,7 +32,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ChevronsUpDown, LogOut, Wallet } from 'lucide-react';
-import { toast } from 'sonner';
 
 /**
  * Finance Hub sidebar. Built on the shadcn Sidebar primitive so we get
