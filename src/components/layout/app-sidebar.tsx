@@ -26,6 +26,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -218,12 +219,14 @@ export function AppSidebar() {
               side="top"
               className="min-w-[14rem]"
             >
-              <DropdownMenuLabel className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold">{user.full_name}</span>
-                <span className="truncate text-xs font-normal text-muted-foreground">
-                  {user.email}
-                </span>
-              </DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold">{user.full_name}</span>
+                  <span className="truncate text-xs font-normal text-muted-foreground">
+                    {user.email}
+                  </span>
+                </DropdownMenuLabel>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem render={<Link href="/settings" />}>
                 <Wallet className="size-4" aria-hidden />
