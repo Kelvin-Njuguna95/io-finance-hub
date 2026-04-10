@@ -1268,7 +1268,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
     const projs = projRes.data || [];
     setProjects(projs);
 
-    const allocMap = new Map((allocRes.data || []).map((a: /* // */ any) => [a.project_id, Number(a.monthly_amount)]));
+    const allocMap = new Map<string, number>((allocRes.data || []).map((a: { project_id: string; monthly_amount: number | string }) => [a.project_id, Number(a.monthly_amount)]));
     setAllocations(allocMap);
 
     const draws = drawsRes.data || [];

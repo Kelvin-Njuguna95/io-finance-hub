@@ -12,6 +12,9 @@ export type ProfitShareStatus = 'pending_review' | 'approved' | 'disputed';
 export type InvoiceStatus = 'draft' | 'sent' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled';
 export type RedFlagSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type CurrencyCode = 'USD' | 'KES';
+export type WithdrawalType = 'operations' | 'director_payout';
+export type PayoutType = 'full' | 'partial';
+export type PayoutStatus = 'unpaid' | 'partial' | 'paid';
 
 export const DIRECTORS: { value: DirectorEnum; label: string }[] = [
   { value: 'kelvin', label: 'Kelvin' },
@@ -186,8 +189,13 @@ export interface Payment {
 export interface Withdrawal {
   id: string;
   withdrawal_date: string;
+  withdrawal_type: WithdrawalType;
   director_tag: DirectorEnum;
   director_user_id: string;
+  director_name: string | null;
+  profit_share_record_id: string | null;
+  payout_type: PayoutType | null;
+  partial_payout_sequence: number | null;
   amount_usd: number;
   exchange_rate: number;
   amount_kes: number;
@@ -255,6 +263,10 @@ export interface ProfitShareRecord {
   dispute_reason: string | null;
   adjustment_notes: string | null;
   is_locked: boolean;
+  total_paid_out: number | null;
+  balance_remaining: number | null;
+  payout_status: PayoutStatus | null;
+  last_payout_date: string | null;
   created_at: string;
   updated_at: string;
 }

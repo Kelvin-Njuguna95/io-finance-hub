@@ -80,7 +80,7 @@ export default function BudgetAccuracyPage() {
       const projects = (projRes.data || []).filter(p => !isRestricted || assignedProjects.includes(p.id));
       const budgets = (budRes.data || []).filter((b: /* // */ any) => !isRestricted || assignedProjects.includes(b.project_id));
       const expenses = (expRes.data || []).filter((e: /* // */ any) => !isRestricted || assignedProjects.includes(e.project_id));
-      const projMap = new Map(projects.map(p => [p.id, p.name]));
+      const projMap = new Map<string, string>(projects.map((p: { id: string; name: string }) => [p.id, p.name]));
       const projNameSet = new Set<string>();
 
       // Build expense by project+month
