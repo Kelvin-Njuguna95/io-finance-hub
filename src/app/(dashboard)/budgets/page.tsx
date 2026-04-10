@@ -24,6 +24,10 @@ import { formatCurrency, getCurrentYearMonth, formatYearMonth, capitalize } from
 import { Plus, Eye, Undo2, Trash2, Info } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { DashboardAlert } from '@/components/common/dashboard-alert';
+import { getStatusBadgeClass } from '@/lib/status';
+import { getBudgetsByMonth } from '@/lib/queries/budgets';
+import { BUDGET_STATUS } from '@/lib/constants/status';
 
 interface BudgetRow {
   id: string;
@@ -39,18 +43,6 @@ interface BudgetRow {
   created_by_name: string;
   submitted_by_role: string;
 }
-
-const statusColors: Record<string, string> = {
-  draft: 'bg-slate-100 text-slate-600',
-  submitted: 'bg-blue-100 text-blue-700',
-  under_review: 'bg-amber-100 text-amber-700',
-  pm_review: 'bg-purple-100 text-purple-700',
-  pm_approved: 'bg-teal-100 text-teal-700',
-  pm_rejected: 'bg-rose-100 text-rose-700',
-  returned_to_tl: 'bg-amber-200 text-amber-800',
-  approved: 'bg-emerald-100 text-emerald-700',
-  rejected: 'bg-rose-100 text-rose-700',
-};
 
 const statusLabels: Record<string, string> = {
   draft: 'Draft',
@@ -76,10 +68,16 @@ export default function BudgetsPage() {
   }, [selectedMonth]);
 
   const [deleteTarget, setDeleteTarget] = useState<BudgetRow | null>(null);
-  const canCreate = user?.role === 'team_leader' || user?.role === 'project_manager' || user?.role === 'cfo' || user?.role === 'accountant';
-  const canManageBudgets = user?.role === 'team_leader' || user?.role === 'cfo' || user?.role === 'project_manager' || user?.role === 'accountant';
+  // Security audit note: this client-side role check mirrors server-side guards in budget API routes.
+  const canCreate = user?.role === 'team_leader' || user?.role === 'project_manager' || user?.role === 'cfo' || user?.role === 'accountant' || user?.role === 'department_head';
+  const canManageBudgets = user?.role === 'team_leader' || user?.role === 'cfo' || user?.role === 'project_manager' || user?.role === 'accountant' || user?.role === 'department_head';
   const isAccountant = user?.role === 'accountant';
   const isTl = user?.role === 'team_leader';
+  const newBudgetButtonLabel = user?.role === 'team_leader'
+    ? 'New Budget'
+    : user?.role === 'accountant' || user?.role === 'cfo'
+      ? 'New Project / Department Budget'
+      : 'New Project Budget';
 
   async function getAuthHeaders(): Promise<Record<string, string>> {
     const supabase = createClient();
@@ -124,17 +122,13 @@ export default function BudgetsPage() {
 
   async function load() {
     const supabase = createClient();
-    const { data } = await supabase
-      .from('budgets')
-      .select('id, year_month, current_version, project_id, department_id, created_by, submitted_by_role, projects(name), departments(name), budget_versions(status, total_amount_usd, total_amount_kes, version_number)')
-      .eq('year_month', selectedMonth)
-      .order('created_at', { ascending: false });
+    const { data } = await getBudgetsByMonth(supabase, selectedMonth);
 
     // Get user names for created_by
     const userIds = new Set<string>();
-    (data || []).forEach((b: any) => { if (b.created_by) userIds.add(b.created_by); });
+    (data || []).forEach((b: /* // */ any) => { if (b.created_by) userIds.add(b.created_by); });
     const { data: users } = await supabase.from('users').select('id, full_name').in('id', Array.from(userIds));
-    const nameMap = new Map((users || []).map((u: any) => [u.id, u.full_name]));
+    const nameMap = new Map((users || []).map((u: /* // */ any) => [u.id, u.full_name]));
 
     const rows: BudgetRow[] = (data || []).map((b: Record<string, unknown>) => {
       const versions = (b.budget_versions as Record<string, unknown>[]) || [];
@@ -163,8 +157,8 @@ export default function BudgetsPage() {
   const filteredBudgets = budgets.filter(b => {
     if (filterTab === 'all') return true;
     if (filterTab === 'mine') return b.created_by === user?.id;
-    if (filterTab === 'pending') return ['submitted', 'pm_review', 'pm_approved', 'under_review'].includes(b.latest_status);
-    if (filterTab === 'approved') return b.latest_status === 'approved';
+    if (filterTab === 'pending') return b.latest_status === BUDGET_STATUS.PM_REVIEW;
+    if (filterTab === 'approved') return b.latest_status === BUDGET_STATUS.APPROVED;
     return true;
   });
 
@@ -191,9 +185,10 @@ export default function BudgetsPage() {
   }
 
   function canDeleteBudget(b: BudgetRow): boolean {
+    if (user?.role === 'cfo') return true;
+    if (user?.role === 'accountant' && b.created_by === user?.id) return true;
     if (b.latest_status !== 'draft') return false;
     if (b.created_by === user?.id) return true;
-    if (user?.role === 'cfo') return true;
     return false;
   }
 
@@ -234,7 +229,7 @@ export default function BudgetsPage() {
         {canCreate && (
           <Link href="/budgets/new">
             <Button size="sm" className="gap-1">
-              <Plus className="h-4 w-4" /> New Budget
+              <Plus className="h-4 w-4" /> {newBudgetButtonLabel}
             </Button>
           </Link>
         )}
@@ -243,12 +238,10 @@ export default function BudgetsPage() {
       <div className="p-6 space-y-4">
         {/* TL notice about accountant budgets */}
         {isTl && accountantBudgetsForTlProject.length > 0 && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 flex items-start gap-2">
-            <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
-            <div className="text-sm text-blue-700">
-              The Accountant has also submitted {accountantBudgetsForTlProject.length === 1 ? 'a budget' : `${accountantBudgetsForTlProject.length} budgets`} for your project this month. Both are under PM review.
-            </div>
-          </div>
+          <DashboardAlert
+            variant="info"
+            description={`The Accountant has also submitted ${accountantBudgetsForTlProject.length === 1 ? 'a budget' : `${accountantBudgetsForTlProject.length} budgets`} for your project this month. Both are under PM review.`}
+          />
         )}
 
         {/* Filter tabs for accountant */}
@@ -263,8 +256,9 @@ export default function BudgetsPage() {
           </Tabs>
         )}
 
-        <Card>
+          <Card>
           <CardContent className="p-0">
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -295,7 +289,9 @@ export default function BudgetsPage() {
                       <TableRow key={b.id} className={hasSibling ? 'border-l-2 border-l-amber-300' : ''}>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
-                            {b.project_name || b.department_name || '—'}
+                            <span className="truncate max-w-[220px]" title={b.project_name || b.department_name || '—'}>
+                              {b.project_name || b.department_name || '—'}
+                            </span>
                             {hasSibling && (
                               <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">
                                 {siblings.length} versions
@@ -310,16 +306,26 @@ export default function BudgetsPage() {
                               variant="secondary"
                               className={b.submitted_by_role === 'accountant'
                                 ? 'bg-blue-100 text-blue-700 text-[10px] px-1.5'
-                                : 'bg-amber-100 text-amber-700 text-[10px] px-1.5'
+                                : b.submitted_by_role === 'project_manager'
+                                  ? 'bg-teal-100 text-teal-700 text-[10px] px-1.5'
+                                  : b.submitted_by_role === 'cfo'
+                                    ? 'bg-violet-100 text-violet-700 text-[10px] px-1.5'
+                                    : 'bg-amber-100 text-amber-700 text-[10px] px-1.5'
                               }
                             >
-                              {b.submitted_by_role === 'accountant' ? 'Accountant' : 'TL'}
+                              {b.submitted_by_role === 'accountant'
+                                ? 'Accountant'
+                                : b.submitted_by_role === 'project_manager'
+                                  ? 'PM'
+                                  : b.submitted_by_role === 'cfo'
+                                    ? 'CFO'
+                                    : 'TL'}
                             </Badge>
                           </div>
                         </TableCell>
                         <TableCell>v{b.current_version}</TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className={statusColors[b.latest_status] || ''}>
+                          <Badge variant="secondary" className={getStatusBadgeClass(b.latest_status)}>
                             {statusLabels[b.latest_status] || capitalize(b.latest_status)}
                           </Badge>
                         </TableCell>
@@ -344,7 +350,7 @@ export default function BudgetsPage() {
                               </Link>
                             )}
                             {canDeleteBudget(b) && (
-                              <Button variant="ghost" size="icon" title="Delete" onClick={() => setDeleteTarget(b)}>
+                              <Button variant="ghost" size="icon" title="Delete Budget Record" onClick={() => setDeleteTarget(b)}>
                                 <Trash2 className="h-4 w-4 text-red-500" />
                               </Button>
                             )}
@@ -356,6 +362,7 @@ export default function BudgetsPage() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -371,9 +378,10 @@ export default function BudgetsPage() {
               This cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-            Amount: {formatCurrency(deleteTarget?.total_kes || 0, 'KES')} · Version {deleteTarget?.current_version}
-          </div>
+          <DashboardAlert
+            variant="error"
+            description={`Amount: ${formatCurrency(deleteTarget?.total_kes || 0, 'KES')} · Version ${deleteTarget?.current_version}`}
+          />
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDelete}>Delete Permanently</Button>

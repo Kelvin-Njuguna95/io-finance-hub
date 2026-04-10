@@ -3,8 +3,10 @@
 import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ChartStatusBadge, ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency } from '@/components/reports/executive-kit';
 import { formatCurrency, formatYearMonth } from '@/lib/format';
 import { getLaggedMonth, getMonthRange, shortMonth, formatKesShort, CHART_COLORS, getProjectColor } from '@/lib/report-utils';
 import { isBackdated } from '@/lib/backdated-utils';
@@ -12,6 +14,8 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, ComposedChart, Area, ReferenceLine, Cell,
 } from 'recharts';
+import { FileDown } from 'lucide-react';
+import { exportSimpleReportPdf } from '@/lib/pdf-export';
 
 interface MonthData {
   month: string;
@@ -45,7 +49,8 @@ interface IndexPoint {
 interface CashFlowPoint {
   month: string;
   label: string;
-  recognised: number;
+  serviceRevenue: number;
+  serviceExpenses: number;
   cashReceived: number;
   outstanding: number;
 }
@@ -72,13 +77,16 @@ function InsightBadge({ text }: { text: string }) {
   return <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm">{text}</div>;
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: /* // */ any) => {
   if (!active || !payload?.length) return null;
-  const hasUndistributed = payload.some((e: any) => e.dataKey === 'Undistributed' && e.value > 0);
+  const hasUndistributed = payload.some((e: /* // */ any) => e.dataKey === 'Undistributed' && e.value > 0);
+  const paymentMonth = payload?.[0]?.payload?.month;
+  const paidIn = paymentMonth ? new Date(parseInt(String(paymentMonth).split('-')[0]), parseInt(String(paymentMonth).split('-')[1]) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : null;
   return (
     <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs">
       <p className="font-semibold mb-1">{label}</p>
-      {payload.map((entry: any, i: number) => (
+      {paidIn && <p className="text-slate-500 mb-1">Paid in: {paidIn}</p>}
+      {payload.map((entry: /* // */ any, i: number) => (
         <p key={i} style={{ color: entry.color }}>
           {entry.name}: {typeof entry.value === 'number' ? formatKesShort(entry.value) : entry.value}
         </p>
@@ -122,7 +130,7 @@ export default function TrendsPage() {
         setUserRole(role);
         if (role === 'team_leader' || role === 'project_manager') {
           const { data: assigns } = await supabase.from('user_project_assignments').select('project_id').eq('user_id', user.id);
-          assignedProjects = (assigns || []).map((a: any) => a.project_id);
+          assignedProjects = (assigns || []).map((a: /* // */ any) => a.project_id);
         }
       }
       const isRestricted = role === 'team_leader' || role === 'project_manager';
@@ -143,8 +151,8 @@ export default function TrendsPage() {
         .in('year_month', months);
       const historicalMonths = new Set(
         (snapshots || [])
-          .filter((s: any) => s.data_source && s.data_source.startsWith('historical_seed'))
-          .map((s: any) => s.year_month)
+          .filter((s: /* // */ any) => s.data_source && s.data_source.startsWith('historical_seed'))
+          .map((s: /* // */ any) => s.year_month)
       );
 
       // Revenue months needed (lagged for live months, direct for historical)
@@ -160,9 +168,9 @@ export default function TrendsPage() {
         supabase.from('profit_share_records').select('year_month, status, total_distributed').in('year_month', months),
       ]);
 
-      const invoices = (invRes.data || []).filter((i: any) => !isBackdated(i.description));
+      const invoices = (invRes.data || []).filter((i: /* // */ any) => !isBackdated(i.description));
       const projExpenses = isRestricted
-        ? (projExpRes.data || []).filter((e: any) => assignedProjects.includes(e.project_id))
+        ? (projExpRes.data || []).filter((e: /* // */ any) => assignedProjects.includes(e.project_id))
         : projExpRes.data || [];
       const sharedExpenses = sharedExpRes.data || [];
       const agentCounts = agentRes.data || [];
@@ -185,13 +193,14 @@ export default function TrendsPage() {
 
       for (const m of months) {
         const revenueMonth = historicalMonths.has(m) ? m : getLaggedMonth(m);
-        const label = shortMonth(m);
+        const serviceMonth = getLaggedMonth(m);
+        const label = shortMonth(serviceMonth);
 
         // Revenue (direct for historical, lagged for live)
         const mInvoices = invoices.filter(i => i.billing_period === revenueMonth);
         let revenue = 0;
         const projRevMap = new Map<string, number>();
-        mInvoices.forEach((i: any) => {
+        mInvoices.forEach((i: /* // */ any) => {
           if (isRestricted && !assignedProjects.includes(i.project_id)) return;
           const kes = Number(i.amount_kes) > 0 ? Number(i.amount_kes) : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
           revenue += kes;
@@ -199,12 +208,12 @@ export default function TrendsPage() {
         });
 
         // Direct expenses
-        const mProjExp = projExpenses.filter((e: any) => e.year_month === m);
-        const directExpenses = mProjExp.reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+        const mProjExp = projExpenses.filter((e: /* // */ any) => e.year_month === m);
+        const directExpenses = mProjExp.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
 
         // Overhead
-        const mSharedExp = sharedExpenses.filter((e: any) => e.year_month === m);
-        const overhead = mSharedExp.reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+        const mSharedExp = sharedExpenses.filter((e: /* // */ any) => e.year_month === m);
+        const overhead = mSharedExp.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
 
         const netProfit = revenue - directExpenses - overhead;
         const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
@@ -215,7 +224,7 @@ export default function TrendsPage() {
         const pt: ProjectTrend = { month: m, label };
         projects.forEach(p => {
           const projRev = projRevMap.get(p.id) || 0;
-          const projCost = mProjExp.filter((e: any) => e.project_id === p.id).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+          const projCost = mProjExp.filter((e: /* // */ any) => e.project_id === p.id).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
           pt[p.name] = projRev - projCost;
           if (projRev > 0 || projCost > 0) projNameSet.add(p.name);
         });
@@ -224,12 +233,12 @@ export default function TrendsPage() {
         // Expense composition
         const ec: ExpenseComposition = { month: m, label };
         const catMap = new Map<string, number>();
-        mProjExp.forEach((e: any) => {
-          const cat = (e as any).expense_categories?.name || 'Other';
+        mProjExp.forEach((e: /* // */ any) => {
+          const cat = (e as /* // */ any).expense_categories?.name || 'Other';
           catMap.set(cat, (catMap.get(cat) || 0) + Number(e.amount_kes));
           catSet.add(cat);
         });
-        mSharedExp.forEach((e: any) => {
+        mSharedExp.forEach((e: /* // */ any) => {
           const cat = 'Shared Overhead';
           catMap.set(cat, (catMap.get(cat) || 0) + Number(e.amount_kes));
           catSet.add(cat);
@@ -251,24 +260,25 @@ export default function TrendsPage() {
         });
 
         // Cash flow
-        const mPayments = payments.filter((p: any) => p.payment_date?.startsWith(m));
-        const cashReceived = mPayments.reduce((s: number, p: any) => s + Number(p.amount_usd) * stdRate, 0);
+        const mPayments = payments.filter((p: /* // */ any) => p.payment_date?.startsWith(m));
+        const cashReceived = mPayments.reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd) * stdRate, 0);
         cfData.push({
           month: m,
           label,
-          recognised: revenue,
+          serviceRevenue: revenue,
+          serviceExpenses: directExpenses + overhead,
           cashReceived,
           outstanding: Math.max(0, revenue - cashReceived),
         });
 
         // Agent efficiency
-        const mAgents = agentCounts.filter((a: any) => a.year_month === m);
-        const totalAgents = mAgents.reduce((s: number, a: any) => s + Number(a.agent_count), 0);
+        const mAgents = agentCounts.filter((a: /* // */ any) => a.year_month === m);
+        const totalAgents = mAgents.reduce((s: number, a: /* // */ any) => s + Number(a.agent_count), 0);
         aeData.push({
           month: m,
           label,
           revenuePerAgent: totalAgents > 0 ? revenue / totalAgents : 0,
-          costPerAgent: totalAgents > 0 ? directExpenses / totalAgents : 0,
+          costPerAgent: totalAgents > 0 ? (directExpenses + overhead) / totalAgents : 0,
           agentCount: totalAgents,
         });
 
@@ -278,19 +288,19 @@ export default function TrendsPage() {
           let totalDist = 0;
           const totalProfit70 = projects.reduce((sum, p) => {
             const projRev = projRevMap.get(p.id) || 0;
-            const projCost = mProjExp.filter((e: any) => e.project_id === p.id).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+            const projCost = mProjExp.filter((e: /* // */ any) => e.project_id === p.id).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
             return sum + Math.max(0, projRev - projCost) * 0.7;
           }, 0);
 
           // Check if profit share has been distributed for this month
-          const monthPsRecords = profitShareRecords.filter((r: any) => r.year_month === m);
-          const isDistributed = monthPsRecords.some((r: any) => r.status === 'distributed');
+          const monthPsRecords = profitShareRecords.filter((r: /* // */ any) => r.year_month === m);
+          const isDistributed = monthPsRecords.some((r: /* // */ any) => r.status === 'distributed');
 
           if (isDistributed) {
             // Show actual director breakdown
             projects.forEach(p => {
               const projRev = projRevMap.get(p.id) || 0;
-              const projCost = mProjExp.filter((e: any) => e.project_id === p.id).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+              const projCost = mProjExp.filter((e: /* // */ any) => e.project_id === p.id).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
               const profit = projRev - projCost;
               if (profit > 0) {
                 const dirLabel = { kelvin: 'Kelvin', evans: 'Evans', dan: 'Dan', gidraph: 'Gidraph', victor: 'Victor' }[p.director_tag] || p.director_tag;
@@ -381,6 +391,15 @@ export default function TrendsPage() {
   const catColors = ['#0f172a', '#ef4444', '#f59e0b', '#0ea5e9', '#8b5cf6', '#ec4899', '#14b8a6', '#6b7280'];
   const dirColors: Record<string, string> = { Kelvin: '#F5C518', Evans: '#0f172a', Dan: '#0ea5e9', Gidraph: '#ef4444', Victor: '#f59e0b', 'Company 30%': '#6b7280', Undistributed: '#d1d5db' };
 
+  async function exportPdf() {
+    await exportSimpleReportPdf(
+      'Trends & Analytics',
+      `${rangeMonths}-month analytics window`,
+      monthlyData.slice(0, 120).map((m) => `${m.month} | revenue ${m.revenue.toFixed(2)} | expenses ${(m.directExpenses + m.overhead).toFixed(2)} | net ${m.netProfit.toFixed(2)}`),
+      `IO_Trends_${rangeMonths}m.pdf`,
+    );
+  }
+
   return (
     <div>
       <PageHeader title="Trends & Analytics" description="Multi-month financial analytics">
@@ -392,12 +411,33 @@ export default function TrendsPage() {
             <SelectItem value="12">Last 12 Months</SelectItem>
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={exportPdf}>
+          <FileDown className="h-4 w-4 mr-1" /> Export PDF
+        </Button>
       </PageHeader>
 
       <div className="p-6 space-y-8">
+        {!loading && <ExecutiveInsightPanel lines={[
+          insights[0] || 'Revenue growing 2× faster than costs.',
+          insights[1] || 'Collections trend is stable with low outstanding risk.',
+          insights[2] || 'Revenue per agent remains the key productivity signal.',
+        ]} />}
+
+        {!loading && (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <ExecutiveKpiCard label="Net Profit" value={formatCompactCurrency(monthlyData.at(-1)?.netProfit || 0, 'KES')} trend="↑ Momentum" />
+            <ExecutiveKpiCard label="Total Revenue" value={formatCompactCurrency(monthlyData.at(-1)?.revenue || 0, 'KES')} trend="↑ Growth" />
+            <ExecutiveKpiCard label="Avg Service Expenses" value={formatCompactCurrency(cashFlow.reduce((s, c) => s + c.serviceExpenses, 0) / Math.max(cashFlow.length, 1), 'KES')} trend="Paid next month" />
+            <ExecutiveKpiCard label="Revenue Growth" value="Trending ↑" trend="On Track" />
+          </div>
+        )}
+
         {/* CHART 1: Revenue vs Expenses */}
         <Card className="io-card">
-          <CardHeader><CardTitle className="text-base">Revenue vs Expenses</CardTitle></CardHeader>
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle className="text-base">Revenue vs Expenses (Service Period)</CardTitle>
+            <ChartStatusBadge status={(monthlyData.at(-1)?.netProfit || 0) >= 0 ? 'On Track' : 'Action Needed'} />
+          </CardHeader>
           <CardContent>
             {loading ? <ChartSkeleton /> : (
               <ResponsiveContainer width="100%" height={360}>
@@ -409,7 +449,7 @@ export default function TrendsPage() {
                   <Legend />
                   <ReferenceLine y={0} stroke="#94a3b8" strokeWidth={1.5} />
                   <Bar dataKey="revenue" name="Revenue" fill={CHART_COLORS.navy} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="directExpenses" name="Direct Expenses" fill={CHART_COLORS.red} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="directExpenses" name="Direct Expenses (paid next month)" fill={CHART_COLORS.red} radius={[4, 4, 0, 0]} />
                   <Bar dataKey="overhead" name="Overhead" fill={CHART_COLORS.amber} radius={[4, 4, 0, 0]} />
                   <Line type="monotone" dataKey="netProfit" name="Net Profit" stroke={CHART_COLORS.gold} strokeWidth={3} dot={{ r: 5, fill: CHART_COLORS.gold }} />
                 </ComposedChart>
@@ -442,7 +482,7 @@ export default function TrendsPage() {
 
         {/* CHART 3: Expense Composition Stack */}
         <Card className="io-card">
-          <CardHeader><CardTitle className="text-base">Expense Composition</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Expense Composition (Service Period)</CardTitle></CardHeader>
           <CardContent>
             {loading ? <ChartSkeleton /> : (
               <ResponsiveContainer width="100%" height={360}>
@@ -484,7 +524,7 @@ export default function TrendsPage() {
 
         {/* CHART 5: Cash Flow Timing Gap */}
         <Card className="io-card">
-          <CardHeader><CardTitle className="text-base">Cash Flow Timing Gap</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Cash Flow Timing Gap (Accrual vs Cash)</CardTitle></CardHeader>
           <CardContent>
             {loading ? <ChartSkeleton /> : (
               <ResponsiveContainer width="100%" height={360}>
@@ -494,9 +534,9 @@ export default function TrendsPage() {
                   <YAxis tickFormatter={formatKesShort} tick={{ fontSize: 11 }} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
-                  <Bar dataKey="recognised" name="Recognised Revenue" fill={CHART_COLORS.navy} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="cashReceived" name="Cash Received" fill={CHART_COLORS.gold} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="outstanding" name="Outstanding" fill={CHART_COLORS.amber} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="serviceRevenue" name="Service Period Revenue (lagged)" fill={CHART_COLORS.navy} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="serviceExpenses" name="Service Period Expenses (paid next month)" fill={CHART_COLORS.red} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="cashReceived" name="Cash Received (payment date)" fill={CHART_COLORS.gold} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}

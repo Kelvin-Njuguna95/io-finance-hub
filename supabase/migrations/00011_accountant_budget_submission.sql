@@ -6,7 +6,7 @@
 -- 1. Add submitted_by_role column to budgets table
 ALTER TABLE budgets ADD COLUMN IF NOT EXISTS
   submitted_by_role TEXT DEFAULT 'team_leader'
-  CHECK (submitted_by_role IN ('team_leader', 'accountant'));
+  CHECK (submitted_by_role IN ('team_leader', 'accountant', 'project_manager', 'cfo', 'department_head'));
 
 -- 2. Extend budgets INSERT policy to allow accountant
 DROP POLICY IF EXISTS budgets_insert ON budgets;

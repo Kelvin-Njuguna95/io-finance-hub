@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertRole, assertMonthOpen } from '@/lib/supabase/admin';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 export async function POST(request: Request) {
-  const auth = await getAuthUserProfile(request);
-  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
-  const { user, profile, admin } = auth;
+  try {
+    const auth = await getAuthUserProfile(request);
+    if ('error' in auth) return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
+    const { user, profile, admin } = auth;
 
   const roleErr = assertRole(profile, ['cfo']);
   if (roleErr) return NextResponse.json({ error: 'Only CFO can revert budgets' }, { status: roleErr.status });
@@ -19,8 +21,8 @@ export async function POST(request: Request) {
   if (!budget) return NextResponse.json({ error: 'Budget not found' }, { status: 404 });
 
   // Find current version
-  const versions = (budget as any).budget_versions || [];
-  const currentVersion = versions.find((v: any) => v.version_number === budget.current_version);
+  const versions = (budget as /* // */ any).budget_versions || [];
+  const currentVersion = versions.find((v: /* // */ any) => v.version_number === budget.current_version);
   if (!currentVersion || currentVersion.status !== 'approved') {
     return NextResponse.json({ error: 'Only approved budgets can be reverted' }, { status: 400 });
   }
@@ -110,6 +112,7 @@ export async function POST(request: Request) {
     });
 
     // Delete
+    await admin.from('pending_expenses').delete().eq('budget_id', budget_id);
     await admin.from('budget_withdrawal_log').delete().eq('budget_id', budget_id);
     for (const v of versions) {
       await admin.from('budget_items').delete().eq('budget_version_id', v.id);
@@ -143,5 +146,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, message: 'Budget deleted' });
   }
 
-  return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid action', code: 'BAD_REQUEST' }, { status: 400 });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to process CFO budget action.', 'CFO_REVERT_ERROR');
+  }
 }

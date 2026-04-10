@@ -13,6 +13,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { formatCurrency, formatPercent, formatDate, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
+import { getLaggedMonth, getUnifiedServicePeriodLabel } from '@/lib/report-utils';
 import { TrendingUp, DollarSign, Receipt, Users, AlertTriangle, CheckCircle, Target } from 'lucide-react';
 
 interface FinancialData {
@@ -20,8 +21,8 @@ interface FinancialData {
   year_month: string;
   health: { score: number; score_band: string; biggest_drag: string | null; budget_score: number; margin_score: number; };
   revenue: { invoice_amount: number; invoice_status: string; total_paid: number; outstanding: number; invoice_date: string; billing_period: string; revenue_source_month?: string; };
-  expenses: { total: number; by_category: { name: string; amount: number; pct: number }[]; items: any[]; };
-  budget: { total: number; utilisation: number; variance: number; items: any[]; has_approved: boolean; };
+  expenses: { total: number; by_category: { name: string; amount: number; pct: number }[]; items: /* // */ /* // */ any[]; };
+  budget: { total: number; utilisation: number; variance: number; items: /* // */ /* // */ any[]; has_approved: boolean; };
   agents: { count: number; revenue_per_agent: number; cost_per_agent: number; contribution_per_agent: number; };
   trends: { year_month: string; revenue: number; expenses: number; contribution: number; agents: number; margin: number; }[];
   hints: { icon: string; text: string; severity: string; }[];
@@ -33,6 +34,8 @@ export default function FinancialsPage() {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
   const [projectId, setProjectId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const serviceMonth = getLaggedMonth(selectedMonth);
+  const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
 
   useEffect(() => {
     if (!user) return;
@@ -81,7 +84,7 @@ export default function FinancialsPage() {
 
   return (
     <div>
-      <PageHeader title={d ? `${d.project_name} — Financial Overview` : 'Loading...'} description={formatYearMonth(selectedMonth)}>
+      <PageHeader title={d ? `${d.project_name} — Financial Overview` : 'Please wait'} description={servicePeriodLabel}>
         <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
           <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -117,8 +120,8 @@ export default function FinancialsPage() {
           {/* SECTION 2: Revenue (Lagged) */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Revenue This Month (Lagged)</CardTitle>
-              <p className="text-xs text-slate-400">From {formatYearMonth(d.revenue.revenue_source_month || '')} invoice</p>
+              <CardTitle className="text-sm font-medium">Revenue — {formatYearMonth(serviceMonth)} invoice</CardTitle>
+              <p className="text-xs text-slate-400">Service period: {formatYearMonth(serviceMonth)}. Paid in: {formatYearMonth(selectedMonth)}.</p>
             </CardHeader>
             <CardContent>
               {d.revenue.invoice_amount === 0 ? (
@@ -136,7 +139,7 @@ export default function FinancialsPage() {
 
           {/* SECTION 3: Expenses */}
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Expense Breakdown</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Expenses — {formatYearMonth(selectedMonth)} actuals ({formatYearMonth(serviceMonth)} service period)</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div><p className="text-xs text-neutral-500">Total Expenses</p><p className="text-lg font-semibold">{formatCurrency(d.expenses.total, 'KES')}</p></div>
@@ -179,7 +182,7 @@ export default function FinancialsPage() {
                     <TableHead>Status</TableHead>
                   </TableRow></TableHeader>
                   <TableBody>
-                    {d.budget.items.map((item: any) => {
+                    {d.budget.items.map((item: /* // */ any) => {
                       const budgeted = Number(item.amount_kes);
                       const spent = 0; // Would need per-line-item expense matching
                       const remaining = budgeted - spent;

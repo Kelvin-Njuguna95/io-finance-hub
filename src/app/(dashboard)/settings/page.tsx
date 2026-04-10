@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -16,11 +16,13 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { formatDate } from '@/lib/format';
 import {
   Settings as SettingsIcon, AlertTriangle, FileText, ClipboardList,
   Mail, Receipt, BarChart3, Bell, Users, Database, Lock,
 } from 'lucide-react';
 import type { SystemSetting } from '@/types/database';
+import { canEditSettings, canViewSettings } from '@/lib/permissions';
 
 // -----------------------------------------------
 // Section definitions
@@ -32,6 +34,32 @@ interface SettingDef {
   type: 'number' | 'toggle' | 'text' | 'readonly';
   unit?: string;
   defaultValue?: string;
+  min?: number;
+  max?: number;
+  step?: string;
+}
+
+interface NotificationPreference {
+  id: string;
+  role: 'cfo' | 'accountant' | 'project_manager' | 'team_leader';
+  notif_type: string;
+  enabled: boolean;
+}
+
+interface ImportBatch {
+  id: string;
+  file_name: string | null;
+  year_month: string | null;
+  record_count: number | null;
+  created_at: string;
+  status: string | null;
+}
+
+interface SeedSnapshot {
+  year_month: string;
+  data_source: string | null;
+  total_agents: number | null;
+  created_at: string;
 }
 
 const SECTIONS: {
@@ -40,6 +68,19 @@ const SECTIONS: {
   icon: typeof SettingsIcon;
   settings: SettingDef[];
 }[] = [
+  {
+    id: 'treasury',
+    title: 'Treasury & Automation',
+    icon: SettingsIcon,
+    settings: [
+      { key: 'standard_exchange_rate', label: 'Standard Exchange Rate (USD/KES)', description: 'Official treasury conversion rate used across reports and profitability calculations', type: 'number', unit: 'KES/USD', defaultValue: '129.5', min: 1, max: 500, step: '0.0001' },
+      { key: 'bank_balance_usd', label: 'Standing Bank Balance (USD)', description: 'Authoritative USD treasury balance used for liquidity and cash flow visibility', type: 'number', unit: 'USD', defaultValue: '0', min: 0, step: '0.01' },
+      { key: 'eod_auto_send_enabled', label: 'EOD Auto-Send Enabled', description: 'Enable scheduled EOD automation without requiring manual intervention', type: 'toggle', defaultValue: 'true' },
+      { key: 'eod_auto_send_on_expense', label: 'Trigger on Expense Activity', description: 'Auto-send EOD if at least one expense was logged today', type: 'toggle', defaultValue: 'true' },
+      { key: 'eod_auto_send_on_withdrawal', label: 'Trigger on Withdrawal Activity', description: 'Auto-send EOD if at least one withdrawal was logged today', type: 'toggle', defaultValue: 'true' },
+      { key: 'eod_auto_send_on_cash_received', label: 'Trigger on Cash Received Activity', description: 'Auto-send EOD if at least one customer payment (cash received) was logged today', type: 'toggle', defaultValue: 'true' },
+    ],
+  },
   {
     id: 'thresholds',
     title: 'Thresholds & Alerts',
@@ -55,8 +96,8 @@ const SECTIONS: {
     title: 'Budget Controls',
     icon: FileText,
     settings: [
-      { key: 'standard_exchange_rate', label: 'Standard Exchange Rate (USD/KES)', description: 'Default rate for USD to KES conversion across all calculations', type: 'number', unit: 'KES/USD', defaultValue: '129.5' },
-      { key: 'bank_balance_usd', label: 'Standing Bank Balance (USD)', description: 'Current standing bank balance used for cash flow calculations', type: 'number', unit: 'USD', defaultValue: '0' },
+      { key: 'financial_closure_day', label: 'Financial Closure Day', description: 'Recommended business day for monthly finance close (1-31)', type: 'number', unit: 'day', defaultValue: '5', min: 1, max: 31 },
+      { key: 'finance_alert_email', label: 'Finance Alert Contact', description: 'Primary escalation email for high-risk finance alerts', type: 'text', defaultValue: 'cfo@company.com' },
     ],
   },
   {
@@ -121,9 +162,12 @@ export default function SettingsPage() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
   const [activeSection, setActiveSection] = useState('thresholds');
-  const [notifPrefs, setNotifPrefs] = useState<any[]>([]);
-  const [importBatches, setImportBatches] = useState<any[]>([]);
-  const [seedSnapshots, setSeedSnapshots] = useState<any[]>([]);
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPreference[]>([]);
+  const [importBatches, setImportBatches] = useState<ImportBatch[]>([]);
+  const [seedSnapshots, setSeedSnapshots] = useState<SeedSnapshot[]>([]);
+  const [removingSeed, setRemovingSeed] = useState(false);
+  const canEdit = canEditSettings(user?.role);
+  const canView = canViewSettings(user?.role);
 
   useEffect(() => {
     async function load() {
@@ -144,7 +188,8 @@ export default function SettingsPage() {
 
       // Load seed snapshots
       const { data: snaps } = await supabase.from('monthly_financial_snapshots').select('year_month, data_source, total_agents, created_at').not('data_source', 'is', null).order('year_month');
-      setSeedSnapshots((snaps || []).filter((s: any) => s.data_source?.startsWith('historical_seed')));
+      const typedSnapshots = (snaps || []) as SeedSnapshot[];
+      setSeedSnapshots(typedSnapshots.filter((s) => s.data_source?.startsWith('historical_seed')));
     }
     load();
   }, []);
@@ -155,29 +200,58 @@ export default function SettingsPage() {
   }
 
   async function handleSave() {
+    if (!canEdit) return;
     const supabase = createClient();
     const allKeys = SECTIONS.flatMap((s) => s.settings.map((d) => d.key));
+    const allDefs = SECTIONS.flatMap((s) => s.settings);
+
+    for (const def of allDefs) {
+      if (def.type !== 'number') continue;
+      const raw = values[def.key];
+      if (raw === undefined || raw === '') continue;
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed)) {
+        toast.error(`${def.label} must be a valid number`);
+        return;
+      }
+      if (def.min !== undefined && parsed < def.min) {
+        toast.error(`${def.label} must be at least ${def.min}`);
+        return;
+      }
+      if (def.max !== undefined && parsed > def.max) {
+        toast.error(`${def.label} must be at most ${def.max}`);
+        return;
+      }
+    }
 
     for (const key of allKeys) {
       if (values[key] === undefined) continue;
       const existing = settings.find((s) => s.key === key);
       if (existing) {
         if (values[key] !== existing.value) {
-          await supabase.from('system_settings').update({
+          const { error } = await supabase.from('system_settings').update({
             value: values[key],
             updated_by: user?.id,
             updated_at: new Date().toISOString(),
           }).eq('id', existing.id);
+          if (error) {
+            toast.error(`Failed saving ${key}: ${error.message}`);
+            return;
+          }
         }
       } else {
         // Insert new setting
-        const def = SECTIONS.flatMap((s) => s.settings).find((d) => d.key === key);
-        await supabase.from('system_settings').insert({
+        const def = allDefs.find((d) => d.key === key);
+        const { error } = await supabase.from('system_settings').insert({
           key,
           value: values[key] || def?.defaultValue || '',
           description: def?.description || '',
           updated_by: user?.id,
         });
+        if (error) {
+          toast.error(`Failed creating ${key}: ${error.message}`);
+          return;
+        }
       }
     }
 
@@ -190,6 +264,7 @@ export default function SettingsPage() {
   }
 
   async function toggleNotifPref(id: string, enabled: boolean) {
+    if (!canEdit) return;
     const supabase = createClient();
     await supabase.from('notification_preferences').update({
       enabled,
@@ -200,15 +275,59 @@ export default function SettingsPage() {
     toast.success('Preference updated');
   }
 
+  async function handleRemoveHistoricalSeed() {
+    if (!canEdit) return;
+    const shouldContinue = window.confirm('This will remove historical seed records from all seed-related tables. Continue?');
+    if (!shouldContinue) return;
+
+    setRemovingSeed(true);
+    try {
+      const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        toast.error('Unable to verify your session. Please sign in again.');
+        return;
+      }
+
+      const res = await fetch('/api/historical-seed', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const payload = await res.json();
+      if (!res.ok) {
+        const message = typeof payload?.error === 'string' ? payload.error : 'Failed to remove historical seed data';
+        toast.error(message);
+        return;
+      }
+
+      toast.success(payload?.message || 'Historical seed data removed');
+
+      const { data: snaps } = await supabase
+        .from('monthly_financial_snapshots')
+        .select('year_month, data_source, total_agents, created_at')
+        .not('data_source', 'is', null)
+        .order('year_month');
+      const typedSnapshots = (snaps || []) as SeedSnapshot[];
+      setSeedSnapshots(typedSnapshots.filter((s) => s.data_source?.startsWith('historical_seed')));
+    } catch {
+      toast.error('Unexpected error while removing seed data');
+    } finally {
+      setRemovingSeed(false);
+    }
+  }
+
   const currentSection = SECTIONS.find((s) => s.id === activeSection);
 
-  // CFO only
-  if (user && user.role !== 'cfo') {
+  if (user && !canView) {
     return (
       <div>
-        <PageHeader title="Settings" description="Settings are managed by the CFO" />
+        <PageHeader title="Settings" description="Settings are available to CFO and Accountant" />
         <div className="p-6">
-          <p className="text-sm text-neutral-500">You do not have permission to manage system settings.</p>
+          <p className="text-sm text-neutral-500">You do not have permission to view settings.</p>
         </div>
       </div>
     );
@@ -249,7 +368,7 @@ export default function SettingsPage() {
             <Bell className="h-4 w-4 shrink-0" />
             Notifications
           </button>
-          <button
+          {canEdit && <button
             onClick={() => setActiveSection('users')}
             className={cn(
               'flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm transition-colors text-left',
@@ -260,8 +379,8 @@ export default function SettingsPage() {
           >
             <Users className="h-4 w-4 shrink-0" />
             User Management
-          </button>
-          <button
+          </button>}
+          {canEdit && <button
             onClick={() => setActiveSection('data')}
             className={cn(
               'flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm transition-colors text-left',
@@ -272,7 +391,7 @@ export default function SettingsPage() {
           >
             <Database className="h-4 w-4 shrink-0" />
             Data & Import
-          </button>
+          </button>}
         </div>
 
         {/* Right content */}
@@ -299,6 +418,7 @@ export default function SettingsPage() {
                           id={def.key}
                           checked={val === 'true'}
                           onCheckedChange={(checked) => setValue(def.key, checked ? 'true' : 'false')}
+                          disabled={!canEdit}
                         />
                       ) : def.type === 'readonly' ? (
                         <div className="flex items-center gap-2">
@@ -316,7 +436,11 @@ export default function SettingsPage() {
                             type={def.type === 'number' ? 'number' : 'text'}
                             value={val}
                             onChange={(e) => setValue(def.key, e.target.value)}
+                            disabled={!canEdit}
                             className="max-w-xs"
+                            min={def.type === 'number' ? def.min : undefined}
+                            max={def.type === 'number' ? def.max : undefined}
+                            step={def.type === 'number' ? (def.step || 'any') : undefined}
                           />
                           {def.unit && (
                             <span className="text-xs text-slate-400">{def.unit}</span>
@@ -337,7 +461,7 @@ export default function SettingsPage() {
               )}
 
               <div className="mt-8 flex items-center gap-3">
-                <Button onClick={handleSave}>Save Changes</Button>
+                <Button onClick={handleSave} disabled={!canEdit}>Save Changes</Button>
                 {dirty && (
                   <span className="text-xs text-amber-600">Unsaved changes</span>
                 )}
@@ -368,18 +492,19 @@ export default function SettingsPage() {
                       </TableHeader>
                       <TableBody>
                         {(() => {
-                          const types = [...new Set(notifPrefs.map((p: any) => p.notif_type))];
+                          const types = [...new Set(notifPrefs.map((p) => p.notif_type))];
                           return types.map((t) => (
                             <TableRow key={t}>
                               <TableCell className="text-sm capitalize">{t.replace(/_/g, ' ')}</TableCell>
                               {['cfo', 'accountant', 'project_manager', 'team_leader'].map((role) => {
-                                const pref = notifPrefs.find((p: any) => p.role === role && p.notif_type === t);
+                                const pref = notifPrefs.find((p) => p.role === role && p.notif_type === t);
                                 return (
                                   <TableCell key={role} className="text-center">
                                     {pref ? (
                                       <Switch
                                         checked={pref.enabled}
                                         onCheckedChange={(checked) => toggleNotifPref(pref.id, checked)}
+                                        disabled={!canEdit}
                                       />
                                     ) : (
                                       <span className="text-slate-300">&mdash;</span>
@@ -399,7 +524,7 @@ export default function SettingsPage() {
           )}
 
           {/* User management section */}
-          {activeSection === 'users' && (
+          {canEdit && activeSection === 'users' && (
             <div>
               <h2 className="text-lg font-semibold text-[#0f172a] mb-1">User Management</h2>
               <p className="text-sm text-slate-400 mb-4">
@@ -412,7 +537,7 @@ export default function SettingsPage() {
           )}
 
           {/* Data & Import section */}
-          {activeSection === 'data' && (
+          {canEdit && activeSection === 'data' && (
             <div>
               <h2 className="text-lg font-semibold text-[#0f172a] mb-1">Data & Import</h2>
               <p className="text-sm text-slate-400 mb-6">Historical data and import activity</p>
@@ -423,7 +548,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-neutral-400 mb-6">No historical seeds found.</p>
               ) : (
                 <Card className="io-card mb-6">
-                  <CardContent className="p-0">
+                  <CardContent className="p-0 overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -434,18 +559,34 @@ export default function SettingsPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {seedSnapshots.map((s: any) => (
+                        {seedSnapshots.map((s) => (
                           <TableRow key={s.year_month}>
                             <TableCell className="text-sm">{s.data_source}</TableCell>
                             <TableCell className="text-sm font-mono">{s.year_month}</TableCell>
                             <TableCell className="text-sm">{s.total_agents}</TableCell>
-                            <TableCell className="text-xs text-slate-400">{new Date(s.created_at).toLocaleDateString('en-GB')}</TableCell>
+                            <TableCell className="text-xs text-slate-400">{formatDate(s.created_at)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </CardContent>
                 </Card>
+              )}
+              {seedSnapshots.length > 0 && (
+                <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-medium text-amber-900">Historical Seed Cleanup</p>
+                  <p className="mt-1 text-xs text-amber-800">
+                    Use this action only when you need to permanently remove previously-seeded historical records.
+                  </p>
+                  <Button
+                    variant="destructive"
+                    className="mt-3"
+                    disabled={removingSeed}
+                    onClick={handleRemoveHistoricalSeed}
+                  >
+                    {removingSeed ? 'Removing Historical Seed Data...' : 'Remove Historical Seed Data'}
+                  </Button>
+                </div>
               )}
 
               {/* Import history */}
@@ -454,7 +595,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-neutral-400 mb-6">No imports recorded.</p>
               ) : (
                 <Card className="io-card mb-6">
-                  <CardContent className="p-0">
+                  <CardContent className="p-0 overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -466,12 +607,12 @@ export default function SettingsPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {importBatches.map((b: any) => (
+                        {importBatches.map((b) => (
                           <TableRow key={b.id}>
                             <TableCell className="text-sm">{b.file_name || 'Unnamed'}</TableCell>
                             <TableCell className="text-sm font-mono">{b.year_month || '-'}</TableCell>
                             <TableCell className="text-sm">{b.record_count || 0}</TableCell>
-                            <TableCell className="text-xs text-slate-400">{new Date(b.created_at).toLocaleDateString('en-GB')}</TableCell>
+                            <TableCell className="text-xs text-slate-400">{formatDate(b.created_at)}</TableCell>
                             <TableCell>
                               <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
                                 {b.status || 'complete'}

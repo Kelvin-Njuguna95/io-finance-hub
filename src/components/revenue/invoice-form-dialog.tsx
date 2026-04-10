@@ -16,6 +16,9 @@ import { getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { encodeBackdatedNotes, type BackdatedMeta } from '@/lib/backdated-utils';
 import { toast } from 'sonner';
 import type { Project } from '@/types/database';
+import { getUserErrorMessage } from '@/lib/errors';
+import { getActiveProjects } from '@/lib/queries/projects';
+import { INVOICE_STATUS } from '@/lib/constants/status';
 
 interface Props {
   open: boolean;
@@ -38,11 +41,24 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
   const [backdatedReason, setBackdatedReason] = useState('');
   const [saving, setSaving] = useState(false);
 
+  function resetForm() {
+    setProjectId('');
+    setInvoiceNumber('');
+    setInvoiceDate(new Date().toISOString().split('T')[0]);
+    setDueDate('');
+    setBillingPeriod(getCurrentYearMonth());
+    setAmountUsd(0);
+    setAmountKes(0);
+    setDescription('');
+    setIsBackdated(false);
+    setBackdatedReason('');
+  }
+
   useEffect(() => {
     if (!open) return;
     async function load() {
       const supabase = createClient();
-      const { data } = await supabase.from('projects').select('*').eq('is_active', true).order('name');
+      const { data } = await getActiveProjects(supabase);
       setProjects((data || []) as Project[]);
     }
     load();
@@ -56,6 +72,10 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
 
     if (isBackdated && !backdatedReason.trim()) {
       toast.error('Reason for late entry is required for backdated invoices');
+      return;
+    }
+    if (dueDate && invoiceDate && new Date(dueDate) < new Date(invoiceDate)) {
+      toast.error('Due date cannot be earlier than invoice date');
       return;
     }
 
@@ -80,15 +100,16 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
       billing_period: billingPeriod,
       amount_usd: amountUsd,
       amount_kes: amountKes,
-      status: 'sent',
+      status: INVOICE_STATUS.SENT,
       description: finalDescription,
       created_by: user!.id,
     });
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserErrorMessage(error, 'Failed to create invoice. Please review the form and try again.'));
     } else {
       toast.success('Invoice created');
+      resetForm();
       onSaved();
       onClose();
     }
@@ -148,10 +169,12 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
             <div className="space-y-1">
               <Label>Invoice Date</Label>
               <Input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
+              <p className="text-xs text-muted-foreground">Select the invoice issue date for this billing record.</p>
             </div>
             <div className="space-y-1">
               <Label>Due Date</Label>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              <p className="text-xs text-muted-foreground">Choose the expected payment due date.</p>
             </div>
           </div>
 
@@ -159,10 +182,12 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
             <div className="space-y-1">
               <Label>Amount (USD) *</Label>
               <Input type="number" step="0.0001" min={0} value={amountUsd || ''} onChange={(e) => setAmountUsd(parseFloat(e.target.value) || 0)} />
+              <p className="text-xs text-muted-foreground">Enter amount in USD using numbers only.</p>
             </div>
             <div className="space-y-1">
               <Label>Amount (KES)</Label>
               <Input type="number" step="0.01" min={0} value={amountKes || ''} onChange={(e) => setAmountKes(parseFloat(e.target.value) || 0)} />
+              <p className="text-xs text-muted-foreground">Optional KES equivalent for local reconciliation.</p>
             </div>
           </div>
 

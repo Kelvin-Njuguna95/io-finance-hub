@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
+import { useNotifications } from '@/hooks/use-notifications';
 import { getNavigation } from '@/lib/navigation';
 import { ROLE_LABELS } from '@/types/database';
 import { cn } from '@/lib/utils';
@@ -44,6 +45,7 @@ import { ChevronsUpDown, LogOut, Wallet } from 'lucide-react';
  */
 export function AppSidebar() {
   const { user, loading } = useUser();
+  const { unreadCount } = useNotifications();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -138,6 +140,14 @@ export function AppSidebar() {
                         >
                           <Icon strokeWidth={1.75} />
                           <span className="truncate">{item.title}</span>
+                          {item.href === '/notifications' && unreadCount > 0 && (
+                            <span
+                              aria-label={`${unreadCount} unread`}
+                              className="ml-auto inline-flex min-w-[18px] items-center justify-center rounded-full bg-danger px-1.5 text-[10px] font-semibold text-danger-foreground ring-1 ring-black/10 group-data-[collapsible=icon]:hidden"
+                            >
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                          )}
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     );

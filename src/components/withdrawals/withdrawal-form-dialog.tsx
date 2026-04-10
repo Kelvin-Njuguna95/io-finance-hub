@@ -17,6 +17,7 @@ import { DIRECTORS } from '@/types/database';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { User, DirectorEnum } from '@/types/database';
+import { getUserErrorMessage } from '@/lib/errors';
 
 interface Props {
   open: boolean;
@@ -77,7 +78,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
       .single();
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserErrorMessage());
     } else {
       setForexBureaus([...forexBureaus, { id: data.id, name: data.name }].sort((a, b) => a.name.localeCompare(b.name)));
       setForexBureau(data.name);
@@ -113,7 +114,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
     });
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserErrorMessage());
     } else {
       // Also create forex log
       const { data: withdrawal } = await supabase

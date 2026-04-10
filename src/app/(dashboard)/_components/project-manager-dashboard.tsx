@@ -28,6 +28,7 @@ import {
   formatYearMonth,
 } from '@/lib/format';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
+import { getPmReviewQueueCount } from '@/lib/queries/budgets';
 
 interface ProjectData {
   name: string;
@@ -70,8 +71,9 @@ export function ProjectManagerDashboard({ userId }: Props) {
         .from('user_project_assignments')
         .select('project_id')
         .eq('user_id', userId);
-      // Assignments retained in shape for parity with previous logic
-      void assignments;
+      const pids = (assignments || []).map(
+        (a: { project_id: string }) => a.project_id,
+      );
 
       const { data: allProjects } = await supabase
         .from('projects')
@@ -123,12 +125,9 @@ export function ProjectManagerDashboard({ userId }: Props) {
         )
         .eq('year_month', currentMonth);
 
-      const { data: pendingRes } = await supabase
-        .from('budget_versions')
-        .select('id', { count: 'exact', head: true })
-        .in('status', ['submitted', 'pm_review']);
-
-      setPendingBudgets((pendingRes as { count?: number })?.count || 0);
+      // Pending budgets for PM review, scoped to PM's projects via shared helper
+      const { count: pmReviewCount } = await getPmReviewQueueCount(supabase, pids);
+      setPendingBudgets(pmReviewCount || 0);
 
       const invMap = new Map<string, number>();
       (invoices || []).forEach(

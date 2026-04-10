@@ -3,16 +3,20 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
-import { StatCard } from '@/components/layout/stat-card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency } from '@/components/reports/executive-kit';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { formatCurrency, formatPercent, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
-import { FileText, Receipt, TrendingUp } from 'lucide-react';
+import { getLaggedMonth, getUnifiedServicePeriodLabel } from '@/lib/report-utils';
+import { getConfirmedExpensesByMonth } from '@/lib/queries/expenses';
+import { FileDown } from 'lucide-react';
+import { exportSimpleReportPdf } from '@/lib/pdf-export';
 
 interface BvaRow {
   scope: string;
@@ -30,6 +34,8 @@ export default function BudgetVsActualPage() {
   const [loading, setLoading] = useState(true);
 
   const [revenueSourceMonth, setRevenueSourceMonth] = useState('');
+  const serviceMonth = getLaggedMonth(selectedMonth);
+  const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
 
   useEffect(() => {
     async function load() {
@@ -59,14 +65,11 @@ export default function BudgetVsActualPage() {
         .eq('year_month', selectedMonth);
 
       // Get expenses for this month
-      const { data: expenses } = await supabase
-        .from('expenses')
-        .select('budget_id, project_id, amount_kes')
-        .eq('year_month', selectedMonth);
+      const { data: expenses } = await getConfirmedExpensesByMonth(supabase, selectedMonth);
 
       // Expense by budget
       const expenseByBudget = new Map<string, number>();
-      (expenses || []).forEach((e: any) => {
+      (expenses || []).forEach((e: /* // */ any) => {
         if (e.budget_id) {
           expenseByBudget.set(e.budget_id, (expenseByBudget.get(e.budget_id) || 0) + Number(e.amount_kes));
         }
@@ -74,18 +77,18 @@ export default function BudgetVsActualPage() {
 
       // Expense by project (for budgets without direct link)
       const expenseByProject = new Map<string, number>();
-      (expenses || []).forEach((e: any) => {
+      (expenses || []).forEach((e: /* // */ any) => {
         if (e.project_id) {
           expenseByProject.set(e.project_id, (expenseByProject.get(e.project_id) || 0) + Number(e.amount_kes));
         }
       });
 
-      const result: BvaRow[] = (budgets || []).map((b: any) => {
+      const result: BvaRow[] = (budgets || []).map((b: /* // */ any) => {
         const versions = b.budget_versions || [];
         // Find the best version: approved > pm_approved > latest
-        const approved = versions.find((v: any) => v.status === 'approved');
-        const pmApproved = versions.find((v: any) => v.status === 'pm_approved');
-        const latest = versions.sort((a: any, b: any) => b.version_number - a.version_number)[0];
+        const approved = versions.find((v: /* // */ any) => v.status === 'approved');
+        const pmApproved = versions.find((v: /* // */ any) => v.status === 'pm_approved');
+        const latest = versions.sort((a: /* // */ any, b: /* // */ any) => b.version_number - a.version_number)[0];
         const bestVersion = approved || pmApproved || latest;
 
         // Use pm_approved_total if available, otherwise version total
@@ -114,8 +117,8 @@ export default function BudgetVsActualPage() {
       const { data: invRes } = await supabase.from('invoices').select('amount_usd, amount_kes').eq('billing_period', revMonth);
       const { data: rateSetting } = await supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single();
       const stdRate = parseFloat(rateSetting?.value || '129.5');
-      const revUsd = (invRes || []).reduce((s: number, i: any) => s + Number(i.amount_usd), 0);
-      const revKes = (invRes || []).reduce((s: number, i: any) => s + Number(i.amount_kes), 0);
+      const revUsd = (invRes || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_usd), 0);
+      const revKes = (invRes || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes), 0);
       setLaggedRevenue(revKes > 0 ? revKes : Math.round(revUsd * stdRate * 100) / 100);
 
       setLoading(false);
@@ -139,9 +142,18 @@ export default function BudgetVsActualPage() {
     rejected: 'bg-rose-100 text-rose-700',
   };
 
+  async function exportPdf() {
+    await exportSimpleReportPdf(
+      'Budget vs Actual',
+      `Service period: ${servicePeriodLabel}`,
+      rows.slice(0, 120).map((r) => `${r.scope} | budget ${r.budget_kes.toFixed(2)} | actual ${r.actual_kes.toFixed(2)} | variance ${r.variance_kes.toFixed(2)}`),
+      `IO_Budget_vs_Actual_${selectedMonth}.pdf`,
+    );
+  }
+
   return (
     <div>
-      <PageHeader title="Budget vs Actual" description={'Revenue from ' + formatYearMonth(revenueSourceMonth) + ' | Expenses from ' + formatYearMonth(selectedMonth)}>
+      <PageHeader title="Budget vs Actual" description={servicePeriodLabel}>
         <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
           <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -152,15 +164,24 @@ export default function BudgetVsActualPage() {
             })}
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={exportPdf}>
+          <FileDown className="h-4 w-4 mr-1" /> Export PDF
+        </Button>
       </PageHeader>
 
       <div className="p-6 space-y-6">
+        <ExecutiveInsightPanel lines={[
+          `Expenses are ${formatPercent((totalActual / Math.max(laggedRevenue, 1)) * 100)} of revenue.`,
+          grossProfit >= 0 ? `Profitable — ${formatCompactCurrency(grossProfit, 'KES')} net profit this period.` : 'Lagged P&L is negative this cycle.',
+          rows.filter((r) => r.utilization_pct > 100).length === 0 ? 'All scopes within budget ✓' : `${rows.filter((r) => r.utilization_pct > 100).length} scope(s) over budget.`,
+        ]} />
+
         {/* Summary stats */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard title="Total Budgeted" value={formatCurrency(totalBudget, 'KES')} icon={FileText} />
-          <StatCard title="Total Spent" value={formatCurrency(totalActual, 'KES')} icon={Receipt} />
-          <StatCard title="Variance" value={formatCurrency(totalVariance, 'KES')} subtitle={totalVariance >= 0 ? 'Under budget' : 'Over budget'} icon={TrendingUp} />
-          <StatCard title="Lagged Revenue" value={formatCurrency(laggedRevenue, 'KES')} subtitle={'From ' + formatYearMonth(revenueSourceMonth)} icon={TrendingUp} />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <ExecutiveKpiCard label="Total Budgeted" value={formatCompactCurrency(totalBudget, 'KES')} trend="Budget envelope" />
+          <ExecutiveKpiCard label="Total Spent" value={formatCompactCurrency(totalActual, 'KES')} trend="Current spend" />
+          <ExecutiveKpiCard label="Variance" value={formatCompactCurrency(totalVariance, 'KES')} trend={totalVariance >= 0 ? '✅ Under' : 'Action Needed'} positive={totalVariance >= 0} />
+          <ExecutiveKpiCard label="Budget Utilisation" value={formatPercent(totalUtil)} trend={totalUtil > 100 ? 'Over budget' : 'On Track'} positive={totalUtil <= 100} />
         </div>
 
         {/* Budget table */}
@@ -172,7 +193,7 @@ export default function BudgetVsActualPage() {
                   <TableHead>Scope</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Budget (KES)</TableHead>
-                  <TableHead className="text-right">Actual (KES)</TableHead>
+                  <TableHead className="text-right">Actual Expenses (service period)</TableHead>
                   <TableHead className="text-right">Variance</TableHead>
                   <TableHead className="text-right">Utilization</TableHead>
                 </TableRow>
@@ -180,7 +201,7 @@ export default function BudgetVsActualPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-neutral-400">Loading...</TableCell>
+                    <TableCell colSpan={6} className="text-center py-8 text-neutral-400">Please wait</TableCell>
                   </TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>
@@ -240,6 +261,7 @@ export default function BudgetVsActualPage() {
         <Card className="io-card max-w-lg">
           <CardContent className="p-4 space-y-2">
             <p className="text-sm font-semibold text-slate-700">P&L Summary (Lagged)</p>
+            <p className="text-xs text-slate-500">Expenses recorded in {formatYearMonth(selectedMonth)}, matched to {formatYearMonth(serviceMonth)} service period.</p>
             <div className="flex justify-between text-sm">
               <span>Revenue ({formatYearMonth(revenueSourceMonth)} invoice)</span>
               <span className="font-mono font-semibold">{formatCurrency(laggedRevenue, 'KES')}</span>

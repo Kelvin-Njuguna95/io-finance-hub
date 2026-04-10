@@ -6,18 +6,21 @@ import { PageHeader } from '@/components/layout/page-header';
 import { StatCard } from '@/components/layout/stat-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ExecutiveInsightPanel, formatCompactCurrency } from '@/components/reports/executive-kit';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { formatCurrency, formatPercent, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
-import { getLaggedMonth } from '@/lib/report-utils';
+import { getLaggedMonth, getUnifiedServicePeriodLabel, getProjectColor } from '@/lib/report-utils';
 import { isBackdated } from '@/lib/backdated-utils';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Legend, Tooltip,
 } from 'recharts';
-import { getProjectColor } from '@/lib/report-utils';
 import { BarChart3, TrendingUp, Users, DollarSign } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { FileDown } from 'lucide-react';
+import { exportSimpleReportPdf } from '@/lib/pdf-export';
 
 interface ProjectComparison {
   name: string;
@@ -44,9 +47,11 @@ export default function ProjectComparisonPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ProjectComparison[]>([]);
   const [userRole, setUserRole] = useState('');
+  const [showMoreColumns, setShowMoreColumns] = useState(false);
 
   const [revenueSourceMonth, setRevenueSourceMonth] = useState(getLaggedMonth(selectedMonth));
   const [isHistorical, setIsHistorical] = useState(false);
+  const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
 
   useEffect(() => {
     async function load() {
@@ -56,7 +61,13 @@ export default function ProjectComparisonPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
-        setUserRole(profile?.role || '');
+        const role = profile?.role || '';
+        setUserRole(role);
+        if (!['cfo', 'accountant'].includes(role)) {
+          setData([]);
+          setLoading(false);
+          return;
+        }
       }
 
       // Detect historical months — use direct matching
@@ -84,7 +95,7 @@ export default function ProjectComparisonPage() {
       const projects = projRes.data || [];
       const invoices = invRes.data || [];
       const projExpenses = projExpRes.data || [];
-      const totalOverhead = (sharedExpRes.data || []).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+      const totalOverhead = (sharedExpRes.data || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
       const agents = agentRes.data || [];
       const budgets = budRes.data || [];
 
@@ -92,26 +103,26 @@ export default function ProjectComparisonPage() {
 
       // Revenue map
       const revMap = new Map<string, number>();
-      invoices.filter((i: any) => !isBackdated(i.description)).forEach((i: any) => {
+      invoices.filter((i: /* // */ any) => !isBackdated(i.description)).forEach((i: /* // */ any) => {
         const kes = Number(i.amount_kes) > 0 ? Number(i.amount_kes) : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
         revMap.set(i.project_id, (revMap.get(i.project_id) || 0) + kes);
       });
 
       // Expense map
       const expMap = new Map<string, number>();
-      projExpenses.forEach((e: any) => {
+      projExpenses.forEach((e: /* // */ any) => {
         expMap.set(e.project_id, (expMap.get(e.project_id) || 0) + Number(e.amount_kes));
       });
 
       // Agent map
       const agentMap = new Map<string, number>();
-      agents.forEach((a: any) => { agentMap.set(a.project_id, Number(a.agent_count)); });
+      agents.forEach((a: /* // */ any) => { agentMap.set(a.project_id, Number(a.agent_count)); });
 
       // Budget util map
       const budgetMap = new Map<string, number>();
-      budgets.forEach((b: any) => {
+      budgets.forEach((b: /* // */ any) => {
         if (!b.project_id) return;
-        const approved = (b.budget_versions || []).find((v: any) => v.status === 'approved');
+        const approved = (b.budget_versions || []).find((v: /* // */ any) => v.status === 'approved');
         const amt = b.pm_approved_total ? Number(b.pm_approved_total) : Number(approved?.total_amount_kes || 0);
         budgetMap.set(b.project_id, (budgetMap.get(b.project_id) || 0) + amt);
       });
@@ -174,10 +185,19 @@ export default function ProjectComparisonPage() {
   const totalProfit = data.reduce((s, r) => s + r.distributableProfit, 0);
   const totalAgents = data.reduce((s, r) => s + r.agentCount, 0);
 
+  async function exportPdf() {
+    await exportSimpleReportPdf(
+      'Project Comparison',
+      isHistorical ? `Historical month ${selectedMonth}` : servicePeriodLabel,
+      data.slice(0, 120).map((r) => `${r.name} | revenue ${r.revenue.toFixed(2)} | direct ${r.directExpenses.toFixed(2)} | distributable ${r.distributableProfit.toFixed(2)}`),
+      `IO_Project_Comparison_${selectedMonth}.pdf`,
+    );
+  }
+
   // Radar data
   const radarDimensions = ['Gross Margin', 'Budget Util', 'Rev/Agent', 'Cost Eff'];
   const radarData = radarDimensions.map((dim, i) => {
-    const point: any = { dimension: dim };
+    const point: /* // */ any = { dimension: dim };
     data.forEach(p => {
       point[p.name] = [p.radarGrossMargin, p.radarBudgetUtil, p.radarRevPerAgent, p.radarCostEff][i];
     });
@@ -186,7 +206,16 @@ export default function ProjectComparisonPage() {
 
   return (
     <div>
-      <PageHeader title="Project Comparison" description={isHistorical ? `Revenue & Expenses from ${formatYearMonth(selectedMonth)} (historical)` : `Revenue from ${formatYearMonth(revenueSourceMonth)} | Expenses from ${formatYearMonth(selectedMonth)}`}>
+      {userRole && !['cfo', 'accountant'].includes(userRole) ? (
+        <div>
+          <PageHeader title="Project Comparison" description="Access restricted" />
+          <div className="p-6 text-sm text-slate-500">
+            Only CFO and Accountant roles can access project comparison analytics.
+          </div>
+        </div>
+      ) : (
+      <>
+      <PageHeader title="Project Comparison" description={isHistorical ? `Revenue & Expenses from ${formatYearMonth(selectedMonth)} (historical)` : servicePeriodLabel}>
         <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
           <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -197,9 +226,18 @@ export default function ProjectComparisonPage() {
             })}
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={exportPdf}>
+          <FileDown className="h-4 w-4 mr-1" /> Export PDF
+        </Button>
       </PageHeader>
 
       <div className="p-6 space-y-6">
+        <ExecutiveInsightPanel lines={[
+          data[0] ? `${data[0].name} leads with ${formatPercent(data[0].grossMargin)} margin.` : '',
+          `Revenue per agent is ${totalAgents > 0 ? formatCompactCurrency(totalRevenue / totalAgents, 'KES') : 'KES 0.0'}.`,
+          `${data.filter((p) => p.revenue === 0 && p.directExpenses === 0).length} inactive project(s) this period.`,
+        ]} />
+
         {/* Summary cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard title="Total Revenue" value={formatCurrency(totalRevenue, 'KES')} icon={DollarSign} />
@@ -211,44 +249,49 @@ export default function ProjectComparisonPage() {
         {/* Comparison table */}
         <Card className="io-card">
           <CardContent className="p-0 overflow-x-auto">
+            <div className="p-3 border-b flex justify-end">
+              <Button size="sm" variant="outline" onClick={() => setShowMoreColumns((v) => !v)}>
+                {showMoreColumns ? 'Show less' : 'Show more'}
+              </Button>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Project</TableHead>
                   <TableHead className="text-right">Revenue</TableHead>
-                  <TableHead className="text-right">Direct Costs</TableHead>
                   <TableHead className="text-right">Gross Profit</TableHead>
                   <TableHead className="text-right">Margin</TableHead>
-                  <TableHead className="text-right">Overhead</TableHead>
-                  <TableHead className="text-right">Dist. Profit</TableHead>
-                  <TableHead className="text-right">Net Margin</TableHead>
-                  <TableHead className="text-right">Agents</TableHead>
                   <TableHead className="text-right">Rev/Agent</TableHead>
-                  <TableHead className="text-right">Cost/Agent</TableHead>
-                  {userRole === 'cfo' && <TableHead>Director</TableHead>}
+                  {showMoreColumns && <TableHead className="text-right">Direct Costs</TableHead>}
+                  {showMoreColumns && <TableHead className="text-right">Overhead</TableHead>}
+                  {showMoreColumns && <TableHead className="text-right">Dist. Profit</TableHead>}
+                  {showMoreColumns && <TableHead className="text-right">Net Margin</TableHead>}
+                  {showMoreColumns && <TableHead className="text-right">Agents</TableHead>}
+                  {showMoreColumns && <TableHead className="text-right">Cost/Agent</TableHead>}
+                  {showMoreColumns && userRole === 'cfo' && <TableHead>Director</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={12} className="text-center py-8 text-neutral-400">Loading...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={12} className="text-center py-8 text-neutral-400">Please wait</TableCell></TableRow>
                 ) : data.length === 0 ? (
                   <TableRow><TableCell colSpan={12} className="text-center py-8 text-neutral-500">No data</TableCell></TableRow>
                 ) : (
                   <>
                     {data.map(r => (
-                      <TableRow key={r.name} className={r.distributableProfit > 0 ? 'bg-emerald-50/50' : r.distributableProfit < 0 ? 'bg-red-50/50' : ''}>
+                      <TableRow key={r.name} className={r.revenue === 0 && r.directExpenses === 0 ? 'opacity-50' : r.distributableProfit > 0 ? 'bg-emerald-50/50' : r.distributableProfit < 0 ? 'bg-red-50/50' : ''}>
                         <TableCell className="font-medium">{r.name}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(r.revenue, 'KES')}</TableCell>
-                        <TableCell className="text-right font-mono text-sm text-red-600">{formatCurrency(r.directExpenses, 'KES')}</TableCell>
                         <TableCell className={`text-right font-mono text-sm ${r.grossProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(r.grossProfit, 'KES')}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatPercent(r.grossMargin)}</TableCell>
-                        <TableCell className="text-right font-mono text-sm text-amber-600">{formatCurrency(r.overheadAllocated, 'KES')}</TableCell>
-                        <TableCell className={`text-right font-mono text-sm font-semibold ${r.distributableProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(r.distributableProfit, 'KES')}</TableCell>
-                        <TableCell className={`text-right font-mono text-sm ${r.netMargin < 10 ? 'text-amber-600' : ''}`}>{formatPercent(r.netMargin)}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{r.agentCount}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(r.revenuePerAgent, 'KES')}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{formatCurrency(r.costPerAgent, 'KES')}</TableCell>
-                        {userRole === 'cfo' && <TableCell className="text-sm">{r.director}</TableCell>}
+                        {showMoreColumns && <TableCell className="text-right font-mono text-sm text-red-600">{formatCurrency(r.directExpenses, 'KES')}</TableCell>}
+                        {showMoreColumns && <TableCell className="text-right font-mono text-sm text-amber-600">{formatCurrency(r.overheadAllocated, 'KES')}</TableCell>}
+                        {showMoreColumns && <TableCell className={`text-right font-mono text-sm font-semibold ${r.distributableProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(r.distributableProfit, 'KES')}</TableCell>}
+                        {showMoreColumns && <TableCell className={`text-right font-mono text-sm ${r.netMargin < 10 ? 'text-amber-600' : ''}`}>{formatPercent(r.netMargin)}</TableCell>}
+                        {showMoreColumns && <TableCell className="text-right font-mono text-sm">{r.agentCount}</TableCell>}
+                        {showMoreColumns && <TableCell className="text-right font-mono text-sm">{formatCurrency(r.costPerAgent, 'KES')}</TableCell>}
+                        {showMoreColumns && userRole === 'cfo' && <TableCell className="text-sm">{r.director}</TableCell>}
                       </TableRow>
                     ))}
                   </>
@@ -279,6 +322,8 @@ export default function ProjectComparisonPage() {
           </Card>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

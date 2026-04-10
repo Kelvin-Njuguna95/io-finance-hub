@@ -15,12 +15,13 @@ import { toast } from 'sonner';
 interface EodStatus {
   report_date: string;
   already_sent: boolean;
-  existing_report: any;
+  existing_report: /* // */ any;
   has_activity: boolean;
   summary: {
     expense_count: number;
     expense_total_kes: number;
     withdrawal_count: number;
+    cash_received_count: number;
     budget_action_count: number;
   };
 }
@@ -95,6 +96,7 @@ export function EodPanel() {
     lines.push('');
     lines.push(`Expenses: ${status.summary.expense_count} entries — ${formatCurrency(status.summary.expense_total_kes || 0, 'KES')}`);
     lines.push(`Withdrawals: ${status.summary.withdrawal_count} entries`);
+    lines.push(`Cash Received: ${status.summary.cash_received_count} entries`);
     lines.push(`Budget Actions: ${status.summary.budget_action_count} submissions/reviews`);
     if (resend) {
       lines.push('');
@@ -108,7 +110,7 @@ export function EodPanel() {
     return (
       <Card>
         <CardHeader><CardTitle className="text-sm font-medium">End of Day Report</CardTitle></CardHeader>
-        <CardContent><p className="text-sm text-neutral-400">Loading...</p></CardContent>
+        <CardContent><p className="text-sm text-neutral-400">Please wait</p></CardContent>
       </Card>
     );
   }
@@ -122,16 +124,19 @@ export function EodPanel() {
     expenses: s?.existing_report?.expense_count || 0,
     withdrawals: s?.existing_report?.withdrawal_count || 0,
     budgets: s?.existing_report?.budget_action_count || 0,
+    cashReceived: s?.existing_report?.cash_received_count || 0,
   } : null;
   const currentCounts = {
     expenses: s?.summary.expense_count || 0,
     withdrawals: s?.summary.withdrawal_count || 0,
     budgets: s?.summary.budget_action_count || 0,
+    cashReceived: s?.summary.cash_received_count || 0,
   };
   const hasNewActivity = sent && existingCounts && (
     currentCounts.expenses !== existingCounts.expenses ||
     currentCounts.withdrawals !== existingCounts.withdrawals ||
-    currentCounts.budgets !== existingCounts.budgets
+    currentCounts.budgets !== existingCounts.budgets ||
+    currentCounts.cashReceived !== existingCounts.cashReceived
   );
 
   let statusBadge: React.ReactNode;
@@ -162,6 +167,10 @@ export function EodPanel() {
             <div className="flex justify-between text-sm">
               <span className="text-neutral-500">Withdrawals recorded</span>
               <span className="font-medium">{s?.summary.withdrawal_count || 0} entries</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-neutral-500">Cash received</span>
+              <span className="font-medium">{s?.summary.cash_received_count || 0} entries</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-neutral-500">Budget actions</span>

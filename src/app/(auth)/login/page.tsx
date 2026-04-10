@@ -12,6 +12,8 @@ export default function LoginPage() {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -119,6 +121,39 @@ export default function LoginPage() {
             >
               {loading ? 'Signing in…' : 'Sign in'}
             </Button>
+            <div className="text-center">
+              {resetSent ? (
+                <p className="text-sm text-success-soft-foreground">
+                  Reset link sent! Check your email.
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  className="text-sm text-muted-foreground underline hover:text-foreground"
+                  disabled={resetLoading}
+                  onClick={async () => {
+                    if (!email) {
+                      setError('Enter your email first');
+                      return;
+                    }
+                    setResetLoading(true);
+                    setError('');
+                    const supabase = createClient();
+                    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+                      redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+                    });
+                    if (resetError) {
+                      setError(resetError.message);
+                    } else {
+                      setResetSent(true);
+                    }
+                    setResetLoading(false);
+                  }}
+                >
+                  {resetLoading ? 'Sending...' : 'Forgot PIN?'}
+                </button>
+              )}
+            </div>
           </form>
         </CardContent>
       </Card>

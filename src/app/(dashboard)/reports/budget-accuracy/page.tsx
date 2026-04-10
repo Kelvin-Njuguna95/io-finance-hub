@@ -3,10 +3,11 @@
 import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
-import { StatCard } from '@/components/layout/stat-card';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ExecutiveInsightPanel, ExecutiveKpiCard, formatExecutivePercent } from '@/components/reports/executive-kit';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -16,7 +17,8 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine, Cell,
 } from 'recharts';
-import { Target, TrendingUp, AlertTriangle } from 'lucide-react';
+import { FileDown } from 'lucide-react';
+import { exportSimpleReportPdf } from '@/lib/pdf-export';
 
 interface AccuracyRow {
   month: string;
@@ -64,7 +66,7 @@ export default function BudgetAccuracyPage() {
         setUserRole(role);
         if (role === 'team_leader' || role === 'project_manager') {
           const { data: assigns } = await supabase.from('user_project_assignments').select('project_id').eq('user_id', user.id);
-          assignedProjects = (assigns || []).map((a: any) => a.project_id);
+          assignedProjects = (assigns || []).map((a: /* // */ any) => a.project_id);
         }
       }
       const isRestricted = role === 'team_leader' || role === 'project_manager';
@@ -76,14 +78,14 @@ export default function BudgetAccuracyPage() {
       ]);
 
       const projects = (projRes.data || []).filter(p => !isRestricted || assignedProjects.includes(p.id));
-      const budgets = (budRes.data || []).filter((b: any) => !isRestricted || assignedProjects.includes(b.project_id));
-      const expenses = (expRes.data || []).filter((e: any) => !isRestricted || assignedProjects.includes(e.project_id));
+      const budgets = (budRes.data || []).filter((b: /* // */ any) => !isRestricted || assignedProjects.includes(b.project_id));
+      const expenses = (expRes.data || []).filter((e: /* // */ any) => !isRestricted || assignedProjects.includes(e.project_id));
       const projMap = new Map(projects.map(p => [p.id, p.name]));
       const projNameSet = new Set<string>();
 
       // Build expense by project+month
       const expByPM = new Map<string, number>();
-      expenses.forEach((e: any) => {
+      expenses.forEach((e: /* // */ any) => {
         const key = `${e.project_id}|${e.year_month}`;
         expByPM.set(key, (expByPM.get(key) || 0) + Number(e.amount_kes));
       });
@@ -92,12 +94,12 @@ export default function BudgetAccuracyPage() {
       const allRows: AccuracyRow[] = [];
       const freqMap = new Map<string, { over: number; under: number; on: number }>();
 
-      budgets.forEach((b: any) => {
+      budgets.forEach((b: /* // */ any) => {
         if (!b.project_id || !projMap.has(b.project_id)) return;
         const projName = projMap.get(b.project_id)!;
         projNameSet.add(projName);
 
-        const approved = (b.budget_versions || []).find((v: any) => v.status === 'approved');
+        const approved = (b.budget_versions || []).find((v: /* // */ any) => v.status === 'approved');
         const budgeted = b.pm_approved_total ? Number(b.pm_approved_total) : Number(approved?.total_amount_kes || 0);
         if (budgeted === 0) return;
 
@@ -153,6 +155,15 @@ export default function BudgetAccuracyPage() {
       }, { name: '', avg: 0 })
     : { name: '-', avg: 0 };
 
+  async function exportPdf() {
+    await exportSimpleReportPdf(
+      'Budget Accuracy Report',
+      `${rangeMonths}-month window`,
+      rows.slice(0, 120).map((r) => `${r.month} | ${r.project} | budget ${r.budgeted.toFixed(2)} | actual ${r.actual.toFixed(2)} | accuracy ${r.accuracy.toFixed(1)}%`),
+      `IO_Budget_Accuracy_${rangeMonths}m.pdf`,
+    );
+  }
+
   return (
     <div>
       <PageHeader title="Budget Accuracy" description="Budget forecasting accuracy tracking">
@@ -164,14 +175,24 @@ export default function BudgetAccuracyPage() {
             <SelectItem value="12">Last 12 Months</SelectItem>
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={exportPdf}>
+          <FileDown className="h-4 w-4 mr-1" /> Export PDF
+        </Button>
       </PageHeader>
 
       <div className="p-6 space-y-6">
+        <ExecutiveInsightPanel lines={[
+          `Forecast accuracy is ${formatExecutivePercent(avgAccuracy)} — ${Math.abs(avgAccuracy - 90).toFixed(1)} pts above the 90% governance threshold.`,
+          `${rows.filter((r) => r.accuracy < 75).length} points need immediate forecast review.`,
+          `Best forecaster is ${bestProject.name || 'N/A'}.`,
+        ]} />
+
         {/* Summary cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatCard title="Avg Accuracy" value={formatPercent(avgAccuracy)} subtitle={avgAccuracy >= 90 ? 'On target' : 'Below 90% target'} icon={Target} />
-          <StatCard title="Best Forecaster" value={bestProject.name} subtitle={`${formatPercent(bestProject.avg)} avg accuracy`} icon={TrendingUp} />
-          <StatCard title="Data Points" value={String(rows.length)} subtitle={`Across ${rangeMonths} months`} icon={AlertTriangle} />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <ExecutiveKpiCard label="Avg Accuracy" value={formatExecutivePercent(avgAccuracy)} trend={avgAccuracy >= 90 ? 'Above Target' : 'Below Target'} positive={avgAccuracy >= 90} />
+          <ExecutiveKpiCard label="Best Forecaster" value={bestProject.name || 'N/A'} trend={formatExecutivePercent(bestProject.avg)} />
+          <ExecutiveKpiCard label="Data Points" value={`${rows.length}`} trend={`${rangeMonths} month window`} />
+          <ExecutiveKpiCard label="Target" value="90%" trend="Governance threshold" />
         </div>
 
         {/* Accuracy Table */}
@@ -191,7 +212,7 @@ export default function BudgetAccuracyPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-neutral-400">Loading...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-neutral-400">Please wait</TableCell></TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="text-center py-8 text-neutral-500">No budget data available</TableCell></TableRow>
                 ) : rows.map((r, i) => (

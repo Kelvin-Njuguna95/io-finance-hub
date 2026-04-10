@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
@@ -92,7 +93,11 @@ export default function NotificationsPage() {
     setLoading(true);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
 
     const { data } = await supabase
       .from('notifications')
@@ -101,7 +106,7 @@ export default function NotificationsPage() {
       .order('created_at', { ascending: false })
       .limit(200);
 
-    setNotifications((data || []).map((n: any) => ({
+    setNotifications((data || []).map((n) => ({
       ...n,
       body: n.body || n.message || null,
       is_read: n.is_read ?? n.read ?? false,
@@ -117,9 +122,9 @@ export default function NotificationsPage() {
     if (!user) return;
     await supabase
       .from('notifications')
-      .update({ read: true, is_read: true, read_at: new Date().toISOString() })
+      .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('user_id', user.id)
-      .eq('read', false);
+      .eq('is_read', false);
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
   }
 
@@ -133,7 +138,7 @@ export default function NotificationsPage() {
       .from('notifications')
       .delete()
       .eq('user_id', user.id)
-      .eq('read', true)
+      .eq('is_read', true)
       .lt('created_at', cutoff.toISOString());
     fetchAll();
   }
@@ -143,7 +148,7 @@ export default function NotificationsPage() {
       const supabase = createClient();
       await supabase
         .from('notifications')
-        .update({ read: true, is_read: true, read_at: new Date().toISOString() })
+        .update({ is_read: true, read_at: new Date().toISOString() })
         .eq('id', n.id);
       setNotifications((prev) =>
         prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)),
@@ -192,9 +197,12 @@ export default function NotificationsPage() {
         </Tabs>
 
         {loading ? (
-          <p className="text-sm text-neutral-400 py-8 text-center">Loading...</p>
+          <p className="text-sm text-neutral-400 py-8 text-center">Please wait</p>
         ) : filtered.length === 0 ? (
-          <p className="text-sm text-neutral-500 py-8 text-center">No notifications</p>
+          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center">
+            <p className="text-sm font-medium text-slate-700">You&apos;re all caught up — no new notifications at this time.</p>
+            <p className="mt-1 text-xs text-slate-500">New activity from budgets, expenses, and finance workflows will appear here automatically.</p>
+          </div>
         ) : (
           Object.entries(groups).map(([group, items]) => (
             <div key={group}>
@@ -245,7 +253,7 @@ export default function NotificationsPage() {
         )}
 
         <p className="text-center text-xs text-slate-300 pt-4">
-          <a href="/settings" className="text-blue-500 hover:underline">Manage notification preferences</a>
+          <Link href="/settings" className="text-blue-500 hover:underline">Manage notification preferences</Link>
         </p>
       </div>
     </div>

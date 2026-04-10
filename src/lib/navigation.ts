@@ -51,6 +51,7 @@ const cfoNav: NavGroup[] = [
       { title: 'Expense Queue', href: '/expenses/queue', icon: ListChecks },
       { title: 'Variance Dashboard', href: '/expenses/variance', icon: GitCompareArrows },
       { title: 'Revenue', href: '/revenue', icon: DollarSign },
+      { title: 'Invoices', href: '/invoices', icon: FileText },
       { title: 'Withdrawals', href: '/withdrawals', icon: ArrowDownToLine },
     ],
   },
@@ -90,10 +91,12 @@ const cfoNav: NavGroup[] = [
 ];
 
 const accountantNav: NavGroup[] = [
+  // Audit note (Phase 4): accountant budget visibility is aligned with server-enforced budget route permissions.
   {
     title: 'Overview',
     items: [
       { title: 'Dashboard', href: '/', icon: LayoutDashboard },
+      { title: 'Red Flags', href: '/red-flags', icon: AlertTriangle },
     ],
   },
   {
@@ -103,20 +106,8 @@ const accountantNav: NavGroup[] = [
       { title: 'Expenses', href: '/expenses', icon: Receipt },
       { title: 'Expense Queue', href: '/expenses/queue', icon: ListChecks },
       { title: 'Revenue', href: '/revenue', icon: DollarSign },
+      { title: 'Invoices', href: '/invoices', icon: FileText },
       { title: 'Withdrawals', href: '/withdrawals', icon: ArrowDownToLine },
-    ],
-  },
-  {
-    title: 'Reports',
-    items: [
-      { title: 'Monthly P&L', href: '/reports/monthly', icon: FileText },
-      { title: 'P&L Reports', href: '/reports/pnl', icon: TrendingUp },
-      { title: 'Profitability', href: '/reports/profitability', icon: PieChart },
-      { title: 'Trends & Analytics', href: '/reports/trends', icon: LineChart },
-      { title: 'Project Comparison', href: '/reports/projects', icon: BarChart3 },
-      { title: 'Budget Accuracy', href: '/reports/budget-accuracy', icon: Target },
-      { title: 'Outstanding Receivables', href: '/reports/outstanding', icon: DollarSign },
-      { title: 'Budget vs Actual', href: '/reports/budget-vs-actual', icon: ClipboardList },
     ],
   },
   {
@@ -130,6 +121,19 @@ const accountantNav: NavGroup[] = [
     items: [
       { title: 'Audit Log', href: '/audit', icon: ScrollText },
       { title: 'Notifications', href: '/notifications', icon: Bell },
+    ],
+  },
+  {
+    title: 'Reports',
+    items: [
+      { title: 'Monthly P&L', href: '/reports/monthly', icon: FileText },
+      { title: 'P&L Reports', href: '/reports/pnl', icon: TrendingUp },
+      { title: 'Profitability', href: '/reports/profitability', icon: PieChart },
+      { title: 'Trends & Analytics', href: '/reports/trends', icon: LineChart },
+      { title: 'Project Comparison', href: '/reports/projects', icon: BarChart3 },
+      { title: 'Budget Accuracy', href: '/reports/budget-accuracy', icon: Target },
+      { title: 'Outstanding Receivables', href: '/reports/outstanding', icon: DollarSign },
+      { title: 'Budget vs Actual', href: '/reports/budget-vs-actual', icon: ClipboardList },
     ],
   },
 ];
@@ -175,8 +179,6 @@ const projectManagerNav: NavGroup[] = [
     items: [
       { title: 'Budget Reviews', href: '/budgets', icon: ClipboardList },
       { title: 'Revenue', href: '/revenue', icon: DollarSign },
-      { title: 'Expenses', href: '/expenses', icon: Receipt },
-      { title: 'Withdrawals', href: '/withdrawals', icon: ArrowDownToLine },
     ],
   },
   {
@@ -209,5 +211,9 @@ export function getNavigation(role: UserRole): NavGroup[] {
       return teamLeaderNav;
     case 'project_manager':
       return projectManagerNav;
+    case 'department_head':
+      return accountantNav;
+    default:
+      return accountantNav;
   }
 }

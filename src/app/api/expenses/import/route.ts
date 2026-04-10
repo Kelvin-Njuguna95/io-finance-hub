@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 import * as XLSX from 'xlsx';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 // POST /api/expenses/import — parse Excel and return validated rows
 export async function POST(request: Request) {
-  const auth = await getAuthUserProfile(request);
-  if ('error' in auth) return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
-  const { user, profile, admin } = auth;
+  try {
+    const auth = await getAuthUserProfile(request);
+    if ('error' in auth) return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
+    const { user, profile, admin } = auth;
 
-  if (!['cfo', 'accountant'].includes(profile.role)) {
-    return NextResponse.json({ error: 'Only Accountant or CFO can import expenses' }, { status: 403 });
-  }
+    if (!['cfo', 'accountant'].includes(profile.role)) {
+      return NextResponse.json({ error: 'Only Accountant or CFO can import expenses', code: 'FORBIDDEN' }, { status: 403 });
+    }
 
   const contentType = request.headers.get('content-type') || '';
 
@@ -23,15 +25,15 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' }) as any[];
+    const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' }) as /* // */ /* // */ any[];
 
     // Load lookup data
     const { data: projects } = await admin.from('projects').select('id, name').eq('is_active', true);
     const { data: budgets } = await admin.from('budgets').select('id, project_id, year_month, budget_versions(id, status)');
     const { data: users } = await admin.from('users').select('id, full_name');
 
-    const projectMap = new Map((projects || []).map((p: any) => [p.name.toLowerCase(), p]));
-    const userMap = new Map((users || []).map((u: any) => [u.full_name.toLowerCase(), u]));
+    const projectMap = new Map((projects || []).map((p: /* // */ any) => [p.name.toLowerCase(), p]));
+    const userMap = new Map((users || []).map((u: /* // */ any) => [u.full_name.toLowerCase(), u]));
 
     // Normalize payment methods
     const normPayment = (v: string): string => {
@@ -43,7 +45,7 @@ export async function POST(request: Request) {
       return v || '';
     };
 
-    const validated = rawRows.map((row: any, idx: number) => {
+    const validated = rawRows.map((row: /* // */ any, idx: number) => {
       const errors: string[] = [];
       const warnings: string[] = [];
 
@@ -94,11 +96,11 @@ export async function POST(request: Request) {
       let budgetVersionId: string | null = null;
       if (resolvedProjectId && expenseDate) {
         const ym = `${expenseDate.getFullYear()}-${String(expenseDate.getMonth() + 1).padStart(2, '0')}`;
-        const matchingBudget = (budgets || []).find((b: any) =>
+        const matchingBudget = (budgets || []).find((b: /* // */ any) =>
           b.project_id === resolvedProjectId && b.year_month === ym
         );
         if (matchingBudget) {
-          const approvedVersion = (matchingBudget.budget_versions || []).find((v: any) => v.status === 'approved' || v.status === 'pm_approved');
+          const approvedVersion = (matchingBudget.budget_versions || []).find((v: /* // */ any) => v.status === 'approved' || v.status === 'pm_approved');
           if (approvedVersion) {
             budgetId = matchingBudget.id;
             budgetVersionId = approvedVersion.id;
@@ -180,7 +182,7 @@ export async function POST(request: Request) {
     }
 
     // Month lock enforcement — check all target months before importing
-    const targetMonths = [...new Set(rows.map((r: any) => r.period_month).filter(Boolean))] as string[];
+    const targetMonths = [...new Set(rows.map((r: /* // */ any) => r.period_month).filter(Boolean))] as string[];
     for (const ym of targetMonths) {
       const monthErr = await assertMonthOpen(admin, ym);
       if (monthErr) return NextResponse.json({ error: `${monthErr.message} Cannot import expenses into a closed month.` }, { status: monthErr.status });
@@ -220,7 +222,7 @@ export async function POST(request: Request) {
           .eq('year_month', row.period_month)
           .single();
         if (matchBudget) {
-          const approved = ((matchBudget as any).budget_versions || []).find((v: any) => ['approved', 'pm_approved'].includes(v.status));
+          const approved = ((matchBudget as /* // */ any).budget_versions || []).find((v: /* // */ any) => ['approved', 'pm_approved'].includes(v.status));
           if (approved) {
             budgetId = matchBudget.id;
             budgetVersionId = approved.id;
@@ -272,7 +274,7 @@ export async function POST(request: Request) {
       total_rows: rows.length,
       imported_count: importedCount,
       skipped_count: skippedCount,
-      flagged_count: rows.filter((r: any) => r.status === 'reroute').length,
+      flagged_count: rows.filter((r: /* // */ any) => r.status === 'reroute').length,
       status: importedCount > 0 ? (skippedCount > 0 ? 'partial' : 'completed') : 'failed',
     });
 
@@ -286,7 +288,7 @@ export async function POST(request: Request) {
         row_count: rows.length,
         imported_count: importedCount,
         skipped_count: skippedCount,
-        flagged_count: rows.filter((r: any) => r.status === 'reroute').length,
+        flagged_count: rows.filter((r: /* // */ any) => r.status === 'reroute').length,
         period_months: Array.from(periodMonths),
       },
     });
@@ -298,5 +300,8 @@ export async function POST(request: Request) {
     });
   }
 
-  return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid request', code: 'BAD_REQUEST' }, { status: 400 });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to import expenses.', 'EXPENSE_IMPORT_ERROR');
+  }
 }

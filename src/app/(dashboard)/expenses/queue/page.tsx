@@ -19,6 +19,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { formatCurrency, formatDate, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { toast } from 'sonner';
 import { DollarSign, CheckCircle, Clock, TrendingDown } from 'lucide-react';
+import { EXPENSE_STATUS } from '@/lib/constants/status';
+import { getPendingExpensesByMonth } from '@/lib/queries/expenses';
 
 // -----------------------------------------------
 // Types
@@ -93,11 +95,12 @@ function variancePercent(budgeted: number, actual: number) {
 // -----------------------------------------------
 
 function getMonthOptions() {
-  return Array.from({ length: 12 }, (_, i) => {
+  return Array.from({ length: 19 }, (_, idx) => {
+    const i = idx - 12; // 12 months back through 6 months ahead
     const d = new Date();
-    d.setMonth(d.getMonth() - i);
+    d.setMonth(d.getMonth() + i);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  });
+  }).reverse();
 }
 
 // -----------------------------------------------
@@ -118,6 +121,7 @@ export default function ExpenseQueuePage() {
   const [items, setItems] = useState<PendingExpense[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasPendingItems, setHasPendingItems] = useState(true);
 
   // Selection
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -139,11 +143,7 @@ export default function ExpenseQueuePage() {
 
   async function loadItems() {
     setLoading(true);
-    const { data } = await supabase
-      .from('pending_expenses')
-      .select('*, projects(name), departments(name)')
-      .eq('year_month', selectedMonth)
-      .order('created_at');
+    const { data } = await getPendingExpensesByMonth(supabase, selectedMonth);
 
     setItems((data as PendingExpense[] | null) || []);
     setLoading(false);
@@ -156,13 +156,39 @@ export default function ExpenseQueuePage() {
 
   useEffect(() => {
     loadProjects();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    async function syncToLatestPendingMonth() {
+      const { data } = await supabase
+        .from('pending_expenses')
+        .select('year_month')
+        .eq('status', 'pending_auth')
+        .order('year_month', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setHasPendingItems(Boolean(data?.year_month));
+      if (data?.year_month && data.year_month !== selectedMonth) {
+        setSelectedMonth(data.year_month);
+      }
+    }
+    syncToLatestPendingMonth();
   }, []);
 
   useEffect(() => {
     loadItems();
     setSelected(new Set());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMonth]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`expense-queue-${selectedMonth}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_expenses' }, () => loadItems())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => loadItems())
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [selectedMonth]);
 
   // -----------------------------------------------
@@ -194,9 +220,10 @@ export default function ExpenseQueuePage() {
 
   const totalBudgeted = filtered.reduce((s, i) => s + Number(i.budgeted_amount_kes), 0);
   const totalConfirmed = filtered
-    .filter((i) => i.status === 'confirmed')
+    .filter((i) => i.status === EXPENSE_STATUS.CONFIRMED)
     .reduce((s, i) => s + Number(i.actual_amount_kes || 0), 0);
-  const pendingCount = filtered.filter((i) => i.status === 'pending_auth').length;
+  const pendingCount = filtered.filter((i) => i.status === EXPENSE_STATUS.PENDING_AUTH).length;
+  const selectedMonthPendingCount = items.filter((i) => i.status === EXPENSE_STATUS.PENDING_AUTH).length;
   const totalActual = filtered.reduce((s, i) => s + Number(i.actual_amount_kes || i.budgeted_amount_kes), 0);
   const overallVariance = totalActual - totalBudgeted;
 
@@ -276,8 +303,20 @@ export default function ExpenseQueuePage() {
   }
 
   async function handleCarryForward(item: PendingExpense) {
+    const proceed = window.confirm('Carry-forward this item to the next month?');
+    if (!proceed) return;
+    const reason = 'Carry forward';
+    const targetMonth = new Date(new Date(selectedMonth + '-01').setMonth(new Date(selectedMonth + '-01').getMonth() + 1)).toISOString().slice(0, 7);
+    if (targetMonth <= selectedMonth) {
+      toast.error('Target month must be after the selected month');
+      return;
+    }
     try {
-      await callAction('carry_forward', { id: item.id });
+      await callAction('carry_forward', {
+        id: item.id,
+        carry_reason: reason.trim(),
+        target_month: targetMonth.trim(),
+      });
       toast.success('Expense carried forward');
       loadItems();
     } catch (e: unknown) {
@@ -286,8 +325,11 @@ export default function ExpenseQueuePage() {
   }
 
   async function handleFlagForReview(item: PendingExpense) {
+    const proceedReview = window.confirm('Flag this expense for review?');
+    if (!proceedReview) return;
+    const reviewNotes = 'Under review';
     try {
-      await callAction('under_review', { id: item.id });
+      await callAction('under_review', { id: item.id, review_notes: reviewNotes.trim() });
       toast.success('Expense flagged for review');
       loadItems();
     } catch (e: unknown) {
@@ -312,6 +354,30 @@ export default function ExpenseQueuePage() {
       loadItems();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Bulk confirm failed');
+    }
+  }
+
+  async function handleBulkCarryForward() {
+    const toCarry = filtered.filter((i) => selected.has(i.id) && i.status === 'pending_auth');
+    if (toCarry.length === 0) {
+      toast.error('No pending items selected');
+      return;
+    }
+    const proceedBulk = window.confirm('Carry-forward selected items to next month?');
+    if (!proceedBulk) return;
+    const reason = 'Bulk carry forward';
+    const targetMonth = new Date(new Date(selectedMonth + '-01').setMonth(new Date(selectedMonth + '-01').getMonth() + 1)).toISOString().slice(0, 7);
+    try {
+      await Promise.all(toCarry.map((item) => callAction('carry_forward', {
+        id: item.id,
+        carry_reason: reason.trim(),
+        target_month: targetMonth.trim(),
+      })));
+      toast.success(`${toCarry.length} expense(s) carried forward`);
+      setSelected(new Set());
+      loadItems();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Bulk carry forward failed');
     }
   }
 
@@ -397,7 +463,7 @@ export default function ExpenseQueuePage() {
 
       <div className="space-y-6 p-6">
         {/* Backfill banner — show when no items and user is CFO */}
-        {items.length === 0 && canAct && (
+        {items.length === 0 && canAct && hasPendingItems && (
           <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-4">
             <div>
               <p className="text-sm font-medium text-amber-800">No pending expenses found for this month.</p>
@@ -467,6 +533,9 @@ export default function ExpenseQueuePage() {
             <Button size="sm" onClick={handleBulkConfirm}>
               Confirm All Selected
             </Button>
+            <Button size="sm" variant="outline" onClick={handleBulkCarryForward}>
+              Carry Forward Selected
+            </Button>
           </div>
         )}
 
@@ -475,11 +544,17 @@ export default function ExpenseQueuePage() {
           <CardContent className="p-0">
             {loading ? (
               <div className="flex items-center justify-center py-16 text-sm text-slate-400">
-                Loading...
+                Please wait
+              </div>
+            ) : selectedMonthPendingCount === 0 ? (
+              <div className="flex items-center justify-center py-16 text-sm text-slate-500">
+                No pending expenses — all approved budgets have been confirmed for {formatYearMonth(selectedMonth)}.
               </div>
             ) : filtered.length === 0 ? (
               <div className="flex items-center justify-center py-16 text-sm text-slate-400">
-                No pending expenses for this period
+                {hasPendingItems
+                  ? 'No pending expenses for this period'
+                  : 'No pending expenses this month — all budgets are up to date'}
               </div>
             ) : (
               <Table>
@@ -581,6 +656,8 @@ export default function ExpenseQueuePage() {
                                     size="sm"
                                     variant="outline"
                                     className="h-7 text-xs text-red-600"
+                                    disabled={user?.role !== 'cfo'}
+                                    hidden={user?.role !== 'cfo'}
                                     onClick={() => {
                                       setVoidDialog(item);
                                       setVoidReason('');
@@ -625,6 +702,8 @@ export default function ExpenseQueuePage() {
                                     size="sm"
                                     variant="outline"
                                     className="h-7 text-xs text-red-600"
+                                    disabled={user?.role !== 'cfo'}
+                                    hidden={user?.role !== 'cfo'}
                                     onClick={() => {
                                       setVoidDialog(item);
                                       setVoidReason('');

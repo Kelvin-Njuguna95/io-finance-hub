@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient, getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
+import { apiErrorResponse } from '@/lib/api-errors';
 
 /** Legacy helper kept for the GET handler which only needs the auth user */
 async function getAuthUser(request: Request) {
@@ -23,14 +24,19 @@ function prevMonth(periodMonth: string): string {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
 
+function isProjectLeadRole(role: string): boolean {
+  return role === 'project_manager' || role === 'team_leader';
+}
+
 // =============================================================
 // GET — Misc overview for a project + month
 // =============================================================
 export async function GET(request: Request) {
-  const authUser = await getAuthUser(request);
-  if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
 
-  const admin = createAdminClient();
+    const admin = createAdminClient();
 
   // Parse query params
   const { searchParams } = new URL(request.url);
@@ -47,8 +53,8 @@ export async function GET(request: Request) {
   const { data: profile } = await admin.from('users').select('role').eq('id', authUser.id).single();
   if (!profile) return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
 
-  // Role check: PM sees own project only, CFO/Accountant see all
-  if (profile.role === 'project_manager') {
+  // Role check: PM/TL see assigned projects only, CFO/Accountant see all
+  if (isProjectLeadRole(profile.role)) {
     const { data: assignment } = await admin.from('user_project_assignments')
       .select('id').eq('user_id', authUser.id).eq('project_id', projectId).single();
     if (!assignment) {
@@ -87,7 +93,7 @@ export async function GET(request: Request) {
       .single(),
     admin.from('system_settings')
       .select('value')
-      .eq('key', 'misc_topup_monthly_limit_amount')
+      .eq('key', 'misc_topup_monthly_limit_kes')
       .single(),
     // Freeze check
     admin.from('system_settings')
@@ -113,47 +119,51 @@ export async function GET(request: Request) {
   const monthlyAmount = allocation?.monthly_amount || 0;
 
   // Separate standing vs top_up
-  const standingDraw = draws.find((d: any) => d.draw_type === 'standing') || null;
-  const topUps = draws.filter((d: any) => d.draw_type === 'top_up');
+  const standingDraw = draws.find((d: /* // */ any) => d.draw_type === 'standing') || null;
+  const topUps = draws.filter((d: /* // */ any) => d.draw_type === 'top_up');
 
-  const totalDrawn = draws.reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+  const totalDrawn = draws.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
   const remaining = monthlyAmount - totalDrawn;
 
   const topUpCount = topUps.length;
-  const topUpTotal = topUps.reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+  const topUpTotal = topUps.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
 
   // Limits
   const topupLimitCount = parseInt(limitCountRes.data?.value || '3', 10);
   const topupLimitAmount = parseFloat(limitAmountRes.data?.value || '50000');
   const frozen = freezeRes.data?.value === 'true';
 
-  return NextResponse.json({
-    allocation: { monthly_amount: monthlyAmount },
-    draws,
-    standing_draw: standingDraw,
-    top_ups: topUps,
-    total_drawn: totalDrawn,
-    remaining,
-    top_up_count: topUpCount,
-    top_up_total: topUpTotal,
-    limits: {
-      topup_limit_count: topupLimitCount,
-      topup_limit_amount: topupLimitAmount,
-      remaining_count: topupLimitCount - topUpCount,
-      remaining_amount: topupLimitAmount - topUpTotal,
-      frozen,
-    },
-    report: reportRes.data || null,
-    prev_report_status: prevReportRes.data?.status || null,
-  });
+    return NextResponse.json({
+      allocation: { monthly_amount: monthlyAmount },
+      draws,
+      standing_draw: standingDraw,
+      top_ups: topUps,
+      total_drawn: totalDrawn,
+      remaining,
+      top_up_count: topUpCount,
+      top_up_total: topUpTotal,
+      limits: {
+        topup_limit_count: topupLimitCount,
+        topup_limit_amount: topupLimitAmount,
+        remaining_count: topupLimitCount - topUpCount,
+        remaining_amount: topupLimitAmount - topUpTotal,
+        frozen,
+      },
+      report: reportRes.data || null,
+      prev_report_status: prevReportRes.data?.status || null,
+    });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to load misc overview.', 'MISC_GET_ERROR');
+  }
 }
 
 // =============================================================
 // POST — Create draws, flag, freeze/unfreeze
 // =============================================================
 export async function POST(request: Request) {
-  const authUser = await getAuthUser(request);
-  if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from('users').select('role, full_name').eq('id', authUser.id).single();
@@ -187,13 +197,13 @@ export async function POST(request: Request) {
   // draw_standing
   // -------------------------------------------------------
   if (action === 'draw_standing') {
-    // Only CFO or PM assigned to this project
-    if (profile.role === 'project_manager') {
+    // Only CFO or assigned PM/TL
+    if (isProjectLeadRole(profile.role)) {
       const { data: assignment } = await admin.from('user_project_assignments')
         .select('id').eq('user_id', authUser.id).eq('project_id', project_id).single();
       if (!assignment) return NextResponse.json({ error: 'Not your project' }, { status: 403 });
     } else if (profile.role !== 'cfo') {
-      return NextResponse.json({ error: 'Only PM or CFO can draw standing allocation' }, { status: 403 });
+      return NextResponse.json({ error: 'Only PM/TL or CFO can draw standing allocation' }, { status: 403 });
     }
 
     // Get allocation
@@ -231,8 +241,8 @@ export async function POST(request: Request) {
     ]);
 
     const notifyUsers = [
-      ...(pmRes.data || []).map((a: any) => a.user_id),
-      ...(acctRes.data || []).map((a: any) => a.id),
+      ...(pmRes.data || []).map((a: /* // */ any) => a.user_id),
+      ...(acctRes.data || []).map((a: /* // */ any) => a.id),
     ];
 
     for (const uid of notifyUsers) {
@@ -257,13 +267,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'amount and purpose required for top-up' }, { status: 400 });
     }
 
-    // Only PM or CFO
-    if (profile.role === 'project_manager') {
+    // Only PM/TL or CFO
+    if (isProjectLeadRole(profile.role)) {
       const { data: assignment } = await admin.from('user_project_assignments')
         .select('id').eq('user_id', authUser.id).eq('project_id', project_id).single();
       if (!assignment) return NextResponse.json({ error: 'Not your project' }, { status: 403 });
     } else if (profile.role !== 'cfo') {
-      return NextResponse.json({ error: 'Only PM or CFO can submit top-ups' }, { status: 403 });
+      return NextResponse.json({ error: 'Only PM/TL or CFO can submit top-ups' }, { status: 403 });
     }
 
     // Check frozen
@@ -281,11 +291,11 @@ export async function POST(request: Request) {
       .eq('draw_type', 'top_up');
 
     const topUpCount = (existingTopUps || []).length;
-    const topUpTotal = (existingTopUps || []).reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+    const topUpTotal = (existingTopUps || []).reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
 
     const [limitCountRes, limitAmountRes] = await Promise.all([
       admin.from('system_settings').select('value').eq('key', 'misc_topup_monthly_limit_count').single(),
-      admin.from('system_settings').select('value').eq('key', 'misc_topup_monthly_limit_amount').single(),
+      admin.from('system_settings').select('value').eq('key', 'misc_topup_monthly_limit_kes').single(),
     ]);
 
     const topupLimitCount = parseInt(limitCountRes.data?.value || '3', 10);
@@ -561,15 +571,15 @@ export async function POST(request: Request) {
   // pm_approve_draw — PM approves an accountant-raised draw
   // -------------------------------------------------------
   if (action === 'pm_approve_draw') {
-    if (profile.role !== 'project_manager' && profile.role !== 'cfo') {
-      return NextResponse.json({ error: 'Only PM or CFO can approve draws' }, { status: 403 });
+    if (!isProjectLeadRole(profile.role) && profile.role !== 'cfo') {
+      return NextResponse.json({ error: 'Only PM/TL or CFO can approve draws' }, { status: 403 });
     }
 
     const { draw_id, approved_amount } = body;
     if (!draw_id) return NextResponse.json({ error: 'draw_id required' }, { status: 400 });
 
     // PM must be assigned to this project
-    if (profile.role === 'project_manager') {
+    if (isProjectLeadRole(profile.role)) {
       const { data: assignment } = await admin.from('user_project_assignments')
         .select('id').eq('user_id', authUser.id).eq('project_id', project_id).single();
       if (!assignment) return NextResponse.json({ error: 'Not your project' }, { status: 403 });
@@ -632,15 +642,15 @@ export async function POST(request: Request) {
   // pm_decline_draw — PM declines an accountant-raised draw
   // -------------------------------------------------------
   if (action === 'pm_decline_draw') {
-    if (profile.role !== 'project_manager' && profile.role !== 'cfo') {
-      return NextResponse.json({ error: 'Only PM or CFO can decline draws' }, { status: 403 });
+    if (!isProjectLeadRole(profile.role) && profile.role !== 'cfo') {
+      return NextResponse.json({ error: 'Only PM/TL or CFO can decline draws' }, { status: 403 });
     }
 
     const { draw_id, decline_reason } = body;
     if (!draw_id) return NextResponse.json({ error: 'draw_id required' }, { status: 400 });
     if (!decline_reason?.trim()) return NextResponse.json({ error: 'Decline reason required' }, { status: 400 });
 
-    if (profile.role === 'project_manager') {
+    if (isProjectLeadRole(profile.role)) {
       const { data: assignment } = await admin.from('user_project_assignments')
         .select('id').eq('user_id', authUser.id).eq('project_id', project_id).single();
       if (!assignment) return NextResponse.json({ error: 'Not your project' }, { status: 403 });
@@ -754,15 +764,15 @@ export async function POST(request: Request) {
   // pm_delete_draw — PM deletes an approved-but-unspent draw
   // -------------------------------------------------------
   if (action === 'pm_delete_draw') {
-    if (profile.role !== 'project_manager' && profile.role !== 'cfo') {
-      return NextResponse.json({ error: 'Only PM or CFO can delete draws' }, { status: 403 });
+    if (!isProjectLeadRole(profile.role) && profile.role !== 'cfo') {
+      return NextResponse.json({ error: 'Only PM/TL or CFO can delete draws' }, { status: 403 });
     }
 
     const { draw_id, deletion_reason } = body;
     if (!draw_id) return NextResponse.json({ error: 'draw_id required' }, { status: 400 });
     if (!deletion_reason?.trim()) return NextResponse.json({ error: 'Deletion reason required' }, { status: 400 });
 
-    if (profile.role === 'project_manager') {
+    if (isProjectLeadRole(profile.role)) {
       const { data: assignment } = await admin.from('user_project_assignments')
         .select('id').eq('user_id', authUser.id).eq('project_id', project_id).single();
       if (!assignment) return NextResponse.json({ error: 'Not your project' }, { status: 403 });
@@ -851,5 +861,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, draw: updated });
   }
 
-  return NextResponse.json({ error: 'Unhandled action' }, { status: 400 });
+    return NextResponse.json({ error: 'Unhandled action', code: 'BAD_REQUEST' }, { status: 400 });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to process misc action.', 'MISC_POST_ERROR');
+  }
 }

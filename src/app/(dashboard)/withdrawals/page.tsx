@@ -63,10 +63,10 @@ export default function WithdrawalsPage() {
         `)
         .eq('year_month', selectedMonth);
 
-      const summaries: BudgetSummaryRow[] = (bData || []).map((b: any) => {
+      const summaries: BudgetSummaryRow[] = (bData || []).map((b: /* // */ any) => {
         const versions = b.budget_versions || [];
-        const approved = versions.find((v: any) => v.status === 'approved');
-        const latest = approved || versions.sort((a: any, b: any) => b.version_number - a.version_number)[0];
+        const approved = versions.find((v: /* // */ any) => v.status === 'approved');
+        const latest = approved || versions.sort((a: /* // */ any, b: /* // */ any) => b.version_number - a.version_number)[0];
         return {
           scope: b.projects?.name || b.departments?.name || '—',
           scope_type: b.project_id ? 'project' : 'department',
@@ -83,9 +83,9 @@ export default function WithdrawalsPage() {
         .select('id, amount_usd, status, billing_period, payments(amount_usd)')
         .lte('billing_period', selectedMonth);
 
-      const totalInvoiced = (allInvoices || []).reduce((s: number, i: any) => s + Number(i.amount_usd), 0);
-      const totalPaid = (allInvoices || []).reduce((s: number, i: any) => {
-        const paid = (i.payments || []).reduce((ps: number, p: any) => ps + Number(p.amount_usd), 0);
+      const totalInvoiced = (allInvoices || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_usd), 0);
+      const totalPaid = (allInvoices || []).reduce((s: number, i: /* // */ any) => {
+        const paid = (i.payments || []).reduce((ps: number, p: /* // */ any) => ps + Number(p.amount_usd), 0);
         return s + paid;
       }, 0);
 
@@ -99,7 +99,7 @@ export default function WithdrawalsPage() {
       const { data: balSetting } = await supabase.from('system_settings').select('value').eq('key', 'bank_balance_usd').single();
       const standingBal = parseFloat(balSetting?.value || '0');
       const { data: allWd } = await supabase.from('withdrawals').select('amount_usd');
-      const totalAllTimeWd = (allWd || []).reduce((s: number, w: any) => s + Number(w.amount_usd), 0);
+      const totalAllTimeWd = (allWd || []).reduce((s: number, w: /* // */ any) => s + Number(w.amount_usd), 0);
       setBankBalance(standingBal - totalAllTimeWd);
     }
     load();

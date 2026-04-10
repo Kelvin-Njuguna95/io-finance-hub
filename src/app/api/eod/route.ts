@@ -27,8 +27,8 @@ async function getAuthUser(request: Request) {
 }
 
 /** Fetch all of today's financial activity */
-async function fetchTodayActivity(admin: any, today: string) {
-  const [expRes, wdByCreated, wdByDate, budRes] = await Promise.all([
+async function fetchTodayActivity(admin: /* // */ any, today: string) {
+  const [expRes, wdByCreated, wdByDate, cashByCreated, cashByDate, budRes] = await Promise.all([
     // Expenses created today
     admin.from('expenses').select('id, description, amount_kes, expense_type, project_id, projects(name), expense_categories(name)')
       .gte('created_at', `${today}T00:00:00+03:00`)
@@ -40,6 +40,13 @@ async function fetchTodayActivity(admin: any, today: string) {
     // Withdrawals with withdrawal_date = today (catches entries recorded for today regardless of created_at)
     admin.from('withdrawals').select('id, director_tag, amount_usd, exchange_rate, amount_kes, forex_bureau, withdrawal_date')
       .eq('withdrawal_date', today),
+    // Cash received (payments) created today
+    admin.from('payments').select('id, amount_usd, amount_kes, payment_date, reference, invoices(invoice_number, projects(name))')
+      .gte('created_at', `${today}T00:00:00+03:00`)
+      .lt('created_at', `${today}T23:59:59+03:00`),
+    // Cash received with payment_date = today (captures backfilled entries)
+    admin.from('payments').select('id, amount_usd, amount_kes, payment_date, reference, invoices(invoice_number, projects(name))')
+      .eq('payment_date', today),
     // Budget actions today
     admin.from('budget_versions').select('id, status, budget_id, budgets(project_id, department_id, projects(name), departments(name))')
       .in('status', ['submitted', 'under_review'])
@@ -50,29 +57,41 @@ async function fetchTodayActivity(admin: any, today: string) {
   // Merge withdrawals from both queries, dedup by id
   const allWd = [...(wdByCreated.data || []), ...(wdByDate.data || [])];
   const seenIds = new Set<string>();
-  const withdrawals = allWd.filter((w: any) => {
+  const withdrawals = allWd.filter((w: /* // */ any) => {
     if (seenIds.has(w.id)) return false;
     seenIds.add(w.id);
+    return true;
+  });
+
+  const allPayments = [...(cashByCreated.data || []), ...(cashByDate.data || [])];
+  const seenPaymentIds = new Set<string>();
+  const cashReceipts = allPayments.filter((p: /* // */ any) => {
+    if (seenPaymentIds.has(p.id)) return false;
+    seenPaymentIds.add(p.id);
     return true;
   });
 
   return {
     expenses: expRes.data || [],
     withdrawals,
+    cashReceipts,
     budgetActions: budRes.data || [],
   };
 }
 
 /** Build the Slack message text */
 function buildMessage(
-  expenses: any[],
-  withdrawals: any[],
-  budgetActions: any[],
+  expenses: /* // */ /* // */ any[],
+  withdrawals: /* // */ /* // */ any[],
+  cashReceipts: /* // */ /* // */ any[],
+  budgetActions: /* // */ /* // */ any[],
   senderName: string,
   dateFormatted: string,
   timeEAT: string,
 ): string {
-  const totalExpenseKes = expenses.reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+  const totalExpenseKes = expenses.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
+  const totalCashUsd = cashReceipts.reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd || 0), 0);
+  const totalCashKes = cashReceipts.reduce((s: number, p: /* // */ any) => s + Number(p.amount_kes || 0), 0);
 
   let msg = `*IO Finance — End of Day Report*\n`;
   msg += `${dateFormatted} | Prepared by: ${senderName}\n\n`;
@@ -83,8 +102,8 @@ function buildMessage(
     msg += `_None logged today_\n`;
   } else {
     for (const e of expenses) {
-      const scope = (e as any).projects?.name || 'Shared';
-      const cat = (e as any).expense_categories?.name || '—';
+      const scope = (e as /* // */ any).projects?.name || 'Shared';
+      const cat = (e as /* // */ any).expense_categories?.name || '—';
       msg += `• ${scope} — ${cat} — ${formatKES(Number(e.amount_kes))} — ${e.description}\n`;
     }
     msg += `_Total: ${formatKES(totalExpenseKes)}_\n`;
@@ -95,13 +114,26 @@ function buildMessage(
   if (withdrawals.length === 0) {
     msg += `_None recorded today_\n`;
   } else {
-    const totalWdUsd = withdrawals.reduce((s: number, w: any) => s + Number(w.amount_usd), 0);
-    const totalWdKes = withdrawals.reduce((s: number, w: any) => s + Number(w.amount_kes), 0);
+    const totalWdUsd = withdrawals.reduce((s: number, w: /* // */ any) => s + Number(w.amount_usd), 0);
+    const totalWdKes = withdrawals.reduce((s: number, w: /* // */ any) => s + Number(w.amount_kes), 0);
     for (const w of withdrawals) {
-      const dir = (w as any).director_tag?.charAt(0).toUpperCase() + (w as any).director_tag?.slice(1);
+      const dir = (w as /* // */ any).director_tag?.charAt(0).toUpperCase() + (w as /* // */ any).director_tag?.slice(1);
       msg += `• ${dir} — ${formatUSD(Number(w.amount_usd))} @ ${Number(w.exchange_rate).toFixed(2)} = ${formatKES(Number(w.amount_kes))} — ${w.forex_bureau || '—'}\n`;
     }
     msg += `_Total: ${formatUSD(totalWdUsd)} (${formatKES(totalWdKes)})_\n`;
+  }
+  msg += `\n`;
+
+  msg += `*Cash Received*\n`;
+  if (cashReceipts.length === 0) {
+    msg += `_None recorded today_\n`;
+  } else {
+    for (const p of cashReceipts) {
+      const invoiceNumber = (p as /* // */ any).invoices?.invoice_number || 'Unknown invoice';
+      const project = (p as /* // */ any).invoices?.projects?.name || 'Unassigned project';
+      msg += `• ${project} — ${invoiceNumber} — ${formatUSD(Number(p.amount_usd || 0))} (${formatKES(Number(p.amount_kes || 0))}) — Ref: ${p.reference || '—'}\n`;
+    }
+    msg += `_Total: ${formatUSD(totalCashUsd)} (${formatKES(totalCashKes)})_\n`;
   }
   msg += `\n`;
 
@@ -110,7 +142,7 @@ function buildMessage(
     msg += `_None today_\n`;
   } else {
     for (const b of budgetActions) {
-      const scope = (b as any).budgets?.projects?.name || (b as any).budgets?.departments?.name || '—';
+      const scope = (b as /* // */ any).budgets?.projects?.name || (b as /* // */ any).budgets?.departments?.name || '—';
       const status = b.status === 'submitted' ? 'Submitted' : 'Under Review';
       msg += `• ${scope} — ${status}\n`;
     }
@@ -137,10 +169,10 @@ export async function GET(request: Request) {
     .eq('report_date', today)
     .single();
 
-  const { expenses, withdrawals, budgetActions } = await fetchTodayActivity(admin, today);
+  const { expenses, withdrawals, cashReceipts, budgetActions } = await fetchTodayActivity(admin, today);
 
-  const totalExpenseKes = expenses.reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
-  const hasActivity = expenses.length > 0 || withdrawals.length > 0 || budgetActions.length > 0;
+  const totalExpenseKes = expenses.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
+  const hasActivity = expenses.length > 0 || withdrawals.length > 0 || cashReceipts.length > 0 || budgetActions.length > 0;
 
   return NextResponse.json({
     report_date: today,
@@ -151,6 +183,7 @@ export async function GET(request: Request) {
       expense_count: expenses.length,
       expense_total_kes: totalExpenseKes,
       withdrawal_count: withdrawals.length,
+      cash_received_count: cashReceipts.length,
       budget_action_count: budgetActions.length,
     },
   });
@@ -162,7 +195,7 @@ export async function POST(request: Request) {
   const triggerType = body.trigger_type || 'manual';
   const forceResend = body.resend === true;
 
-  let authUser: any = null;
+  let authUser: /* // */ any = null;
   if (triggerType === 'manual') {
     authUser = await getAuthUser(request);
     if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -182,8 +215,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'EOD report already sent today. Pass resend: true to update and resend.', report_id: existing.id }, { status: 409 });
   }
 
-  const { expenses, withdrawals, budgetActions } = await fetchTodayActivity(admin, today);
-  const hasActivity = expenses.length > 0 || withdrawals.length > 0 || budgetActions.length > 0;
+  const { expenses, withdrawals, cashReceipts, budgetActions } = await fetchTodayActivity(admin, today);
+  const hasActivity = expenses.length > 0 || withdrawals.length > 0 || cashReceipts.length > 0 || budgetActions.length > 0;
 
   if (!hasActivity) {
     return NextResponse.json({ error: 'No qualifying activity today', has_activity: false });
@@ -199,7 +232,7 @@ export async function POST(request: Request) {
   const timeEAT = now.toLocaleTimeString('en-US', { timeZone: 'Africa/Nairobi', hour: '2-digit', minute: '2-digit', hour12: false });
   const dateFormatted = now.toLocaleDateString('en-US', { timeZone: 'Africa/Nairobi', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-  const msg = buildMessage(expenses, withdrawals, budgetActions, senderName, dateFormatted, timeEAT);
+  const msg = buildMessage(expenses, withdrawals, cashReceipts, budgetActions, senderName, dateFormatted, timeEAT);
 
   // Send to Slack
   const webhookUrl = process.env.EOD_SLACK_WEBHOOK_URL;
@@ -226,10 +259,10 @@ export async function POST(request: Request) {
     errorMessage = 'EOD_SLACK_WEBHOOK_URL not configured';
   }
 
-  const payload = { expenses, withdrawals, budget_actions: budgetActions, message: msg };
+  const payload = { expenses, withdrawals, cash_receipts: cashReceipts, budget_actions: budgetActions, message: msg };
 
-  let report: any;
-  let dbError: any;
+  let report: /* // */ any;
+  let dbError: /* // */ any;
 
   if (existing) {
     // Resend: update the existing record with fresh data
@@ -240,6 +273,7 @@ export async function POST(request: Request) {
       payload,
       expense_count: expenses.length,
       withdrawal_count: withdrawals.length,
+      cash_received_count: cashReceipts.length,
       budget_action_count: budgetActions.length,
       error_message: errorMessage,
     }).eq('id', existing.id).select().single();
@@ -254,6 +288,7 @@ export async function POST(request: Request) {
       payload,
       expense_count: expenses.length,
       withdrawal_count: withdrawals.length,
+      cash_received_count: cashReceipts.length,
       budget_action_count: budgetActions.length,
       error_message: errorMessage,
     }).select().single();
@@ -303,7 +338,7 @@ export async function POST(request: Request) {
     action: 'eod_report_sent',
     table_name: 'eod_reports',
     record_id: report?.id || null,
-    new_values: { slack_status: slackStatus, expenses: expenses.length, withdrawals: withdrawals.length },
+    new_values: { slack_status: slackStatus, expenses: expenses.length, withdrawals: withdrawals.length, cash_received: cashReceipts.length },
   });
 
   return NextResponse.json({

@@ -14,6 +14,8 @@ import {
 import { getCurrentYearMonth, formatYearMonth, formatDateTime } from '@/lib/format';
 import { Save, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { getUserErrorMessage } from '@/lib/errors';
+import { canManageAgentCounts } from '@/lib/permissions';
 
 interface AgentRow {
   project_id: string;
@@ -30,6 +32,7 @@ export default function AgentCountsPage() {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
   const [editValues, setEditValues] = useState<Record<string, number>>({});
   const [savingAll, setSavingAll] = useState(false);
+  const canManage = canManageAgentCounts(user?.role);
 
   useEffect(() => {
     load();
@@ -38,7 +41,14 @@ export default function AgentCountsPage() {
   async function load() {
     const supabase = createClient();
 
-    const { data: projects } = await supabase.from('projects').select('id, name').eq('is_active', true).order('name');
+    let projectsQuery = supabase.from('projects').select('id, name').eq('is_active', true).order('name');
+    if (user?.role === 'team_leader') {
+      const { data: assignments } = await supabase.from('user_project_assignments').select('project_id').eq('user_id', user.id);
+      const assignedProjectIds = (assignments || []).map((a: /* // */ any) => a.project_id);
+      projectsQuery = projectsQuery.in('id', assignedProjectIds.length > 0 ? assignedProjectIds : ['00000000-0000-0000-0000-000000000000']);
+    }
+
+    const { data: projects } = await projectsQuery;
     const { data: counts } = await supabase.from('agent_counts').select('*').eq('year_month', selectedMonth);
 
     type CountRow = { id: string; project_id: string; agent_count: number; is_locked: boolean; updated_at: string };
@@ -64,6 +74,7 @@ export default function AgentCountsPage() {
   }
 
   async function handleSave(projectId: string) {
+    if (!canManage) return;
     const count = editValues[projectId];
     if (count === undefined || count < 0) return;
 
@@ -75,7 +86,7 @@ export default function AgentCountsPage() {
         agent_count: count,
         entered_by: user?.id,
       }).eq('id', existing.record_id);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getUserErrorMessage()); return; }
     } else {
       const { error } = await supabase.from('agent_counts').insert({
         project_id: projectId,
@@ -83,7 +94,7 @@ export default function AgentCountsPage() {
         agent_count: count,
         entered_by: user?.id,
       });
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getUserErrorMessage()); return; }
     }
 
     toast.success(`${rows.find(r => r.project_id === projectId)?.project_name} updated to ${count} agents`);
@@ -91,6 +102,7 @@ export default function AgentCountsPage() {
   }
 
   async function handleSaveAll() {
+    if (!canManage) return;
     setSavingAll(true);
     const supabase = createClient();
     let saved = 0;
@@ -133,6 +145,17 @@ export default function AgentCountsPage() {
     return current !== undefined && current !== r.agent_count && !r.is_locked;
   });
 
+  if (user && !canManage) {
+    return (
+      <div>
+        <PageHeader title="Agent Counts" description="Access restricted" />
+        <div className="p-6">
+          <p className="text-sm text-neutral-500">Only CFO, Accountant, and Team Leader roles can manage agent counts.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader title="Agent Counts" description="Update the number of agents per project as staffing changes">
@@ -146,7 +169,7 @@ export default function AgentCountsPage() {
             })}
           </SelectContent>
         </Select>
-        {hasChanges && (
+        {canManage && hasChanges && (
           <Button size="sm" onClick={handleSaveAll} disabled={savingAll} className="gap-1">
             <Save className="h-4 w-4" /> {savingAll ? 'Saving...' : 'Save All Changes'}
           </Button>
@@ -189,7 +212,7 @@ export default function AgentCountsPage() {
                               [r.project_id]: parseInt(e.target.value) || 0,
                             }))
                           }
-                          disabled={r.is_locked}
+                          disabled={r.is_locked || !canManage}
                           className="w-24"
                         />
                       </TableCell>
@@ -210,7 +233,7 @@ export default function AgentCountsPage() {
                         {r.updated_at ? formatDateTime(r.updated_at) : '—'}
                       </TableCell>
                       <TableCell>
-                        {!r.is_locked && changed && (
+                        {!r.is_locked && changed && canManage && (
                           <Button
                             variant="ghost"
                             size="icon"

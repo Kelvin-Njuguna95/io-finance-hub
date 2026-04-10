@@ -18,6 +18,7 @@ import {
 import { formatCurrency } from '@/lib/format';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getUserErrorMessage } from '@/lib/errors';
 
 const DELETION_MARKER = '[PENDING_DELETE]';
 
@@ -77,7 +78,7 @@ export function AccountantMiscRequests() {
     });
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserErrorMessage());
     } else {
       toast.success('Misc request submitted to CFO');
       setPurpose('');
@@ -102,7 +103,7 @@ export function AccountantMiscRequests() {
     }).eq('id', deleteTarget.id);
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getUserErrorMessage());
     } else {
       toast.success('Deletion requested — awaiting CFO confirmation');
       setDeleteTarget(null);
