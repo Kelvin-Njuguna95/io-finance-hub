@@ -29,7 +29,7 @@ const statusColors: Record<string, string> = {
   open: 'bg-blue-100 text-blue-700',
   under_review: 'bg-yellow-100 text-yellow-700',
   closed: 'bg-green-100 text-green-700',
-  locked: 'bg-neutral-100 text-neutral-700',
+  locked: 'bg-muted text-foreground/90',
 };
 
 export default function MonthClosurePage() {
@@ -153,7 +153,7 @@ export default function MonthClosurePage() {
           <CardContent className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
               {monthStatus === 'closed' || monthStatus === 'locked' ? (
-                <Lock className="h-5 w-5 text-neutral-500" />
+                <Lock className="h-5 w-5 text-muted-foreground" />
               ) : (
                 <Unlock className="h-5 w-5 text-blue-500" />
               )}

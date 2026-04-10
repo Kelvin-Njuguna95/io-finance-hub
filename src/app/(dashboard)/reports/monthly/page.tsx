@@ -56,9 +56,9 @@ function PnlSection({ label, bold, negative, amount }: { label: string; bold?: b
 
 function MetricCard({ label, value, accent, tone }: { label: string; value: string; accent: string; tone?: 'default' | 'good' | 'bad' }) {
   return (
-    <div className={`rounded-xl border p-4 shadow-sm ${accent} ${tone === 'good' ? 'bg-emerald-50 border-emerald-200' : tone === 'bad' ? 'bg-red-50 border-red-200' : 'bg-white'}`}>
-      <p className="text-xs uppercase tracking-wider text-slate-500">{label}</p>
-      <p className="mt-2 text-lg font-semibold font-mono text-slate-900">{value}</p>
+    <div className={`rounded-xl border p-4 shadow-sm ${accent} ${tone === 'good' ? 'bg-emerald-50 border-emerald-200' : tone === 'bad' ? 'bg-red-50 border-red-200' : 'bg-card'}`}>
+      <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-2 text-lg font-semibold font-mono text-foreground">{value}</p>
     </div>
   );
 }
@@ -327,7 +327,7 @@ export default function MonthlyPnlReport() {
       </PageHeader>
 
       <div className="p-6 space-y-6">
-        <p className="text-xs text-slate-400 mb-4">
+        <p className="text-xs text-muted-foreground mb-4">
           Revenue and expenses are both matched to the service period. Showing {formatYearMonth(revenueSourceMonth)} service period. Revenue from {formatYearMonth(revenueSourceMonth)} invoices. Expenses paid in {formatYearMonth(selectedMonth)}.
         </p>
 
@@ -335,12 +335,12 @@ export default function MonthlyPnlReport() {
           <div className="space-y-4">
             {[1, 2, 3].map(i => (
               <Card key={i} className="io-card animate-pulse">
-                <CardContent className="p-6"><div className="h-24 bg-slate-100 rounded" /></CardContent>
+                <CardContent className="p-6"><div className="h-24 bg-muted rounded" /></CardContent>
               </Card>
             ))}
           </div>
         ) : !pnl ? (
-          <Card className="io-card"><CardContent className="p-8 text-center text-slate-400">No data for {formatYearMonth(selectedMonth)}</CardContent></Card>
+          <Card className="io-card"><CardContent className="p-8 text-center text-muted-foreground">No data for {formatYearMonth(selectedMonth)}</CardContent></Card>
         ) : (
           <>
             <ExecutiveInsightPanel
@@ -360,9 +360,9 @@ export default function MonthlyPnlReport() {
 
             <div className="grid gap-4 xl:grid-cols-3">
               <Card className="io-card xl:col-span-2">
-                <CardHeader className="bg-[#1a2236] rounded-t-xl">
+                <CardHeader className="bg-primary rounded-t-xl">
                   <CardTitle className="text-white">P&L Bridge</CardTitle>
-                  <p className="text-xs text-slate-300">Revenue → Direct Costs → Gross Profit → Overhead → Net Profit</p>
+                  <p className="text-xs text-muted-foreground/60">Revenue → Direct Costs → Gross Profit → Overhead → Net Profit</p>
                 </CardHeader>
                 <CardContent className="pt-4">
                   <div className="h-72">
@@ -386,7 +386,7 @@ export default function MonthlyPnlReport() {
                 </CardContent>
               </Card>
               <Card className="io-card">
-                <CardHeader className="bg-[#1a2236] rounded-t-xl">
+                <CardHeader className="bg-primary rounded-t-xl">
                   <CardTitle className="text-white">Cost Mix</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-4">
@@ -411,21 +411,21 @@ export default function MonthlyPnlReport() {
               </Card>
             </div>
 
-            <Card className="io-card max-w-6xl overflow-hidden border-slate-200">
+            <Card className="io-card max-w-6xl overflow-hidden border-border">
               <CardHeader className="bg-gradient-to-r from-[#0f172a] via-[#12203c] to-[#1e293b] text-white rounded-t-lg border-b border-white/10">
 
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <CardTitle className="text-lg text-white">IO FINANCE HUB</CardTitle>
-                  <p className="text-xs text-slate-300 mt-1">Monthly Income Statement</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">Monthly Income Statement</p>
                 </div>
                 <div className="text-left md:text-right">
                   <p className="text-sm font-semibold">{formatYearMonth(selectedMonth)}</p>
-                  <p className="text-xs text-slate-300">Revenue: {formatYearMonth(revenueSourceMonth)} invoices</p>
+                  <p className="text-xs text-muted-foreground/60">Revenue: {formatYearMonth(revenueSourceMonth)} invoices</p>
                 </div>
               </div>
               </CardHeader>
-              <CardContent className="space-y-6 bg-slate-50 p-6">
+              <CardContent className="space-y-6 bg-muted/50 p-6">
 
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <MetricCard label="Total Revenue" value={formatCurrency(pnl.totalRevenue, 'KES')} accent="ring-1 ring-sky-100" />
@@ -445,8 +445,8 @@ export default function MonthlyPnlReport() {
               </div>
 
               <div className="grid gap-4 xl:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Revenue Streams</p>
+                <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Revenue Streams</p>
                   <Separator className="my-2" />
                   {pnl.projectRevenues.map(p => (
                     <PnlSection key={p.name} label={p.name} amount={p.revenue} />
@@ -455,8 +455,8 @@ export default function MonthlyPnlReport() {
                   <PnlSection label="Total Revenue" amount={pnl.totalRevenue} bold />
                 </div>
 
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Direct Costs</p>
+                <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Direct Costs</p>
                   <Separator className="my-2" />
                   {pnl.directCosts.map(c => (
                     <div key={c.category}>
@@ -464,7 +464,7 @@ export default function MonthlyPnlReport() {
                       {view === 'detailed' && c.items && (
                         <div className="ml-6 mb-2 space-y-0.5">
                           {c.items.map((item, i) => (
-                            <div key={i} className="flex items-center justify-between text-xs text-slate-400">
+                            <div key={i} className="flex items-center justify-between text-xs text-muted-foreground">
                               <span>{item.date} | {item.description} | {item.paid_to}</span>
                               <span className="font-mono">{formatCurrency(item.amount, 'KES')}</span>
                             </div>
@@ -477,8 +477,8 @@ export default function MonthlyPnlReport() {
                   <PnlSection label="Total Direct Costs" amount={pnl.totalDirectCosts} bold />
                 </div>
 
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Shared Overhead</p>
+                <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Shared Overhead</p>
                   <Separator className="my-2" />
                   {pnl.overheadGroups.map(c => (
                     <div key={c.category}>
@@ -486,7 +486,7 @@ export default function MonthlyPnlReport() {
                       {view === 'detailed' && c.items && (
                         <div className="ml-6 mb-2 space-y-0.5">
                           {c.items.map((item, i) => (
-                            <div key={i} className="flex items-center justify-between text-xs text-slate-400">
+                            <div key={i} className="flex items-center justify-between text-xs text-muted-foreground">
                               <span>{item.date} | {item.description} | {item.paid_to}</span>
                               <span className="font-mono">{formatCurrency(item.amount, 'KES')}</span>
                             </div>
@@ -499,27 +499,27 @@ export default function MonthlyPnlReport() {
                   <PnlSection label="Total Overhead" amount={pnl.totalOverhead} bold />
                 </div>
 
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Profitability</p>
+                <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Profitability</p>
                   <Separator className="my-2" />
                   <div className="space-y-3">
-                    <div className="rounded-lg bg-slate-50 px-3 py-2">
+                    <div className="rounded-lg bg-muted/50 px-3 py-2">
                       <PnlSection label="GROSS PROFIT" amount={pnl.grossProfit} bold negative />
-                      <div className="flex justify-between text-xs text-slate-400">
+                      <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Gross Margin</span>
                         <span>{pnl.grossMargin.toFixed(1)}%</span>
                       </div>
                     </div>
-                    <div className="rounded-lg bg-slate-50 px-3 py-2">
+                    <div className="rounded-lg bg-muted/50 px-3 py-2">
                       <PnlSection label="OPERATING PROFIT / (LOSS)" amount={pnl.operatingProfit} bold negative />
-                      <div className="flex justify-between text-xs text-slate-400">
+                      <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Operating Margin</span>
                         <span>{pnl.operatingProfit > 0 ? `${pnl.operatingMargin.toFixed(1)}%` : 'N/A'}</span>
                       </div>
                     </div>
                     <div className={`rounded-lg px-3 py-2 ${pnl.netProfit >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
                       <PnlSection label="NET PROFIT / (LOSS)" amount={pnl.netProfit} bold negative />
-                      <div className="flex justify-between text-xs text-slate-400">
+                      <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Net Margin</span>
                         <span>{pnl.netProfit > 0 ? `${pnl.netMargin.toFixed(1)}%` : 'N/A'}</span>
                       </div>
@@ -530,8 +530,8 @@ export default function MonthlyPnlReport() {
 
               {/* DISTRIBUTABLE PROFIT - CFO only */}
               {userRole === 'cfo' && pnl.distributable.some(d => d.profit > 0) && (
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Distributable Profit</p>
+                <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Distributable Profit</p>
                   <Separator className="my-2" />
                   {pnl.distributable.filter(d => d.profit > 0).map(d => (
                     <div key={d.project} className="flex flex-col gap-1 py-1 text-sm md:flex-row md:items-center md:justify-between">

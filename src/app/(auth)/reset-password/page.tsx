@@ -68,9 +68,9 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#f8fafc]">
-      <div className="absolute top-0 left-0 right-0 h-1 bg-[#F5C518]" />
-      <Card className="w-full max-w-sm shadow-lg border border-[#e5e7eb] rounded-lg">
+    <div className="relative flex min-h-screen items-center justify-center bg-background">
+      <div className="absolute top-0 left-0 right-0 h-1 bg-accent" />
+      <Card className="w-full max-w-sm shadow-lg border border-border rounded-lg">
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Reset Your PIN</CardTitle>
           <CardDescription>IO Finance Hub — Impact Outsourcing</CardDescription>

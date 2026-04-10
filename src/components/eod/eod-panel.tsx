@@ -110,7 +110,7 @@ export function EodPanel() {
     return (
       <Card>
         <CardHeader><CardTitle className="text-sm font-medium">End of Day Report</CardTitle></CardHeader>
-        <CardContent><p className="text-sm text-neutral-400">Please wait</p></CardContent>
+        <CardContent><p className="text-sm text-muted-foreground">Please wait</p></CardContent>
       </Card>
     );
   }
@@ -148,7 +148,7 @@ export function EodPanel() {
   } else if (hasActivity) {
     statusBadge = <Badge className="bg-amber-100 text-amber-700"><Clock className="h-3 w-3 mr-1" /> Not Sent</Badge>;
   } else {
-    statusBadge = <Badge className="bg-neutral-100 text-neutral-500"><Minus className="h-3 w-3 mr-1" /> No Activity Today</Badge>;
+    statusBadge = <Badge className="bg-muted text-muted-foreground"><Minus className="h-3 w-3 mr-1" /> No Activity Today</Badge>;
   }
 
   return (
@@ -161,19 +161,19 @@ export function EodPanel() {
         <CardContent className="space-y-3">
           <div className="space-y-1.5">
             <div className="flex justify-between text-sm">
-              <span className="text-neutral-500">Expenses logged today</span>
+              <span className="text-muted-foreground">Expenses logged today</span>
               <span className="font-medium">{s?.summary.expense_count || 0} entries — {formatCurrency(s?.summary.expense_total_kes || 0, 'KES')}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-neutral-500">Withdrawals recorded</span>
+              <span className="text-muted-foreground">Withdrawals recorded</span>
               <span className="font-medium">{s?.summary.withdrawal_count || 0} entries</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-neutral-500">Cash received</span>
+              <span className="text-muted-foreground">Cash received</span>
               <span className="font-medium">{s?.summary.cash_received_count || 0} entries</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-neutral-500">Budget actions</span>
+              <span className="text-muted-foreground">Budget actions</span>
               <span className="font-medium">{s?.summary.budget_action_count || 0} submissions/reviews</span>
             </div>
           </div>
@@ -227,7 +227,7 @@ export function EodPanel() {
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[300px]">
-            <pre className="text-xs whitespace-pre-wrap bg-neutral-50 rounded-md p-3 font-mono">
+            <pre className="text-xs whitespace-pre-wrap bg-muted/50 rounded-md p-3 font-mono">
               {preview}
             </pre>
           </ScrollArea>

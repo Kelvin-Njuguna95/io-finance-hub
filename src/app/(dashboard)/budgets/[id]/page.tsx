@@ -26,7 +26,7 @@ import type { Budget, BudgetVersion, BudgetItem, BudgetApproval } from '@/types/
 import { getUserErrorMessage } from '@/lib/errors';
 
 const statusColors: Record<string, string> = {
-  draft: 'bg-slate-100 text-slate-600',
+  draft: 'bg-muted text-foreground/80',
   submitted: 'bg-blue-100 text-blue-700',
   under_review: 'bg-amber-100 text-amber-700',
   pm_review: 'bg-purple-100 text-purple-700',
@@ -592,7 +592,7 @@ export default function BudgetDetailPage() {
                   toast.success('Removed ' + pendingIds.length + ' items');
                   load();
                 }} className="gap-1 text-rose-600">Remove All Pending</Button>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-muted-foreground">
                   {pendingLineItems} pending
                 </span>
               </div>
@@ -621,18 +621,18 @@ export default function BudgetDetailPage() {
                       const isRemoved = pmStatus === 'removed';
                       return (
                       <TableRow key={item.id} className={isRemoved ? 'bg-rose-50 line-through opacity-60' : pmStatus === 'approved' ? 'bg-emerald-50/30' : pmStatus === 'adjusted' ? 'bg-amber-50/30' : ''}>
-                        <TableCell className="text-neutral-400">{idx + 1}</TableCell>
+                        <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                         <TableCell className="font-medium">
                           {editingItem === item.id ? (
                             <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="text-sm h-8" />
                           ) : item.description}
                         </TableCell>
-                        <TableCell className="text-sm text-neutral-500">
+                        <TableCell className="text-sm text-muted-foreground">
                           {editingItem === item.id ? (
                             <select
                               value={editCategory}
                               onChange={(e) => setEditCategory(e.target.value)}
-                              className="w-full rounded-md border border-slate-200 px-2 py-1 text-sm bg-white"
+                              className="w-full rounded-md border border-border px-2 py-1 text-sm bg-card"
                             >
                               <option value="">— Select —</option>
                               {categories.map((cat) => (
@@ -667,7 +667,7 @@ export default function BudgetDetailPage() {
                               pmStatus === 'approved' ? 'bg-emerald-100 text-emerald-700' :
                               pmStatus === 'adjusted' ? 'bg-amber-100 text-amber-700' :
                               pmStatus === 'removed' ? 'bg-rose-100 text-rose-700' :
-                              'bg-slate-100 text-slate-500'
+                              'bg-muted text-muted-foreground'
                             }>{pmStatus === 'pending' ? 'Pending' : capitalize(pmStatus)}</Badge>
                           </TableCell>
                         )}
@@ -679,7 +679,7 @@ export default function BudgetDetailPage() {
                           </TableCell>
                         )}
                         {(canLineReview || isPm || isCfo) && (
-                          <TableCell className="text-xs text-neutral-500 max-w-[150px] truncate">{item.pm_adjustment_reason || '—'}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{item.pm_adjustment_reason || '—'}</TableCell>
                         )}
                         {canLineReview && (
                           <TableCell>
@@ -720,7 +720,7 @@ export default function BudgetDetailPage() {
                                 }}>Remove</Button>
                               )}
                               {pmStatus !== 'pending' && (
-                                <Button variant="ghost" size="sm" className="text-xs text-slate-400 h-7" disabled={lineActionId === item.id} onClick={async () => {
+                                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground h-7" disabled={lineActionId === item.id} onClick={async () => {
                                   setLineActionId(item.id);
                                   try {
                                     const headers = await getAuthHeaders();
@@ -773,7 +773,7 @@ export default function BudgetDetailPage() {
             {versions.map((v) => (
               <Card
                 key={v.id}
-                className={`cursor-pointer transition-colors ${v.id === activeVersion?.id ? 'border-neutral-900' : 'hover:border-neutral-300'}`}
+                className={`cursor-pointer transition-colors ${v.id === activeVersion?.id ? 'border-foreground' : 'hover:border-border-strong'}`}
                 onClick={() => selectVersion(v)}
               >
                 <CardContent className="flex items-center justify-between p-4">
@@ -783,7 +783,7 @@ export default function BudgetDetailPage() {
                       {capitalize(v.status)}
                     </Badge>
                     {v.submitted_at && (
-                      <span className="text-xs text-neutral-400">
+                      <span className="text-xs text-muted-foreground">
                         Submitted {formatDateTime(v.submitted_at)}
                       </span>
                     )}
@@ -805,8 +805,8 @@ export default function BudgetDetailPage() {
                     <Badge variant={a.action === 'approved' ? 'default' : 'destructive'}>
                       {a.action}
                     </Badge>
-                    <span className="text-neutral-500">{formatDateTime(a.created_at)}</span>
-                    {a.reason && <span className="text-neutral-600">— {a.reason}</span>}
+                    <span className="text-muted-foreground">{formatDateTime(a.created_at)}</span>
+                    {a.reason && <span className="text-foreground/80">— {a.reason}</span>}
                   </div>
                 ))}
               </>
@@ -947,7 +947,7 @@ export default function BudgetDetailPage() {
                 onChange={(e) => setAdjustAmount(parseFloat(e.target.value) || 0)}
                 className="font-mono"
               />
-              <p className="text-xs text-slate-400">Must be greater than 0</p>
+              <p className="text-xs text-muted-foreground">Must be greater than 0</p>
             </div>
             <div className="space-y-1">
               <Label className="text-sm font-medium">Reason for adjustment *</Label>

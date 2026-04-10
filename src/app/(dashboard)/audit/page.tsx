@@ -117,7 +117,7 @@ function getSummary(log: AuditLog): string {
 }
 
 function roleBadge(role: string): string {
-  if (role === 'cfo') return 'bg-[#0f172a] text-white';
+  if (role === 'cfo') return 'bg-primary text-white';
   if (role === 'project_manager') return 'bg-teal-100 text-teal-700';
   return getStatusBadgeClass(role, 'muted');
 }
@@ -284,7 +284,7 @@ export default function AuditLogPage() {
       <div>
         <PageHeader title="Audit Log Viewer" description="Access restricted" />
         <div className="p-6">
-          <p className="text-sm text-neutral-500">Only CFO and Accountant roles can view audit history.</p>
+          <p className="text-sm text-muted-foreground">Only CFO and Accountant roles can view audit history.</p>
         </div>
       </div>
     );
@@ -306,15 +306,15 @@ export default function AuditLogPage() {
           <CardContent className="p-4 space-y-3">
             <div className="flex flex-wrap gap-3">
               <div className="flex items-center gap-2">
-                <label className="text-xs text-slate-500 shrink-0">From</label>
+                <label className="text-xs text-muted-foreground shrink-0">From</label>
                 <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[150px] h-8 text-sm" />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs text-slate-500 shrink-0">To</label>
+                <label className="text-xs text-muted-foreground shrink-0">To</label>
                 <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[150px] h-8 text-sm" />
               </div>
               <div className="flex items-center gap-1 flex-1 min-w-[220px]">
-                <Search className="h-3.5 w-3.5 text-slate-400" />
+                <Search className="h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder="Search by user, action, entity, summary or reason..."
                   value={search}
@@ -359,8 +359,8 @@ export default function AuditLogPage() {
           </CardContent>
         </Card>
 
-        <div className="flex flex-wrap gap-4 text-xs text-slate-500 px-1">
-          <span>Showing <strong className="text-[#0f172a]">{filteredRows.length}</strong> records</span>
+        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground px-1">
+          <span>Showing <strong className="text-foreground">{filteredRows.length}</strong> records</span>
           <span>Range: {dateFrom} to {dateTo}</span>
           <span>{metrics.cfo} CFO</span>
           <span>{metrics.accountant} Accountant</span>
@@ -391,14 +391,14 @@ export default function AuditLogPage() {
                   ))
                 ) : filteredRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12 text-neutral-500">No audit records found for the selected filters.</TableCell>
+                    <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">No audit records found for the selected filters.</TableCell>
                   </TableRow>
                 ) : (
                   filteredRows.map((row) => {
                     const summary = getSummary(row);
                     const actionLabel = ACTION_LABELS[row.action] || row.action.replace(/_/g, ' ');
                     return (
-                      <TableRow key={row.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setSelectedLog(row)}>
+                      <TableRow key={row.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLog(row)}>
                         <TableCell className="text-xs font-mono whitespace-nowrap">{formatDateTimeInEAT(row.created_at)}</TableCell>
                         <TableCell className="text-sm truncate max-w-[180px]" title={row.user_name}>{row.user_name}</TableCell>
                         <TableCell>
@@ -409,10 +409,10 @@ export default function AuditLogPage() {
                         </TableCell>
                         <TableCell className="text-sm">
                           <span className="truncate inline-block max-w-[180px] align-bottom" title={row.table_name}>{row.table_name.replace(/_/g, ' ')}</span>
-                          {row.record_id && <span className="text-xs text-slate-400 ml-1">({row.record_id.slice(0, 8)})</span>}
+                          {row.record_id && <span className="text-xs text-muted-foreground ml-1">({row.record_id.slice(0, 8)})</span>}
                         </TableCell>
-                        <TableCell className="text-xs text-slate-500 max-w-[250px] truncate" title={summary}>{summary || '—'}</TableCell>
-                        <TableCell className="text-xs text-slate-500 max-w-[220px] truncate" title={row.reason || ''}>{row.reason || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[250px] truncate" title={summary}>{summary || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[220px] truncate" title={row.reason || ''}>{row.reason || '—'}</TableCell>
                       </TableRow>
                     );
                   })
@@ -433,32 +433,32 @@ export default function AuditLogPage() {
             <div className="mt-4 space-y-4">
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">Performed by</span>
+                  <span className="text-muted-foreground">Performed by</span>
                   <span className="font-medium text-right">{selectedLog.user_name} ({ROLE_LABELS[selectedLog.user_role] || selectedLog.user_role})</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">Action</span>
+                  <span className="text-muted-foreground">Action</span>
                   <Badge variant="secondary" className={actionBadge(selectedLog.action)}>
                     {ACTION_LABELS[selectedLog.action] || selectedLog.action}
                   </Badge>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">Entity</span>
+                  <span className="text-muted-foreground">Entity</span>
                   <span className="text-right">{selectedLog.table_name.replace(/_/g, ' ')}</span>
                 </div>
                 {selectedLog.record_id && (
                   <div className="flex justify-between gap-4">
-                    <span className="text-slate-500">Record ID</span>
+                    <span className="text-muted-foreground">Record ID</span>
                     <span className="font-mono text-xs text-right">{selectedLog.record_id}</span>
                   </div>
                 )}
                 <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">Timestamp</span>
+                  <span className="text-muted-foreground">Timestamp</span>
                   <span className="text-right">{formatDateTimeInEAT(selectedLog.created_at)} EAT</span>
                 </div>
                 {selectedLog.reason && (
                   <div className="flex justify-between gap-4">
-                    <span className="text-slate-500">Reason</span>
+                    <span className="text-muted-foreground">Reason</span>
                     <span className="text-right">{selectedLog.reason}</span>
                   </div>
                 )}
@@ -468,7 +468,7 @@ export default function AuditLogPage() {
 
               {selectedLog.old_values && Object.keys(selectedLog.old_values).length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 mb-1">Before</p>
+                  <p className="text-xs font-semibold text-muted-foreground mb-1">Before</p>
                   <pre className="text-xs bg-rose-50 rounded-md p-3 overflow-x-auto whitespace-pre-wrap">
                     {JSON.stringify(selectedLog.old_values, null, 2)}
                   </pre>
@@ -477,7 +477,7 @@ export default function AuditLogPage() {
 
               {selectedLog.new_values && Object.keys(selectedLog.new_values).length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 mb-1">After</p>
+                  <p className="text-xs font-semibold text-muted-foreground mb-1">After</p>
                   <pre className="text-xs bg-emerald-50 rounded-md p-3 overflow-x-auto whitespace-pre-wrap">
                     {JSON.stringify(selectedLog.new_values, null, 2)}
                   </pre>

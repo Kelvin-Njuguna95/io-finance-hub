@@ -212,9 +212,9 @@ export default function BudgetAccuracyPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-neutral-400">Please wait</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Please wait</TableCell></TableRow>
                 ) : rows.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-neutral-500">No budget data available</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No budget data available</TableCell></TableRow>
                 ) : rows.map((r, i) => (
                   <TableRow key={i}>
                     <TableCell className="text-sm">{formatYearMonth(r.month)}</TableCell>

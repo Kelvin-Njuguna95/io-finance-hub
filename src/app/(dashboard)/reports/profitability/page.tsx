@@ -146,7 +146,7 @@ export default function ProfitabilityPage() {
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {(loading ? [] : data).map((r) => (
-            <Card key={r.project_name} className="border-slate-200">
+            <Card key={r.project_name} className="border-border">
               <CardContent className="pt-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-base font-semibold">{r.project_name}</p>
@@ -154,14 +154,14 @@ export default function ProfitabilityPage() {
                     {r.margin >= 40 ? 'On Track' : r.margin >= 25 ? 'Watch' : 'Action Needed'}
                   </Badge>
                 </div>
-                <div className="h-3 rounded-full bg-slate-100 overflow-hidden">
-                  <div className="h-full bg-[#1a2236]" style={{ width: `${Math.min(100, (r.revenue <= 0 ? 0 : (r.gross_profit / r.revenue) * 100))}%` }} />
+                <div className="h-3 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full bg-primary" style={{ width: `${Math.min(100, (r.revenue <= 0 ? 0 : (r.gross_profit / r.revenue) * 100))}%` }} />
                 </div>
-                <div className="flex items-center justify-between text-sm text-slate-600">
+                <div className="flex items-center justify-between text-sm text-foreground/80">
                   <span>Revenue {formatCompactCurrency(r.revenue, 'KES')}</span>
                   <span>Costs {formatCompactCurrency(r.direct_costs, 'KES')}</span>
                 </div>
-                <p className="text-sm font-medium">Margin: {formatExecutivePercent(r.margin)} <span className="text-slate-500">| Target: 40%</span></p>
+                <p className="text-sm font-medium">Margin: {formatExecutivePercent(r.margin)} <span className="text-muted-foreground">| Target: 40%</span></p>
               </CardContent>
             </Card>
           ))}

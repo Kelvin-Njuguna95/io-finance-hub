@@ -65,7 +65,7 @@ export default function UsersPage() {
                 {users.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.full_name}</TableCell>
-                    <TableCell className="text-sm text-neutral-500">{u.email}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{u.email}</TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={
                         u.role === 'cfo' ? 'bg-purple-100 text-purple-700' :
@@ -76,7 +76,7 @@ export default function UsersPage() {
                     </TableCell>
                     <TableCell>{u.director_tag ? capitalize(u.director_tag) : '—'}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={u.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-100 text-neutral-500'}>
+                      <Badge variant="secondary" className={u.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground'}>
                         {u.is_active && <span className="mr-1 inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
                         {u.is_active ? 'Active' : 'Inactive'}
                       </Badge>

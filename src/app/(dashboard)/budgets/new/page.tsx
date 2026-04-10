@@ -498,7 +498,7 @@ export default function NewBudgetPage() {
             {items.map((item, idx) => (
               <div key={item.id} className="space-y-3 rounded-md border p-4">
                 <div className="flex items-start justify-between">
-                  <span className="text-xs font-medium text-neutral-400">Item {idx + 1}</span>
+                  <span className="text-xs font-medium text-muted-foreground">Item {idx + 1}</span>
                   {items.length > 1 && (
                     <Button
                       variant="ghost"
@@ -558,7 +558,7 @@ export default function NewBudgetPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-end text-xs text-neutral-500">
+                <div className="flex justify-end text-xs text-muted-foreground">
                   <span>Subtotal: {formatCurrency(getItemTotal(item).kes, 'KES')}</span>
                 </div>
               </div>

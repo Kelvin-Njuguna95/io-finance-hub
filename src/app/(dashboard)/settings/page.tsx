@@ -327,7 +327,7 @@ export default function SettingsPage() {
       <div>
         <PageHeader title="Settings" description="Settings are available to CFO and Accountant" />
         <div className="p-6">
-          <p className="text-sm text-neutral-500">You do not have permission to view settings.</p>
+          <p className="text-sm text-muted-foreground">You do not have permission to view settings.</p>
         </div>
       </div>
     );
@@ -339,7 +339,7 @@ export default function SettingsPage() {
 
       <div className="flex min-h-[calc(100vh-65px)]">
         {/* Left sidebar nav */}
-        <div className="w-56 border-r border-slate-200 bg-white p-4 space-y-1 shrink-0">
+        <div className="w-56 border-r border-border bg-card p-4 space-y-1 shrink-0">
           {SECTIONS.map((s) => (
             <button
               key={s.id}
@@ -347,8 +347,8 @@ export default function SettingsPage() {
               className={cn(
                 'flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm transition-colors text-left',
                 activeSection === s.id
-                  ? 'bg-slate-100 font-medium text-[#0f172a]'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50',
+                  ? 'bg-muted font-medium text-foreground'
+                  : 'text-muted-foreground hover:text-foreground/90 hover:bg-muted/50',
               )}
             >
               <s.icon className="h-4 w-4 shrink-0" />
@@ -361,8 +361,8 @@ export default function SettingsPage() {
             className={cn(
               'flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm transition-colors text-left',
               activeSection === 'notifications'
-                ? 'bg-slate-100 font-medium text-[#0f172a]'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50',
+                ? 'bg-muted font-medium text-foreground'
+                : 'text-muted-foreground hover:text-foreground/90 hover:bg-muted/50',
             )}
           >
             <Bell className="h-4 w-4 shrink-0" />
@@ -373,8 +373,8 @@ export default function SettingsPage() {
             className={cn(
               'flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm transition-colors text-left',
               activeSection === 'users'
-                ? 'bg-slate-100 font-medium text-[#0f172a]'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50',
+                ? 'bg-muted font-medium text-foreground'
+                : 'text-muted-foreground hover:text-foreground/90 hover:bg-muted/50',
             )}
           >
             <Users className="h-4 w-4 shrink-0" />
@@ -385,8 +385,8 @@ export default function SettingsPage() {
             className={cn(
               'flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm transition-colors text-left',
               activeSection === 'data'
-                ? 'bg-slate-100 font-medium text-[#0f172a]'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50',
+                ? 'bg-muted font-medium text-foreground'
+                : 'text-muted-foreground hover:text-foreground/90 hover:bg-muted/50',
             )}
           >
             <Database className="h-4 w-4 shrink-0" />
@@ -399,8 +399,8 @@ export default function SettingsPage() {
           {/* Regular settings sections */}
           {currentSection && (
             <div>
-              <h2 className="text-lg font-semibold text-[#0f172a] mb-1">{currentSection.title}</h2>
-              <p className="text-sm text-slate-400 mb-6">Configure {currentSection.title.toLowerCase()} parameters</p>
+              <h2 className="text-lg font-semibold text-foreground mb-1">{currentSection.title}</h2>
+              <p className="text-sm text-muted-foreground mb-6">Configure {currentSection.title.toLowerCase()} parameters</p>
 
               <div className="space-y-5">
                 {currentSection.settings.map((def) => {
@@ -409,9 +409,9 @@ export default function SettingsPage() {
                     <div key={def.key} className="space-y-1.5">
                       <div className="flex items-center gap-2">
                         <Label htmlFor={def.key} className="text-sm font-medium">{def.label}</Label>
-                        {def.type === 'readonly' && <Lock className="h-3 w-3 text-slate-400" />}
+                        {def.type === 'readonly' && <Lock className="h-3 w-3 text-muted-foreground" />}
                       </div>
-                      <p className="text-xs text-slate-400">{def.description}</p>
+                      <p className="text-xs text-muted-foreground">{def.description}</p>
 
                       {def.type === 'toggle' ? (
                         <Switch
@@ -426,7 +426,7 @@ export default function SettingsPage() {
                             id={def.key}
                             value={val}
                             disabled
-                            className="bg-slate-50 text-slate-500 max-w-xs"
+                            className="bg-muted/50 text-muted-foreground max-w-xs"
                           />
                         </div>
                       ) : (
@@ -443,7 +443,7 @@ export default function SettingsPage() {
                             step={def.type === 'number' ? (def.step || 'any') : undefined}
                           />
                           {def.unit && (
-                            <span className="text-xs text-slate-400">{def.unit}</span>
+                            <span className="text-xs text-muted-foreground">{def.unit}</span>
                           )}
                         </div>
                       )}
@@ -472,11 +472,11 @@ export default function SettingsPage() {
           {/* Notifications preferences section */}
           {activeSection === 'notifications' && (
             <div>
-              <h2 className="text-lg font-semibold text-[#0f172a] mb-1">Notification Preferences</h2>
-              <p className="text-sm text-slate-400 mb-6">Configure which notification types each role receives</p>
+              <h2 className="text-lg font-semibold text-foreground mb-1">Notification Preferences</h2>
+              <p className="text-sm text-muted-foreground mb-6">Configure which notification types each role receives</p>
 
               {notifPrefs.length === 0 ? (
-                <p className="text-sm text-neutral-400 py-4">No notification preferences configured. Apply migration 00010 to seed defaults.</p>
+                <p className="text-sm text-muted-foreground py-4">No notification preferences configured. Apply migration 00010 to seed defaults.</p>
               ) : (
                 <Card className="io-card">
                   <CardContent className="p-0 overflow-x-auto">
@@ -507,7 +507,7 @@ export default function SettingsPage() {
                                         disabled={!canEdit}
                                       />
                                     ) : (
-                                      <span className="text-slate-300">&mdash;</span>
+                                      <span className="text-muted-foreground/60">&mdash;</span>
                                     )}
                                   </TableCell>
                                 );
@@ -526,8 +526,8 @@ export default function SettingsPage() {
           {/* User management section */}
           {canEdit && activeSection === 'users' && (
             <div>
-              <h2 className="text-lg font-semibold text-[#0f172a] mb-1">User Management</h2>
-              <p className="text-sm text-slate-400 mb-4">
+              <h2 className="text-lg font-semibold text-foreground mb-1">User Management</h2>
+              <p className="text-sm text-muted-foreground mb-4">
                 Manage users and project assignments from the <a href="/users" className="text-blue-600 hover:underline">Users page</a>.
               </p>
               <Button variant="outline" onClick={() => window.location.href = '/users'}>
@@ -539,13 +539,13 @@ export default function SettingsPage() {
           {/* Data & Import section */}
           {canEdit && activeSection === 'data' && (
             <div>
-              <h2 className="text-lg font-semibold text-[#0f172a] mb-1">Data & Import</h2>
-              <p className="text-sm text-slate-400 mb-6">Historical data and import activity</p>
+              <h2 className="text-lg font-semibold text-foreground mb-1">Data & Import</h2>
+              <p className="text-sm text-muted-foreground mb-6">Historical data and import activity</p>
 
               {/* Seeded data */}
-              <h3 className="text-sm font-semibold text-slate-700 mb-2">Seeded Historical Data</h3>
+              <h3 className="text-sm font-semibold text-foreground/90 mb-2">Seeded Historical Data</h3>
               {seedSnapshots.length === 0 ? (
-                <p className="text-sm text-neutral-400 mb-6">No historical seeds found.</p>
+                <p className="text-sm text-muted-foreground mb-6">No historical seeds found.</p>
               ) : (
                 <Card className="io-card mb-6">
                   <CardContent className="p-0 overflow-x-auto">
@@ -564,7 +564,7 @@ export default function SettingsPage() {
                             <TableCell className="text-sm">{s.data_source}</TableCell>
                             <TableCell className="text-sm font-mono">{s.year_month}</TableCell>
                             <TableCell className="text-sm">{s.total_agents}</TableCell>
-                            <TableCell className="text-xs text-slate-400">{formatDate(s.created_at)}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{formatDate(s.created_at)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -590,9 +590,9 @@ export default function SettingsPage() {
               )}
 
               {/* Import history */}
-              <h3 className="text-sm font-semibold text-slate-700 mb-2">Import History</h3>
+              <h3 className="text-sm font-semibold text-foreground/90 mb-2">Import History</h3>
               {importBatches.length === 0 ? (
-                <p className="text-sm text-neutral-400 mb-6">No imports recorded.</p>
+                <p className="text-sm text-muted-foreground mb-6">No imports recorded.</p>
               ) : (
                 <Card className="io-card mb-6">
                   <CardContent className="p-0 overflow-x-auto">
@@ -612,7 +612,7 @@ export default function SettingsPage() {
                             <TableCell className="text-sm">{b.file_name || 'Unnamed'}</TableCell>
                             <TableCell className="text-sm font-mono">{b.year_month || '-'}</TableCell>
                             <TableCell className="text-sm">{b.record_count || 0}</TableCell>
-                            <TableCell className="text-xs text-slate-400">{formatDate(b.created_at)}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{formatDate(b.created_at)}</TableCell>
                             <TableCell>
                               <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
                                 {b.status || 'complete'}

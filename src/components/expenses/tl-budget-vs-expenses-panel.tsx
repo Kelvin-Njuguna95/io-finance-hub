@@ -29,7 +29,7 @@ const STATUS_COLOR: Record<string, string> = {
   under_review: 'bg-blue-100 text-blue-700',
   modified: 'bg-purple-100 text-purple-700',
   voided: 'bg-red-100 text-red-700',
-  carried_forward: 'bg-slate-100 text-slate-600',
+  carried_forward: 'bg-muted text-foreground/80',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -109,11 +109,11 @@ export function TlBudgetVsExpensesPanel({ projectIds }: Props) {
             <p className="text-lg font-bold text-amber-700">{pendingCount}</p>
             <p className="text-[11px] text-amber-600">Awaiting Confirmation</p>
           </div>
-          <div className={`rounded-md p-2.5 text-center ${confirmedCount > 0 ? (variance > 0 ? 'bg-red-50' : 'bg-emerald-50') : 'bg-slate-50'}`}>
-            <p className={`text-lg font-bold ${confirmedCount > 0 ? (variance > 0 ? 'text-red-600' : 'text-emerald-700') : 'text-slate-400'}`}>
+          <div className={`rounded-md p-2.5 text-center ${confirmedCount > 0 ? (variance > 0 ? 'bg-red-50' : 'bg-emerald-50') : 'bg-muted/50'}`}>
+            <p className={`text-lg font-bold ${confirmedCount > 0 ? (variance > 0 ? 'text-red-600' : 'text-emerald-700') : 'text-muted-foreground'}`}>
               {confirmedCount > 0 ? `${variance >= 0 ? '+' : ''}${formatCurrency(variance, 'KES')}` : '—'}
             </p>
-            <p className="text-[11px] text-slate-500">Variance</p>
+            <p className="text-[11px] text-muted-foreground">Variance</p>
           </div>
         </div>
 
@@ -126,8 +126,8 @@ export function TlBudgetVsExpensesPanel({ projectIds }: Props) {
           return (
             <div key={pid}>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold text-slate-700">{group.name}</p>
-                <div className="flex items-center gap-3 text-xs text-slate-500">
+                <p className="text-sm font-semibold text-foreground/90">{group.name}</p>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span>Budget: <strong className="text-indigo-600">{formatCurrency(groupBudgeted, 'KES')}</strong></span>
                   <span>Spent: <strong className={groupActual > groupBudgeted ? 'text-red-600' : 'text-emerald-600'}>{formatCurrency(groupActual, 'KES')}</strong></span>
                 </div>
@@ -151,13 +151,13 @@ export function TlBudgetVsExpensesPanel({ projectIds }: Props) {
                       return (
                         <TableRow key={item.id}>
                           <TableCell className="text-sm font-medium">{item.description}</TableCell>
-                          <TableCell className="text-xs text-slate-500">{item.category || '—'}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{item.category || '—'}</TableCell>
                           <TableCell className="text-right font-mono text-sm">
                             {formatCurrency(Number(item.budgeted_amount_kes), 'KES')}
                           </TableCell>
                           <TableCell className="text-right font-mono text-sm">
                             {hasActual ? formatCurrency(Number(item.actual_amount_kes), 'KES') : (
-                              <span className="text-slate-300">—</span>
+                              <span className="text-muted-foreground/60">—</span>
                             )}
                           </TableCell>
                           <TableCell className={`text-right font-mono text-sm ${itemVariance != null ? (itemVariance > 0 ? 'text-red-600' : 'text-emerald-600') : ''}`}>
@@ -166,11 +166,11 @@ export function TlBudgetVsExpensesPanel({ projectIds }: Props) {
                                 {itemVariance >= 0 ? '+' : ''}{formatCurrency(itemVariance, 'KES')}
                               </>
                             ) : (
-                              <span className="text-slate-300">—</span>
+                              <span className="text-muted-foreground/60">—</span>
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            <Badge className={`${STATUS_COLOR[item.status] || 'bg-slate-100'} border-0 text-[10px]`}>
+                            <Badge className={`${STATUS_COLOR[item.status] || 'bg-muted'} border-0 text-[10px]`}>
                               {STATUS_LABEL[item.status] || item.status}
                             </Badge>
                           </TableCell>

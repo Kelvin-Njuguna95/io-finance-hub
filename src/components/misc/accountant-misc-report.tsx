@@ -184,8 +184,8 @@ export function AccountantMiscReport() {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Reference panel — approved requests */}
-        <div className="rounded-md bg-neutral-50 p-3">
-          <p className="text-xs font-medium text-neutral-500 mb-2">Approved Requests This Month</p>
+        <div className="rounded-md bg-muted/50 p-3">
+          <p className="text-xs font-medium text-muted-foreground mb-2">Approved Requests This Month</p>
           <Table>
             <TableHeader>
               <TableRow>
@@ -217,7 +217,7 @@ export function AccountantMiscReport() {
             {/* Status */}
             <div className="flex items-center justify-between">
               <Badge variant="secondary" className={
-                report.status === 'draft' ? 'bg-neutral-100 text-neutral-700' :
+                report.status === 'draft' ? 'bg-muted text-foreground/90' :
                 report.status === 'submitted' ? 'bg-blue-100 text-blue-700' :
                 'bg-green-100 text-green-700'
               }>
@@ -243,7 +243,7 @@ export function AccountantMiscReport() {
             )}
 
             {items.length === 0 ? (
-              <p className="text-sm text-neutral-500 py-2 text-center">No expenditure items yet. Click "Add Item" to start.</p>
+              <p className="text-sm text-muted-foreground py-2 text-center">No expenditure items yet. Click "Add Item" to start.</p>
             ) : (
               <div className="space-y-2">
                 {items.map((item, idx) => (

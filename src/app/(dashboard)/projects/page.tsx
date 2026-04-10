@@ -82,7 +82,7 @@ export default function ProjectsPage() {
                         {p.is_active ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-neutral-500">
+                    <TableCell className="text-sm text-muted-foreground">
                       {formatDate(p.created_at)}
                     </TableCell>
                   </TableRow>

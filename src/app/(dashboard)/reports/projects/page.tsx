@@ -209,7 +209,7 @@ export default function ProjectComparisonPage() {
       {userRole && !['cfo', 'accountant'].includes(userRole) ? (
         <div>
           <PageHeader title="Project Comparison" description="Access restricted" />
-          <div className="p-6 text-sm text-slate-500">
+          <div className="p-6 text-sm text-muted-foreground">
             Only CFO and Accountant roles can access project comparison analytics.
           </div>
         </div>
@@ -273,9 +273,9 @@ export default function ProjectComparisonPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={12} className="text-center py-8 text-neutral-400">Please wait</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">Please wait</TableCell></TableRow>
                 ) : data.length === 0 ? (
-                  <TableRow><TableCell colSpan={12} className="text-center py-8 text-neutral-500">No data</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">No data</TableCell></TableRow>
                 ) : (
                   <>
                     {data.map(r => (

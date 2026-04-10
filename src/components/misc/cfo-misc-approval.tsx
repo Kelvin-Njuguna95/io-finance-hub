@@ -223,7 +223,7 @@ export function CfoMiscApproval() {
                     <TableCell className="font-medium">{r.purpose}</TableCell>
                     <TableCell className="text-sm">{r.sender_name}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="bg-slate-100 text-slate-600">
+                      <Badge variant="secondary" className="bg-muted text-foreground/80">
                         was: {getPreviousStatus(r.cfo_notes)}
                       </Badge>
                     </TableCell>
@@ -350,7 +350,7 @@ export function CfoMiscApproval() {
           <DialogHeader>
             <DialogTitle>Confirm Permanent Deletion</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-neutral-600">
+          <p className="text-sm text-foreground/80">
             The accountant has requested deletion of this misc request. This action is permanent and cannot be undone.
           </p>
           <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 text-sm space-y-1">
@@ -374,7 +374,7 @@ export function CfoMiscApproval() {
       <Dialog open={!!approveReq} onOpenChange={() => setApproveReq(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Approve Misc Request</DialogTitle></DialogHeader>
-          <p className="text-sm text-neutral-600 mb-2">{approveReq?.purpose}</p>
+          <p className="text-sm text-foreground/80 mb-2">{approveReq?.purpose}</p>
           <p className="text-sm mb-4">Requested: <strong>{formatCurrency(approveReq?.amount_requested || 0, 'KES')}</strong></p>
           <div className="space-y-3">
             <div className="space-y-1">
@@ -397,7 +397,7 @@ export function CfoMiscApproval() {
       <Dialog open={!!declineReq} onOpenChange={() => setDeclineReq(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Decline Misc Request</DialogTitle></DialogHeader>
-          <p className="text-sm text-neutral-600 mb-2">{declineReq?.purpose}</p>
+          <p className="text-sm text-foreground/80 mb-2">{declineReq?.purpose}</p>
           <div className="space-y-1">
             <Label>Reason for decline *</Label>
             <Textarea value={declineNotes} onChange={(e) => setDeclineNotes(e.target.value)} rows={3} placeholder="Required..." />

@@ -195,7 +195,7 @@ export default function InvoicesPage() {
               <TableBody>
                 {viewRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={canManage ? 9 : 8} className="py-8 text-center text-sm text-neutral-500">
+                    <TableCell colSpan={canManage ? 9 : 8} className="py-8 text-center text-sm text-muted-foreground">
                       {selectedMonth === 'all' ? 'No invoices found.' : `No invoices found for ${formatYearMonth(selectedMonth)}`}
 
                     </TableCell>

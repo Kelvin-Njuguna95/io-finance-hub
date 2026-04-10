@@ -185,7 +185,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
                 value={amountKes || ''}
                 onChange={(e) => setAmountKes(parseFloat(e.target.value) || 0)}
               />
-              <p className="text-xs text-neutral-400">Auto-calculated, adjust if different</p>
+              <p className="text-xs text-muted-foreground">Auto-calculated, adjust if different</p>
             </div>
           </div>
 
@@ -242,7 +242,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
               value={referenceRate || ''}
               onChange={(e) => setReferenceRate(parseFloat(e.target.value) || 0)}
             />
-            <p className="text-xs text-neutral-400">CBK or market rate for variance calculation</p>
+            <p className="text-xs text-muted-foreground">CBK or market rate for variance calculation</p>
           </div>
 
           {varianceKes !== 0 && (

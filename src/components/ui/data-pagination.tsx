@@ -19,14 +19,14 @@ export function DataPagination({
 
   return (
     <div className="flex items-center justify-between px-2 py-3 border-t">
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         Showing {start}–{end} of {totalItems} records
       </p>
       <div className="flex gap-2">
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="px-3 py-1 rounded border text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+          className="px-3 py-1 rounded border text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/50"
         >
           Previous
         </button>
@@ -34,7 +34,7 @@ export function DataPagination({
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="px-3 py-1 rounded border text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+          className="px-3 py-1 rounded border text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/50"
         >
           Next
         </button>

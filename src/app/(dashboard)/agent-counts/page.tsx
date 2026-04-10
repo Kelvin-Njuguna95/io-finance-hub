@@ -150,7 +150,7 @@ export default function AgentCountsPage() {
       <div>
         <PageHeader title="Agent Counts" description="Access restricted" />
         <div className="p-6">
-          <p className="text-sm text-neutral-500">Only CFO, Accountant, and Team Leader roles can manage agent counts.</p>
+          <p className="text-sm text-muted-foreground">Only CFO, Accountant, and Team Leader roles can manage agent counts.</p>
         </div>
       </div>
     );
@@ -178,8 +178,8 @@ export default function AgentCountsPage() {
 
       <div className="p-6">
         <div className="mb-4 flex items-center gap-4">
-          <p className="text-sm text-neutral-500">
-            Total agents across all projects: <strong className="text-neutral-900 text-base">{totalAgents}</strong>
+          <p className="text-sm text-muted-foreground">
+            Total agents across all projects: <strong className="text-foreground text-base">{totalAgents}</strong>
           </p>
         </div>
 
@@ -218,7 +218,7 @@ export default function AgentCountsPage() {
                       </TableCell>
                       <TableCell>
                         {r.is_locked ? (
-                          <span className="text-xs text-neutral-500">Locked</span>
+                          <span className="text-xs text-muted-foreground">Locked</span>
                         ) : changed ? (
                           <span className="text-xs text-blue-600 font-medium">Unsaved</span>
                         ) : r.agent_count !== null ? (
@@ -229,7 +229,7 @@ export default function AgentCountsPage() {
                           <span className="text-xs text-yellow-600">Not set</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-xs text-neutral-400">
+                      <TableCell className="text-xs text-muted-foreground">
                         {r.updated_at ? formatDateTime(r.updated_at) : '—'}
                       </TableCell>
                       <TableCell>

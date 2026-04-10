@@ -26,7 +26,7 @@ export default function DashboardError({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-foreground/80">
             We hit an unexpected issue while loading this section. Please try again.
           </p>
           <Button onClick={() => unstable_retry()}>Try again</Button>

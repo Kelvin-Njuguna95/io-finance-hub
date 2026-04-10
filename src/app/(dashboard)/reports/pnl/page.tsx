@@ -226,24 +226,24 @@ export default function PnLReportPage() {
                 {reportMode === 'accrual' ? `${servicePeriodLabel} — Accrual (Lagged)` : `${formatYearMonth(selectedMonth)} — Cash Basis`}
               </CardTitle>
               {reportMode === 'accrual' ? (
-                <p className="text-xs text-slate-400 mt-1">{isHistorical ? `Revenue & expenses from ${formatYearMonth(selectedMonth)}.` : `Revenue and expenses are both matched to ${formatYearMonth(revenueSourceMonth)} service period. Revenue from ${formatYearMonth(revenueSourceMonth)} invoices. Expenses paid in ${formatYearMonth(selectedMonth)}.`}</p>
+                <p className="text-xs text-muted-foreground mt-1">{isHistorical ? `Revenue & expenses from ${formatYearMonth(selectedMonth)}.` : `Revenue and expenses are both matched to ${formatYearMonth(revenueSourceMonth)} service period. Revenue from ${formatYearMonth(revenueSourceMonth)} invoices. Expenses paid in ${formatYearMonth(selectedMonth)}.`}</p>
               ) : (
-                <p className="text-xs text-slate-400 mt-1">Cash mode: showing revenue received in {formatYearMonth(selectedMonth)}</p>
+                <p className="text-xs text-muted-foreground mt-1">Cash mode: showing revenue received in {formatYearMonth(selectedMonth)}</p>
               )}
             </div>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <p className="text-sm text-neutral-400 py-8 text-center">Please wait</p>
+              <p className="text-sm text-muted-foreground py-8 text-center">Please wait</p>
             ) : !pnl ? (
-              <p className="text-sm text-neutral-500 py-8 text-center">
+              <p className="text-sm text-muted-foreground py-8 text-center">
                 No financial data for {formatYearMonth(selectedMonth)}
               </p>
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <Badge className="bg-emerald-100 text-emerald-700">On Track</Badge>
-                  <span className="text-xs text-slate-500">Revenue recognition lag: revenue is booked from prior month invoices.</span>
+                  <span className="text-xs text-muted-foreground">Revenue recognition lag: revenue is booked from prior month invoices.</span>
                 </div>
                 <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
@@ -264,10 +264,10 @@ export default function PnLReportPage() {
                   </ResponsiveContainer>
                 </div>
                 <details>
-                  <summary className="cursor-pointer text-sm font-medium text-slate-700 underline">Show numeric breakdown</summary>
+                  <summary className="cursor-pointer text-sm font-medium text-foreground/90 underline">Show numeric breakdown</summary>
                 <PnlLine label={reportMode === 'accrual' ? (isHistorical ? 'Revenue' : `Revenue — ${formatYearMonth(revenueSourceMonth)} invoice`) : 'Revenue (cash received)'} kes={pnl.revenue} bold />
                 {pnl.revenueUsd > 0 && (
-                  <p className="text-xs text-slate-400 -mt-1 mb-1 text-right">USD {pnl.revenueUsd.toLocaleString()} × standard rate</p>
+                  <p className="text-xs text-muted-foreground -mt-1 mb-1 text-right">USD {pnl.revenueUsd.toLocaleString()} × standard rate</p>
                 )}
                 <PnlLine label={reportMode === 'accrual' ? `Expenses — ${formatYearMonth(selectedMonth)} actuals (${formatYearMonth(revenueSourceMonth)} service period)` : 'Direct Costs'} kes={-pnl.directCosts} negative />
                 <Separator className="my-1" />
@@ -285,7 +285,7 @@ export default function PnLReportPage() {
                     {formatCurrency(cashBalance, 'USD')}
                   </span>
                 </div>
-                <p className="text-xs text-slate-400 -mt-1 mb-2 text-right">
+                <p className="text-xs text-muted-foreground -mt-1 mb-2 text-right">
                   Standing balance − withdrawals + payments received
                 </p>
 
@@ -295,7 +295,7 @@ export default function PnLReportPage() {
                   </div>
                 )}
 
-                <div className="mt-4 text-xs text-neutral-400">
+                <div className="mt-4 text-xs text-muted-foreground">
                   Total agents: {pnl.agents}
                 </div>
                 </details>
