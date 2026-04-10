@@ -48,19 +48,10 @@ export function AppSidebar() {
   const { unreadCount } = useNotifications();
   const pathname = usePathname();
 
-  async function handleSignOut() {
-    try {
-      const res = await fetch("/api/auth/signout", { method: "POST" });
-      if (res.redirected) {
-        window.location.href = res.url;
-        return;
-      }
-      // Fallback: force navigate to login
-      window.location.href = "/login";
-    } catch (error) {
-      console.error("Sign-out error:", error);
-      window.location.href = "/login";
-    }
+  function handleSignOut() {
+    // Navigate directly to the server sign-out route.
+    // The server clears all cookies and redirects to /login.
+    window.location.href = "/api/auth/signout";
   }
 
   const initials = user?.full_name
@@ -222,10 +213,7 @@ export function AppSidebar() {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault();
-                  void handleSignOut();
-                }}
+                onSelect={() => handleSignOut()}
               >
                 <LogOut className="size-4" aria-hidden />
                 <span>Sign Out</span>
