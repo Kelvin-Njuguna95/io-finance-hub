@@ -15,10 +15,20 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { formatCurrency, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
-import { Check, X } from 'lucide-react';
-import type { ProfitShareRecord } from '@/types/database';
+import { formatCurrency, getCurrentYearMonth, formatYearMonth, capitalize, formatDate } from '@/lib/format';
+import { formatKES } from '@/lib/utils/currency';
+import { cn } from '@/lib/utils';
+import { Check, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface PayoutWithdrawal {
+  id: string;
+  payout_type: 'full' | 'partial' | null;
+  amount_usd: number;
+  amount_kes: number;
+  withdrawal_date: string;
+  users?: { full_name: string | null } | null;
+}
 
 interface ProjectShare {
   project_name: string;
@@ -31,6 +41,27 @@ interface ProjectShare {
   source: 'live' | 'record';
   record_id?: string;
   record_status?: string;
+  total_paid_out?: number;
+  balance_remaining?: number;
+  payout_status?: 'unpaid' | 'partial' | 'paid';
+}
+
+function PayoutStatusBadge({ status }: { status: string }) {
+  const styles = {
+    unpaid: 'bg-slate-100 text-slate-600',
+    partial: 'bg-amber-100 text-amber-700',
+    paid: 'bg-green-100 text-green-700',
+  };
+  const labels = {
+    unpaid: 'Not Paid',
+    partial: 'Partial',
+    paid: 'Fully Paid',
+  };
+  return (
+    <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', styles[status as keyof typeof styles] ?? styles.unpaid)}>
+      {labels[status as keyof typeof labels] ?? status}
+    </span>
+  );
 }
 
 export default function ProfitSharePage() {
@@ -40,17 +71,41 @@ export default function ProfitSharePage() {
   const [disputeTarget, setDisputeTarget] = useState<ProjectShare | null>(null);
   const [disputeReason, setDisputeReason] = useState('');
   const [loading, setLoading] = useState(true);
+  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
+  const [payoutHistory, setPayoutHistory] = useState<Record<string, PayoutWithdrawal[]>>({});
 
   const prevDate = new Date(parseInt(selectedMonth.split('-')[0]), parseInt(selectedMonth.split('-')[1]) - 2, 1);
   const revenueSourceMonth = prevDate.getFullYear() + '-' + String(prevDate.getMonth() + 1).padStart(2, '0');
 
   useEffect(() => { load(); }, [selectedMonth]);
 
+  async function loadPayoutHistory(recordId: string) {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('withdrawals')
+      .select('id, payout_type, amount_usd, amount_kes, withdrawal_date, users:recorded_by(full_name)')
+      .eq('profit_share_record_id', recordId)
+      .eq('withdrawal_type', 'director_payout')
+      .order('withdrawal_date', { ascending: false });
+
+    setPayoutHistory((prev) => ({ ...prev, [recordId]: (data || []) as PayoutWithdrawal[] }));
+  }
+
+  async function toggleExpanded(recordId: string) {
+    if (expandedRecordId === recordId) {
+      setExpandedRecordId(null);
+      return;
+    }
+    setExpandedRecordId(recordId);
+    if (!payoutHistory[recordId]) {
+      await loadPayoutHistory(recordId);
+    }
+  }
+
   async function load() {
     setLoading(true);
     const supabase = createClient();
 
-    // Check for existing profit share records first
     const { data: existingRecords } = await supabase
       .from('profit_share_records')
       .select('*, projects(name)')
@@ -58,7 +113,18 @@ export default function ProfitSharePage() {
       .order('director_tag');
 
     if (existingRecords && existingRecords.length > 0) {
-      setShares(existingRecords.map((r: /* // */ any) => ({
+      setShares(existingRecords.map((r: {
+        projects?: { name?: string } | null;
+        director_tag: string;
+        distributable_profit_kes: number;
+        director_share_kes: number;
+        company_share_kes: number;
+        id: string;
+        status: string;
+        total_paid_out?: number | null;
+        balance_remaining?: number | null;
+        payout_status?: 'unpaid' | 'partial' | 'paid' | null;
+      }) => ({
         project_name: r.projects?.name || '—',
         director_tag: r.director_tag,
         revenue: 0,
@@ -69,12 +135,14 @@ export default function ProfitSharePage() {
         source: 'record' as const,
         record_id: r.id,
         record_status: r.status,
+        total_paid_out: Number(r.total_paid_out || 0),
+        balance_remaining: Number(r.balance_remaining ?? r.director_share_kes ?? 0),
+        payout_status: (r.payout_status || 'unpaid') as 'unpaid' | 'partial' | 'paid',
       })));
       setLoading(false);
       return;
     }
 
-    // Compute live from lagged revenue
     const { data: projects } = await supabase.from('projects').select('id, name, director_tag').eq('is_active', true);
     const { data: rateSetting } = await supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single();
     const stdRate = parseFloat(rateSetting?.value || '129.5');
@@ -83,18 +151,18 @@ export default function ProfitSharePage() {
     const { data: expenses } = await supabase.from('expenses').select('project_id, amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense');
 
     const invMap = new Map<string, number>();
-    (invoices || []).forEach((i: /* // */ any) => {
+    (invoices || []).forEach((i: { project_id: string; amount_kes: number; amount_usd: number }) => {
       const kes = Number(i.amount_kes) > 0 ? Number(i.amount_kes) : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
       invMap.set(i.project_id, (invMap.get(i.project_id) || 0) + kes);
     });
 
     const expMap = new Map<string, number>();
-    (expenses || []).forEach((e: /* // */ any) => {
+    (expenses || []).forEach((e: { project_id: string; amount_kes: number }) => {
       expMap.set(e.project_id, (expMap.get(e.project_id) || 0) + Number(e.amount_kes));
     });
 
     const rows: ProjectShare[] = (projects || [])
-      .map((p: /* // */ any) => {
+      .map((p: { id: string; name: string; director_tag: string }) => {
         const revenue = invMap.get(p.id) || 0;
         const directCosts = expMap.get(p.id) || 0;
         const distributable = revenue - directCosts;
@@ -194,25 +262,28 @@ export default function ProfitSharePage() {
                   <TableHead className="text-right">Distributable</TableHead>
                   <TableHead className="text-right">Director (70%)</TableHead>
                   <TableHead className="text-right">Company (30%)</TableHead>
+                  {!isLiveData && <TableHead className="text-right">Paid Out</TableHead>}
+                  {!isLiveData && <TableHead className="text-right">Remaining</TableHead>}
+                  {!isLiveData && <TableHead>Payout Status</TableHead>}
                   {!isLiveData && <TableHead>Status</TableHead>}
-                  {isCfo && !isLiveData && <TableHead className="w-[100px]">Actions</TableHead>}
+                  {isCfo && !isLiveData && <TableHead className="w-[180px]">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Please wait</TableCell>
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">Please wait</TableCell>
                   </TableRow>
                 ) : shares.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                       No profit share data for {formatYearMonth(selectedMonth)}
                     </TableCell>
                   </TableRow>
                 ) : (
                   <>
                     {shares.map((r, i) => (
-                      <TableRow key={i}>
+                      <TableRow key={`row-${r.record_id || i}`}>
                         <TableCell className="font-medium">{r.project_name}</TableCell>
                         <TableCell>{capitalize(r.director_tag)}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(r.revenue, 'KES')}</TableCell>
@@ -227,33 +298,94 @@ export default function ProfitSharePage() {
                           {r.company_share > 0 ? formatCurrency(r.company_share, 'KES') : '—'}
                         </TableCell>
                         {!isLiveData && (
-                          <TableCell>
-                            <Badge variant="secondary" className={statusColors[r.record_status || 'pending_review']}>
-                              {capitalize(r.record_status || 'pending_review')}
-                            </Badge>
-                          </TableCell>
+                          <>
+                            <TableCell className="text-right font-mono text-sm">{formatKES(r.total_paid_out || 0)}</TableCell>
+                            <TableCell className="text-right font-mono text-sm">{formatKES(r.balance_remaining ?? r.director_share)}</TableCell>
+                            <TableCell><PayoutStatusBadge status={r.payout_status || 'unpaid'} /></TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className={statusColors[r.record_status || 'pending_review']}>
+                                {capitalize(r.record_status || 'pending_review')}
+                              </Badge>
+                            </TableCell>
+                          </>
                         )}
                         {isCfo && !isLiveData && (
                           <TableCell>
-                            {r.record_status === 'pending_review' && r.record_id && (
-                              <div className="flex gap-1">
-                                <Button variant="ghost" size="icon" onClick={() => handleApprove(r.record_id!)} title="Approve">
-                                  <Check className="h-4 w-4 text-green-600" />
+                            <div className="flex items-center gap-2">
+                              {r.record_status === 'pending_review' && r.record_id && (
+                                <>
+                                  <Button variant="ghost" size="icon" onClick={() => handleApprove(r.record_id!)} title="Approve">
+                                    <Check className="h-4 w-4 text-green-600" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => setDisputeTarget(r)} title="Dispute">
+                                    <X className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                </>
+                              )}
+                              {r.record_id && (
+                                <Button variant="ghost" size="sm" onClick={() => toggleExpanded(r.record_id!)}>
+                                  {expandedRecordId === r.record_id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                                 </Button>
-                                <Button variant="ghost" size="icon" onClick={() => setDisputeTarget(r)} title="Dispute">
-                                  <X className="h-4 w-4 text-red-600" />
+                              )}
+                              {r.record_id && r.payout_status !== 'paid' && (
+                                <Button
+                                  variant="link"
+                                  className="text-xs text-amber-700 hover:text-amber-900 font-medium p-0"
+                                  onClick={() => {
+                                    window.location.href = `/withdrawals?type=director_payout&profit_share_record_id=${r.record_id}`;
+                                  }}
+                                >
+                                  Record Payout →
                                 </Button>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>
+                    ))}
+                    {shares.map((r, i) => (
+                      expandedRecordId === r.record_id ? (
+                        <TableRow key={r.record_id || i}>
+                            <TableCell colSpan={12} className="bg-amber-50 p-4">
+                              <p className="text-xs font-medium text-amber-800 mb-2">Payout History</p>
+                              {(payoutHistory[r.record_id || ''] || []).length === 0 ? (
+                                <p className="text-xs text-slate-500">No payouts recorded yet.</p>
+                              ) : (
+                                <table className="text-xs w-full">
+                                  <thead>
+                                    <tr className="text-slate-500">
+                                      <th className="text-left">Date</th>
+                                      <th className="text-left">Type</th>
+                                      <th className="text-right">Amount (USD)</th>
+                                      <th className="text-right">Amount (KES)</th>
+                                      <th className="text-left">Recorded by</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {(payoutHistory[r.record_id || ''] || []).map((w) => (
+                                      <tr key={w.id}>
+                                        <td>{formatDate(w.withdrawal_date)}</td>
+                                        <td className="capitalize">{w.payout_type || '—'}</td>
+                                        <td className="text-right">USD {Number(w.amount_usd || 0).toFixed(2)}</td>
+                                        <td className="text-right">{formatKES(Number(w.amount_kes || 0))}</td>
+                                        <td>{w.users?.full_name || '—'}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                      ) : null
                     ))}
                     <TableRow className="font-bold bg-muted/50">
                       <TableCell colSpan={4} className="text-right">Total</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalDistributable, 'KES')}</TableCell>
                       <TableCell className="text-right font-mono text-emerald-600">{formatCurrency(totalDirectorShare, 'KES')}</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalCompanyShare, 'KES')}</TableCell>
+                      {!isLiveData && <TableCell></TableCell>}
+                      {!isLiveData && <TableCell></TableCell>}
+                      {!isLiveData && <TableCell></TableCell>}
                       {!isLiveData && <TableCell></TableCell>}
                       {isCfo && !isLiveData && <TableCell></TableCell>}
                     </TableRow>
