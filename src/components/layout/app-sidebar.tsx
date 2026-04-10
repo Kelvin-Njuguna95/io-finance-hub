@@ -2,8 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
 import { useUser } from '@/hooks/use-user';
 import { useNotifications } from '@/hooks/use-notifications';
 import { getNavigation } from '@/lib/navigation';
@@ -26,13 +24,13 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ChevronsUpDown, LogOut, Wallet } from 'lucide-react';
-import { toast } from 'sonner';
 
 /**
  * Finance Hub sidebar. Built on the shadcn Sidebar primitive so we get
@@ -49,30 +47,6 @@ export function AppSidebar() {
   const { user, loading } = useUser();
   const { unreadCount } = useNotifications();
   const pathname = usePathname();
-  const [isSigningOut, setIsSigningOut] = useState(false);
-
-  async function handleSignOut() {
-    if (isSigningOut) return;
-    setIsSigningOut(true);
-
-    try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Supabase signOut error:', error);
-        toast.error('Signed out locally. Refreshing login page…');
-      }
-    } catch (error) {
-      console.error('Sign out exception:', error);
-      toast.error('Sign out encountered an issue. Redirecting to login…');
-    } finally {
-      setIsSigningOut(false);
-      window.location.href = '/login';
-    }
-  }
 
   const initials = user?.full_name
     ? user.full_name
@@ -218,27 +192,23 @@ export function AppSidebar() {
               side="top"
               className="min-w-[14rem]"
             >
-              <DropdownMenuLabel className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold">{user.full_name}</span>
-                <span className="truncate text-xs font-normal text-muted-foreground">
-                  {user.email}
-                </span>
-              </DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold">{user.full_name}</span>
+                  <span className="truncate text-xs font-normal text-muted-foreground">
+                    {user.email}
+                  </span>
+                </DropdownMenuLabel>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem render={<Link href="/settings" />}>
                 <Wallet className="size-4" aria-hidden />
                 <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault();
-                  void handleSignOut();
-                }}
-                disabled={isSigningOut}
-              >
+              <DropdownMenuItem render={<Link href="/auth/signout" />}>
                 <LogOut className="size-4" aria-hidden />
-                <span>{isSigningOut ? 'Signing out…' : 'Sign Out'}</span>
+                <span>Sign Out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
