@@ -61,10 +61,10 @@ function normalizeStatus(invoice: RevenueInvoice): InvoiceFilter {
 }
 
 function getStatusBadgeClass(status: InvoiceFilter) {
-  if (status === 'paid') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-  if (status === 'partially_paid') return 'bg-amber-100 text-amber-700 border-amber-200';
+  if (status === 'paid') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200';
+  if (status === 'partially_paid') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200';
   if (status === 'overdue') return 'bg-rose-200 text-rose-900 border-rose-300';
-  return 'bg-rose-100 text-rose-700 border-rose-200';
+  return 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200';
 }
 
 export default function RevenuePage() {
@@ -716,7 +716,7 @@ export default function RevenuePage() {
                             <TableCell>{formatDate(inv.invoice_date)}</TableCell>
                             <TableCell>{inv.due_date ? formatDate(inv.due_date) : '—'}</TableCell>
                             <TableCell>
-                              <Badge variant="outline" className={aging.days > 90 ? 'bg-rose-100 text-rose-700 border-rose-200' : aging.days > 60 ? 'bg-amber-100 text-amber-700 border-amber-200' : aging.days > 30 ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'}>
+                              <Badge variant="outline" className={aging.days > 90 ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200' : aging.days > 60 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200' : aging.days > 30 ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200'}>
                                 {aging.bucket}
                               </Badge>
                             </TableCell>

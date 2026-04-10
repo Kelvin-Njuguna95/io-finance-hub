@@ -362,7 +362,7 @@ export default function MonthlyPnlReport() {
               <Card className="io-card xl:col-span-2">
                 <CardHeader className="bg-primary rounded-t-xl">
                   <CardTitle className="text-white">P&L Bridge</CardTitle>
-                  <p className="text-xs text-muted-foreground/60">Revenue → Direct Costs → Gross Profit → Overhead → Net Profit</p>
+                  <p className="text-xs text-primary-foreground/60">Revenue → Direct Costs → Gross Profit → Overhead → Net Profit</p>
                 </CardHeader>
                 <CardContent className="pt-4">
                   <div className="h-72">
@@ -417,11 +417,11 @@ export default function MonthlyPnlReport() {
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <CardTitle className="text-lg text-white">IO FINANCE HUB</CardTitle>
-                  <p className="text-xs text-muted-foreground/60 mt-1">Monthly Income Statement</p>
+                  <p className="text-xs text-primary-foreground/60 mt-1">Monthly Income Statement</p>
                 </div>
                 <div className="text-left md:text-right">
                   <p className="text-sm font-semibold">{formatYearMonth(selectedMonth)}</p>
-                  <p className="text-xs text-muted-foreground/60">Revenue: {formatYearMonth(revenueSourceMonth)} invoices</p>
+                  <p className="text-xs text-primary-foreground/60">Revenue: {formatYearMonth(revenueSourceMonth)} invoices</p>
                 </div>
               </div>
               </CardHeader>

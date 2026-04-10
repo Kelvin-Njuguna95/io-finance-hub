@@ -84,7 +84,7 @@ interface TooltipProps {
 }
 
 function ChartSkeleton() {
-  return <div className="h-80 bg-muted/50 rounded-lg animate-pulse flex items-center justify-center text-muted-foreground/60">Loading chart...</div>;
+  return <div className="h-80 bg-muted/50 rounded-lg animate-pulse flex items-center justify-center text-primary-foreground/60">Loading chart...</div>;
 }
 
 function InsightBadge({ text }: { text: string }) {
