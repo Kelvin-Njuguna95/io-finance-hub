@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import { useUser } from '@/hooks/use-user';
 import { useNotifications } from '@/hooks/use-notifications';
 import { getNavigation } from '@/lib/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { ROLE_LABELS } from '@/types/database';
 import { cn } from '@/lib/utils';
 import {
@@ -32,7 +31,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ChevronsUpDown, LogOut, Wallet } from 'lucide-react';
-import { toast } from 'sonner';
 
 /**
  * Finance Hub sidebar. Built on the shadcn Sidebar primitive so we get
@@ -50,20 +48,9 @@ export function AppSidebar() {
   const { unreadCount } = useNotifications();
   const pathname = usePathname();
 
-  async function handleSignOut() {
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Supabase signOut error:', error);
-        toast.error('Signed out locally. Refreshing login page…');
-      }
-    } catch (error) {
-      console.error('Sign out exception:', error);
-      toast.error('Sign out encountered an issue. Redirecting to login…');
-    } finally {
-      window.location.href = '/login';
-    }
+  function handleSignOut() {
+    // Route through the server endpoint so HTTP-only auth cookies are cleared
+    window.location.href = '/auth/signout';
   }
 
   const initials = user?.full_name
