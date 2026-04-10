@@ -1,15 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Briefcase, FileText, Plus, Users } from 'lucide-react';
+
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
 import { StatCard } from '@/components/layout/stat-card';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SectionCard } from '@/components/layout/section-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
-import { FileText, Users, Plus } from 'lucide-react';
-import Link from 'next/link';
+import { EmptyState } from '@/components/ui/empty-state';
+import { getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { TlBudgetVsExpensesPanel } from '@/components/expenses/tl-budget-vs-expenses-panel';
 import type { Project, Budget, BudgetVersion } from '@/types/database';
 
@@ -20,7 +22,9 @@ interface Props {
 export function TeamLeaderDashboard({ userId }: Props) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectIds, setProjectIds] = useState<string[]>([]);
-  const [budgets, setBudgets] = useState<(Budget & { latest_version?: BudgetVersion })[]>([]);
+  const [budgets, setBudgets] = useState<
+    (Budget & { latest_version?: BudgetVersion })[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const currentMonth = getCurrentYearMonth();
 
@@ -28,13 +32,14 @@ export function TeamLeaderDashboard({ userId }: Props) {
     async function loadData() {
       const supabase = createClient();
 
-      // Get assigned projects
       const { data: assignments } = await supabase
         .from('user_project_assignments')
         .select('project_id')
         .eq('user_id', userId);
 
-      const pids = (assignments || []).map((a: { project_id: string }) => a.project_id);
+      const pids = (assignments || []).map(
+        (a: { project_id: string }) => a.project_id,
+      );
       setProjectIds(pids);
 
       if (pids.length > 0) {
@@ -61,11 +66,15 @@ export function TeamLeaderDashboard({ userId }: Props) {
     <div>
       <PageHeader
         title="My Projects"
+        eyebrow="Team Lead"
         description={formatYearMonth(currentMonth)}
+        icon={Briefcase}
+        tone="violet"
       >
         <Link href="/budgets/new">
           <Button size="sm" className="gap-1">
-            <Plus className="h-4 w-4" /> New Budget
+            <Plus className="size-4" aria-hidden />
+            New Budget
           </Button>
         </Link>
       </PageHeader>
@@ -75,44 +84,57 @@ export function TeamLeaderDashboard({ userId }: Props) {
           <StatCard
             title="Assigned Projects"
             value={String(projects.length)}
-            icon={FileText}
+            icon={Briefcase}
+            tone="violet"
+            loading={loading}
           />
           <StatCard
             title="Budgets This Month"
             value={String(budgets.length)}
-            icon={Users}
+            icon={FileText}
+            tone="brand"
+            loading={loading}
           />
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">My Projects</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {projects.length === 0 ? (
-              <p className="text-sm text-neutral-500 py-4 text-center">
-                No projects assigned
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {projects.map((project) => (
-                  <div
-                    key={project.id}
-                    className="flex items-center justify-between rounded-md border p-3"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{project.name}</p>
-                      <p className="text-xs text-neutral-500">{project.client_name}</p>
-                    </div>
-                    <Badge variant={project.is_active ? 'default' : 'secondary'}>
-                      {project.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
+        <SectionCard title="My Projects" icon={Users} tone="info">
+          {projects.length === 0 ? (
+            <EmptyState
+              icon={Briefcase}
+              tone="neutral"
+              title="No projects assigned"
+              description="Ask an admin to assign you to a project."
+            />
+          ) : (
+            <ul className="space-y-2">
+              {projects.map((project) => (
+                <li
+                  key={project.id}
+                  className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/30 p-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {project.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {project.client_name}
+                    </p>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  <Badge
+                    variant="secondary"
+                    className={
+                      project.is_active
+                        ? 'bg-success-soft text-success-soft-foreground'
+                        : 'bg-muted text-muted-foreground'
+                    }
+                  >
+                    {project.is_active ? 'Active' : 'Inactive'}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </SectionCard>
 
         {/* Budget vs Confirmed Expenses — scoped to TL's projects */}
         <TlBudgetVsExpensesPanel projectIds={projectIds} />

@@ -1,19 +1,32 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { PageHeader } from '@/components/layout/page-header';
-import { StatCard } from '@/components/layout/stat-card';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { HeroCard } from '@/components/layout/hero-card';
-import { formatCurrency, formatPercent, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
-import {
-  DollarSign, TrendingUp, PieChart, Users, FileText, ArrowRight,
-} from 'lucide-react';
 import Link from 'next/link';
+import {
+  ArrowRight,
+  BarChart3,
+  Briefcase,
+  DollarSign,
+  Landmark,
+  PieChart,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react';
+
+import { createClient } from '@/lib/supabase/client';
+import { HeroCard } from '@/components/layout/hero-card';
+import { SectionCard } from '@/components/layout/section-card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+import {
+  formatCurrency,
+  formatPercent,
+  getCurrentYearMonth,
+  formatYearMonth,
+} from '@/lib/format';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
 
 interface ProjectData {
@@ -36,86 +49,136 @@ export function ProjectManagerDashboard({ userId }: Props) {
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [pendingBudgets, setPendingBudgets] = useState(0);
-  const [totalAgents, setTotalAgents] = useState(0);
   const [bankBalance, setBankBalance] = useState(0);
   const currentMonth = getCurrentYearMonth();
 
-  const prevDate = new Date(parseInt(currentMonth.split('-')[0]), parseInt(currentMonth.split('-')[1]) - 2, 1);
-  const revenueSourceMonth = prevDate.getFullYear() + '-' + String(prevDate.getMonth() + 1).padStart(2, '0');
+  const prevDate = new Date(
+    parseInt(currentMonth.split('-')[0]),
+    parseInt(currentMonth.split('-')[1]) - 2,
+    1,
+  );
+  const revenueSourceMonth =
+    prevDate.getFullYear() +
+    '-' +
+    String(prevDate.getMonth() + 1).padStart(2, '0');
 
   useEffect(() => {
     async function load() {
       const supabase = createClient();
 
-      // Get PM's assigned projects
-      const { data: assignments } = await supabase.from('user_project_assignments').select('project_id').eq('user_id', userId);
-      const pids = (assignments || []).map((a: any) => a.project_id);
+      const { data: assignments } = await supabase
+        .from('user_project_assignments')
+        .select('project_id')
+        .eq('user_id', userId);
+      // Assignments retained in shape for parity with previous logic
+      void assignments;
 
-      // Get all projects (PM can see all for overview)
-      const { data: allProjects } = await supabase.from('projects').select('id, name').eq('is_active', true).order('name');
+      const { data: allProjects } = await supabase
+        .from('projects')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
 
-      // Get exchange rate and bank balance
-      const { data: rateSetting } = await supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single();
+      const { data: rateSetting } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'standard_exchange_rate')
+        .single();
       const stdRate = parseFloat(rateSetting?.value || '129.5');
-      const { data: balSetting } = await supabase.from('system_settings').select('value').eq('key', 'bank_balance_usd').single();
+      const { data: balSetting } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'bank_balance_usd')
+        .single();
       const standingBal = parseFloat(balSetting?.value || '0');
-      const { data: allWd } = await supabase.from('withdrawals').select('amount_usd');
-      const totalWd = (allWd || []).reduce((s: number, w: any) => s + Number(w.amount_usd), 0);
+      const { data: allWd } = await supabase
+        .from('withdrawals')
+        .select('amount_usd');
+      const totalWd = (allWd || []).reduce(
+        (s: number, w: { amount_usd: number }) => s + Number(w.amount_usd),
+        0,
+      );
       setBankBalance(standingBal - totalWd);
 
-      // Get lagged invoices (previous month)
-      const { data: invoices } = await supabase.from('invoices').select('project_id, amount_usd, amount_kes').eq('billing_period', revenueSourceMonth);
+      const { data: invoices } = await supabase
+        .from('invoices')
+        .select('project_id, amount_usd, amount_kes')
+        .eq('billing_period', revenueSourceMonth);
 
-      // Get expenses (current month)
-      const { data: expenses } = await supabase.from('expenses').select('project_id, amount_kes').eq('year_month', currentMonth).eq('expense_type', 'project_expense');
+      const { data: expenses } = await supabase
+        .from('expenses')
+        .select('project_id, amount_kes')
+        .eq('year_month', currentMonth)
+        .eq('expense_type', 'project_expense');
 
-      // Get agent counts
-      const { data: agents } = await supabase.from('agent_counts').select('project_id, agent_count').eq('year_month', currentMonth);
-
-      // Get budgets
-      const { data: budgets } = await supabase.from('budgets')
-        .select('project_id, pm_approved_total, budget_versions(status, total_amount_kes)')
+      const { data: agents } = await supabase
+        .from('agent_counts')
+        .select('project_id, agent_count')
         .eq('year_month', currentMonth);
 
-      // Get pending budgets for PM review
-      const { data: pendingRes } = await supabase.from('budget_versions')
+      const { data: budgets } = await supabase
+        .from('budgets')
+        .select(
+          'project_id, pm_approved_total, budget_versions(status, total_amount_kes)',
+        )
+        .eq('year_month', currentMonth);
+
+      const { data: pendingRes } = await supabase
+        .from('budget_versions')
         .select('id', { count: 'exact', head: true })
         .in('status', ['submitted', 'pm_review']);
 
-      setPendingBudgets((pendingRes as any)?.count || 0);
+      setPendingBudgets((pendingRes as { count?: number })?.count || 0);
 
-      // Build maps
       const invMap = new Map<string, number>();
-      (invoices || []).forEach((i: any) => {
-        const kes = Number(i.amount_kes) > 0 ? Number(i.amount_kes) : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
-        invMap.set(i.project_id, (invMap.get(i.project_id) || 0) + kes);
-      });
+      (invoices || []).forEach(
+        (i: { project_id: string; amount_usd: number; amount_kes: number }) => {
+          const kes =
+            Number(i.amount_kes) > 0
+              ? Number(i.amount_kes)
+              : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
+          invMap.set(i.project_id, (invMap.get(i.project_id) || 0) + kes);
+        },
+      );
 
       const expMap = new Map<string, number>();
-      (expenses || []).forEach((e: any) => {
-        expMap.set(e.project_id, (expMap.get(e.project_id) || 0) + Number(e.amount_kes));
-      });
+      (expenses || []).forEach(
+        (e: { project_id: string; amount_kes: number }) => {
+          expMap.set(
+            e.project_id,
+            (expMap.get(e.project_id) || 0) + Number(e.amount_kes),
+          );
+        },
+      );
 
       const agentMap = new Map<string, number>();
-      (agents || []).forEach((a: any) => agentMap.set(a.project_id, Number(a.agent_count)));
+      (agents || []).forEach(
+        (a: { project_id: string; agent_count: number }) =>
+          agentMap.set(a.project_id, Number(a.agent_count)),
+      );
 
       const budgetMap = new Map<string, { status: string; amount: number }>();
-      (budgets || []).forEach((b: any) => {
-        const vers = b.budget_versions || [];
-        const best = vers.find((v: any) => v.status === 'approved') || vers[0];
-        budgetMap.set(b.project_id, {
-          status: best?.status || 'none',
-          amount: b.pm_approved_total || Number(best?.total_amount_kes || 0),
-        });
-      });
+      (budgets || []).forEach(
+        (b: {
+          project_id: string;
+          pm_approved_total: number | null;
+          budget_versions?: Array<{ status: string; total_amount_kes: number }>;
+        }) => {
+          const vers = b.budget_versions || [];
+          const best = vers.find((v) => v.status === 'approved') || vers[0];
+          budgetMap.set(b.project_id, {
+            status: best?.status || 'none',
+            amount: b.pm_approved_total || Number(best?.total_amount_kes || 0),
+          });
+        },
+      );
 
-      // Build project rows
       const rows: ProjectData[] = (allProjects || [])
-        .map((p: any) => {
+        .map((p: { id: string; name: string }) => {
           const rev = invMap.get(p.id) || 0;
           const exp = expMap.get(p.id) || 0;
           const profit = rev - exp;
-          const margin = rev > 0 ? (profit / rev * 100) : 0;
+          const margin = rev > 0 ? (profit / rev) * 100 : 0;
           const ag = agentMap.get(p.id) || 0;
           const bud = budgetMap.get(p.id);
           return {
@@ -129,12 +192,17 @@ export function ProjectManagerDashboard({ userId }: Props) {
             budgetAmount: bud?.amount || 0,
           };
         })
-        .filter(r => r.revenue > 0 || r.expenses > 0 || r.budgetAmount > 0 || r.agents > 0);
+        .filter(
+          (r) =>
+            r.revenue > 0 ||
+            r.expenses > 0 ||
+            r.budgetAmount > 0 ||
+            r.agents > 0,
+        );
 
       setProjects(rows);
       setTotalRevenue(rows.reduce((s, r) => s + r.revenue, 0));
       setTotalExpenses(rows.reduce((s, r) => s + r.expenses, 0));
-      setTotalAgents(rows.reduce((s, r) => s + r.agents, 0));
     }
     load();
   }, [currentMonth, userId, revenueSourceMonth]);
@@ -142,100 +210,168 @@ export function ProjectManagerDashboard({ userId }: Props) {
   const totalProfit = totalRevenue - totalExpenses;
 
   return (
-    <div>
-      <div className="p-6 space-y-6">
-        {/* Hero Card */}
-        <HeroCard stats={[
-          { label: 'Bank Balance', value: formatCurrency(bankBalance, 'USD'), subtitle: 'Available after withdrawals' },
-          { label: 'Revenue (Lagged)', value: formatCurrency(totalRevenue, 'KES'), subtitle: 'From ' + formatYearMonth(revenueSourceMonth) + ' invoice' },
-          { label: 'Operating Profit', value: formatCurrency(totalProfit, 'KES'), subtitle: formatYearMonth(currentMonth) },
-          { label: 'Pending Reviews', value: String(pendingBudgets), subtitle: pendingBudgets > 0 ? 'Budgets awaiting review' : 'All clear' },
-        ]} />
+    <div className="p-6 space-y-6">
+      <HeroCard
+        stats={[
+          {
+            label: 'Bank Balance',
+            value: formatCurrency(bankBalance, 'USD'),
+            subtitle: 'Available after withdrawals',
+            icon: Landmark,
+            tone: 'accent',
+          },
+          {
+            label: 'Revenue (Lagged)',
+            value: formatCurrency(totalRevenue, 'KES'),
+            subtitle: `From ${formatYearMonth(revenueSourceMonth)} invoice`,
+            icon: DollarSign,
+            tone: 'teal',
+          },
+          {
+            label: 'Operating Profit',
+            value: formatCurrency(totalProfit, 'KES'),
+            subtitle: formatYearMonth(currentMonth),
+            icon: Wallet,
+            tone: totalProfit < 0 ? 'danger' : 'success',
+          },
+          {
+            label: 'Pending Reviews',
+            value: String(pendingBudgets),
+            subtitle:
+              pendingBudgets > 0 ? 'Budgets awaiting review' : 'All clear',
+            icon: Briefcase,
+            tone: pendingBudgets > 0 ? 'warning' : 'brand',
+          },
+        ]}
+      />
 
-        {/* Company P&L summary */}
-        {totalRevenue > 0 && (
-          <Card className="io-card">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Company P&L Summary</CardTitle>
-              <Link href="/reports/pnl">
-                <Button variant="ghost" size="sm" className="gap-1">Full report <ArrowRight className="h-3 w-3" /></Button>
-              </Link>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Revenue <span className="text-slate-400">(from {formatYearMonth(revenueSourceMonth)})</span></span>
-                  <span className="font-mono font-medium">{formatCurrency(totalRevenue, 'KES')}</span>
-                </div>
-                <div className="flex justify-between text-sm text-red-600">
-                  <span>Direct Costs</span>
-                  <span className="font-mono">-{formatCurrency(totalExpenses, 'KES')}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between text-sm font-semibold">
-                  <span>Gross Profit</span>
-                  <span className={`font-mono ${totalProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(totalProfit, 'KES')}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Expense Queue — compact view for PM */}
-        <ExpenseQueuePanel compact />
-
-        {/* Project Performance */}
-        <Card className="io-card">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Project Performance</CardTitle>
-            <Link href="/reports/profitability">
-              <Button variant="ghost" size="sm" className="gap-1">Details <ArrowRight className="h-3 w-3" /></Button>
+      {totalRevenue > 0 && (
+        <SectionCard
+          title="Company P&L Summary"
+          description={`Revenue from ${formatYearMonth(revenueSourceMonth)}, costs from ${formatYearMonth(currentMonth)}`}
+          icon={TrendingUp}
+          tone="teal"
+          action={
+            <Link href="/reports/pnl">
+              <Button variant="ghost" size="sm" className="gap-1">
+                Full report
+                <ArrowRight className="size-3.5" aria-hidden />
+              </Button>
             </Link>
-          </CardHeader>
-          <CardContent>
-            {projects.length === 0 ? (
-              <p className="text-sm text-neutral-500 py-4 text-center">No project data for this month yet</p>
-            ) : (
-              <div className="space-y-2">
-                {projects.map((p) => (
-                  <div key={p.name} className="flex items-center justify-between rounded-md border p-3">
-                    <div>
-                      <p className="text-sm font-medium">{p.name}</p>
-                      <p className="text-xs text-neutral-500">
-                        {p.agents > 0 ? `${p.agents} agents` : 'No agents set'}
-                        {p.revenue > 0 ? ` · Revenue: ${formatCurrency(p.revenue, 'KES')}` : ''}
+          }
+        >
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-foreground">Revenue</span>
+              <span className="font-mono font-medium text-foreground">
+                {formatCurrency(totalRevenue, 'KES')}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Direct Costs</span>
+              <span className="font-mono text-danger-soft-foreground">
+                -{formatCurrency(totalExpenses, 'KES')}
+              </span>
+            </div>
+            <Separator />
+            <div className="flex justify-between text-sm font-semibold">
+              <span>Gross Profit</span>
+              <span
+                className={cn(
+                  'font-mono tabular-nums',
+                  totalProfit < 0
+                    ? 'text-danger-soft-foreground'
+                    : 'text-success-soft-foreground',
+                )}
+              >
+                {formatCurrency(totalProfit, 'KES')}
+              </span>
+            </div>
+          </div>
+        </SectionCard>
+      )}
+
+      <ExpenseQueuePanel compact />
+
+      <SectionCard
+        title="Project Performance"
+        description="Lagged revenue vs. current-month direct costs"
+        icon={BarChart3}
+        tone="violet"
+        action={
+          <Link href="/reports/profitability">
+            <Button variant="ghost" size="sm" className="gap-1">
+              Details
+              <ArrowRight className="size-3.5" aria-hidden />
+            </Button>
+          </Link>
+        }
+      >
+        {projects.length === 0 ? (
+          <EmptyState
+            icon={PieChart}
+            tone="neutral"
+            title="No project data for this month yet"
+            description="Financials appear once invoices, expenses, or agent counts are recorded."
+          />
+        ) : (
+          <ul className="space-y-2">
+            {projects.map((p) => (
+              <li
+                key={p.name}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/30 p-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {p.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {p.agents > 0 ? `${p.agents} agents` : 'No agents set'}
+                    {p.revenue > 0
+                      ? ` · Revenue: ${formatCurrency(p.revenue, 'KES')}`
+                      : ''}
+                  </p>
+                </div>
+                <div className="text-right">
+                  {p.revenue > 0 || p.expenses > 0 ? (
+                    <>
+                      <p
+                        className={cn(
+                          'font-mono text-sm font-medium tabular-nums',
+                          p.profit < 0
+                            ? 'text-danger-soft-foreground'
+                            : 'text-success-soft-foreground',
+                        )}
+                      >
+                        {formatCurrency(p.profit, 'KES')}
                       </p>
-                    </div>
-                    <div className="text-right">
-                      {p.revenue > 0 || p.expenses > 0 ? (
-                        <>
-                          <p className={`text-sm font-mono font-medium ${p.profit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                            {formatCurrency(p.profit, 'KES')}
-                          </p>
-                          <Badge
-                            variant="secondary"
-                            className={
-                              p.margin > 30 ? 'bg-emerald-100 text-emerald-700' :
-                              p.margin > 10 ? 'bg-amber-100 text-amber-700' :
-                              'bg-rose-100 text-rose-700'
-                            }
-                          >
-                            {formatPercent(p.margin)} margin
-                          </Badge>
-                        </>
-                      ) : (
-                        <Badge variant="secondary" className="bg-slate-100 text-slate-500">
-                          {p.budgetStatus !== 'none' ? p.budgetStatus : 'No data'}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          p.margin > 30
+                            ? 'bg-success-soft text-success-soft-foreground'
+                            : p.margin > 10
+                              ? 'bg-warning-soft text-warning-soft-foreground'
+                              : 'bg-danger-soft text-danger-soft-foreground',
+                        )}
+                      >
+                        {formatPercent(p.margin)} margin
+                      </Badge>
+                    </>
+                  ) : (
+                    <Badge
+                      variant="secondary"
+                      className="bg-muted text-muted-foreground"
+                    >
+                      {p.budgetStatus !== 'none' ? p.budgetStatus : 'No data'}
+                    </Badge>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </SectionCard>
     </div>
   );
 }

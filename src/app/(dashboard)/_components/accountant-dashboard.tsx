@@ -1,18 +1,37 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import {
+  AlertTriangle,
+  ArrowDownToLine,
+  CheckSquare,
+  FileText,
+  Receipt,
+} from 'lucide-react';
+
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
 import { StatCard } from '@/components/layout/stat-card';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
-import { FileText, Receipt, ArrowDownToLine, AlertTriangle } from 'lucide-react';
+import { SectionCard } from '@/components/layout/section-card';
+import {
+  formatCurrency,
+  getCurrentYearMonth,
+  formatYearMonth,
+} from '@/lib/format';
 import { EodPanel } from '@/components/eod/eod-panel';
 import { AccountantMiscRequests } from '@/components/misc/accountant-misc-requests';
 import { AccountantMiscReport } from '@/components/misc/accountant-misc-report';
 import { OutstandingReceivablesPanel } from '@/components/revenue/outstanding-receivables-panel';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
+
+const CHECKLIST = [
+  'Review and validate all submitted budgets',
+  'Verify all expenses are linked to approved budgets',
+  'Enter missing agent counts for all projects',
+  'Reconcile withdrawals with forex logs',
+  'Check for unclassified expenses',
+  'Verify invoice statuses and payment records',
+];
 
 export function AccountantDashboard() {
   const [stats, setStats] = useState({
@@ -45,7 +64,7 @@ export function AccountantDashboard() {
 
       const totalWithdrawals = (withdrawalRes.data || []).reduce(
         (sum: number, w: { amount_usd: number }) => sum + Number(w.amount_usd),
-        0
+        0,
       );
 
       setStats({
@@ -64,7 +83,10 @@ export function AccountantDashboard() {
     <div>
       <PageHeader
         title="Accountant Dashboard"
+        eyebrow="Finance Operations"
         description={formatYearMonth(currentMonth)}
+        icon={Receipt}
+        tone="teal"
       />
 
       <div className="p-6 space-y-6">
@@ -73,21 +95,29 @@ export function AccountantDashboard() {
             title="Budgets Pending Review"
             value={String(stats.pendingReviewCount)}
             icon={FileText}
+            tone="violet"
+            loading={loading}
           />
           <StatCard
             title="Expenses This Month"
             value={String(stats.expenseCount)}
             icon={Receipt}
+            tone="brand"
+            loading={loading}
           />
           <StatCard
             title="Withdrawals (USD)"
             value={formatCurrency(stats.withdrawalTotal, 'USD')}
             icon={ArrowDownToLine}
+            tone="teal"
+            loading={loading}
           />
           <StatCard
             title="Unreconciled Items"
             value={String(stats.unreconciledCount)}
             icon={AlertTriangle}
+            tone={stats.unreconciledCount > 0 ? 'warning' : 'success'}
+            loading={loading}
           />
         </div>
 
@@ -106,28 +136,27 @@ export function AccountantDashboard() {
         {/* EOD Report Panel */}
         <EodPanel />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Month-End Checklist</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm">
-              {[
-                'Review and validate all submitted budgets',
-                'Verify all expenses are linked to approved budgets',
-                'Enter missing agent counts for all projects',
-                'Reconcile withdrawals with forex logs',
-                'Check for unclassified expenses',
-                'Verify invoice statuses and payment records',
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-2 rounded-md border p-2">
-                  <div className="h-4 w-4 rounded border border-neutral-300" />
-                  <span className="text-neutral-600">{item}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <SectionCard
+          title="Month-End Checklist"
+          description="Complete each item before closing the period"
+          icon={CheckSquare}
+          tone="success"
+        >
+          <ul className="space-y-2 text-sm">
+            {CHECKLIST.map((item) => (
+              <li
+                key={item}
+                className="flex items-center gap-3 rounded-lg border border-border/70 bg-muted/30 p-3 transition-colors duration-[var(--dur-fast)] hover:bg-muted/60"
+              >
+                <span
+                  aria-hidden
+                  className="size-4 shrink-0 rounded border border-border bg-background"
+                />
+                <span className="text-muted-foreground">{item}</span>
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
       </div>
     </div>
   );

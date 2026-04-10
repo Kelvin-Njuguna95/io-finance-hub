@@ -1,37 +1,136 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import {
+  AlertTriangle,
+  ArrowDownToLine,
+  ArrowRight,
+  CheckCircle2,
+  ClipboardList,
+  DollarSign,
+  Eye,
+  FileText,
+  Flag,
+  Inbox,
+  Landmark,
+  ShieldAlert,
+  Users,
+  Wallet,
+} from 'lucide-react';
+
 import { createClient } from '@/lib/supabase/client';
-import { PageHeader } from '@/components/layout/page-header';
-import { StatCard } from '@/components/layout/stat-card';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { HeroCard } from '@/components/layout/hero-card';
+import { SectionCard } from '@/components/layout/section-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
-  DollarSign,
-  TrendingUp,
-  AlertTriangle,
-  FileText,
-  ArrowRight,
-  Eye,
-  X,
-} from 'lucide-react';
-import Link from 'next/link';
-import { HeroCard } from '@/components/layout/hero-card';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+import {
+  formatCurrency,
+  getCurrentYearMonth,
+  formatYearMonth,
+} from '@/lib/format';
 import { CfoMiscApproval } from '@/components/misc/cfo-misc-approval';
 import { OutstandingReceivablesPanel } from '@/components/revenue/outstanding-receivables-panel';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
-import type { RedFlag, BudgetVersion, MonthlyFinancialSnapshot } from '@/types/database';
+import type {
+  RedFlag,
+  BudgetVersion,
+  MonthlyFinancialSnapshot,
+} from '@/types/database';
+
+type EodLogRow = {
+  id: string;
+  report_date: string;
+  sender_name: string;
+  trigger_type: string;
+  slack_status: string | null;
+  created_at: string | null;
+  expense_count?: number;
+  withdrawal_count?: number;
+  budget_action_count?: number;
+  payload?: {
+    message?: string;
+    expenses?: Array<Record<string, unknown>>;
+    withdrawals?: Array<Record<string, unknown>>;
+    budget_actions?: Array<Record<string, unknown>>;
+  };
+};
+
+type HealthScoreRow = {
+  id: string;
+  project_name: string;
+  score: number;
+  score_band: 'healthy' | 'watch' | 'at_risk' | string;
+  biggest_drag: string | null;
+};
+
+const SEVERITY_STYLE: Record<
+  RedFlag['severity'],
+  { badge: string; icon: typeof Flag }
+> = {
+  low: { badge: 'bg-info-soft text-info-soft-foreground', icon: Flag },
+  medium: {
+    badge: 'bg-warning-soft text-warning-soft-foreground',
+    icon: AlertTriangle,
+  },
+  high: {
+    badge: 'bg-warning-soft text-warning-soft-foreground',
+    icon: AlertTriangle,
+  },
+  critical: {
+    badge: 'bg-danger-soft text-danger-soft-foreground',
+    icon: ShieldAlert,
+  },
+};
+
+const HEALTH_BAND: Record<
+  string,
+  {
+    icon: typeof CheckCircle2;
+    tileClass: string;
+    label: string;
+  }
+> = {
+  healthy: {
+    icon: CheckCircle2,
+    tileClass:
+      'bg-success-soft text-success-soft-foreground ring-1 ring-inset ring-success/25',
+    label: 'Healthy',
+  },
+  watch: {
+    icon: AlertTriangle,
+    tileClass:
+      'bg-warning-soft text-warning-soft-foreground ring-1 ring-inset ring-warning/30',
+    label: 'Watch',
+  },
+  at_risk: {
+    icon: ShieldAlert,
+    tileClass:
+      'bg-danger-soft text-danger-soft-foreground ring-1 ring-inset ring-danger/25',
+    label: 'At risk',
+  },
+};
 
 export function CfoDashboard() {
-  const [snapshot, setSnapshot] = useState<MonthlyFinancialSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<MonthlyFinancialSnapshot | null>(
+    null,
+  );
   const [redFlags, setRedFlags] = useState<RedFlag[]>([]);
-  const [pendingBudgets, setPendingBudgets] = useState<(BudgetVersion & { budget_name?: string })[]>([]);
-  const [eodLogs, setEodLogs] = useState<any[]>([]);
-  const [healthScores, setHealthScores] = useState<any[]>([]);
+  const [pendingBudgets, setPendingBudgets] = useState<
+    (BudgetVersion & { budget_name?: string })[]
+  >([]);
+  const [eodLogs, setEodLogs] = useState<EodLogRow[]>([]);
+  const [healthScores, setHealthScores] = useState<HealthScoreRow[]>([]);
   const [bankBalance, setBankBalance] = useState(0);
-  const [loading, setLoading] = useState(true);
   const currentMonth = getCurrentYearMonth();
 
   useEffect(() => {
@@ -39,11 +138,27 @@ export function CfoDashboard() {
       const supabase = createClient();
 
       const periodMonth = currentMonth + '-01';
-      // Calculate previous month for lagged revenue
-      const prevDate = new Date(parseInt(currentMonth.split('-')[0]), parseInt(currentMonth.split('-')[1]) - 2, 1);
-      const prevMonth = prevDate.getFullYear() + '-' + String(prevDate.getMonth() + 1).padStart(2, '0');
+      const prevDate = new Date(
+        parseInt(currentMonth.split('-')[0]),
+        parseInt(currentMonth.split('-')[1]) - 2,
+        1,
+      );
+      const prevMonth =
+        prevDate.getFullYear() +
+        '-' +
+        String(prevDate.getMonth() + 1).padStart(2, '0');
 
-      const [snapshotRes, flagsRes, budgetsRes, eodRes, healthRes, laggedInvRes, expenseRes, rateRes, agentCountRes] = await Promise.all([
+      const [
+        snapshotRes,
+        flagsRes,
+        budgetsRes,
+        eodRes,
+        healthRes,
+        laggedInvRes,
+        expenseRes,
+        rateRes,
+        agentCountRes,
+      ] = await Promise.all([
         supabase
           .from('monthly_financial_snapshots')
           .select('*')
@@ -71,325 +186,554 @@ export function CfoDashboard() {
           .select('*, projects(name)')
           .eq('period_month', periodMonth)
           .order('score', { ascending: true }),
-        // Lagged revenue: previous month's invoices
         supabase
           .from('invoices')
           .select('amount_usd, amount_kes')
           .eq('billing_period', prevMonth),
-        // Current month expenses
-        supabase
-          .from('expenses')
-          .select('amount_kes')
-          .eq('year_month', currentMonth),
-        // Standard exchange rate
+        supabase.from('expenses').select('amount_kes').eq('year_month', currentMonth),
         supabase
           .from('system_settings')
           .select('value')
           .eq('key', 'standard_exchange_rate')
           .single(),
-        // Agent counts for current month
-        supabase
-          .from('agent_counts')
-          .select('agent_count')
-          .eq('year_month', currentMonth),
+        supabase.from('agent_counts').select('agent_count').eq('year_month', currentMonth),
       ]);
 
-      // Build live snapshot if DB snapshot is empty
       const stdRate = parseFloat(rateRes.data?.value || '129.5');
-      const laggedRevUsd = (laggedInvRes.data || []).reduce((s: number, i: any) => s + Number(i.amount_usd), 0);
-      const laggedRevKes = (laggedInvRes.data || []).reduce((s: number, i: any) => s + Number(i.amount_kes), 0);
-      // Convert USD to KES using standard exchange rate
-      const revenueKes = laggedRevKes > 0 ? laggedRevKes : Math.round(laggedRevUsd * stdRate * 100) / 100;
-      const totalExpKes = (expenseRes.data || []).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
-      const totalAgents = (agentCountRes.data || []).reduce((s: number, a: any) => s + Number(a.agent_count || 0), 0);
+      const laggedRevUsd = (laggedInvRes.data || []).reduce(
+        (s: number, i: { amount_usd: number }) => s + Number(i.amount_usd),
+        0,
+      );
+      const laggedRevKes = (laggedInvRes.data || []).reduce(
+        (s: number, i: { amount_kes: number }) => s + Number(i.amount_kes),
+        0,
+      );
+      const revenueKes =
+        laggedRevKes > 0
+          ? laggedRevKes
+          : Math.round(laggedRevUsd * stdRate * 100) / 100;
+      const totalExpKes = (expenseRes.data || []).reduce(
+        (s: number, e: { amount_kes: number }) => s + Number(e.amount_kes),
+        0,
+      );
+      const totalAgents = (agentCountRes.data || []).reduce(
+        (s: number, a: { agent_count: number }) => s + Number(a.agent_count || 0),
+        0,
+      );
 
-      // Use live data if no snapshot, or if snapshot revenue is 0
-      const liveSnapshot = snapshotRes.data && Number(snapshotRes.data.total_revenue_kes) > 0
-        ? { ...snapshotRes.data, total_agents: snapshotRes.data.total_agents || totalAgents }
-        : {
-            ...snapshotRes.data,
-            total_revenue_kes: revenueKes,
-            total_revenue_usd: laggedRevUsd,
-            total_direct_costs_kes: totalExpKes,
-            gross_profit_kes: revenueKes - totalExpKes,
-            operating_profit_kes: revenueKes - totalExpKes,
-            net_profit_kes: revenueKes - totalExpKes,
-            total_agents: totalAgents,
-          };
+      const liveSnapshot =
+        snapshotRes.data && Number(snapshotRes.data.total_revenue_kes) > 0
+          ? {
+              ...snapshotRes.data,
+              total_agents: snapshotRes.data.total_agents || totalAgents,
+            }
+          : {
+              ...snapshotRes.data,
+              total_revenue_kes: revenueKes,
+              total_revenue_usd: laggedRevUsd,
+              total_direct_costs_kes: totalExpKes,
+              gross_profit_kes: revenueKes - totalExpKes,
+              operating_profit_kes: revenueKes - totalExpKes,
+              net_profit_kes: revenueKes - totalExpKes,
+              total_agents: totalAgents,
+            };
 
       setSnapshot(liveSnapshot);
 
-      // Get bank balance (standing balance minus all withdrawals)
-      const { data: balSetting } = await supabase.from('system_settings').select('value').eq('key', 'bank_balance_usd').single();
+      const { data: balSetting } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'bank_balance_usd')
+        .single();
       const standingBalance = parseFloat(balSetting?.value || '0');
-      const { data: allWithdrawals } = await supabase.from('withdrawals').select('amount_usd');
-      const totalWithdrawn = (allWithdrawals || []).reduce((s: number, w: any) => s + Number(w.amount_usd), 0);
+      const { data: allWithdrawals } = await supabase
+        .from('withdrawals')
+        .select('amount_usd');
+      const totalWithdrawn = (allWithdrawals || []).reduce(
+        (s: number, w: { amount_usd: number }) => s + Number(w.amount_usd),
+        0,
+      );
       setBankBalance(standingBalance - totalWithdrawn);
 
-      setRedFlags(flagsRes.data || []);
-      setPendingBudgets(budgetsRes.data || []);
-      setEodLogs((eodRes.data || []).map((r: any) => ({
-        ...r,
-        sender_name: r.users?.full_name || (r.trigger_type === 'auto' ? 'System' : '—'),
-      })));
-      setHealthScores((healthRes.data || []).map((h: any) => ({
-        ...h,
-        project_name: h.projects?.name || '—',
-      })));
-
-      setLoading(false);
+      setRedFlags((flagsRes.data || []) as RedFlag[]);
+      setPendingBudgets((budgetsRes.data || []) as (BudgetVersion & { budget_name?: string })[]);
+      setEodLogs(
+        ((eodRes.data || []) as Array<Record<string, unknown>>).map((r) => ({
+          ...(r as EodLogRow),
+          sender_name:
+            (r as { users?: { full_name?: string } }).users?.full_name ||
+            ((r as { trigger_type: string }).trigger_type === 'auto'
+              ? 'System'
+              : '—'),
+        })) as EodLogRow[],
+      );
+      setHealthScores(
+        ((healthRes.data || []) as Array<Record<string, unknown>>).map((h) => ({
+          ...(h as HealthScoreRow),
+          project_name:
+            (h as { projects?: { name?: string } }).projects?.name || '—',
+        })) as HealthScoreRow[],
+      );
     }
 
     loadData();
   }, [currentMonth]);
 
-  const [viewingEod, setViewingEod] = useState<any | null>(null);
+  const [viewingEod, setViewingEod] = useState<EodLogRow | null>(null);
 
-  const severityColor = {
-    low: 'bg-blue-100 text-blue-700',
-    medium: 'bg-yellow-100 text-yellow-700',
-    high: 'bg-orange-100 text-orange-700',
-    critical: 'bg-red-100 text-red-700',
-  };
-
-  // Lagged revenue source month
-  const prevDate = new Date(parseInt(currentMonth.split('-')[0]), parseInt(currentMonth.split('-')[1]) - 2, 1);
-  const revenueSourceMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+  const prevDate = new Date(
+    parseInt(currentMonth.split('-')[0]),
+    parseInt(currentMonth.split('-')[1]) - 2,
+    1,
+  );
+  const revenueSourceMonth = `${prevDate.getFullYear()}-${String(
+    prevDate.getMonth() + 1,
+  ).padStart(2, '0')}`;
 
   return (
-    <div>
-      <div className="p-6 space-y-6">
-        {/* Hero Card */}
-        <HeroCard stats={[
-          { label: 'Bank Balance', value: formatCurrency(bankBalance, 'USD'), subtitle: 'Available after withdrawals' },
-          { label: 'Revenue (Lagged)', value: snapshot ? formatCurrency(snapshot.total_revenue_kes, 'KES') : '--', subtitle: 'From ' + formatYearMonth(revenueSourceMonth) + ' invoice' },
-          { label: 'Operating Profit', value: snapshot ? formatCurrency(snapshot.operating_profit_kes, 'KES') : '--', subtitle: formatYearMonth(currentMonth) },
-          { label: 'Total Agents', value: snapshot ? String(snapshot.total_agents || 0) : '--', subtitle: formatYearMonth(currentMonth) },
-          { label: 'Red Flags', value: String(redFlags.length), subtitle: redFlags.length > 0 ? 'Requires attention' : 'All clear' },
-        ]} />
+    <div className="p-6 space-y-6">
+      {/* Hero */}
+      <HeroCard
+        stats={[
+          {
+            label: 'Bank Balance',
+            value: formatCurrency(bankBalance, 'USD'),
+            subtitle: 'Available after withdrawals',
+            icon: Landmark,
+            tone: 'accent',
+          },
+          {
+            label: 'Revenue (Lagged)',
+            value: snapshot
+              ? formatCurrency(snapshot.total_revenue_kes, 'KES')
+              : '—',
+            subtitle: `From ${formatYearMonth(revenueSourceMonth)} invoice`,
+            icon: DollarSign,
+            tone: 'teal',
+          },
+          {
+            label: 'Operating Profit',
+            value: snapshot
+              ? formatCurrency(snapshot.operating_profit_kes, 'KES')
+              : '—',
+            subtitle: formatYearMonth(currentMonth),
+            icon: Wallet,
+            tone: 'success',
+          },
+          {
+            label: 'Total Agents',
+            value: snapshot ? String(snapshot.total_agents || 0) : '—',
+            subtitle: formatYearMonth(currentMonth),
+            icon: Users,
+            tone: 'info',
+          },
+          {
+            label: 'Red Flags',
+            value: String(redFlags.length),
+            subtitle:
+              redFlags.length > 0 ? 'Requires attention' : 'All clear',
+            icon: Flag,
+            tone: redFlags.length > 0 ? 'danger' : 'brand',
+          },
+        ]}
+      />
 
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Red Flags */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Red Flags</CardTitle>
-              <Link href="/red-flags">
-                <Button variant="ghost" size="sm" className="gap-1">
-                  View all <ArrowRight className="h-3 w-3" />
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent>
-              {redFlags.length === 0 ? (
-                <p className="text-sm text-neutral-500 py-4 text-center">No active red flags</p>
-              ) : (
-                <div className="space-y-2">
-                  {redFlags.map((flag) => (
-                    <div
-                      key={flag.id}
-                      className="flex items-start gap-3 rounded-md border p-3"
-                    >
-                      <Badge variant="secondary" className={severityColor[flag.severity]}>
-                        {flag.severity}
-                      </Badge>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{flag.title}</p>
-                        {flag.description && (
-                          <p className="text-xs text-neutral-500 truncate">{flag.description}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Budget Approval Queue */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Budget Approval Queue</CardTitle>
-              <Link href="/budgets">
-                <Button variant="ghost" size="sm" className="gap-1">
-                  View all <ArrowRight className="h-3 w-3" />
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent>
-              {pendingBudgets.length === 0 ? (
-                <p className="text-sm text-neutral-500 py-4 text-center">No pending budgets</p>
-              ) : (
-                <div className="space-y-2">
-                  {pendingBudgets.map((bv) => (
-                    <div
-                      key={bv.id}
-                      className="flex items-center justify-between rounded-md border p-3"
-                    >
-                      <div>
-                        <p className="text-sm font-medium">
-                          v{bv.version_number}
-                        </p>
-                        <p className="text-xs text-neutral-500">
-                          {formatCurrency(bv.total_amount_kes, 'KES')}
-                        </p>
-                      </div>
-                      <Badge variant={bv.status === 'submitted' ? 'default' : 'secondary'}>
-                        {bv.status}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Project Health Summary */}
-        {healthScores.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Project Health Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-1.5">
-                {healthScores.map((h: any) => (
-                  <div key={h.id} className="flex items-center justify-between rounded-md border p-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">{h.score_band === 'healthy' ? '🟢' : h.score_band === 'watch' ? '🟡' : '🔴'}</span>
-                      <div>
-                        <p className="text-sm font-medium">{h.project_name}</p>
-                        <p className="text-xs text-neutral-500">{h.biggest_drag || 'On track'}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold">{Math.round(h.score)}</p>
-                      <p className="text-xs text-neutral-400">/ 100</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Outstanding Receivables */}
-        <OutstandingReceivablesPanel />
-
-        {/* Expense Queue Summary */}
-        <ExpenseQueuePanel />
-
-        {/* Accountant Misc Requests & Reports */}
-        <CfoMiscApproval />
-
-        {/* EOD Report Log */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">EOD Report Log (Last 30 Days)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {eodLogs.length === 0 ? (
-              <p className="text-sm text-neutral-500 py-4 text-center">No EOD reports sent yet</p>
-            ) : (
-              <div className="space-y-1.5">
-                {eodLogs.map((log: any) => (
-                  <div key={log.id} className="flex items-center justify-between rounded-md border p-2.5 text-sm hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium w-24">{log.report_date}</span>
-                      <span className="text-neutral-500">{log.sender_name}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-neutral-400">
-                        {log.created_at ? new Date(log.created_at).toLocaleTimeString('en-US', { timeZone: 'Africa/Nairobi', hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'} EAT
-                      </span>
-                      <Badge variant="secondary" className={
-                        log.trigger_type === 'auto' ? 'bg-blue-100 text-blue-700' : 'bg-neutral-100 text-neutral-700'
-                      }>
-                        {log.trigger_type}
-                      </Badge>
-                      {log.slack_status === 'failed' ? (
-                        <Badge variant="destructive">Failed</Badge>
-                      ) : (
-                        <Badge className="bg-green-100 text-green-700">Sent</Badge>
+      {/* Row 1 — Red flags + budget queue */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <SectionCard
+          title="Red Flags"
+          description="Outstanding risk signals across projects and budgets"
+          icon={Flag}
+          tone="danger"
+          action={
+            <Link href="/red-flags">
+              <Button variant="ghost" size="sm" className="gap-1">
+                View all
+                <ArrowRight className="size-3.5" aria-hidden />
+              </Button>
+            </Link>
+          }
+        >
+          {redFlags.length === 0 ? (
+            <EmptyState
+              icon={CheckCircle2}
+              tone="success"
+              title="No active red flags"
+              description="All monitored signals are within tolerance."
+            />
+          ) : (
+            <ul className="space-y-2">
+              {redFlags.map((flag) => {
+                const sev = SEVERITY_STYLE[flag.severity];
+                const SeverityIcon = sev.icon;
+                return (
+                  <li
+                    key={flag.id}
+                    className="flex items-start gap-3 rounded-lg border border-border/70 bg-muted/30 p-3"
+                  >
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg',
+                        sev.badge,
                       )}
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setViewingEod(log)}>
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
+                    >
+                      <SeverityIcon className="size-3.5" strokeWidth={2} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {flag.title}
+                      </p>
+                      {flag.description && (
+                        <p className="truncate text-xs text-muted-foreground">
+                          {flag.description}
+                        </p>
+                      )}
+                    </div>
+                    <Badge
+                      variant="secondary"
+                      className={cn('shrink-0 capitalize', sev.badge)}
+                    >
+                      {flag.severity}
+                    </Badge>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </SectionCard>
+
+        <SectionCard
+          title="Budget Approval Queue"
+          description="Versions waiting on CFO review"
+          icon={ClipboardList}
+          tone="violet"
+          action={
+            <Link href="/budgets">
+              <Button variant="ghost" size="sm" className="gap-1">
+                View all
+                <ArrowRight className="size-3.5" aria-hidden />
+              </Button>
+            </Link>
+          }
+        >
+          {pendingBudgets.length === 0 ? (
+            <EmptyState
+              icon={Inbox}
+              tone="neutral"
+              title="No pending budgets"
+              description="Nothing waiting on CFO approval right now."
+            />
+          ) : (
+            <ul className="space-y-2">
+              {pendingBudgets.map((bv) => (
+                <li
+                  key={bv.id}
+                  className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/30 p-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Version {bv.version_number}
+                    </p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      {formatCurrency(bv.total_amount_kes, 'KES')}
+                    </p>
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className={
+                      bv.status === 'submitted'
+                        ? 'bg-info-soft text-info-soft-foreground'
+                        : 'bg-warning-soft text-warning-soft-foreground'
+                    }
+                  >
+                    {bv.status.replace('_', ' ')}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </SectionCard>
+      </div>
+
+      {/* Project Health */}
+      {healthScores.length > 0 && (
+        <SectionCard
+          title="Project Health Overview"
+          description="Composite score across active engagements"
+          icon={ShieldAlert}
+          tone="info"
+        >
+          <ul className="space-y-2">
+            {healthScores.map((h) => {
+              const band =
+                HEALTH_BAND[h.score_band] ?? HEALTH_BAND.healthy;
+              const Icon = band.icon;
+              return (
+                <li
+                  key={h.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/30 p-3"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'flex size-9 shrink-0 items-center justify-center rounded-xl',
+                        band.tileClass,
+                      )}
+                    >
+                      <Icon className="size-[18px]" strokeWidth={1.75} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {h.project_name}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {h.biggest_drag || band.label}
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* EOD Report Viewer Modal */}
-        {viewingEod && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setViewingEod(null)}>
-            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between bg-[#0f172a] text-white px-6 py-4 rounded-t-xl">
-                <div>
-                  <h3 className="font-semibold">EOD Report — {viewingEod.report_date}</h3>
-                  <p className="text-xs text-slate-300 mt-0.5">Sent by {viewingEod.sender_name} | {viewingEod.trigger_type}</p>
-                </div>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-white hover:bg-white/20" onClick={() => setViewingEod(null)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="p-6 overflow-y-auto max-h-[60vh]">
-                {viewingEod.payload?.message ? (
-                  <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed text-slate-700">{viewingEod.payload.message}</pre>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Fallback: render from payload data */}
-                    {viewingEod.payload?.expenses?.length > 0 && (
-                      <div>
-                        <h4 className="font-semibold text-sm mb-2">Expenses Logged ({viewingEod.expense_count})</h4>
-                        {viewingEod.payload.expenses.map((e: any, i: number) => (
-                          <p key={i} className="text-sm text-slate-600 ml-3">
-                            • {(e as any).projects?.name || 'Shared'} — {(e as any).expense_categories?.name || '—'} — KES {Number(e.amount_kes).toLocaleString()} — {e.description}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                    {viewingEod.payload?.withdrawals?.length > 0 && (
-                      <div>
-                        <h4 className="font-semibold text-sm mb-2">Withdrawals ({viewingEod.withdrawal_count})</h4>
-                        {viewingEod.payload.withdrawals.map((w: any, i: number) => (
-                          <p key={i} className="text-sm text-slate-600 ml-3">
-                            • {w.director_tag} — USD {Number(w.amount_usd).toLocaleString()} @ {Number(w.exchange_rate).toFixed(2)} = KES {Number(w.amount_kes).toLocaleString()} — {w.forex_bureau || '—'}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                    {viewingEod.payload?.budget_actions?.length > 0 && (
-                      <div>
-                        <h4 className="font-semibold text-sm mb-2">Budget Actions ({viewingEod.budget_action_count})</h4>
-                        {viewingEod.payload.budget_actions.map((b: any, i: number) => (
-                          <p key={i} className="text-sm text-slate-600 ml-3">
-                            • {(b as any).budgets?.projects?.name || (b as any).budgets?.departments?.name || '—'} — {b.status}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                    {!viewingEod.payload && (
-                      <p className="text-sm text-slate-400 text-center py-4">No report data available</p>
-                    )}
+                  <div className="text-right">
+                    <p className="text-lg font-semibold text-foreground tabular-nums">
+                      {Math.round(h.score)}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">/ 100</p>
                   </div>
+                </li>
+              );
+            })}
+          </ul>
+        </SectionCard>
+      )}
+
+      {/* Outstanding Receivables */}
+      <OutstandingReceivablesPanel />
+
+      {/* Expense Queue */}
+      <ExpenseQueuePanel />
+
+      {/* Accountant Misc Requests & Reports */}
+      <CfoMiscApproval />
+
+      {/* EOD Log */}
+      <SectionCard
+        title="EOD Report Log"
+        description="Last 30 days · sent by accountants or auto-scheduler"
+        icon={FileText}
+        tone="brand"
+      >
+        {eodLogs.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            tone="neutral"
+            title="No EOD reports sent yet"
+            description="Reports will appear here once accountants or the auto-scheduler send one."
+          />
+        ) : (
+          <ul className="divide-y divide-border/60 rounded-lg border border-border bg-muted/20">
+            {eodLogs.map((log) => (
+              <li
+                key={log.id}
+                className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm transition-colors duration-[var(--dur-fast)] hover:bg-muted/40"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="w-24 shrink-0 font-medium tabular-nums text-foreground">
+                    {log.report_date}
+                  </span>
+                  <span className="truncate text-muted-foreground">
+                    {log.sender_name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                    {log.created_at
+                      ? new Date(log.created_at).toLocaleTimeString('en-US', {
+                          timeZone: 'Africa/Nairobi',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: false,
+                        })
+                      : '--:--'}{' '}
+                    EAT
+                  </span>
+                  <Badge
+                    variant="secondary"
+                    className={
+                      log.trigger_type === 'auto'
+                        ? 'bg-info-soft text-info-soft-foreground'
+                        : 'bg-muted text-muted-foreground'
+                    }
+                  >
+                    {log.trigger_type}
+                  </Badge>
+                  {log.slack_status === 'failed' ? (
+                    <Badge className="bg-danger-soft text-danger-soft-foreground">
+                      Failed
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-success-soft text-success-soft-foreground">
+                      Sent
+                    </Badge>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`View EOD report for ${log.report_date}`}
+                    onClick={() => setViewingEod(log)}
+                  >
+                    <Eye className="size-3.5" aria-hidden />
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </SectionCard>
+
+      {/* EOD Dialog — shadcn Dialog with focus trap, escape, return focus */}
+      <Dialog open={Boolean(viewingEod)} onOpenChange={(open) => !open && setViewingEod(null)}>
+        <DialogContent
+          className="sm:max-w-2xl"
+          aria-describedby={undefined}
+        >
+          {viewingEod && (
+            <>
+              <DialogHeader className="border-b border-border pb-3">
+                <DialogTitle>EOD Report — {viewingEod.report_date}</DialogTitle>
+                <DialogDescription>
+                  Sent by {viewingEod.sender_name} ·{' '}
+                  <span className="capitalize">{viewingEod.trigger_type}</span>{' '}
+                  trigger
+                </DialogDescription>
+              </DialogHeader>
+              <div className="max-h-[60vh] overflow-y-auto pr-1">
+                {viewingEod.payload?.message ? (
+                  <pre className="whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-foreground/85">
+                    {viewingEod.payload.message}
+                  </pre>
+                ) : (
+                  <EodPayloadFallback log={viewingEod} />
                 )}
               </div>
-              <div className="border-t px-6 py-3 flex justify-between items-center bg-slate-50 rounded-b-xl">
-                <span className="text-xs text-slate-400">
-                  {viewingEod.expense_count || 0} expenses | {viewingEod.withdrawal_count || 0} withdrawals | {viewingEod.budget_action_count || 0} budget actions
+              <div className="flex items-center justify-between gap-3 border-t border-border pt-3 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-3">
+                  <EodCountChip icon={FileText} label="expenses" value={viewingEod.expense_count ?? 0} />
+                  <EodCountChip icon={ArrowDownToLine} label="withdrawals" value={viewingEod.withdrawal_count ?? 0} />
+                  <EodCountChip icon={ClipboardList} label="budgets" value={viewingEod.budget_action_count ?? 0} />
                 </span>
-                <Badge className={viewingEod.slack_status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}>
+                <Badge
+                  className={cn(
+                    viewingEod.slack_status === 'failed'
+                      ? 'bg-danger-soft text-danger-soft-foreground'
+                      : 'bg-success-soft text-success-soft-foreground',
+                  )}
+                >
                   Slack: {viewingEod.slack_status}
                 </Badge>
               </div>
-            </div>
-          </div>
-        )}
-      </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function EodCountChip({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof FileText;
+  label: string;
+  value: number;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Icon className="size-3" aria-hidden />
+      <span className="tabular-nums font-medium text-foreground/80">{value}</span>
+      <span>{label}</span>
+    </span>
+  );
+}
+
+function EodPayloadFallback({ log }: { log: EodLogRow }) {
+  const hasAny =
+    (log.payload?.expenses?.length ?? 0) > 0 ||
+    (log.payload?.withdrawals?.length ?? 0) > 0 ||
+    (log.payload?.budget_actions?.length ?? 0) > 0;
+
+  if (!hasAny) {
+    return (
+      <p className="py-6 text-center text-sm text-muted-foreground">
+        No report data available
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-4 text-sm">
+      {(log.payload?.expenses?.length ?? 0) > 0 && (
+        <section>
+          <h4 className="mb-2 text-sm font-semibold text-foreground">
+            Expenses Logged ({log.expense_count})
+          </h4>
+          {log.payload!.expenses!.map((e: Record<string, unknown>, i: number) => {
+            const projectName =
+              (e.projects as { name?: string } | undefined)?.name || 'Shared';
+            const category =
+              (e.expense_categories as { name?: string } | undefined)?.name || '—';
+            const amount = Number(e.amount_kes);
+            const description = e.description as string;
+            return (
+              <p key={i} className="ml-3 text-sm text-muted-foreground">
+                • {projectName} — {category} — KES{' '}
+                {amount.toLocaleString()} — {description}
+              </p>
+            );
+          })}
+        </section>
+      )}
+      {(log.payload?.withdrawals?.length ?? 0) > 0 && (
+        <section>
+          <h4 className="mb-2 text-sm font-semibold text-foreground">
+            Withdrawals ({log.withdrawal_count})
+          </h4>
+          {log.payload!.withdrawals!.map((w: Record<string, unknown>, i: number) => (
+            <p key={i} className="ml-3 text-sm text-muted-foreground">
+              • {w.director_tag as string} — USD{' '}
+              {Number(w.amount_usd).toLocaleString()} @{' '}
+              {Number(w.exchange_rate).toFixed(2)} = KES{' '}
+              {Number(w.amount_kes).toLocaleString()} —{' '}
+              {(w.forex_bureau as string) || '—'}
+            </p>
+          ))}
+        </section>
+      )}
+      {(log.payload?.budget_actions?.length ?? 0) > 0 && (
+        <section>
+          <h4 className="mb-2 text-sm font-semibold text-foreground">
+            Budget Actions ({log.budget_action_count})
+          </h4>
+          {log.payload!.budget_actions!.map(
+            (b: Record<string, unknown>, i: number) => {
+              const budgets = b.budgets as
+                | {
+                    projects?: { name?: string };
+                    departments?: { name?: string };
+                  }
+                | undefined;
+              const name =
+                budgets?.projects?.name || budgets?.departments?.name || '—';
+              return (
+                <p key={i} className="ml-3 text-sm text-muted-foreground">
+                  • {name} — {b.status as string}
+                </p>
+              );
+            },
+          )}
+        </section>
+      )}
     </div>
   );
 }

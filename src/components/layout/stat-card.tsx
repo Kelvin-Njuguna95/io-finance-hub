@@ -1,41 +1,210 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+import * as React from 'react';
 import type { LucideIcon } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
 
-interface StatCardProps {
-  title: string;
+import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
+
+/**
+ * Finance Hub KPI card.
+ *
+ * Variants communicate domain semantics through a tinted icon tile and
+ * subtle hover motion. All color comes from design tokens so dark mode
+ * and future palette changes are free.
+ *
+ * Usage:
+ *   <StatCard
+ *     title="Revenue"
+ *     value="KES 12.4M"
+ *     subtitle="From Jun invoices"
+ *     icon={DollarSign}
+ *     tone="teal"
+ *     trend={{ value: "4.2%", direction: "up" }}
+ *   />
+ */
+
+export type StatCardTone =
+  | 'brand'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'info'
+  | 'violet'
+  | 'teal';
+
+type TrendDirection = 'up' | 'down' | 'flat';
+
+/**
+ * Full trend shape.
+ * `positive` is inferred from `direction` but can be overridden — e.g. a
+ * -5% expense is actually a *positive* signal.
+ */
+type StatCardTrendFull = {
   value: string;
+  direction: TrendDirection;
+  label?: string;
+  positive?: boolean;
+};
+
+/**
+ * Legacy trend shape from the pre-refactor StatCard. Kept so existing
+ * call sites compile without modification.
+ */
+type StatCardTrendLegacy = {
+  value: string;
+  positive: boolean;
+};
+
+type StatCardProps = {
+  title: string;
+  value: React.ReactNode;
   subtitle?: string;
   icon?: LucideIcon;
-  trend?: { value: string; positive: boolean };
+  tone?: StatCardTone;
+  trend?: StatCardTrendFull | StatCardTrendLegacy;
+  loading?: boolean;
   className?: string;
+};
+
+function normalizeTrend(
+  trend: StatCardTrendFull | StatCardTrendLegacy,
+): StatCardTrendFull {
+  if ('direction' in trend) return trend;
+  return {
+    value: trend.value,
+    direction: trend.positive ? 'up' : 'down',
+    positive: trend.positive,
+  };
 }
 
-export function StatCard({ title, value, subtitle, icon: Icon, trend, className }: StatCardProps) {
+const TONE_TILE: Record<StatCardTone, string> = {
+  brand:
+    'bg-primary/10 text-primary ring-1 ring-inset ring-primary/20 dark:bg-primary/15',
+  success:
+    'bg-success-soft text-success-soft-foreground ring-1 ring-inset ring-success/25',
+  warning:
+    'bg-warning-soft text-warning-soft-foreground ring-1 ring-inset ring-warning/35',
+  danger:
+    'bg-danger-soft text-danger-soft-foreground ring-1 ring-inset ring-danger/25',
+  info:
+    'bg-info-soft text-info-soft-foreground ring-1 ring-inset ring-info/25',
+  violet:
+    'bg-violet-soft text-violet-soft-foreground ring-1 ring-inset ring-violet/25',
+  teal:
+    'bg-teal-soft text-teal-soft-foreground ring-1 ring-inset ring-teal/25',
+};
+
+const TONE_ACCENT_RAIL: Record<StatCardTone, string> = {
+  brand: 'before:bg-primary/60',
+  success: 'before:bg-success/70',
+  warning: 'before:bg-warning/70',
+  danger: 'before:bg-danger/70',
+  info: 'before:bg-info/70',
+  violet: 'before:bg-violet/70',
+  teal: 'before:bg-teal/70',
+};
+
+function Delta({ trend }: { trend: StatCardTrendFull }) {
+  const positive = trend.positive ?? trend.direction === 'up';
+  const Icon =
+    trend.direction === 'down' ? ArrowDownRight : ArrowUpRight;
   return (
-    <Card className={cn('io-card', className)}>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">{title}</p>
-            <p className="text-2xl font-bold tracking-tight text-[#0f172a]">{value}</p>
-            {subtitle && <p className="text-xs text-slate-400">{subtitle}</p>}
-            {trend && (
-              <p className={cn(
-                'text-xs font-medium',
-                trend.positive ? 'text-emerald-600' : 'text-rose-600'
-              )}>
-                {trend.positive ? '+' : ''}{trend.value}
-              </p>
-            )}
+    <span
+      className={cn(
+        'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
+        positive
+          ? 'bg-success-soft text-success-soft-foreground'
+          : 'bg-danger-soft text-danger-soft-foreground',
+      )}
+      aria-label={`${positive ? 'Up' : 'Down'} ${trend.value}${trend.label ? ' ' + trend.label : ''}`}
+    >
+      {trend.direction !== 'flat' && (
+        <Icon className="size-3" aria-hidden strokeWidth={2.25} />
+      )}
+      <span>{trend.value}</span>
+    </span>
+  );
+}
+
+export function StatCard({
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  tone = 'brand',
+  trend,
+  loading,
+  className,
+}: StatCardProps) {
+  if (loading) {
+    return (
+      <div
+        className={cn(
+          'relative overflow-hidden rounded-xl border border-border bg-card p-4 shadow-elev-1',
+          className,
+        )}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 space-y-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-7 w-32" />
+            <Skeleton className="h-3 w-28" />
           </div>
-          {Icon && (
-            <div className="rounded-lg bg-slate-100 p-2">
-              <Icon className="h-4 w-4 text-slate-500" />
+          <Skeleton className="size-10 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        // Surface
+        'group/stat relative overflow-hidden rounded-xl border border-border bg-card p-4 shadow-elev-1',
+        'transition-all duration-[var(--dur-base)] ease-[cubic-bezier(0.2,0,0,1)]',
+        'hover:-translate-y-px hover:shadow-elev-2 hover:border-border-strong',
+        // Left accent rail
+        'before:absolute before:inset-y-3 before:left-0 before:w-[3px] before:rounded-r-full before:opacity-80',
+        TONE_ACCENT_RAIL[tone],
+        className,
+      )}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            {title}
+          </p>
+          <p
+            data-slot="stat-card-value"
+            className="text-[1.75rem] font-bold leading-none tracking-tight text-foreground tabular-nums"
+          >
+            {value}
+          </p>
+          {(subtitle || trend) && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+              {trend && <Delta trend={normalizeTrend(trend)} />}
+              {subtitle && (
+                <span className="text-[11px] text-muted-foreground">
+                  {subtitle}
+                </span>
+              )}
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+        {Icon && (
+          <span
+            aria-hidden
+            className={cn(
+              'flex size-10 shrink-0 items-center justify-center rounded-xl',
+              'transition-transform duration-[var(--dur-base)] ease-[cubic-bezier(0.2,0,0,1)]',
+              'group-hover/stat:scale-[1.04]',
+              TONE_TILE[tone],
+            )}
+          >
+            <Icon className="size-5" strokeWidth={1.75} />
+          </span>
+        )}
+      </div>
+    </div>
   );
 }

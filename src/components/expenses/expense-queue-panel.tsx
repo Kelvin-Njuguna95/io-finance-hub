@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { SectionCard } from '@/components/layout/section-card';
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { ArrowRight, ListChecks } from 'lucide-react';
 import Link from 'next/link';
@@ -85,19 +85,20 @@ export function ExpenseQueuePanel({ projectId, compact }: Props) {
   const progressPct = items.length > 0 ? Math.round(((confirmed.length + modified.length) / items.length) * 100) : 0;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <ListChecks className="h-4 w-4" />
-          Expense Queue — {formatYearMonth(currentMonth)}
-        </CardTitle>
+    <SectionCard
+      title={`Expense Queue — ${formatYearMonth(currentMonth)}`}
+      description="Live view of pending, confirmed, and modified expenses for the period"
+      icon={ListChecks}
+      tone="warning"
+      action={
         <Link href="/expenses/queue">
           <Button variant="ghost" size="sm" className="gap-1">
-            View Queue <ArrowRight className="h-3 w-3" />
+            View queue <ArrowRight className="size-3.5" aria-hidden />
           </Button>
         </Link>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      }
+      bodyClassName="p-4 space-y-4"
+    >
         {/* Progress bar */}
         <div>
           <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
@@ -176,7 +177,6 @@ export function ExpenseQueuePanel({ projectId, compact }: Props) {
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+    </SectionCard>
   );
 }

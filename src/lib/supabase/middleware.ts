@@ -29,11 +29,14 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect unauthenticated users to login
+  // Redirect unauthenticated users to login.
+  // /design-sample is an intentionally public, mock-only showcase route
+  // used for design QA and stakeholder review. It never touches Supabase.
   if (
     !user &&
     !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/auth')
+    !request.nextUrl.pathname.startsWith('/auth') &&
+    !request.nextUrl.pathname.startsWith('/design-sample')
   ) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';

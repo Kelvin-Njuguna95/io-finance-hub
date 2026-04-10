@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SectionCard } from '@/components/layout/section-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/format';
@@ -20,10 +20,26 @@ interface BucketSummary {
 const BUCKET_ORDER = ['0-30 days', '31-60 days', '61-90 days', '90+ days'];
 
 const bucketStyles: Record<string, { bg: string; text: string; badge: string }> = {
-  emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', badge: 'bg-emerald-100 text-emerald-700' },
-  blue: { bg: 'bg-blue-50', text: 'text-blue-700', badge: 'bg-blue-100 text-blue-700' },
-  amber: { bg: 'bg-amber-50', text: 'text-amber-700', badge: 'bg-amber-100 text-amber-700' },
-  red: { bg: 'bg-red-50', text: 'text-red-700', badge: 'bg-red-100 text-red-700' },
+  emerald: {
+    bg: 'bg-success-soft',
+    text: 'text-success-soft-foreground',
+    badge: 'bg-success/15 text-success-soft-foreground',
+  },
+  blue: {
+    bg: 'bg-info-soft',
+    text: 'text-info-soft-foreground',
+    badge: 'bg-info/15 text-info-soft-foreground',
+  },
+  amber: {
+    bg: 'bg-warning-soft',
+    text: 'text-warning-soft-foreground',
+    badge: 'bg-warning/20 text-warning-soft-foreground',
+  },
+  red: {
+    bg: 'bg-danger-soft',
+    text: 'text-danger-soft-foreground',
+    badge: 'bg-danger/15 text-danger-soft-foreground',
+  },
 };
 
 export function OutstandingReceivablesPanel() {
@@ -56,8 +72,8 @@ export function OutstandingReceivablesPanel() {
 
       for (const inv of invoices) {
         const paid = (inv.payments || []).reduce(
-          (sum: number, p: any) => sum + Number(p.amount_usd),
-          0
+          (sum: number, p: { amount_usd: number }) => sum + Number(p.amount_usd),
+          0,
         );
         const outstanding = Number(inv.amount_usd) - paid;
         if (outstanding <= 0) continue;
@@ -95,58 +111,68 @@ export function OutstandingReceivablesPanel() {
   }, []);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium">Outstanding Receivables</CardTitle>
+    <SectionCard
+      title="Outstanding Receivables"
+      description="Aged invoice exposure across sent, partially paid, and overdue"
+      icon={DollarSign}
+      tone="teal"
+      action={
         <Link href="/reports/outstanding">
           <Button variant="ghost" size="sm" className="gap-1">
-            View All <ArrowRight className="h-3 w-3" />
+            View all <ArrowRight className="size-3.5" aria-hidden />
           </Button>
         </Link>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <p className="text-sm text-neutral-500 py-4 text-center">Loading...</p>
-        ) : (
-          <div className="space-y-4">
-            {/* Total Outstanding */}
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-100">
-                <DollarSign className="h-5 w-5 text-neutral-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{formatCurrency(totalOutstanding, 'USD')}</p>
-                <p className="text-xs text-neutral-500">Total Outstanding</p>
-              </div>
+      }
+    >
+      {loading ? (
+        <p className="py-4 text-center text-sm text-muted-foreground">
+          Loading…
+        </p>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-11 items-center justify-center rounded-xl bg-teal-soft ring-1 ring-inset ring-teal/25">
+              <DollarSign
+                className="size-5 text-teal-soft-foreground"
+                strokeWidth={1.75}
+              />
             </div>
-
-            {/* Aging Breakdown */}
-            <div className="space-y-1.5">
-              {buckets.map((bucket) => {
-                const styles = bucketStyles[bucket.color] || bucketStyles.emerald;
-                return (
-                  <div
-                    key={bucket.label}
-                    className={`flex items-center justify-between rounded-md px-3 py-2 ${styles.bg}`}
-                  >
-                    <span className={`text-sm font-medium ${styles.text}`}>
-                      {bucket.label}
-                    </span>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-sm font-semibold ${styles.text}`}>
-                        {formatCurrency(bucket.amount, 'USD')}
-                      </span>
-                      <Badge variant="secondary" className={styles.badge}>
-                        {bucket.count} {bucket.count === 1 ? 'invoice' : 'invoices'}
-                      </Badge>
-                    </div>
-                  </div>
-                );
-              })}
+            <div>
+              <p className="text-2xl font-bold tabular-nums text-foreground">
+                {formatCurrency(totalOutstanding, 'USD')}
+              </p>
+              <p className="text-xs text-muted-foreground">Total outstanding</p>
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          <ul className="space-y-1.5">
+            {buckets.map((bucket) => {
+              const styles = bucketStyles[bucket.color] || bucketStyles.emerald;
+              return (
+                <li
+                  key={bucket.label}
+                  className={`flex items-center justify-between rounded-lg px-3 py-2 ${styles.bg}`}
+                >
+                  <span className={`text-sm font-medium ${styles.text}`}>
+                    {bucket.label}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`text-sm font-semibold tabular-nums ${styles.text}`}
+                    >
+                      {formatCurrency(bucket.amount, 'USD')}
+                    </span>
+                    <Badge variant="secondary" className={styles.badge}>
+                      {bucket.count}{' '}
+                      {bucket.count === 1 ? 'invoice' : 'invoices'}
+                    </Badge>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </SectionCard>
   );
 }

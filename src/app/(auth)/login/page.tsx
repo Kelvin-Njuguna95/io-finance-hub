@@ -52,20 +52,34 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#f8fafc]">
-      <div className="absolute top-0 left-0 right-0 h-1 bg-[#F5C518]" />
-      <Card className="w-full max-w-sm shadow-lg border border-[#e5e7eb] rounded-lg">
-        <CardHeader className="text-center">
-          <CardTitle className="text-xl">IO Finance Hub</CardTitle>
+    <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
+      <div
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-1 bg-accent"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-60 [background:radial-gradient(800px_400px_at_50%_-10%,color-mix(in_oklab,var(--primary)_18%,transparent)_0%,transparent_60%)]"
+      />
+      <Card className="relative w-full max-w-sm border border-border shadow-elev-3">
+        <CardHeader className="items-center text-center">
+          <div
+            aria-hidden
+            className="mx-auto flex size-11 items-center justify-center rounded-xl bg-primary text-[13px] font-bold text-primary-foreground shadow-elev-1 ring-1 ring-white/10"
+          >
+            IO
+          </div>
+          <CardTitle className="mt-2 text-xl">IO Finance Hub</CardTitle>
           <CardDescription>Impact Outsourcing Limited</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4" noValidate>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
+                autoComplete="email"
                 placeholder="you@impactoutsourcing.co.ke"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -80,6 +94,7 @@ export default function LoginPage() {
                 inputMode="numeric"
                 pattern="\d{4}"
                 maxLength={4}
+                autoComplete="current-password"
                 placeholder="4-digit PIN"
                 value={pin}
                 onChange={(e) => {
@@ -87,14 +102,22 @@ export default function LoginPage() {
                   setPin(val);
                 }}
                 required
-                className="text-center text-lg tracking-[0.5em] font-mono"
+                aria-describedby={error ? 'login-error' : undefined}
+                aria-invalid={Boolean(error) || undefined}
+                className="text-center font-mono text-lg tracking-[0.5em]"
               />
             </div>
             {error && (
-              <p className="text-sm text-red-600">{error}</p>
+              <p id="login-error" role="alert" className="text-sm text-danger">
+                {error}
+              </p>
             )}
-            <Button type="submit" className="w-full btn-gradient text-white" disabled={loading}>
-              {loading ? 'Signing in...' : 'Sign in'}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading}
+            >
+              {loading ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
         </CardContent>

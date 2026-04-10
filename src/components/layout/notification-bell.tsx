@@ -9,6 +9,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
+type NotificationBellProps = {
+  /** Tone used for the trigger button. "light" = white text (navy surface); "dark" = foreground on light surface. */
+  tone?: 'light' | 'dark';
+};
+
 const NOTIF_ICONS: Record<string, string> = {
   budget_submitted: '\uD83D\uDCCB',
   budget_returned: '\uD83D\uDCCB',
@@ -57,31 +62,39 @@ function NotificationCard({
     <button
       onClick={() => onRead(notif.id, notif.link)}
       className={cn(
-        'w-full text-left px-3 py-2.5 flex gap-2.5 hover:bg-slate-50 transition-colors',
-        !notif.is_read && 'bg-white border-l-2 border-[#0f172a]',
-        notif.is_read && 'bg-slate-50/50',
+        'flex w-full gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-muted',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60',
+        !notif.is_read
+          ? 'bg-popover border-l-2 border-primary'
+          : 'bg-muted/40',
       )}
     >
-      <span className="text-base mt-0.5 shrink-0">{icon}</span>
+      <span className="mt-0.5 shrink-0 text-base">{icon}</span>
       <div className="min-w-0 flex-1">
         <p
           className={cn(
-            'text-sm leading-tight truncate',
-            !notif.is_read ? 'font-semibold text-[#0f172a]' : 'text-slate-600',
+            'truncate text-sm leading-tight',
+            !notif.is_read
+              ? 'font-semibold text-foreground'
+              : 'text-muted-foreground',
           )}
         >
           {notif.title}
         </p>
         {notif.body && (
-          <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{notif.body}</p>
+          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+            {notif.body}
+          </p>
         )}
-        <p className="text-[10px] text-slate-300 mt-1">{timeAgo(notif.created_at)}</p>
+        <p className="mt-1 text-[10px] text-muted-foreground/70">
+          {timeAgo(notif.created_at)}
+        </p>
       </div>
     </button>
   );
 }
 
-export function NotificationBell() {
+export function NotificationBell({ tone = 'dark' }: NotificationBellProps = {}) {
   const { notifications, unreadCount, markAsRead, markAllRead } = useNotifications();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -108,29 +121,46 @@ export function NotificationBell() {
     <div ref={ref} className="relative">
       <Button
         variant="ghost"
-        size="sm"
-        className="relative h-8 w-8 p-0 text-white/60 hover:text-white hover:bg-white/10"
+        size="icon-sm"
+        aria-label={
+          unreadCount > 0
+            ? `${unreadCount} unread notifications`
+            : 'Notifications'
+        }
+        className={cn(
+          'relative',
+          tone === 'light'
+            ? 'text-white/70 hover:text-white hover:bg-white/10'
+            : 'text-muted-foreground hover:text-foreground',
+        )}
         onClick={() => setOpen(!open)}
       >
-        <Bell className="h-4 w-4" />
+        <Bell className="size-4" aria-hidden />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+          <span
+            aria-hidden
+            className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-danger-foreground ring-2 ring-background"
+          >
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </Button>
 
       {open && (
-        <div className="absolute right-0 top-10 z-50 w-[360px] rounded-lg border border-slate-200 bg-white shadow-xl">
+        <div
+          role="dialog"
+          aria-label="Notifications"
+          className="absolute right-0 top-10 z-50 w-[360px] rounded-xl border border-border bg-popover text-popover-foreground shadow-elev-3"
+        >
           {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
-            <p className="text-sm font-semibold text-[#0f172a]">Notifications</p>
+          <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
+            <p className="text-sm font-semibold text-foreground">Notifications</p>
             {unreadCount > 0 && (
               <button
                 onClick={markAllRead}
-                className="text-xs text-blue-600 hover:text-blue-800"
+                className="rounded-md px-1.5 py-0.5 text-xs font-medium text-info-soft-foreground hover:bg-info-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               >
-                Mark All Read
+                Mark all read
               </button>
             )}
           </div>
@@ -138,7 +168,9 @@ export function NotificationBell() {
           {/* List */}
           <ScrollArea className="max-h-[480px]">
             {notifications.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-400">No notifications</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                No notifications
+              </p>
             ) : (
               notifications.slice(0, 20).map((n) => (
                 <NotificationCard key={n.id} notif={n} onRead={handleRead} />
@@ -153,9 +185,9 @@ export function NotificationBell() {
               setOpen(false);
               router.push('/notifications');
             }}
-            className="block w-full py-2 text-center text-xs text-blue-600 hover:bg-slate-50"
+            className="block w-full rounded-b-xl py-2 text-center text-xs font-medium text-info-soft-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
-            View All Notifications
+            View all notifications
           </button>
         </div>
       )}
