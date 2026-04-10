@@ -70,19 +70,19 @@ export default function ProfitabilityPage() {
 
       // Build per-project map
       const invMap = new Map<string, number>();
-      (invoices || []).filter((i: any) => !isBackdated(i.description)).forEach((i: any) => {
+      (invoices || []).filter((i: /* // */ any) => !isBackdated(i.description)).forEach((i: /* // */ any) => {
         const kes = Number(i.amount_kes) > 0 ? Number(i.amount_kes) : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
         invMap.set(i.project_id, (invMap.get(i.project_id) || 0) + kes);
       });
 
       const expMap = new Map<string, number>();
-      (expenses || []).forEach((e: any) => {
+      (expenses || []).forEach((e: /* // */ any) => {
         expMap.set(e.project_id, (expMap.get(e.project_id) || 0) + Number(e.amount_kes));
       });
 
       // Build rows — only include projects that have revenue or expenses
       const rows: ProjectRow[] = (projects || [])
-        .map((p: any) => {
+        .map((p: /* // */ any) => {
           const revenue = invMap.get(p.id) || 0;
           const directCosts = expMap.get(p.id) || 0;
           const grossProfit = revenue - directCosts;

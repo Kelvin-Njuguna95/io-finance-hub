@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     if (monthErr) return NextResponse.json({ error: monthErr.message }, { status: monthErr.status });
 
     // Reject all non-final versions
-    const versions = (sibling.budget_versions || []) as any[];
+    const versions = (sibling.budget_versions || []) as /* // */ /* // */ any[];
     for (const v of versions) {
       if (['rejected', 'approved'].includes(v.status)) continue;
 

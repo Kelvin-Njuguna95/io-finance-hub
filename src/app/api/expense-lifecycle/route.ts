@@ -46,23 +46,23 @@ function isMiscBudgetItem(item: { category?: string | null; description?: string
 
 async function autoLogBudgetMiscDraws(
   admin: ReturnType<typeof createAdminClient>,
-  dbUser: any,
-  budget: any,
-  budgetItems: any[],
+  dbUser: /* // */ any,
+  budget: /* // */ any,
+  budgetItems: /* // */ /* // */ any[],
 ) {
   if (!budget?.project_id || !budget?.year_month || !budgetItems.length) return 0;
 
   const miscItems = budgetItems
-    .filter((item: any) => isMiscBudgetItem(item))
-    .filter((item: any) => Number(item.pm_approved_amount != null ? item.pm_approved_amount : item.amount_kes) > 0);
+    .filter((item: /* // */ any) => isMiscBudgetItem(item))
+    .filter((item: /* // */ any) => Number(item.pm_approved_amount != null ? item.pm_approved_amount : item.amount_kes) > 0);
 
   if (!miscItems.length) return 0;
 
   const { data: existingDraws } = await admin
     .from('misc_draws')
     .select('budget_item_id')
-    .in('budget_item_id', miscItems.map((item: any) => item.id));
-  const existing = new Set((existingDraws || []).map((d: any) => d.budget_item_id).filter(Boolean));
+    .in('budget_item_id', miscItems.map((item: /* // */ any) => item.id));
+  const existing = new Set((existingDraws || []).map((d: /* // */ any) => d.budget_item_id).filter(Boolean));
 
   const { data: assignment } = await admin
     .from('user_project_assignments')
@@ -73,8 +73,8 @@ async function autoLogBudgetMiscDraws(
 
   const now = new Date().toISOString();
   const rows = miscItems
-    .filter((item: any) => !existing.has(item.id))
-    .map((item: any) => {
+    .filter((item: /* // */ any) => !existing.has(item.id))
+    .map((item: /* // */ any) => {
       const amount = Number(item.pm_approved_amount != null ? item.pm_approved_amount : item.amount_kes);
       return {
         project_id: budget.project_id,
@@ -181,7 +181,7 @@ export async function POST(request: Request) {
     }
 
     // Get budget version and its items
-    let budgetVersion: any = null;
+    let budgetVersion: /* // */ any = null;
     if (budget_version_id) {
       const { data } = await admin
         .from('budget_versions')
@@ -221,7 +221,7 @@ export async function POST(request: Request) {
 
     // Filter items: include only PM-approved or adjusted items
     const allItems = budgetVersion.budget_items || [];
-    const eligibleItems = allItems.filter((item: any) => ['approved', 'adjusted'].includes(item.pm_status));
+    const eligibleItems = allItems.filter((item: /* // */ any) => ['approved', 'adjusted'].includes(item.pm_status));
 
     if (eligibleItems.length === 0) {
       return NextResponse.json({ success: false, error: 'No eligible budget items found' }, { status: 400 });
@@ -233,14 +233,14 @@ export async function POST(request: Request) {
       .from('pending_expenses')
       .select('budget_item_id')
       .eq('budget_id', budget.id);
-    (existingPE || []).forEach((pe: any) => existingItemIds.add(pe.budget_item_id));
+    (existingPE || []).forEach((pe: /* // */ any) => existingItemIds.add(pe.budget_item_id));
 
-    const newItems = eligibleItems.filter((item: any) => !existingItemIds.has(item.id));
+    const newItems = eligibleItems.filter((item: /* // */ any) => !existingItemIds.has(item.id));
     if (newItems.length === 0) {
       return NextResponse.json({ success: true, data: [], message: 'All items already populated' });
     }
 
-    const pendingRows = newItems.map((item: any) => {
+    const pendingRows = newItems.map((item: /* // */ any) => {
       const budgetedAmountKes = item.pm_status === 'adjusted'
         ? item.pm_approved_amount
         : item.amount_kes;
@@ -272,7 +272,7 @@ export async function POST(request: Request) {
     let miscLogged = 0;
     try {
       miscLogged = await autoLogBudgetMiscDraws(admin, dbUser, budget, newItems);
-    } catch (miscErr: any) {
+    } catch (miscErr: /* // */ any) {
       console.error('Failed to auto-log misc items from budget:', miscErr?.message || miscErr);
     }
 
@@ -324,23 +324,23 @@ export async function POST(request: Request) {
       if (!budget) continue;
       if (yearMonth && budget.year_month !== yearMonth) continue;
 
-      const allItems = (bv as any).budget_items || [];
-      const hasLineReview = allItems.some((item: any) => ['approved', 'adjusted', 'removed'].includes(item.pm_status));
+      const allItems = (bv as /* // */ any).budget_items || [];
+      const hasLineReview = allItems.some((item: /* // */ any) => ['approved', 'adjusted', 'removed'].includes(item.pm_status));
       const eligibleItems = hasLineReview
-        ? allItems.filter((item: any) => ['approved', 'adjusted'].includes(item.pm_status))
-        : allItems.filter((item: any) => item.pm_status !== 'removed');
+        ? allItems.filter((item: /* // */ any) => ['approved', 'adjusted'].includes(item.pm_status))
+        : allItems.filter((item: /* // */ any) => item.pm_status !== 'removed');
 
       // Skip items already populated
       const { data: existingPE } = await admin
         .from('pending_expenses')
         .select('budget_item_id')
         .eq('budget_version_id', bv.id);
-      const existingIds = new Set((existingPE || []).map((pe: any) => pe.budget_item_id));
-      const newItems = eligibleItems.filter((item: any) => !existingIds.has(item.id));
+      const existingIds = new Set((existingPE || []).map((pe: /* // */ any) => pe.budget_item_id));
+      const newItems = eligibleItems.filter((item: /* // */ any) => !existingIds.has(item.id));
 
       if (newItems.length === 0) continue;
 
-      const rows = newItems.map((item: any) => ({
+      const rows = newItems.map((item: /* // */ any) => ({
         budget_id: budget.id,
         budget_version_id: bv.id,
         budget_item_id: item.id,
@@ -358,7 +358,7 @@ export async function POST(request: Request) {
 
       try {
         await autoLogBudgetMiscDraws(admin, dbUser, budget, newItems);
-      } catch (miscErr: any) {
+      } catch (miscErr: /* // */ any) {
         console.error('Backfill misc auto-log failed:', miscErr?.message || miscErr);
       }
     }
@@ -768,8 +768,8 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
-    const results: any[] = [];
-    const errors: any[] = [];
+    const results: /* // */ /* // */ any[] = [];
+    const errors: /* // */ /* // */ any[] = [];
 
     for (const item of items) {
       const { id, actual_amount_kes } = item;
@@ -864,7 +864,7 @@ export async function POST(request: Request) {
 
     // Single notification for the batch
     await notifyRole(admin, 'cfo', 'Bulk expense confirmation', `${results.length} expense(s) confirmed in bulk by ${dbUser.full_name}.`, '/expenses');
-    if (results.length > 0) await recomputeExpenseVariancesForMonth(admin, (results[0] as any).year_month);
+    if (results.length > 0) await recomputeExpenseVariancesForMonth(admin, (results[0] as /* // */ any).year_month);
 
     return NextResponse.json({
       success: true,
@@ -1026,8 +1026,8 @@ export async function POST(request: Request) {
 // =============================================================
 async function checkVarianceRedFlag(
   admin: ReturnType<typeof createAdminClient>,
-  dbUser: any,
-  pending: any,
+  dbUser: /* // */ any,
+  pending: /* // */ any,
   actualAmountKes: number,
 ) {
   const budgeted = Number(pending.budgeted_amount_kes || 0);

@@ -69,7 +69,7 @@ export function CfoMiscApproval() {
   const [approveNotes, setApproveNotes] = useState('');
   const [declineNotes, setDeclineNotes] = useState('');
   const [reviewReport, setReviewReport] = useState<MiscReport | null>(null);
-  const [reviewItems, setReviewItems] = useState<any[]>([]);
+  const [reviewItems, setReviewItems] = useState</* // */ any[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<MiscRequest | null>(null);
 
   useEffect(() => { load(); }, []);
@@ -83,7 +83,7 @@ export function CfoMiscApproval() {
       .select('*, users!accountant_misc_requests_requested_by_fkey(full_name)')
       .order('created_at', { ascending: false });
 
-    const all = (allReqs || []).map((r: any) => ({
+    const all = (allReqs || []).map((r: /* // */ any) => ({
       ...r, sender_name: r.users?.full_name || '—',
     })) as MiscRequest[];
 
@@ -99,7 +99,7 @@ export function CfoMiscApproval() {
       .order('period_month', { ascending: false })
       .limit(12);
 
-    setReports((reps || []).map((r: any) => ({
+    setReports((reps || []).map((r: /* // */ any) => ({
       ...r, sender_name: r.users?.full_name || '—',
     })));
   }
@@ -430,7 +430,7 @@ export function CfoMiscApproval() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {reviewItems.map((item: any) => (
+              {reviewItems.map((item: /* // */ any) => (
                 <TableRow key={item.id} className={item.flagged ? 'bg-red-50' : ''}>
                   <TableCell className="text-sm">{formatDate(item.expense_date)}</TableCell>
                   <TableCell className="font-medium text-sm">{item.description}</TableCell>

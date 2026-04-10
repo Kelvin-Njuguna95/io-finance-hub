@@ -67,7 +67,7 @@ export default function InvoicesPage() {
 
   const viewRows = useMemo(() => {
     if (tab === 'all') return rows;
-    return rows.filter((row) => getInvoiceOutstandingTotal(row) > 0 && OUTSTANDING_INVOICE_STATUSES.includes(row.status as any));
+    return rows.filter((row) => getInvoiceOutstandingTotal(row) > 0 && OUTSTANDING_INVOICE_STATUSES.includes(row.status as /* // */ any));
   }, [rows, tab]);
 
   const totals = useMemo(() => {

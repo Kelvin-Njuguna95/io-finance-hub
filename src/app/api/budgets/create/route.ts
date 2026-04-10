@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   if (!items || !Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: 'At least one line item required' }, { status: 400 });
   }
-  if (items.some((i: any) => !i.description?.trim())) {
+  if (items.some((i: /* // */ any) => !i.description?.trim())) {
     return NextResponse.json({ error: 'All line items must have a description' }, { status: 400 });
   }
 
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
   }
 
   // Calculate total
-  const totalKes = items.reduce((sum: number, i: any) => sum + (i.quantity || 1) * (i.unit_cost_kes || 0), 0);
+  const totalKes = items.reduce((sum: number, i: /* // */ any) => sum + (i.quantity || 1) * (i.unit_cost_kes || 0), 0);
 
   // Create budget
   const { data: budget, error: budgetError } = await admin
@@ -193,7 +193,7 @@ export async function POST(request: Request) {
   }
 
   // Create budget items
-  const itemRows = items.map((item: any, idx: number) => ({
+  const itemRows = items.map((item: /* // */ any, idx: number) => ({
     budget_version_id: version.id,
     description: item.description,
     category: item.category || null,

@@ -77,16 +77,16 @@ function InsightBadge({ text }: { text: string }) {
   return <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm">{text}</div>;
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: /* // */ any) => {
   if (!active || !payload?.length) return null;
-  const hasUndistributed = payload.some((e: any) => e.dataKey === 'Undistributed' && e.value > 0);
+  const hasUndistributed = payload.some((e: /* // */ any) => e.dataKey === 'Undistributed' && e.value > 0);
   const paymentMonth = payload?.[0]?.payload?.month;
   const paidIn = paymentMonth ? new Date(parseInt(String(paymentMonth).split('-')[0]), parseInt(String(paymentMonth).split('-')[1]) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : null;
   return (
     <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs">
       <p className="font-semibold mb-1">{label}</p>
       {paidIn && <p className="text-slate-500 mb-1">Paid in: {paidIn}</p>}
-      {payload.map((entry: any, i: number) => (
+      {payload.map((entry: /* // */ any, i: number) => (
         <p key={i} style={{ color: entry.color }}>
           {entry.name}: {typeof entry.value === 'number' ? formatKesShort(entry.value) : entry.value}
         </p>
@@ -130,7 +130,7 @@ export default function TrendsPage() {
         setUserRole(role);
         if (role === 'team_leader' || role === 'project_manager') {
           const { data: assigns } = await supabase.from('user_project_assignments').select('project_id').eq('user_id', user.id);
-          assignedProjects = (assigns || []).map((a: any) => a.project_id);
+          assignedProjects = (assigns || []).map((a: /* // */ any) => a.project_id);
         }
       }
       const isRestricted = role === 'team_leader' || role === 'project_manager';
@@ -151,8 +151,8 @@ export default function TrendsPage() {
         .in('year_month', months);
       const historicalMonths = new Set(
         (snapshots || [])
-          .filter((s: any) => s.data_source && s.data_source.startsWith('historical_seed'))
-          .map((s: any) => s.year_month)
+          .filter((s: /* // */ any) => s.data_source && s.data_source.startsWith('historical_seed'))
+          .map((s: /* // */ any) => s.year_month)
       );
 
       // Revenue months needed (lagged for live months, direct for historical)
@@ -168,9 +168,9 @@ export default function TrendsPage() {
         supabase.from('profit_share_records').select('year_month, status, total_distributed').in('year_month', months),
       ]);
 
-      const invoices = (invRes.data || []).filter((i: any) => !isBackdated(i.description));
+      const invoices = (invRes.data || []).filter((i: /* // */ any) => !isBackdated(i.description));
       const projExpenses = isRestricted
-        ? (projExpRes.data || []).filter((e: any) => assignedProjects.includes(e.project_id))
+        ? (projExpRes.data || []).filter((e: /* // */ any) => assignedProjects.includes(e.project_id))
         : projExpRes.data || [];
       const sharedExpenses = sharedExpRes.data || [];
       const agentCounts = agentRes.data || [];
@@ -200,7 +200,7 @@ export default function TrendsPage() {
         const mInvoices = invoices.filter(i => i.billing_period === revenueMonth);
         let revenue = 0;
         const projRevMap = new Map<string, number>();
-        mInvoices.forEach((i: any) => {
+        mInvoices.forEach((i: /* // */ any) => {
           if (isRestricted && !assignedProjects.includes(i.project_id)) return;
           const kes = Number(i.amount_kes) > 0 ? Number(i.amount_kes) : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
           revenue += kes;
@@ -208,12 +208,12 @@ export default function TrendsPage() {
         });
 
         // Direct expenses
-        const mProjExp = projExpenses.filter((e: any) => e.year_month === m);
-        const directExpenses = mProjExp.reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+        const mProjExp = projExpenses.filter((e: /* // */ any) => e.year_month === m);
+        const directExpenses = mProjExp.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
 
         // Overhead
-        const mSharedExp = sharedExpenses.filter((e: any) => e.year_month === m);
-        const overhead = mSharedExp.reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+        const mSharedExp = sharedExpenses.filter((e: /* // */ any) => e.year_month === m);
+        const overhead = mSharedExp.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
 
         const netProfit = revenue - directExpenses - overhead;
         const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
@@ -224,7 +224,7 @@ export default function TrendsPage() {
         const pt: ProjectTrend = { month: m, label };
         projects.forEach(p => {
           const projRev = projRevMap.get(p.id) || 0;
-          const projCost = mProjExp.filter((e: any) => e.project_id === p.id).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+          const projCost = mProjExp.filter((e: /* // */ any) => e.project_id === p.id).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
           pt[p.name] = projRev - projCost;
           if (projRev > 0 || projCost > 0) projNameSet.add(p.name);
         });
@@ -233,12 +233,12 @@ export default function TrendsPage() {
         // Expense composition
         const ec: ExpenseComposition = { month: m, label };
         const catMap = new Map<string, number>();
-        mProjExp.forEach((e: any) => {
-          const cat = (e as any).expense_categories?.name || 'Other';
+        mProjExp.forEach((e: /* // */ any) => {
+          const cat = (e as /* // */ any).expense_categories?.name || 'Other';
           catMap.set(cat, (catMap.get(cat) || 0) + Number(e.amount_kes));
           catSet.add(cat);
         });
-        mSharedExp.forEach((e: any) => {
+        mSharedExp.forEach((e: /* // */ any) => {
           const cat = 'Shared Overhead';
           catMap.set(cat, (catMap.get(cat) || 0) + Number(e.amount_kes));
           catSet.add(cat);
@@ -260,8 +260,8 @@ export default function TrendsPage() {
         });
 
         // Cash flow
-        const mPayments = payments.filter((p: any) => p.payment_date?.startsWith(m));
-        const cashReceived = mPayments.reduce((s: number, p: any) => s + Number(p.amount_usd) * stdRate, 0);
+        const mPayments = payments.filter((p: /* // */ any) => p.payment_date?.startsWith(m));
+        const cashReceived = mPayments.reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd) * stdRate, 0);
         cfData.push({
           month: m,
           label,
@@ -272,8 +272,8 @@ export default function TrendsPage() {
         });
 
         // Agent efficiency
-        const mAgents = agentCounts.filter((a: any) => a.year_month === m);
-        const totalAgents = mAgents.reduce((s: number, a: any) => s + Number(a.agent_count), 0);
+        const mAgents = agentCounts.filter((a: /* // */ any) => a.year_month === m);
+        const totalAgents = mAgents.reduce((s: number, a: /* // */ any) => s + Number(a.agent_count), 0);
         aeData.push({
           month: m,
           label,
@@ -288,19 +288,19 @@ export default function TrendsPage() {
           let totalDist = 0;
           const totalProfit70 = projects.reduce((sum, p) => {
             const projRev = projRevMap.get(p.id) || 0;
-            const projCost = mProjExp.filter((e: any) => e.project_id === p.id).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+            const projCost = mProjExp.filter((e: /* // */ any) => e.project_id === p.id).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
             return sum + Math.max(0, projRev - projCost) * 0.7;
           }, 0);
 
           // Check if profit share has been distributed for this month
-          const monthPsRecords = profitShareRecords.filter((r: any) => r.year_month === m);
-          const isDistributed = monthPsRecords.some((r: any) => r.status === 'distributed');
+          const monthPsRecords = profitShareRecords.filter((r: /* // */ any) => r.year_month === m);
+          const isDistributed = monthPsRecords.some((r: /* // */ any) => r.status === 'distributed');
 
           if (isDistributed) {
             // Show actual director breakdown
             projects.forEach(p => {
               const projRev = projRevMap.get(p.id) || 0;
-              const projCost = mProjExp.filter((e: any) => e.project_id === p.id).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+              const projCost = mProjExp.filter((e: /* // */ any) => e.project_id === p.id).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
               const profit = projRev - projCost;
               if (profit > 0) {
                 const dirLabel = { kelvin: 'Kelvin', evans: 'Evans', dan: 'Dan', gidraph: 'Gidraph', victor: 'Victor' }[p.director_tag] || p.director_tag;

@@ -197,7 +197,7 @@ export default function NotificationsPage() {
         </Tabs>
 
         {loading ? (
-          <p className="text-sm text-neutral-400 py-8 text-center">Loading...</p>
+          <p className="text-sm text-neutral-400 py-8 text-center">Please wait</p>
         ) : filtered.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center">
             <p className="text-sm font-medium text-slate-700">You&apos;re all caught up — no new notifications at this time.</p>

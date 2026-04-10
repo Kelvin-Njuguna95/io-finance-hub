@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
   // Find current version
   const currentVersion = (budget.budget_versions || []).find(
-    (v: any) => v.version_number === budget.current_version
+    (v: /* // */ any) => v.version_number === budget.current_version
   );
   if (!currentVersion) return NextResponse.json({ error: 'No current version found' }, { status: 400 });
 

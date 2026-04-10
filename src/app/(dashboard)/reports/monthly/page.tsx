@@ -109,10 +109,10 @@ export default function MonthlyPnlReport() {
       const stdRate = parseFloat(rateRes.data?.value || '129.5');
       const projects = projRes.data || [];
       const invoices = invRes.data || [];
-      const nonBackdatedInvoices = invoices.filter((i: any) => !isBackdated(i.description));
+      const nonBackdatedInvoices = invoices.filter((i: /* // */ any) => !isBackdated(i.description));
       const projExpenses = projExpRes.data || [];
       const sharedExpenses = sharedExpRes.data || [];
-      const assignedProjects = (projAssign.data || []).map((a: any) => a.project_id);
+      const assignedProjects = (projAssign.data || []).map((a: /* // */ any) => a.project_id);
 
       // Filter for PM/TL if needed
       const normalizedRole = fetchedRole.trim().toLowerCase().replace(/[\s-]+/g, '_');
@@ -120,7 +120,7 @@ export default function MonthlyPnlReport() {
 
       // Revenue per project (lagged)
       const revMap = new Map<string, number>();
-      nonBackdatedInvoices.forEach((i: any) => {
+      nonBackdatedInvoices.forEach((i: /* // */ any) => {
         const kes = Number(i.amount_kes) > 0 ? Number(i.amount_kes) : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
         revMap.set(i.project_id, (revMap.get(i.project_id) || 0) + kes);
       });
@@ -134,11 +134,11 @@ export default function MonthlyPnlReport() {
       const totalRevenue = projectRevenues.reduce((s, p) => s + p.revenue, 0);
 
       // Direct costs grouped by category
-      const directCatMap = new Map<string, { amount: number; items: any[] }>();
+      const directCatMap = new Map<string, { amount: number; items: /* // */ /* // */ any[] }>();
       projExpenses
-        .filter((e: any) => !isRestricted || assignedProjects.includes(e.project_id))
-        .forEach((e: any) => {
-          const catName = (e as any).expense_categories?.name || 'Other Direct Costs';
+        .filter((e: /* // */ any) => !isRestricted || assignedProjects.includes(e.project_id))
+        .forEach((e: /* // */ any) => {
+          const catName = (e as /* // */ any).expense_categories?.name || 'Other Direct Costs';
           const existing = directCatMap.get(catName) || { amount: 0, items: [] };
           existing.amount += Number(e.amount_kes);
           existing.items.push({ date: e.expense_date, description: e.description, paid_to: e.vendor || '-', amount: Number(e.amount_kes) });
@@ -154,9 +154,9 @@ export default function MonthlyPnlReport() {
       const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
 
       // Overhead grouped by category
-      const overheadCatMap = new Map<string, { amount: number; items: any[] }>();
-      sharedExpenses.forEach((e: any) => {
-        const catName = (e as any).expense_categories?.name || 'Other Overhead';
+      const overheadCatMap = new Map<string, { amount: number; items: /* // */ /* // */ any[] }>();
+      sharedExpenses.forEach((e: /* // */ any) => {
+        const catName = (e as /* // */ any).expense_categories?.name || 'Other Overhead';
         const existing = overheadCatMap.get(catName) || { amount: 0, items: [] };
         existing.amount += Number(e.amount_kes);
         existing.items.push({ date: e.expense_date, description: e.description, paid_to: e.vendor || '-', amount: Number(e.amount_kes) });
@@ -179,7 +179,7 @@ export default function MonthlyPnlReport() {
         .filter(p => revMap.has(p.id))
         .map(p => {
           const rev = revMap.get(p.id) || 0;
-          const dirCosts = projExpenses.filter((e: any) => e.project_id === p.id).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+          const dirCosts = projExpenses.filter((e: /* // */ any) => e.project_id === p.id).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
           const profit = rev - dirCosts;
           return {
             project: p.name,

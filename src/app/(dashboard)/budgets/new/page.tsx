@@ -149,11 +149,11 @@ export default function NewBudgetPage() {
 
       // Get user names for submitters
       const userIds = new Set<string>();
-      data.forEach((b: any) => { if (b.created_by) userIds.add(b.created_by); });
+      data.forEach((b: /* // */ any) => { if (b.created_by) userIds.add(b.created_by); });
       const { data: users } = await supabase.from('users').select('id, full_name').in('id', Array.from(userIds));
-      const nameMap = new Map((users || []).map((u: any) => [u.id, u.full_name]));
+      const nameMap = new Map((users || []).map((u: /* // */ any) => [u.id, u.full_name]));
 
-      const infos: ExistingBudgetInfo[] = data.map((b: any) => {
+      const infos: ExistingBudgetInfo[] = data.map((b: /* // */ any) => {
         const vers = (b.budget_versions || [])[0];
         return {
           submitted_by_role: b.submitted_by_role || 'team_leader',
@@ -213,8 +213,8 @@ export default function NewBudgetPage() {
           .from('user_project_assignments')
           .select('user_id, users(full_name)')
           .eq('project_id', scopeId);
-        const pmAssign = projAssign?.find((a: any) => true); // Get any assigned user
-        const pmName = (pmAssign as any)?.users?.full_name || 'the Project Manager';
+        const pmAssign = projAssign?.find((a: /* // */ any) => true); // Get any assigned user
+        const pmName = (pmAssign as /* // */ any)?.users?.full_name || 'the Project Manager';
         const projectName = projects.find(p => p.id === scopeId)?.name || 'this project';
 
         setMiscGateBlocked(true);

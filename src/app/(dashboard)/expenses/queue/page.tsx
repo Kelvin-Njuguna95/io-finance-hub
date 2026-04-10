@@ -303,16 +303,10 @@ export default function ExpenseQueuePage() {
   }
 
   async function handleCarryForward(item: PendingExpense) {
-    const reason = window.prompt('Carry-forward reason (required):');
-    if (!reason?.trim()) {
-      toast.error('Reason is required');
-      return;
-    }
-    const targetMonth = window.prompt('Target month (YYYY-MM):');
-    if (!targetMonth?.trim()) {
-      toast.error('Target month is required');
-      return;
-    }
+    const proceed = window.confirm('Carry-forward this item to the next month?');
+    if (!proceed) return;
+    const reason = 'Carry forward';
+    const targetMonth = new Date(new Date(selectedMonth + '-01').setMonth(new Date(selectedMonth + '-01').getMonth() + 1)).toISOString().slice(0, 7);
     if (targetMonth <= selectedMonth) {
       toast.error('Target month must be after the selected month');
       return;
@@ -331,11 +325,9 @@ export default function ExpenseQueuePage() {
   }
 
   async function handleFlagForReview(item: PendingExpense) {
-    const reviewNotes = window.prompt('Review reason (required):');
-    if (!reviewNotes?.trim()) {
-      toast.error('Review reason is required');
-      return;
-    }
+    const proceedReview = window.confirm('Flag this expense for review?');
+    if (!proceedReview) return;
+    const reviewNotes = 'Under review';
     try {
       await callAction('under_review', { id: item.id, review_notes: reviewNotes.trim() });
       toast.success('Expense flagged for review');
@@ -371,16 +363,10 @@ export default function ExpenseQueuePage() {
       toast.error('No pending items selected');
       return;
     }
-    const reason = window.prompt('Carry-forward reason for selected items (required):');
-    if (!reason?.trim()) {
-      toast.error('Reason is required');
-      return;
-    }
-    const targetMonth = window.prompt('Target month for selected items (YYYY-MM):');
-    if (!targetMonth?.trim() || targetMonth <= selectedMonth) {
-      toast.error('A future target month is required');
-      return;
-    }
+    const proceedBulk = window.confirm('Carry-forward selected items to next month?');
+    if (!proceedBulk) return;
+    const reason = 'Bulk carry forward';
+    const targetMonth = new Date(new Date(selectedMonth + '-01').setMonth(new Date(selectedMonth + '-01').getMonth() + 1)).toISOString().slice(0, 7);
     try {
       await Promise.all(toCarry.map((item) => callAction('carry_forward', {
         id: item.id,
@@ -558,7 +544,7 @@ export default function ExpenseQueuePage() {
           <CardContent className="p-0">
             {loading ? (
               <div className="flex items-center justify-center py-16 text-sm text-slate-400">
-                Loading...
+                Please wait
               </div>
             ) : selectedMonthPendingCount === 0 ? (
               <div className="flex items-center justify-center py-16 text-sm text-slate-500">

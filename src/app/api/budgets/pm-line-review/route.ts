@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Reason required for adjust/remove' }, { status: 400 });
     }
 
-    const update: any = {
+    const update: /* // */ any = {
       pm_status,
       pm_reviewed_by: user.id,
       pm_reviewed_at: new Date().toISOString(),
@@ -90,8 +90,8 @@ export async function POST(request: Request) {
         .eq('budget_version_id', (await admin.from('budget_items').select('budget_version_id').eq('id', item_id).single()).data?.budget_version_id);
 
       const approvedTotal = (allItems || [])
-        .filter((i: any) => ['approved', 'adjusted'].includes(i.pm_status))
-        .reduce((s: number, i: any) => s + Number(i.pm_approved_amount || 0), 0);
+        .filter((i: /* // */ any) => ['approved', 'adjusted'].includes(i.pm_status))
+        .reduce((s: number, i: /* // */ any) => s + Number(i.pm_approved_amount || 0), 0);
 
       await admin.from('budgets').update({ pm_approved_total: approvedTotal }).eq('id', budget_id);
     }
@@ -130,20 +130,20 @@ export async function POST(request: Request) {
     const { data: budget } = await admin.from('budgets').select('*, budget_versions(id, version_number, budget_items(*))').eq('id', budget_id).single();
     if (!budget) return NextResponse.json({ error: 'Budget not found' }, { status: 404 });
 
-    const versions = (budget as any).budget_versions || [];
-    const currentVersion = versions.find((v: any) => v.version_number === budget.current_version) || versions[0];
+    const versions = (budget as /* // */ any).budget_versions || [];
+    const currentVersion = versions.find((v: /* // */ any) => v.version_number === budget.current_version) || versions[0];
     const allItems = currentVersion?.budget_items || [];
 
-    const pending = allItems.filter((i: any) => !i.pm_status || i.pm_status === 'pending');
+    const pending = allItems.filter((i: /* // */ any) => !i.pm_status || i.pm_status === 'pending');
     if (pending.length > 0) {
       return NextResponse.json({ error: `${pending.length} line items still pending review` }, { status: 400 });
     }
 
-    const approved = allItems.filter((i: any) => i.pm_status === 'approved');
-    const adjusted = allItems.filter((i: any) => i.pm_status === 'adjusted');
-    const removed = allItems.filter((i: any) => i.pm_status === 'removed');
-    const approvedTotal = [...approved, ...adjusted].reduce((s: number, i: any) => s + Number(i.pm_approved_amount || 0), 0);
-    const originalTotal = allItems.reduce((s: number, i: any) => s + Number(i.amount_kes || 0), 0);
+    const approved = allItems.filter((i: /* // */ any) => i.pm_status === 'approved');
+    const adjusted = allItems.filter((i: /* // */ any) => i.pm_status === 'adjusted');
+    const removed = allItems.filter((i: /* // */ any) => i.pm_status === 'removed');
+    const approvedTotal = [...approved, ...adjusted].reduce((s: number, i: /* // */ any) => s + Number(i.pm_approved_amount || 0), 0);
+    const originalTotal = allItems.reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes || 0), 0);
 
     const summary = {
       approved_count: approved.length,

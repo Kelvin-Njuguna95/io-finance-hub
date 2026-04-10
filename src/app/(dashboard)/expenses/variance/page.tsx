@@ -336,7 +336,7 @@ export default function VarianceDashboardPage() {
         <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-neutral-400">Loading...</TableCell>
+              <TableCell colSpan={7} className="text-center py-8 text-neutral-400">Please wait</TableCell>
             </TableRow>
           ) : rows.length === 0 ? (
             <TableRow>

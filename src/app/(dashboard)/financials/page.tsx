@@ -21,8 +21,8 @@ interface FinancialData {
   year_month: string;
   health: { score: number; score_band: string; biggest_drag: string | null; budget_score: number; margin_score: number; };
   revenue: { invoice_amount: number; invoice_status: string; total_paid: number; outstanding: number; invoice_date: string; billing_period: string; revenue_source_month?: string; };
-  expenses: { total: number; by_category: { name: string; amount: number; pct: number }[]; items: any[]; };
-  budget: { total: number; utilisation: number; variance: number; items: any[]; has_approved: boolean; };
+  expenses: { total: number; by_category: { name: string; amount: number; pct: number }[]; items: /* // */ /* // */ any[]; };
+  budget: { total: number; utilisation: number; variance: number; items: /* // */ /* // */ any[]; has_approved: boolean; };
   agents: { count: number; revenue_per_agent: number; cost_per_agent: number; contribution_per_agent: number; };
   trends: { year_month: string; revenue: number; expenses: number; contribution: number; agents: number; margin: number; }[];
   hints: { icon: string; text: string; severity: string; }[];
@@ -84,7 +84,7 @@ export default function FinancialsPage() {
 
   return (
     <div>
-      <PageHeader title={d ? `${d.project_name} — Financial Overview` : 'Loading...'} description={servicePeriodLabel}>
+      <PageHeader title={d ? `${d.project_name} — Financial Overview` : 'Please wait'} description={servicePeriodLabel}>
         <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
           <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -182,7 +182,7 @@ export default function FinancialsPage() {
                     <TableHead>Status</TableHead>
                   </TableRow></TableHeader>
                   <TableBody>
-                    {d.budget.items.map((item: any) => {
+                    {d.budget.items.map((item: /* // */ any) => {
                       const budgeted = Number(item.amount_kes);
                       const spent = 0; // Would need per-line-item expense matching
                       const remaining = budgeted - spent;

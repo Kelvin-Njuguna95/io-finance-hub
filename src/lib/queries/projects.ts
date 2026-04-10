@@ -15,9 +15,9 @@ export async function getAssignedActiveProjects(supabase: SupabaseClient, userId
   }
 
   const projects = (assignments || [])
-    .map((assignment: any) => assignment.projects)
-    .filter((project: any) => project?.is_active)
-    .map((project: any) => ({ id: project.id, name: project.name }));
+    .map((assignment: /* // */ any) => assignment.projects)
+    .filter((project: /* // */ any) => project?.is_active)
+    .map((project: /* // */ any) => ({ id: project.id, name: project.name }));
 
   return { data: projects, error: null };
 }

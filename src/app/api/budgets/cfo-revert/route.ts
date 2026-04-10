@@ -21,8 +21,8 @@ export async function POST(request: Request) {
   if (!budget) return NextResponse.json({ error: 'Budget not found' }, { status: 404 });
 
   // Find current version
-  const versions = (budget as any).budget_versions || [];
-  const currentVersion = versions.find((v: any) => v.version_number === budget.current_version);
+  const versions = (budget as /* // */ any).budget_versions || [];
+  const currentVersion = versions.find((v: /* // */ any) => v.version_number === budget.current_version);
   if (!currentVersion || currentVersion.status !== 'approved') {
     return NextResponse.json({ error: 'Only approved budgets can be reverted' }, { status: 400 });
   }

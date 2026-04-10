@@ -44,7 +44,7 @@ export default function AgentCountsPage() {
     let projectsQuery = supabase.from('projects').select('id, name').eq('is_active', true).order('name');
     if (user?.role === 'team_leader') {
       const { data: assignments } = await supabase.from('user_project_assignments').select('project_id').eq('user_id', user.id);
-      const assignedProjectIds = (assignments || []).map((a: any) => a.project_id);
+      const assignedProjectIds = (assignments || []).map((a: /* // */ any) => a.project_id);
       projectsQuery = projectsQuery.in('id', assignedProjectIds.length > 0 ? assignedProjectIds : ['00000000-0000-0000-0000-000000000000']);
     }
 

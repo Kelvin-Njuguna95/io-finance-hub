@@ -53,7 +53,7 @@ export function OutstandingReceivablesPanel() {
       let total = 0;
 
       for (const inv of invoices) {
-        const outstanding = getInvoiceOutstandingTotal(inv as any);
+        const outstanding = getInvoiceOutstandingTotal(inv as /* // */ any);
         if (outstanding <= 0) continue;
 
         const aging = getAgingBucket(inv.invoice_date);
@@ -100,7 +100,7 @@ export function OutstandingReceivablesPanel() {
       </CardHeader>
       <CardContent>
         {loading ? (
-          <p className="text-sm text-neutral-500 py-4 text-center">Loading...</p>
+          <p className="text-sm text-neutral-500 py-4 text-center">Please wait</p>
         ) : (
           <div className="space-y-4">
             {/* Total Outstanding */}

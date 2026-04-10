@@ -27,7 +27,7 @@ async function getAuthUser(request: Request) {
 }
 
 /** Fetch all of today's financial activity */
-async function fetchTodayActivity(admin: any, today: string) {
+async function fetchTodayActivity(admin: /* // */ any, today: string) {
   const [expRes, wdByCreated, wdByDate, cashByCreated, cashByDate, budRes] = await Promise.all([
     // Expenses created today
     admin.from('expenses').select('id, description, amount_kes, expense_type, project_id, projects(name), expense_categories(name)')
@@ -57,7 +57,7 @@ async function fetchTodayActivity(admin: any, today: string) {
   // Merge withdrawals from both queries, dedup by id
   const allWd = [...(wdByCreated.data || []), ...(wdByDate.data || [])];
   const seenIds = new Set<string>();
-  const withdrawals = allWd.filter((w: any) => {
+  const withdrawals = allWd.filter((w: /* // */ any) => {
     if (seenIds.has(w.id)) return false;
     seenIds.add(w.id);
     return true;
@@ -65,7 +65,7 @@ async function fetchTodayActivity(admin: any, today: string) {
 
   const allPayments = [...(cashByCreated.data || []), ...(cashByDate.data || [])];
   const seenPaymentIds = new Set<string>();
-  const cashReceipts = allPayments.filter((p: any) => {
+  const cashReceipts = allPayments.filter((p: /* // */ any) => {
     if (seenPaymentIds.has(p.id)) return false;
     seenPaymentIds.add(p.id);
     return true;
@@ -81,17 +81,17 @@ async function fetchTodayActivity(admin: any, today: string) {
 
 /** Build the Slack message text */
 function buildMessage(
-  expenses: any[],
-  withdrawals: any[],
-  cashReceipts: any[],
-  budgetActions: any[],
+  expenses: /* // */ /* // */ any[],
+  withdrawals: /* // */ /* // */ any[],
+  cashReceipts: /* // */ /* // */ any[],
+  budgetActions: /* // */ /* // */ any[],
   senderName: string,
   dateFormatted: string,
   timeEAT: string,
 ): string {
-  const totalExpenseKes = expenses.reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
-  const totalCashUsd = cashReceipts.reduce((s: number, p: any) => s + Number(p.amount_usd || 0), 0);
-  const totalCashKes = cashReceipts.reduce((s: number, p: any) => s + Number(p.amount_kes || 0), 0);
+  const totalExpenseKes = expenses.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
+  const totalCashUsd = cashReceipts.reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd || 0), 0);
+  const totalCashKes = cashReceipts.reduce((s: number, p: /* // */ any) => s + Number(p.amount_kes || 0), 0);
 
   let msg = `*IO Finance — End of Day Report*\n`;
   msg += `${dateFormatted} | Prepared by: ${senderName}\n\n`;
@@ -102,8 +102,8 @@ function buildMessage(
     msg += `_None logged today_\n`;
   } else {
     for (const e of expenses) {
-      const scope = (e as any).projects?.name || 'Shared';
-      const cat = (e as any).expense_categories?.name || '—';
+      const scope = (e as /* // */ any).projects?.name || 'Shared';
+      const cat = (e as /* // */ any).expense_categories?.name || '—';
       msg += `• ${scope} — ${cat} — ${formatKES(Number(e.amount_kes))} — ${e.description}\n`;
     }
     msg += `_Total: ${formatKES(totalExpenseKes)}_\n`;
@@ -114,10 +114,10 @@ function buildMessage(
   if (withdrawals.length === 0) {
     msg += `_None recorded today_\n`;
   } else {
-    const totalWdUsd = withdrawals.reduce((s: number, w: any) => s + Number(w.amount_usd), 0);
-    const totalWdKes = withdrawals.reduce((s: number, w: any) => s + Number(w.amount_kes), 0);
+    const totalWdUsd = withdrawals.reduce((s: number, w: /* // */ any) => s + Number(w.amount_usd), 0);
+    const totalWdKes = withdrawals.reduce((s: number, w: /* // */ any) => s + Number(w.amount_kes), 0);
     for (const w of withdrawals) {
-      const dir = (w as any).director_tag?.charAt(0).toUpperCase() + (w as any).director_tag?.slice(1);
+      const dir = (w as /* // */ any).director_tag?.charAt(0).toUpperCase() + (w as /* // */ any).director_tag?.slice(1);
       msg += `• ${dir} — ${formatUSD(Number(w.amount_usd))} @ ${Number(w.exchange_rate).toFixed(2)} = ${formatKES(Number(w.amount_kes))} — ${w.forex_bureau || '—'}\n`;
     }
     msg += `_Total: ${formatUSD(totalWdUsd)} (${formatKES(totalWdKes)})_\n`;
@@ -129,8 +129,8 @@ function buildMessage(
     msg += `_None recorded today_\n`;
   } else {
     for (const p of cashReceipts) {
-      const invoiceNumber = (p as any).invoices?.invoice_number || 'Unknown invoice';
-      const project = (p as any).invoices?.projects?.name || 'Unassigned project';
+      const invoiceNumber = (p as /* // */ any).invoices?.invoice_number || 'Unknown invoice';
+      const project = (p as /* // */ any).invoices?.projects?.name || 'Unassigned project';
       msg += `• ${project} — ${invoiceNumber} — ${formatUSD(Number(p.amount_usd || 0))} (${formatKES(Number(p.amount_kes || 0))}) — Ref: ${p.reference || '—'}\n`;
     }
     msg += `_Total: ${formatUSD(totalCashUsd)} (${formatKES(totalCashKes)})_\n`;
@@ -142,7 +142,7 @@ function buildMessage(
     msg += `_None today_\n`;
   } else {
     for (const b of budgetActions) {
-      const scope = (b as any).budgets?.projects?.name || (b as any).budgets?.departments?.name || '—';
+      const scope = (b as /* // */ any).budgets?.projects?.name || (b as /* // */ any).budgets?.departments?.name || '—';
       const status = b.status === 'submitted' ? 'Submitted' : 'Under Review';
       msg += `• ${scope} — ${status}\n`;
     }
@@ -171,7 +171,7 @@ export async function GET(request: Request) {
 
   const { expenses, withdrawals, cashReceipts, budgetActions } = await fetchTodayActivity(admin, today);
 
-  const totalExpenseKes = expenses.reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+  const totalExpenseKes = expenses.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
   const hasActivity = expenses.length > 0 || withdrawals.length > 0 || cashReceipts.length > 0 || budgetActions.length > 0;
 
   return NextResponse.json({
@@ -195,7 +195,7 @@ export async function POST(request: Request) {
   const triggerType = body.trigger_type || 'manual';
   const forceResend = body.resend === true;
 
-  let authUser: any = null;
+  let authUser: /* // */ any = null;
   if (triggerType === 'manual') {
     authUser = await getAuthUser(request);
     if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -261,8 +261,8 @@ export async function POST(request: Request) {
 
   const payload = { expenses, withdrawals, cash_receipts: cashReceipts, budget_actions: budgetActions, message: msg };
 
-  let report: any;
-  let dbError: any;
+  let report: /* // */ any;
+  let dbError: /* // */ any;
 
   if (existing) {
     // Resend: update the existing record with fresh data

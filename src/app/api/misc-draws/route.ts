@@ -119,14 +119,14 @@ export async function GET(request: Request) {
   const monthlyAmount = allocation?.monthly_amount || 0;
 
   // Separate standing vs top_up
-  const standingDraw = draws.find((d: any) => d.draw_type === 'standing') || null;
-  const topUps = draws.filter((d: any) => d.draw_type === 'top_up');
+  const standingDraw = draws.find((d: /* // */ any) => d.draw_type === 'standing') || null;
+  const topUps = draws.filter((d: /* // */ any) => d.draw_type === 'top_up');
 
-  const totalDrawn = draws.reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+  const totalDrawn = draws.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
   const remaining = monthlyAmount - totalDrawn;
 
   const topUpCount = topUps.length;
-  const topUpTotal = topUps.reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+  const topUpTotal = topUps.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
 
   // Limits
   const topupLimitCount = parseInt(limitCountRes.data?.value || '3', 10);
@@ -241,8 +241,8 @@ export async function POST(request: Request) {
     ]);
 
     const notifyUsers = [
-      ...(pmRes.data || []).map((a: any) => a.user_id),
-      ...(acctRes.data || []).map((a: any) => a.id),
+      ...(pmRes.data || []).map((a: /* // */ any) => a.user_id),
+      ...(acctRes.data || []).map((a: /* // */ any) => a.id),
     ];
 
     for (const uid of notifyUsers) {
@@ -291,7 +291,7 @@ export async function POST(request: Request) {
       .eq('draw_type', 'top_up');
 
     const topUpCount = (existingTopUps || []).length;
-    const topUpTotal = (existingTopUps || []).reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
+    const topUpTotal = (existingTopUps || []).reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
 
     const [limitCountRes, limitAmountRes] = await Promise.all([
       admin.from('system_settings').select('value').eq('key', 'misc_topup_monthly_limit_count').single(),

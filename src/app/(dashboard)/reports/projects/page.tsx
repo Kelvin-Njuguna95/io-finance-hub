@@ -95,7 +95,7 @@ export default function ProjectComparisonPage() {
       const projects = projRes.data || [];
       const invoices = invRes.data || [];
       const projExpenses = projExpRes.data || [];
-      const totalOverhead = (sharedExpRes.data || []).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+      const totalOverhead = (sharedExpRes.data || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
       const agents = agentRes.data || [];
       const budgets = budRes.data || [];
 
@@ -103,26 +103,26 @@ export default function ProjectComparisonPage() {
 
       // Revenue map
       const revMap = new Map<string, number>();
-      invoices.filter((i: any) => !isBackdated(i.description)).forEach((i: any) => {
+      invoices.filter((i: /* // */ any) => !isBackdated(i.description)).forEach((i: /* // */ any) => {
         const kes = Number(i.amount_kes) > 0 ? Number(i.amount_kes) : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
         revMap.set(i.project_id, (revMap.get(i.project_id) || 0) + kes);
       });
 
       // Expense map
       const expMap = new Map<string, number>();
-      projExpenses.forEach((e: any) => {
+      projExpenses.forEach((e: /* // */ any) => {
         expMap.set(e.project_id, (expMap.get(e.project_id) || 0) + Number(e.amount_kes));
       });
 
       // Agent map
       const agentMap = new Map<string, number>();
-      agents.forEach((a: any) => { agentMap.set(a.project_id, Number(a.agent_count)); });
+      agents.forEach((a: /* // */ any) => { agentMap.set(a.project_id, Number(a.agent_count)); });
 
       // Budget util map
       const budgetMap = new Map<string, number>();
-      budgets.forEach((b: any) => {
+      budgets.forEach((b: /* // */ any) => {
         if (!b.project_id) return;
-        const approved = (b.budget_versions || []).find((v: any) => v.status === 'approved');
+        const approved = (b.budget_versions || []).find((v: /* // */ any) => v.status === 'approved');
         const amt = b.pm_approved_total ? Number(b.pm_approved_total) : Number(approved?.total_amount_kes || 0);
         budgetMap.set(b.project_id, (budgetMap.get(b.project_id) || 0) + amt);
       });
@@ -197,7 +197,7 @@ export default function ProjectComparisonPage() {
   // Radar data
   const radarDimensions = ['Gross Margin', 'Budget Util', 'Rev/Agent', 'Cost Eff'];
   const radarData = radarDimensions.map((dim, i) => {
-    const point: any = { dimension: dim };
+    const point: /* // */ any = { dimension: dim };
     data.forEach(p => {
       point[p.name] = [p.radarGrossMargin, p.radarBudgetUtil, p.radarRevPerAgent, p.radarCostEff][i];
     });
@@ -273,7 +273,7 @@ export default function ProjectComparisonPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={12} className="text-center py-8 text-neutral-400">Loading...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={12} className="text-center py-8 text-neutral-400">Please wait</TableCell></TableRow>
                 ) : data.length === 0 ? (
                   <TableRow><TableCell colSpan={12} className="text-center py-8 text-neutral-500">No data</TableCell></TableRow>
                 ) : (

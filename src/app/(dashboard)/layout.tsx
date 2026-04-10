@@ -43,7 +43,7 @@ export default function DashboardLayout({
   if (authed === null) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#f8fafc]">
-        <p className="text-sm text-neutral-500">Loading... {debugInfo}</p>
+        <p className="text-sm text-neutral-500">Please wait {debugInfo}</p>
       </div>
     );
   }

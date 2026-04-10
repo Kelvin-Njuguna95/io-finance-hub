@@ -50,7 +50,7 @@ export function ProjectManagerDashboard({ userId }: Props) {
 
       // Get PM's assigned projects
       const { data: assignments } = await supabase.from('user_project_assignments').select('project_id').eq('user_id', userId);
-      const pids = (assignments || []).map((a: any) => a.project_id);
+      const pids = (assignments || []).map((a: /* // */ any) => a.project_id);
 
       // Get all projects (PM can see all for overview)
       const { data: allProjects } = await supabase.from('projects').select('id, name').eq('is_active', true).order('name');
@@ -61,7 +61,7 @@ export function ProjectManagerDashboard({ userId }: Props) {
       const { data: balSetting } = await supabase.from('system_settings').select('value').eq('key', 'bank_balance_usd').single();
       const standingBal = parseFloat(balSetting?.value || '0');
       const { data: allWd } = await supabase.from('withdrawals').select('amount_usd');
-      const totalWd = (allWd || []).reduce((s: number, w: any) => s + Number(w.amount_usd), 0);
+      const totalWd = (allWd || []).reduce((s: number, w: /* // */ any) => s + Number(w.amount_usd), 0);
       setBankBalance(standingBal - totalWd);
 
       // Get lagged invoices (previous month)
@@ -85,23 +85,23 @@ export function ProjectManagerDashboard({ userId }: Props) {
 
       // Build maps
       const invMap = new Map<string, number>();
-      (invoices || []).forEach((i: any) => {
+      (invoices || []).forEach((i: /* // */ any) => {
         const kes = Number(i.amount_kes) > 0 ? Number(i.amount_kes) : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
         invMap.set(i.project_id, (invMap.get(i.project_id) || 0) + kes);
       });
 
       const expMap = new Map<string, number>();
-      (expenses || []).forEach((e: any) => {
+      (expenses || []).forEach((e: /* // */ any) => {
         expMap.set(e.project_id, (expMap.get(e.project_id) || 0) + Number(e.amount_kes));
       });
 
       const agentMap = new Map<string, number>();
-      (agents || []).forEach((a: any) => agentMap.set(a.project_id, Number(a.agent_count)));
+      (agents || []).forEach((a: /* // */ any) => agentMap.set(a.project_id, Number(a.agent_count)));
 
       const budgetMap = new Map<string, { status: string; amount: number }>();
-      (budgets || []).forEach((b: any) => {
+      (budgets || []).forEach((b: /* // */ any) => {
         const vers = b.budget_versions || [];
-        const best = vers.find((v: any) => v.status === 'approved') || vers[0];
+        const best = vers.find((v: /* // */ any) => v.status === 'approved') || vers[0];
         budgetMap.set(b.project_id, {
           status: best?.status || 'none',
           amount: b.pm_approved_total || Number(best?.total_amount_kes || 0),
@@ -110,7 +110,7 @@ export function ProjectManagerDashboard({ userId }: Props) {
 
       // Build project rows
       const rows: ProjectData[] = (allProjects || [])
-        .map((p: any) => {
+        .map((p: /* // */ any) => {
           const rev = invMap.get(p.id) || 0;
           const exp = expMap.get(p.id) || 0;
           const profit = rev - exp;

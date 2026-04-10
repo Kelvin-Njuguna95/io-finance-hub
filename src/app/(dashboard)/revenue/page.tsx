@@ -120,12 +120,12 @@ export default function RevenuePage() {
       setInvoices([]);
       toast.error(getUserErrorMessage());
     } else {
-      setInvoices((invoiceData || []).map((i: any) => ({
+      setInvoices((invoiceData || []).map((i: /* // */ any) => ({
         ...i,
         payments: i.payments || [],
         payment_status: i.payment_status || i.status || 'unpaid',
-        total_paid: (i.payments || []).reduce((sum: number, payment: any) => sum + Number(payment.amount_usd || 0), 0),
-        balance_outstanding: Math.max(0, Number(i.amount_usd || 0) - (i.payments || []).reduce((sum: number, payment: any) => sum + Number(payment.amount_usd || 0), 0)),
+        total_paid: (i.payments || []).reduce((sum: number, payment: /* // */ any) => sum + Number(payment.amount_usd || 0), 0),
+        balance_outstanding: Math.max(0, Number(i.amount_usd || 0) - (i.payments || []).reduce((sum: number, payment: /* // */ any) => sum + Number(payment.amount_usd || 0), 0)),
         project_name: i.projects?.name,
         client_name: i.client_name,
       })));
@@ -134,7 +134,7 @@ export default function RevenuePage() {
     const { data: balSetting } = await supabase.from('system_settings').select('value').eq('key', 'bank_balance_usd').single();
     const standingBal = parseFloat(balSetting?.value || '0');
     const { data: allWd } = await supabase.from('withdrawals').select('amount_usd');
-    const totalWd = (allWd || []).reduce((s: number, w: any) => s + Number(w.amount_usd), 0);
+    const totalWd = (allWd || []).reduce((s: number, w: /* // */ any) => s + Number(w.amount_usd), 0);
     setBankBalance(standingBal - totalWd);
   }, []);
 

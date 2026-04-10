@@ -69,7 +69,7 @@ export default function BudgetVsActualPage() {
 
       // Expense by budget
       const expenseByBudget = new Map<string, number>();
-      (expenses || []).forEach((e: any) => {
+      (expenses || []).forEach((e: /* // */ any) => {
         if (e.budget_id) {
           expenseByBudget.set(e.budget_id, (expenseByBudget.get(e.budget_id) || 0) + Number(e.amount_kes));
         }
@@ -77,18 +77,18 @@ export default function BudgetVsActualPage() {
 
       // Expense by project (for budgets without direct link)
       const expenseByProject = new Map<string, number>();
-      (expenses || []).forEach((e: any) => {
+      (expenses || []).forEach((e: /* // */ any) => {
         if (e.project_id) {
           expenseByProject.set(e.project_id, (expenseByProject.get(e.project_id) || 0) + Number(e.amount_kes));
         }
       });
 
-      const result: BvaRow[] = (budgets || []).map((b: any) => {
+      const result: BvaRow[] = (budgets || []).map((b: /* // */ any) => {
         const versions = b.budget_versions || [];
         // Find the best version: approved > pm_approved > latest
-        const approved = versions.find((v: any) => v.status === 'approved');
-        const pmApproved = versions.find((v: any) => v.status === 'pm_approved');
-        const latest = versions.sort((a: any, b: any) => b.version_number - a.version_number)[0];
+        const approved = versions.find((v: /* // */ any) => v.status === 'approved');
+        const pmApproved = versions.find((v: /* // */ any) => v.status === 'pm_approved');
+        const latest = versions.sort((a: /* // */ any, b: /* // */ any) => b.version_number - a.version_number)[0];
         const bestVersion = approved || pmApproved || latest;
 
         // Use pm_approved_total if available, otherwise version total
@@ -117,8 +117,8 @@ export default function BudgetVsActualPage() {
       const { data: invRes } = await supabase.from('invoices').select('amount_usd, amount_kes').eq('billing_period', revMonth);
       const { data: rateSetting } = await supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single();
       const stdRate = parseFloat(rateSetting?.value || '129.5');
-      const revUsd = (invRes || []).reduce((s: number, i: any) => s + Number(i.amount_usd), 0);
-      const revKes = (invRes || []).reduce((s: number, i: any) => s + Number(i.amount_kes), 0);
+      const revUsd = (invRes || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_usd), 0);
+      const revKes = (invRes || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes), 0);
       setLaggedRevenue(revKes > 0 ? revKes : Math.round(revUsd * stdRate * 100) / 100);
 
       setLoading(false);
@@ -201,7 +201,7 @@ export default function BudgetVsActualPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-neutral-400">Loading...</TableCell>
+                    <TableCell colSpan={6} className="text-center py-8 text-neutral-400">Please wait</TableCell>
                   </TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>

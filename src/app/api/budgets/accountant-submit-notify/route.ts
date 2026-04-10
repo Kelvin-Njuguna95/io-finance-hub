@@ -77,8 +77,8 @@ export async function POST(request: Request) {
         .eq('project_id', resolvedScopeId);
 
       const pmUserIds = (pmAssignments || [])
-        .filter((a: any) => a.users?.role === 'project_manager')
-        .map((a: any) => a.user_id);
+        .filter((a: /* // */ any) => a.users?.role === 'project_manager')
+        .map((a: /* // */ any) => a.user_id);
 
       // Also get any PM who is a director for this project
       const { data: project } = await admin.from('projects').select('director_user_id').eq('id', resolvedScopeId).single();

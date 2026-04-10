@@ -17,7 +17,7 @@ export function createAdminClient(): SupabaseClient {
 }
 
 export type AuthError = { error: { message: string; status: number } };
-export type AuthSuccess = { user: any; profile: any; admin: SupabaseClient };
+export type AuthSuccess = { user: /* // */ any; profile: /* // */ any; admin: SupabaseClient };
 
 /**
  * Extract the auth token from a request, verify it, and return the

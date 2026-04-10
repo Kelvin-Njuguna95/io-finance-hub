@@ -81,9 +81,9 @@ export default function OutstandingReceivablesPage() {
     const { data } = await getOutstandingInvoices(supabase);
 
     const processed: OutstandingInvoice[] = (data || [])
-      .map((inv: any) => {
-        const totalPaid = (inv.payments || []).reduce((s: number, p: any) => s + Number(p.amount_usd), 0);
-        const balance = getInvoiceOutstandingTotal(inv as any);
+      .map((inv: /* // */ any) => {
+        const totalPaid = (inv.payments || []).reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd), 0);
+        const balance = getInvoiceOutstandingTotal(inv as /* // */ any);
         const paymentStatus = computePaymentStatus(Number(inv.amount_usd), totalPaid);
         const aging = getAgingBucket(inv.invoice_date);
         const isBackdatedInv = isBackdated(inv.description);
@@ -298,7 +298,7 @@ export default function OutstandingReceivablesPage() {
                 {loading ? (
                   <TableRow>
                     <TableCell colSpan={canAct ? 10 : 9} className="text-center py-8 text-neutral-500">
-                      Loading...
+                      Please wait
                     </TableCell>
                   </TableRow>
                 ) : invoices.length === 0 ? (

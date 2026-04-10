@@ -57,7 +57,7 @@ export async function GET(request: Request) {
   const invoiceAmountKes = laggedInvoice ? Number(laggedInvoice.amount_kes) : 0;
   const invoiceAmountUsd = laggedInvoice ? Number(laggedInvoice.amount_usd) : 0;
   const invoiceAmount = invoiceAmountKes > 0 ? invoiceAmountKes : Math.round(invoiceAmountUsd * stdRate * 100) / 100;
-  const totalPaid = laggedInvoice ? (laggedInvoice.payments || []).reduce((s: number, p: any) => s + Number(p.amount_usd || 0), 0) : 0;
+  const totalPaid = laggedInvoice ? (laggedInvoice.payments || []).reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd || 0), 0) : 0;
   const outstanding = invoiceAmountUsd - totalPaid;
   const revenueSourceMonth = prevMonth;
 
@@ -67,11 +67,11 @@ export async function GET(request: Request) {
     .eq('project_id', projectId).eq('year_month', yearMonth).eq('expense_type', 'project_expense')
     .order('expense_date');
 
-  const totalExpenses = (expenses || []).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+  const totalExpenses = (expenses || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
 
   // Expense by category
   const catMap = new Map<string, number>();
-  (expenses || []).forEach((e: any) => {
+  (expenses || []).forEach((e: /* // */ any) => {
     const cat = e.expense_categories?.name || 'Uncategorised';
     catMap.set(cat, (catMap.get(cat) || 0) + Number(e.amount_kes));
   });
@@ -86,15 +86,15 @@ export async function GET(request: Request) {
 
   const budget = (budgets || [])[0];
   let approvedVersion = null;
-  let budgetItems: any[] = [];
+  let budgetItems: /* // */ /* // */ any[] = [];
   let totalBudget = 0;
 
   if (budget) {
-    const versions = (budget as any).budget_versions || [];
-    approvedVersion = versions.find((v: any) => v.status === 'approved');
+    const versions = (budget as /* // */ any).budget_versions || [];
+    approvedVersion = versions.find((v: /* // */ any) => v.status === 'approved');
     if (approvedVersion) {
-      budgetItems = (approvedVersion as any).budget_items || [];
-      totalBudget = Number((approvedVersion as any).total_amount_kes);
+      budgetItems = (approvedVersion as /* // */ any).budget_items || [];
+      totalBudget = Number((approvedVersion as /* // */ any).total_amount_kes);
     }
   }
 
@@ -107,7 +107,7 @@ export async function GET(request: Request) {
   const agentCount = agentData?.agent_count || 0;
 
   // Previous month data for trends
-  const prevMonths: any[] = [];
+  const prevMonths: /* // */ /* // */ any[] = [];
   for (let i = 1; i <= 6; i++) {
     const d = new Date(parseInt(yearMonth.split('-')[0]), parseInt(yearMonth.split('-')[1]) - 1 - i, 1);
     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -120,8 +120,8 @@ export async function GET(request: Request) {
       admin.from('agent_counts').select('agent_count').eq('project_id', projectId).eq('year_month', ym).single(),
     ]);
 
-    const rev = (invRes.data || []).reduce((s: number, i: any) => s + Number(i.amount_kes), 0);
-    const exp = (expRes.data || []).reduce((s: number, e: any) => s + Number(e.amount_kes), 0);
+    const rev = (invRes.data || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes), 0);
+    const exp = (expRes.data || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
     const agents = agRes.data?.agent_count || 0;
 
     if (rev > 0 || exp > 0) {
@@ -170,9 +170,9 @@ export async function GET(request: Request) {
   ]);
 
   const activeDrawn = (miscDraws || [])
-    .filter((d: any) => !['pending_pm_approval', 'declined', 'deleted'].includes(String(d.status)))
-    .reduce((s: number, d: any) => s + Number(d.amount_approved || 0), 0);
-  const reportedMisc = (miscReportItems || []).reduce((s: number, i: any) => s + Number(i.amount || 0), 0);
+    .filter((d: /* // */ any) => !['pending_pm_approval', 'declined', 'deleted'].includes(String(d.status)))
+    .reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
+  const reportedMisc = (miscReportItems || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount || 0), 0);
   const miscBase = Number(miscReport?.total_drawn || 0) > 0 ? Number(miscReport?.total_drawn || 0) : activeDrawn;
   const miscCoveragePct = miscBase > 0 ? (reportedMisc / miscBase) * 100 : 100;
 
