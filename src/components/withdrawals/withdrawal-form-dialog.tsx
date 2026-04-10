@@ -36,7 +36,14 @@ interface ProfitShareOption {
   payout_status: 'unpaid' | 'partial' | 'paid';
 }
 
+interface ProfitSharePeriodOption {
+  monthKey: string;
+  label: string;
+  record: ProfitShareOption | null;
+}
+
 const DIRECTOR_NAMES = ['Kelvin', 'Evans', 'Dan', 'Gidraph', 'Victor'] as const;
+const PROFIT_SHARE_START_MONTH = '2025-09';
 
 function getNairobiDateISO() {
   const formatted = new Intl.DateTimeFormat('en-CA', {
@@ -57,6 +64,28 @@ function formatProfitShareMonth(periodMonth: string) {
     month: 'long',
     year: 'numeric',
   }).format(date);
+}
+
+function getProfitSharePeriodOptions(records: ProfitShareOption[]): ProfitSharePeriodOption[] {
+  const [startYear, startMonth] = PROFIT_SHARE_START_MONTH.split('-').map(Number);
+  const start = new Date(Date.UTC(startYear, startMonth - 1, 1));
+  const now = new Date();
+  const current = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const byMonth = new Map(records.map((record) => [record.period_month, record]));
+  const options: ProfitSharePeriodOption[] = [];
+  const cursor = new Date(start);
+
+  while (cursor <= current) {
+    const monthKey = `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`;
+    options.push({
+      monthKey,
+      label: formatProfitShareMonth(monthKey),
+      record: byMonth.get(monthKey) || null,
+    });
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+
+  return options.reverse();
 }
 
 export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
@@ -110,7 +139,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
         .from('profit_share_records')
         .select('id, period_month, distributable_amount, total_paid_out, balance_remaining, payout_status')
         .eq('director_name', payoutDirector)
-        .eq('status', 'cfo_reviewed')
+        .in('status', ['cfo_reviewed', 'approved'])
         .order('period_month', { ascending: false });
 
       setPayoutRecords(((data || []) as {
@@ -139,6 +168,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
   }, [amountUsd, exchangeRate]);
 
   const selectedDirectorUser = directorUsers.find((u) => u.director_tag === directorTag);
+  const periodOptions = useMemo(() => getProfitSharePeriodOptions(payoutRecords), [payoutRecords]);
   const selectedPayoutRecord = useMemo(
     () => payoutRecords.find((record) => record.id === payoutRecordId) ?? null,
     [payoutRecordId, payoutRecords],
@@ -447,11 +477,22 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
                   <Select value={payoutRecordId} onValueChange={(value) => setPayoutRecordId(value || '')}>
                     <SelectTrigger><SelectValue placeholder="Select approved profit share period" /></SelectTrigger>
                     <SelectContent>
-                      {payoutRecords.map((record) => (
-                        <SelectItem key={record.id} value={record.id} disabled={record.payout_status === 'paid'}>
-                          {`${formatProfitShareMonth(record.period_month)} — Allocated: ${formatKES(record.distributable_amount)} — Remaining: ${formatKES(record.balance_remaining)} — ${record.payout_status === 'paid' ? 'Fully Paid' : capitalize(record.payout_status)}`}
-                        </SelectItem>
-                      ))}
+                      {periodOptions.map((option) => {
+                        if (!option.record) {
+                          return (
+                            <SelectItem key={option.monthKey} value={`no-record-${option.monthKey}`} disabled>
+                              {`${option.label} — No approved record`}
+                            </SelectItem>
+                          );
+                        }
+
+                        const record = option.record;
+                        return (
+                          <SelectItem key={record.id} value={record.id} disabled={record.payout_status === 'paid'}>
+                            {`${option.label} — Allocated: ${formatKES(record.distributable_amount)} — Remaining: ${formatKES(record.balance_remaining)} — ${record.payout_status === 'paid' ? 'Fully Paid' : capitalize(record.payout_status)}`}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
