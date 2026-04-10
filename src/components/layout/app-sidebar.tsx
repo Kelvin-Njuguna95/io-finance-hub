@@ -1,9 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { useNotifications } from '@/hooks/use-notifications';
 import { getNavigation } from '@/lib/navigation';
@@ -49,23 +48,13 @@ export function AppSidebar() {
   const { user, loading } = useUser();
   const { unreadCount } = useNotifications();
   const pathname = usePathname();
-  const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   async function handleSignOut() {
     if (isSigningOut) return;
     setIsSigningOut(true);
-    const supabase = createClient();
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      router.push('/login');
-      router.refresh();
-    } catch (error) {
-      console.error('Sign out failed:', error);
-      toast.error('Sign out failed. Please try again.');
-      setIsSigningOut(false);
-    }
+    toast.message('Signing out…');
+    window.location.href = '/auth/signout';
   }
 
   const initials = user?.full_name
@@ -224,9 +213,15 @@ export function AppSidebar() {
                 <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} disabled={isSigningOut}>
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  void handleSignOut();
+                }}
+                disabled={isSigningOut}
+              >
                 <LogOut className="size-4" aria-hidden />
-                <span>{isSigningOut ? 'Signing out…' : 'Sign out'}</span>
+                <span>{isSigningOut ? 'Signing out…' : 'Sign Out'}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

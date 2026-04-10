@@ -17,8 +17,14 @@ export function formatPercent(value: number, decimals = 1): string {
 
 export function formatYearMonth(ym: string): string {
   const [year, month] = ym.split('-');
-  const date = new Date(parseInt(year, 10), parseInt(month, 10) - 1);
-  return formatMonth(date);
+  const parsedYear = Number.parseInt(year ?? '', 10);
+  const parsedMonth = Number.parseInt(month ?? '', 10);
+  if (!Number.isFinite(parsedYear) || !Number.isFinite(parsedMonth) || parsedMonth < 1 || parsedMonth > 12) {
+    return '—';
+  }
+
+  const date = new Date(parsedYear, parsedMonth - 1, 1);
+  return Number.isNaN(date.getTime()) ? '—' : formatMonth(date);
 }
 
 export function getCurrentYearMonth(): string {
