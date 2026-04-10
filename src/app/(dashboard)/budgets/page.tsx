@@ -293,7 +293,7 @@ export default function BudgetsPage() {
                               {b.project_name || b.department_name || '—'}
                             </span>
                             {hasSibling && (
-                              <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">
+                              <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-medium">
                                 {siblings.length} versions
                               </span>
                             )}
@@ -310,7 +310,7 @@ export default function BudgetsPage() {
                                   ? 'bg-teal-100 text-teal-700 text-[10px] px-1.5'
                                   : b.submitted_by_role === 'cfo'
                                     ? 'bg-violet-100 text-violet-700 text-[10px] px-1.5'
-                                    : 'bg-amber-100 text-amber-700 text-[10px] px-1.5'
+                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 text-[10px] px-1.5'
                               }
                             >
                               {b.submitted_by_role === 'accountant'
