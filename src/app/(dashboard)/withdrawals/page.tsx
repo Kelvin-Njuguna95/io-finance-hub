@@ -34,7 +34,7 @@ interface InvoiceSummary {
 
 export default function WithdrawalsPage() {
   const { user } = useUser();
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [withdrawals, setWithdrawals] = useState<(Withdrawal & { projects?: { name: string } | null })[]>([]);
   const [budgetSummaries, setBudgetSummaries] = useState<BudgetSummaryRow[]>([]);
   const [invoiceSummary, setInvoiceSummary] = useState<InvoiceSummary>({ total_invoiced_usd: 0, total_paid_usd: 0, total_pending_usd: 0 });
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
@@ -45,13 +45,13 @@ export default function WithdrawalsPage() {
     async function load() {
       const supabase = createClient();
 
-      // Load withdrawals
+      // Load withdrawals (join projects for company_operations rows)
       const { data: wData } = await supabase
         .from('withdrawals')
-        .select('*')
+        .select('*, projects(name)')
         .eq('year_month', selectedMonth)
         .order('withdrawal_date', { ascending: false });
-      setWithdrawals((wData || []) as Withdrawal[]);
+      setWithdrawals((wData || []) as (Withdrawal & { projects?: { name: string } | null })[]);
 
       // Load budgets
       const { data: bData } = await supabase
@@ -295,7 +295,7 @@ export default function WithdrawalsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Director</TableHead>
+                  <TableHead>Purpose</TableHead>
                   <TableHead className="text-right">USD</TableHead>
                   <TableHead className="text-right">Rate</TableHead>
                   <TableHead className="text-right">KES Received</TableHead>
@@ -316,7 +316,11 @@ export default function WithdrawalsPage() {
                     {withdrawals.map((w) => (
                       <TableRow key={w.id}>
                         <TableCell>{formatDate(w.withdrawal_date)}</TableCell>
-                        <TableCell className="font-medium">{capitalize(w.director_tag)}</TableCell>
+                        <TableCell className="font-medium">
+                          {w.purpose === 'company_operations'
+                            ? w.projects?.name || 'Company Ops'
+                            : capitalize(w.director_tag || '')}
+                        </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {formatCurrency(Number(w.amount_usd), 'USD')}
                         </TableCell>
