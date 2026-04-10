@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency } from '@/components/reports/executive-kit';
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
-import { getUnifiedServicePeriodLabel } from '@/lib/report-utils';
+import { getLaggedMonth, getUnifiedServicePeriodLabel } from '@/lib/report-utils';
 import { Badge } from '@/components/ui/badge';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { FileDown } from 'lucide-react';
@@ -47,7 +47,9 @@ export default function PnLReportPage() {
   const [loading, setLoading] = useState(true);
   const [cashBalance, setCashBalance] = useState(0);
 
-  const [revenueSourceMonth, setRevenueSourceMonth] = useState('');
+  const [revenueSourceMonth, setRevenueSourceMonth] = useState(
+    getLaggedMonth(selectedMonth)
+  );
   const [isHistorical, setIsHistorical] = useState(false);
   const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
 

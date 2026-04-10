@@ -11,6 +11,7 @@ import {
   getOutstandingInvoices,
   getInvoiceOutstandingTotal,
 } from '@/lib/queries/invoices';
+import type { InvoiceWithPayments } from '@/types/query-results';
 import { DollarSign, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
@@ -72,7 +73,9 @@ export function OutstandingReceivablesPanel() {
       let total = 0;
 
       for (const inv of invoices) {
-        const outstanding = getInvoiceOutstandingTotal(inv);
+        const outstanding = getInvoiceOutstandingTotal(
+          inv as unknown as InvoiceWithPayments
+        );
         if (outstanding <= 0) continue;
 
         const aging = getAgingBucket(inv.invoice_date);
