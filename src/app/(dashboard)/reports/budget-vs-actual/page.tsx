@@ -186,8 +186,8 @@ export default function BudgetVsActualPage() {
     pm_review: 'bg-purple-100 text-purple-700',
     pm_approved: 'bg-teal-100 text-teal-700',
     returned_to_tl: 'bg-amber-200 text-amber-800',
-    approved: 'bg-emerald-100 text-emerald-700',
-    rejected: 'bg-rose-100 text-rose-700',
+    approved: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+    rejected: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
   };
 
   async function exportPdf() {
@@ -289,9 +289,9 @@ export default function BudgetVsActualPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <Badge variant="secondary" className={
-                            r.utilization_pct > 100 ? 'bg-rose-100 text-rose-700' :
-                            r.utilization_pct > 90 ? 'bg-amber-100 text-amber-700' :
-                            'bg-emerald-100 text-emerald-700'
+                            r.utilization_pct > 100 ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' :
+                            r.utilization_pct > 90 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' :
+                            'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
                           }>
                             {formatPercent(r.utilization_pct)}
                           </Badge>
@@ -304,7 +304,7 @@ export default function BudgetVsActualPage() {
                       <TableCell className="text-right font-mono">{formatCurrency(totalActual, 'KES')}</TableCell>
                       <TableCell className={`text-right font-mono ${totalVariance < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(totalVariance, 'KES')}</TableCell>
                       <TableCell className="text-right">
-                        <Badge variant="secondary" className={totalUtil > 100 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}>
+                        <Badge variant="secondary" className={totalUtil > 100 ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'}>
                           {formatPercent(totalUtil)}
                         </Badge>
                       </TableCell>
