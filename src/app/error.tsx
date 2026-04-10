@@ -26,7 +26,7 @@ export default function GlobalError({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-foreground/80">
             An unexpected error occurred. You can try again, or return to the dashboard.
           </p>
           <div className="flex gap-2">

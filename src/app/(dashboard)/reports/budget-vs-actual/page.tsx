@@ -181,7 +181,7 @@ export default function BudgetVsActualPage() {
   const grossProfit = laggedRevenue - totalActual;
 
   const statusColors: Record<string, string> = {
-    draft: 'bg-slate-100 text-slate-600',
+    draft: 'bg-muted text-foreground/80',
     submitted: 'bg-blue-100 text-blue-700',
     pm_review: 'bg-purple-100 text-purple-700',
     pm_approved: 'bg-teal-100 text-teal-700',
@@ -260,11 +260,11 @@ export default function BudgetVsActualPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-neutral-400">Please wait</TableCell>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Please wait</TableCell>
                   </TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-neutral-500">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       No budgets for {formatYearMonth(selectedMonth)}
                     </TableCell>
                   </TableRow>
@@ -274,7 +274,7 @@ export default function BudgetVsActualPage() {
                       <TableRow key={i}>
                         <TableCell className="font-medium">{r.scope}</TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className={statusColors[r.status] || 'bg-slate-100 text-slate-600'}>
+                          <Badge variant="secondary" className={statusColors[r.status] || 'bg-muted text-foreground/80'}>
                             {capitalize(r.status.replace(/_/g, ' '))}
                           </Badge>
                         </TableCell>
@@ -298,7 +298,7 @@ export default function BudgetVsActualPage() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    <TableRow className="font-bold bg-slate-50">
+                    <TableRow className="font-bold bg-muted/50">
                       <TableCell colSpan={2} className="text-right">Total</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalBudget, 'KES')}</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalActual, 'KES')}</TableCell>
@@ -319,8 +319,8 @@ export default function BudgetVsActualPage() {
         {/* Revenue vs expenses summary */}
         <Card className="io-card max-w-lg">
           <CardContent className="p-4 space-y-2">
-            <p className="text-sm font-semibold text-slate-700">P&L Summary (Lagged)</p>
-            <p className="text-xs text-slate-500">Expenses recorded in {formatYearMonth(selectedMonth)}, matched to {formatYearMonth(serviceMonth)} service period.</p>
+            <p className="text-sm font-semibold text-foreground/90">P&L Summary (Lagged)</p>
+            <p className="text-xs text-muted-foreground">Expenses recorded in {formatYearMonth(selectedMonth)}, matched to {formatYearMonth(serviceMonth)} service period.</p>
             <div className="flex justify-between text-sm">
               <span>Revenue ({formatYearMonth(revenueSourceMonth)} invoice)</span>
               <span className="font-mono font-semibold">{formatCurrency(laggedRevenue, 'KES')}</span>

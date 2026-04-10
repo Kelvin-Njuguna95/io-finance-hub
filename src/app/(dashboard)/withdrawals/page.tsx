@@ -124,7 +124,7 @@ export default function WithdrawalsPage() {
   const canCreate = user?.role === 'cfo' || user?.role === 'accountant';
 
   const statusColors: Record<string, string> = {
-    draft: 'bg-neutral-100 text-neutral-700',
+    draft: 'bg-muted text-foreground/90',
     submitted: 'bg-blue-100 text-blue-700',
     under_review: 'bg-yellow-100 text-yellow-700',
     approved: 'bg-green-100 text-green-700',
@@ -246,7 +246,7 @@ export default function WithdrawalsPage() {
               <TableBody>
                 {budgetSummaries.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-6 text-neutral-500">
+                    <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
                       No budgets submitted for {formatYearMonth(selectedMonth)}
                     </TableCell>
                   </TableRow>
@@ -255,7 +255,7 @@ export default function WithdrawalsPage() {
                     {budgetSummaries.map((b, i) => (
                       <TableRow key={i}>
                         <TableCell className="font-medium">{b.scope}</TableCell>
-                        <TableCell className="text-sm text-neutral-500">{capitalize(b.scope_type)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{capitalize(b.scope_type)}</TableCell>
                         <TableCell>
                           <Badge variant="secondary" className={statusColors[b.status] || ''}>
                             {capitalize(b.status)}
@@ -266,7 +266,7 @@ export default function WithdrawalsPage() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    <TableRow className="font-semibold bg-neutral-50">
+                    <TableRow className="font-semibold bg-muted/50">
                       <TableCell colSpan={3} className="text-right">Total (All Budgets)</TableCell>
                       <TableCell className="text-right font-mono">
                         {formatCurrency(budgetSummaries.reduce((s, b) => s + b.total_kes, 0), 'KES')}
@@ -307,7 +307,7 @@ export default function WithdrawalsPage() {
               <TableBody>
                 {withdrawals.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-neutral-500">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No withdrawals for {formatYearMonth(selectedMonth)}
                     </TableCell>
                   </TableRow>
@@ -333,7 +333,7 @@ export default function WithdrawalsPage() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    <TableRow className="font-semibold bg-neutral-50">
+                    <TableRow className="font-semibold bg-muted/50">
                       <TableCell colSpan={2} className="text-right">Totals</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalWithdrawnUsd, 'USD')}</TableCell>
                       <TableCell className="text-right font-mono text-sm">{avgRate > 0 ? `Avg: ${avgRate.toFixed(2)}` : ''}</TableCell>

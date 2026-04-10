@@ -73,7 +73,7 @@ export default function FinancialsPage() {
     return (
       <div>
         <PageHeader title="Project Financials" description="No project assigned" />
-        <div className="p-6 text-center text-neutral-500">No project assigned to your account.</div>
+        <div className="p-6 text-center text-muted-foreground">No project assigned to your account.</div>
       </div>
     );
   }
@@ -98,7 +98,7 @@ export default function FinancialsPage() {
       </PageHeader>
 
       {loading ? (
-        <div className="p-6 text-center text-neutral-400">Loading financial data...</div>
+        <div className="p-6 text-center text-muted-foreground">Loading financial data...</div>
       ) : d && (
         <div className="p-6 space-y-6">
           {/* SECTION 1: Health Score */}
@@ -107,11 +107,11 @@ export default function FinancialsPage() {
               <div className="flex items-center gap-4">
                 <span className="text-3xl">{healthEmoji}</span>
                 <div>
-                  <p className="text-2xl font-bold">{d.health.score} <span className="text-sm font-normal text-neutral-500">/ 100</span></p>
+                  <p className="text-2xl font-bold">{d.health.score} <span className="text-sm font-normal text-muted-foreground">/ 100</span></p>
                   <p className="text-sm font-medium capitalize">{d.health.score_band.replace('_', ' ')}</p>
                 </div>
               </div>
-              <p className="text-sm text-neutral-600 max-w-md text-right">
+              <p className="text-sm text-foreground/80 max-w-md text-right">
                 {d.health.biggest_drag ? `${d.health.biggest_drag} is the main area to improve.` : 'Project is tracking well across all indicators.'}
               </p>
             </CardContent>
@@ -121,17 +121,17 @@ export default function FinancialsPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Revenue — {formatYearMonth(serviceMonth)} invoice</CardTitle>
-              <p className="text-xs text-slate-400">Service period: {formatYearMonth(serviceMonth)}. Paid in: {formatYearMonth(selectedMonth)}.</p>
+              <p className="text-xs text-muted-foreground">Service period: {formatYearMonth(serviceMonth)}. Paid in: {formatYearMonth(selectedMonth)}.</p>
             </CardHeader>
             <CardContent>
               {d.revenue.invoice_amount === 0 ? (
-                <p className="text-sm text-neutral-500 py-2">No invoice for {formatYearMonth(d.revenue.revenue_source_month || '')} — revenue is KES 0 for this period.</p>
+                <p className="text-sm text-muted-foreground py-2">No invoice for {formatYearMonth(d.revenue.revenue_source_month || '')} — revenue is KES 0 for this period.</p>
               ) : (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <div><p className="text-xs text-neutral-500">Invoice Raised</p><p className="text-lg font-semibold">{formatCurrency(d.revenue.invoice_amount, 'KES')}</p></div>
-                  <div><p className="text-xs text-neutral-500">Status</p><Badge variant="secondary" className={d.revenue.invoice_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}>{d.revenue.invoice_status}</Badge></div>
-                  <div><p className="text-xs text-neutral-500">Payment Received</p><p className="text-lg font-semibold">{formatCurrency(d.revenue.total_paid, 'KES')}</p></div>
-                  <div><p className="text-xs text-neutral-500">Outstanding (USD)</p><p className={`text-lg font-semibold ${d.revenue.outstanding > 0 ? 'text-red-600' : ''}`}>{formatCurrency(d.revenue.outstanding, 'USD')}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Invoice Raised</p><p className="text-lg font-semibold">{formatCurrency(d.revenue.invoice_amount, 'KES')}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Status</p><Badge variant="secondary" className={d.revenue.invoice_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}>{d.revenue.invoice_status}</Badge></div>
+                  <div><p className="text-xs text-muted-foreground">Payment Received</p><p className="text-lg font-semibold">{formatCurrency(d.revenue.total_paid, 'KES')}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Outstanding (USD)</p><p className={`text-lg font-semibold ${d.revenue.outstanding > 0 ? 'text-red-600' : ''}`}>{formatCurrency(d.revenue.outstanding, 'USD')}</p></div>
                 </div>
               )}
             </CardContent>
@@ -142,10 +142,10 @@ export default function FinancialsPage() {
             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Expenses — {formatYearMonth(selectedMonth)} actuals ({formatYearMonth(serviceMonth)} service period)</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <div><p className="text-xs text-neutral-500">Total Expenses</p><p className="text-lg font-semibold">{formatCurrency(d.expenses.total, 'KES')}</p></div>
-                <div><p className="text-xs text-neutral-500">Approved Budget</p><p className="text-lg font-semibold">{formatCurrency(d.budget.total, 'KES')}</p></div>
-                <div><p className="text-xs text-neutral-500">Variance</p><p className={`text-lg font-semibold ${d.budget.variance < 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(d.budget.variance, 'KES')}</p></div>
-                <div><p className="text-xs text-neutral-500">Utilisation</p><Badge variant="secondary" className={d.budget.utilisation > 100 ? 'bg-red-100 text-red-700' : d.budget.utilisation > 90 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}>{formatPercent(d.budget.utilisation)}</Badge></div>
+                <div><p className="text-xs text-muted-foreground">Total Expenses</p><p className="text-lg font-semibold">{formatCurrency(d.expenses.total, 'KES')}</p></div>
+                <div><p className="text-xs text-muted-foreground">Approved Budget</p><p className="text-lg font-semibold">{formatCurrency(d.budget.total, 'KES')}</p></div>
+                <div><p className="text-xs text-muted-foreground">Variance</p><p className={`text-lg font-semibold ${d.budget.variance < 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(d.budget.variance, 'KES')}</p></div>
+                <div><p className="text-xs text-muted-foreground">Utilisation</p><Badge variant="secondary" className={d.budget.utilisation > 100 ? 'bg-red-100 text-red-700' : d.budget.utilisation > 90 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}>{formatPercent(d.budget.utilisation)}</Badge></div>
               </div>
               {d.expenses.by_category.length > 0 && (
                 <Table>
@@ -208,13 +208,13 @@ export default function FinancialsPage() {
             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Agent Productivity</CardTitle></CardHeader>
             <CardContent>
               {d.agents.count === 0 ? (
-                <p className="text-sm text-neutral-500 py-2">Agent count not entered for {formatYearMonth(selectedMonth)}. Enter agent count to see productivity metrics.</p>
+                <p className="text-sm text-muted-foreground py-2">Agent count not entered for {formatYearMonth(selectedMonth)}. Enter agent count to see productivity metrics.</p>
               ) : (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <div><p className="text-xs text-neutral-500">Agents</p><p className="text-lg font-semibold">{d.agents.count}</p></div>
-                  <div><p className="text-xs text-neutral-500">Revenue per Agent</p><p className="text-lg font-semibold">{formatCurrency(d.agents.revenue_per_agent, 'KES')}</p></div>
-                  <div><p className="text-xs text-neutral-500">Cost per Agent</p><p className="text-lg font-semibold">{formatCurrency(d.agents.cost_per_agent, 'KES')}</p></div>
-                  <div><p className="text-xs text-neutral-500">Contribution per Agent</p><p className={`text-lg font-semibold ${d.agents.contribution_per_agent < 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(d.agents.contribution_per_agent, 'KES')}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Agents</p><p className="text-lg font-semibold">{d.agents.count}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Revenue per Agent</p><p className="text-lg font-semibold">{formatCurrency(d.agents.revenue_per_agent, 'KES')}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Cost per Agent</p><p className="text-lg font-semibold">{formatCurrency(d.agents.cost_per_agent, 'KES')}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Contribution per Agent</p><p className={`text-lg font-semibold ${d.agents.contribution_per_agent < 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(d.agents.contribution_per_agent, 'KES')}</p></div>
                 </div>
               )}
             </CardContent>
@@ -257,7 +257,7 @@ export default function FinancialsPage() {
             <CardContent>
               <div className="space-y-2">
                 {d.hints.map((h, i) => (
-                  <div key={i} className={`flex items-start gap-3 rounded-md p-3 ${h.severity === 'critical' ? 'bg-red-50 border border-red-200' : h.severity === 'warning' ? 'bg-amber-50 border border-amber-200' : h.severity === 'positive' ? 'bg-green-50 border border-green-200' : 'bg-neutral-50 border'}`}>
+                  <div key={i} className={`flex items-start gap-3 rounded-md p-3 ${h.severity === 'critical' ? 'bg-red-50 border border-red-200' : h.severity === 'warning' ? 'bg-amber-50 border border-amber-200' : h.severity === 'positive' ? 'bg-green-50 border border-green-200' : 'bg-muted/50 border'}`}>
                     <span className="text-lg shrink-0">{h.icon}</span>
                     <p className="text-sm">{h.text}</p>
                   </div>

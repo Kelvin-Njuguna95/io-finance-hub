@@ -66,7 +66,7 @@ export default function RedFlagsPage() {
       <div>
         <PageHeader title="Red Flags" description="Access restricted" />
         <div className="p-6">
-          <p className="text-sm text-neutral-500">Your role does not have access to red flags.</p>
+          <p className="text-sm text-muted-foreground">Your role does not have access to red flags.</p>
         </div>
       </div>
     );
@@ -86,7 +86,7 @@ export default function RedFlagsPage() {
 
         {flags.length === 0 ? (
           <Card>
-            <CardContent className="py-8 text-center text-sm text-neutral-500">
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
               No {filter} red flags
             </CardContent>
           </Card>
@@ -102,9 +102,9 @@ export default function RedFlagsPage() {
                     <div>
                       <p className="text-sm font-medium">{flag.title}</p>
                       {flag.description && (
-                        <p className="text-xs text-neutral-500 mt-0.5">{flag.description}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{flag.description}</p>
                       )}
-                      <p className="text-xs text-neutral-400 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         {formatDateTime(flag.created_at)}
                         {flag.year_month && ` · ${flag.year_month}`}
                       </p>

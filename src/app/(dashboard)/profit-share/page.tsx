@@ -201,11 +201,11 @@ export default function ProfitSharePage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-neutral-400">Please wait</TableCell>
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Please wait</TableCell>
                   </TableRow>
                 ) : shares.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-neutral-500">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       No profit share data for {formatYearMonth(selectedMonth)}
                     </TableCell>
                   </TableRow>
@@ -249,7 +249,7 @@ export default function ProfitSharePage() {
                         )}
                       </TableRow>
                     ))}
-                    <TableRow className="font-bold bg-slate-50">
+                    <TableRow className="font-bold bg-muted/50">
                       <TableCell colSpan={4} className="text-right">Total</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalDistributable, 'KES')}</TableCell>
                       <TableCell className="text-right font-mono text-emerald-600">{formatCurrency(totalDirectorShare, 'KES')}</TableCell>

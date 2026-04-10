@@ -71,7 +71,7 @@ export default function DepartmentsPage() {
                   <TableRow key={d.id}>
                     <TableCell className="font-medium">{d.name}</TableCell>
                     <TableCell>{d.owner_name || '—'}</TableCell>
-                    <TableCell className="text-sm text-neutral-500">{formatDate(d.created_at)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDate(d.created_at)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

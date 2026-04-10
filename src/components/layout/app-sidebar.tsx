@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useUser } from '@/hooks/use-user';
 import { useNotifications } from '@/hooks/use-notifications';
 import { getNavigation } from '@/lib/navigation';
+import { createClient } from '@/lib/supabase/client';
 import { ROLE_LABELS } from '@/types/database';
 import { cn } from '@/lib/utils';
 import {
@@ -47,6 +48,22 @@ export function AppSidebar() {
   const { user, loading } = useUser();
   const { unreadCount } = useNotifications();
   const pathname = usePathname();
+
+  async function handleSignOut() {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Supabase signOut error:', error);
+        toast.error('Signed out locally. Refreshing login page…');
+      }
+    } catch (error) {
+      console.error('Sign out exception:', error);
+      toast.error('Sign out encountered an issue. Redirecting to login…');
+    } finally {
+      window.location.href = '/login';
+    }
+  }
 
   const initials = user?.full_name
     ? user.full_name
@@ -206,7 +223,12 @@ export function AppSidebar() {
                 <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem render={<Link href="/auth/signout" />}>
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  void handleSignOut();
+                }}
+              >
                 <LogOut className="size-4" aria-hidden />
                 <span>Sign Out</span>
               </DropdownMenuItem>

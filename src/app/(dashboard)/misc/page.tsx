@@ -81,7 +81,7 @@ export default function MiscPage() {
     return (
       <div>
         <PageHeader title="Misc Draws" description="Please wait" />
-        <div className="p-6 text-center text-slate-400">Loading user data...</div>
+        <div className="p-6 text-center text-muted-foreground">Loading user data...</div>
       </div>
     );
   }
@@ -120,7 +120,7 @@ export default function MiscPage() {
           <AccountantMiscView user={user} selectedMonth={selectedMonth} />
         )}
         {!['project_manager', 'team_leader', 'cfo', 'accountant'].includes(role) && (
-          <p className="text-center text-slate-400 py-8">Your role does not have access to misc draws.</p>
+          <p className="text-center text-muted-foreground py-8">Your role does not have access to misc draws.</p>
         )}
       </div>
     </div>
@@ -276,7 +276,7 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
         <CardTitle className="text-sm font-medium">Project Misc Expenditure Line Items</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-xs text-slate-600">
+        <p className="text-xs text-foreground/80">
           Enter project-level misc expenditure for <strong>{formatYearMonth(reportMonth)}</strong>. This section is available to CFO, Accountant, PM, and Team Leader.
         </p>
 
@@ -294,14 +294,14 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
               </SelectContent>
             </Select>
           </div>
-          <div className="rounded-md border bg-white p-3 text-sm">
-            <p className="text-slate-500">Line Item Total</p>
+          <div className="rounded-md border bg-card p-3 text-sm">
+            <p className="text-muted-foreground">Line Item Total</p>
             <p className="font-semibold">{formatCurrency(itemTotal, 'KES')}</p>
           </div>
         </div>
 
         {!selectedProjectId ? (
-          <p className="text-sm text-slate-500">No project selected.</p>
+          <p className="text-sm text-muted-foreground">No project selected.</p>
         ) : (
           <>
             {canEdit && (
@@ -313,11 +313,11 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
             )}
 
             {items.length === 0 ? (
-              <p className="text-sm text-slate-500 text-center py-2">No line items yet.</p>
+              <p className="text-sm text-muted-foreground text-center py-2">No line items yet.</p>
             ) : (
               <div className="space-y-2">
                 {items.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-12 gap-2 items-end rounded-lg border bg-white p-2">
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-end rounded-lg border bg-card p-2">
                     <div className="col-span-2">
                       <Label className="text-xs">Date</Label>
                       <Input type="date" value={item.expense_date || ''} disabled={!canEdit} onChange={(e) => updateItem(idx, 'expense_date', e.target.value)} />
@@ -343,7 +343,7 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
             )}
 
             {report?.status && !canEdit && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 This report is <strong>{report.status}</strong> and is no longer editable.
               </p>
             )}
@@ -687,11 +687,11 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
   }
 
   if (loading) {
-    return <div className="text-center text-slate-400 py-8">Loading misc data...</div>;
+    return <div className="text-center text-muted-foreground py-8">Loading misc data...</div>;
   }
 
   if (!project) {
-    return <div className="text-center text-slate-400 py-8">No active project assigned. Contact the CFO.</div>;
+    return <div className="text-center text-muted-foreground py-8">No active project assigned. Contact the CFO.</div>;
   }
 
   const draws = apiData?.draws || [];
@@ -782,16 +782,16 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                   <TableRow key={d.id}>
                     <TableCell className="text-sm">
                       <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-xs">Accountant</Badge>
-                      <span className="ml-1 text-xs text-slate-500">{(d.users as /* // */ any)?.full_name || '—'}</span>
+                      <span className="ml-1 text-xs text-muted-foreground">{(d.users as /* // */ any)?.full_name || '—'}</span>
                     </TableCell>
                     <TableCell className="font-medium text-sm max-w-[200px] truncate">{d.purpose}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-[#1e293b] text-white text-xs' : 'bg-amber-100 text-amber-800 text-xs'}>
+                      <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white text-xs' : 'bg-amber-100 text-amber-800 text-xs'}>
                         {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(d.amount_requested), 'KES')}</TableCell>
-                    <TableCell className="text-xs text-slate-500 max-w-[150px] truncate">{d.accountant_notes || '—'}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{d.accountant_notes || '—'}</TableCell>
                     <TableCell className="text-center text-xs">{d.revision_count > 0 ? `#${d.revision_count}` : '—'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-1 justify-end">
@@ -851,15 +851,15 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
             <TableBody>
               {draws.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-6 text-slate-400">No draws for this month.</TableCell>
+                  <TableCell colSpan={9} className="text-center py-6 text-muted-foreground">No draws for this month.</TableCell>
                 </TableRow>
               ) : (
                 draws.filter((d: /* // */ any) => d.status !== 'deleted').map((d: /* // */ any, idx: number) => (
                   <TableRow key={d.id}>
-                    <TableCell className="text-slate-400">{idx + 1}</TableCell>
+                    <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                     <TableCell className="text-sm">{formatDate(d.created_at)}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-[#1e293b] text-white' : 'bg-amber-100 text-amber-800'}>
+                      <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white' : 'bg-amber-100 text-amber-800'}>
                         {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'}
                       </Badge>
                     </TableCell>
@@ -869,7 +869,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                       {d.raised_by_role === 'accountant' ? (
                         <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px]">Accountant</Badge>
                       ) : (
-                        <span className="text-slate-400">Self</span>
+                        <span className="text-muted-foreground">Self</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -879,7 +879,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                             : d.status === 'flagged' ? 'bg-rose-100 text-rose-700'
                               : d.status === MISC_DRAW_STATUS.PENDING_PM_APPROVAL ? 'bg-purple-100 text-purple-700'
                                 : d.status === 'declined' ? 'bg-rose-100 text-rose-700'
-                                  : 'bg-slate-100 text-slate-600'
+                                  : 'bg-muted text-foreground/80'
                       }>
                         {d.status === 'approved' ? 'Active' : d.status === 'accounted' ? 'Accounted' : d.status === 'flagged' ? 'Flagged' : d.status === MISC_DRAW_STATUS.PENDING_PM_APPROVAL ? 'Pending Approval' : d.status === 'declined' ? 'Declined' : d.status}
                       </Badge>
@@ -954,10 +954,10 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
               <div className="space-y-4">
                 {/* Report header */}
                 <div className="flex flex-wrap gap-6 text-sm">
-                  <div><span className="text-slate-400">Period:</span> <strong>{formatYearMonth(prevMonthStr)}</strong></div>
-                  <div><span className="text-slate-400">Total Drawn:</span> <strong>{formatCurrency(totalDrawnForReport, 'KES')}</strong></div>
-                  <div><span className="text-slate-400">Total Itemised:</span> <strong>{formatCurrency(reportItemsTotal, 'KES')}</strong></div>
-                  <div><span className="text-slate-400">Variance:</span> <strong className={unaccounted > 0 ? 'text-amber-600' : 'text-emerald-600'}>{formatCurrency(unaccounted, 'KES')}</strong></div>
+                  <div><span className="text-muted-foreground">Period:</span> <strong>{formatYearMonth(prevMonthStr)}</strong></div>
+                  <div><span className="text-muted-foreground">Total Drawn:</span> <strong>{formatCurrency(totalDrawnForReport, 'KES')}</strong></div>
+                  <div><span className="text-muted-foreground">Total Itemised:</span> <strong>{formatCurrency(reportItemsTotal, 'KES')}</strong></div>
+                  <div><span className="text-muted-foreground">Variance:</span> <strong className={unaccounted > 0 ? 'text-amber-600' : 'text-emerald-600'}>{formatCurrency(unaccounted, 'KES')}</strong></div>
                   <div>
                     <Badge variant="secondary" className={
                       prevReport.status === 'submitted' ? 'bg-blue-100 text-blue-700'
@@ -979,7 +979,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                 )}
 
                 {prevReportItems.length === 0 ? (
-                  <p className="text-sm text-slate-400 py-4 text-center">No items yet. Click &quot;Add Line Item&quot; to start.</p>
+                  <p className="text-sm text-muted-foreground py-4 text-center">No items yet. Click &quot;Add Line Item&quot; to start.</p>
                 ) : (
                   <Table>
                     <TableHeader>
@@ -995,7 +995,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                     <TableBody>
                       {prevReportItems.map((item: /* // */ any, idx: number) => (
                         <TableRow key={idx}>
-                          <TableCell className="text-slate-400">{idx + 1}</TableCell>
+                          <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                           <TableCell>
                             {prevReport.status === 'draft' ? (
                               <Input type="date" value={item.expense_date || ''} onChange={(e) => updateReportItem(idx, 'expense_date', e.target.value)} className="h-8 w-36 text-sm" />
@@ -1028,7 +1028,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                               </Select>
                             ) : (
                               item.misc_draw_id ? (
-                                <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-xs">Linked</Badge>
+                                <Badge variant="secondary" className="bg-muted text-foreground/80 text-xs">Linked</Badge>
                               ) : '—'
                             )}
                           </TableCell>
@@ -1041,7 +1041,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                           )}
                         </TableRow>
                       ))}
-                      <TableRow className="font-bold bg-slate-50">
+                      <TableRow className="font-bold bg-muted/50">
                         <TableCell colSpan={3} className="text-right">Total</TableCell>
                         <TableCell className="text-right font-mono">{formatCurrency(reportItemsTotal, 'KES')}</TableCell>
                         <TableCell colSpan={prevReport.status === 'draft' ? 2 : 1} />
@@ -1067,13 +1067,13 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
               </div>
             ) : prevDraws.length > 0 ? (
               <div className="text-center py-6 space-y-2">
-                <p className="text-sm text-slate-400">There were draws last month but no report has been created.</p>
+                <p className="text-sm text-muted-foreground">There were draws last month but no report has been created.</p>
                 <Button onClick={handleCreateReport} className="gap-1">
                   <FileText className="h-4 w-4" /> Create Report
                 </Button>
               </div>
             ) : (
-              <p className="text-sm text-slate-400 text-center py-6">No draws recorded for {formatYearMonth(prevMonthStr)}.</p>
+              <p className="text-sm text-muted-foreground text-center py-6">No draws recorded for {formatYearMonth(prevMonthStr)}.</p>
             )}
           </CardContent>
         </Card>
@@ -1124,7 +1124,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                 <div key={d.id} className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm">
                   <div className="flex justify-between mb-1">
                     <strong>{d.draw_type === 'standing' ? 'Standing' : 'Top-Up'} &mdash; {formatCurrency(Number(d.amount_approved), 'KES')}</strong>
-                    <span className="text-slate-400">{formatDate(d.cfo_flagged_at)}</span>
+                    <span className="text-muted-foreground">{formatDate(d.cfo_flagged_at)}</span>
                   </div>
                   <p className="text-rose-700">{d.cfo_flag_reason}</p>
                 </div>
@@ -1146,12 +1146,12 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
             return draw ? (
               <div className="space-y-3 text-sm">
                 <div className="rounded-lg border bg-emerald-50 p-3 space-y-1">
-                  <div className="flex justify-between"><span className="text-slate-400">Purpose:</span><strong>{draw.purpose}</strong></div>
-                  <div className="flex justify-between"><span className="text-slate-400">Amount:</span><strong>{formatCurrency(Number(draw.amount_requested), 'KES')}</strong></div>
-                  <div className="flex justify-between"><span className="text-slate-400">Raised by:</span><strong>{(draw.users as /* // */ any)?.full_name || 'Accountant'}</strong></div>
-                  {draw.accountant_notes && <div className="flex justify-between"><span className="text-slate-400">Notes:</span><strong>{draw.accountant_notes}</strong></div>}
+                  <div className="flex justify-between"><span className="text-muted-foreground">Purpose:</span><strong>{draw.purpose}</strong></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Amount:</span><strong>{formatCurrency(Number(draw.amount_requested), 'KES')}</strong></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Raised by:</span><strong>{(draw.users as /* // */ any)?.full_name || 'Accountant'}</strong></div>
+                  {draw.accountant_notes && <div className="flex justify-between"><span className="text-muted-foreground">Notes:</span><strong>{draw.accountant_notes}</strong></div>}
                 </div>
-                <p className="text-slate-500">Approving will mark this draw as active and available for expense recording.</p>
+                <p className="text-muted-foreground">Approving will mark this draw as active and available for expense recording.</p>
               </div>
             ) : null;
           })()}
@@ -1349,7 +1349,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
   }
 
   if (loading) {
-    return <div className="text-center text-slate-400 py-8">Loading CFO accountability dashboard...</div>;
+    return <div className="text-center text-muted-foreground py-8">Loading CFO accountability dashboard...</div>;
   }
 
   // ── Compute Metrics ──
@@ -1444,8 +1444,8 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
             onClick={() => setActiveTab(t.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === t.key
-                ? 'border-[#0f172a] text-[#0f172a]'
-                : 'border-transparent text-slate-400 hover:text-slate-600'
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground/80'
             }`}
           >
             {t.label}
@@ -1476,7 +1476,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
             <Card className="io-card">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Receipt className="h-4 w-4 text-slate-500" />
+                  <Receipt className="h-4 w-4 text-muted-foreground" />
                   Company Expenses — {formatYearMonth(selectedMonth)}
                 </CardTitle>
               </CardHeader>
@@ -1485,19 +1485,19 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                 <Separator />
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Project Expenses</span>
+                    <span className="text-muted-foreground">Project Expenses</span>
                     <span className="font-mono font-medium">{formatCurrency(totalProjectExpenseKes, 'KES')}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Shared / Overhead</span>
+                    <span className="text-muted-foreground">Shared / Overhead</span>
                     <span className="font-mono font-medium">{formatCurrency(totalSharedExpenseKes, 'KES')}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Misc-linked</span>
+                    <span className="text-muted-foreground">Misc-linked</span>
                     <span className="font-mono font-medium">{formatCurrency(miscExpenses.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes || 0), 0), 'KES')}</span>
                   </div>
                   <Separator />
-                  <div className="flex justify-between text-xs text-slate-400">
+                  <div className="flex justify-between text-xs text-muted-foreground">
                     <span>{monthExpenses.length} total entries</span>
                     <span>{miscExpenses.length} misc-linked</span>
                   </div>
@@ -1512,7 +1512,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
               </CardHeader>
               <CardContent>
                 {categoryList.length === 0 ? (
-                  <p className="text-sm text-slate-400 text-center py-4">No expenses this month.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">No expenses this month.</p>
                 ) : (
                   <div className="space-y-2">
                     {categoryList.slice(0, 8).map(([cat, amt]) => {
@@ -1523,14 +1523,14 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                             <span className="truncate max-w-[160px]">{cat}</span>
                             <span className="font-mono text-xs">{formatCurrency(amt, 'KES')}</span>
                           </div>
-                          <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                            <div className="h-full rounded-full bg-[#0f172a]" style={{ width: `${Math.min(pct, 100)}%` }} />
+                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(pct, 100)}%` }} />
                           </div>
                         </div>
                       );
                     })}
                     {categoryList.length > 8 && (
-                      <p className="text-xs text-slate-400 text-center">+{categoryList.length - 8} more categories</p>
+                      <p className="text-xs text-muted-foreground text-center">+{categoryList.length - 8} more categories</p>
                     )}
                   </div>
                 )}
@@ -1544,7 +1544,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
               </CardHeader>
               <CardContent>
                 {expenseByProject.size === 0 ? (
-                  <p className="text-sm text-slate-400 text-center py-4">No project expenses this month.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">No project expenses this month.</p>
                 ) : (
                   <div className="space-y-2">
                     {Array.from(expenseByProject.entries())
@@ -1556,10 +1556,10 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                           <div key={pid}>
                             <div className="flex justify-between text-sm mb-0.5">
                               <span className="truncate max-w-[140px]">{info.name}</span>
-                              <span className="font-mono text-xs">{formatCurrency(info.total, 'KES')} <span className="text-slate-400">({info.count})</span></span>
+                              <span className="font-mono text-xs">{formatCurrency(info.total, 'KES')} <span className="text-muted-foreground">({info.count})</span></span>
                             </div>
-                            <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                              <div className="h-full rounded-full bg-[#F5C518]" style={{ width: `${Math.min(pct, 100)}%` }} />
+                            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(pct, 100)}%` }} />
                             </div>
                           </div>
                         );
@@ -1586,17 +1586,17 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div className="text-center p-3 rounded-lg bg-amber-50">
                     <div className="text-xl font-bold text-amber-700">{acctPending.length}</div>
-                    <div className="text-slate-500">Pending Approval</div>
+                    <div className="text-muted-foreground">Pending Approval</div>
                     <div className="font-mono text-xs">{formatCurrency(acctPending.reduce((s: number, r: /* // */ any) => s + Number(r.amount_requested || 0), 0), 'KES')}</div>
                   </div>
                   <div className="text-center p-3 rounded-lg bg-emerald-50">
                     <div className="text-xl font-bold text-emerald-700">{acctApproved.length}</div>
-                    <div className="text-slate-500">Approved</div>
+                    <div className="text-muted-foreground">Approved</div>
                     <div className="font-mono text-xs">{formatCurrency(acctTotalApproved, 'KES')}</div>
                   </div>
-                  <div className="text-center p-3 rounded-lg bg-slate-50">
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
                     <div className="text-xl font-bold">{acctRequests.filter((r) => r.status === 'declined').length}</div>
-                    <div className="text-slate-500">Declined</div>
+                    <div className="text-muted-foreground">Declined</div>
                   </div>
                 </div>
                 <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => setActiveTab('accountant')}>
@@ -1624,7 +1624,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                       }`} />
                       <div className="flex-1 min-w-0">
                         <div className="font-medium">{f.title}</div>
-                        <p className="text-slate-500 text-xs mt-0.5 line-clamp-2">{f.description}</p>
+                        <p className="text-muted-foreground text-xs mt-0.5 line-clamp-2">{f.description}</p>
                       </div>
                       <Badge variant="secondary" className={
                         f.severity === 'critical' ? 'bg-rose-100 text-rose-700'
@@ -1671,7 +1671,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                 <TableBody>
                   {allProjectsWithActivity.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-6 text-slate-400">No projects with misc allocations or activity.</TableCell>
+                      <TableCell colSpan={9} className="text-center py-6 text-muted-foreground">No projects with misc allocations or activity.</TableCell>
                     </TableRow>
                   ) : (
                     allProjectsWithActivity.map((p) => {
@@ -1735,7 +1735,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
             </CardHeader>
             <CardContent>
               {projectsWithAlloc.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-4">No allocations configured.</p>
+                <p className="text-sm text-muted-foreground text-center py-4">No allocations configured.</p>
               ) : (
                 <div className="space-y-3">
                   {projectsWithAlloc.map((p) => {
@@ -1745,23 +1745,23 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                     const isOver = pct > 100;
                     const isUnder = pct < 30;
                     return (
-                      <div key={p.id} className={`rounded-lg border p-3 ${isOver ? 'border-rose-200 bg-rose-50/30' : isUnder ? 'border-blue-200 bg-blue-50/30' : 'border-slate-100'}`}>
+                      <div key={p.id} className={`rounded-lg border p-3 ${isOver ? 'border-rose-200 bg-rose-50/30' : isUnder ? 'border-blue-200 bg-blue-50/30' : 'border-border/70'}`}>
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="font-medium text-sm">{p.name}</span>
                           <div className="flex items-center gap-3 text-xs">
-                            <span className="text-slate-400">Alloc: {formatCurrency(alloc, 'KES')}</span>
+                            <span className="text-muted-foreground">Alloc: {formatCurrency(alloc, 'KES')}</span>
                             <span className={`font-mono font-bold ${isOver ? 'text-rose-600' : ''}`}>{formatCurrency(drawn, 'KES')}</span>
                             {isOver && <Badge variant="secondary" className="bg-rose-100 text-rose-700 text-xs">OVER</Badge>}
                             {isUnder && drawn === 0 && <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">NO DRAWS</Badge>}
                           </div>
                         </div>
-                        <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all ${isOver ? 'bg-rose-500' : pct > 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
                             style={{ width: `${Math.min(pct, 100)}%` }}
                           />
                         </div>
-                        <div className="flex justify-between text-xs text-slate-400 mt-0.5">
+                        <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
                           <span>{pct.toFixed(0)}% utilised</span>
                           <span>{isOver ? `KES ${(drawn - alloc).toLocaleString()} over` : `KES ${(alloc - drawn).toLocaleString()} remaining`}</span>
                         </div>
@@ -1838,7 +1838,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                     {reports.filter((r: /* // */ any) => r.status === 'submitted').map((r: /* // */ any) => (
                       <TableRow key={r.id}>
                         <TableCell className="font-medium">{(r.projects as /* // */ any)?.name || 'Unknown'}</TableCell>
-                        <TableCell className="text-sm text-slate-500">{r.period_month}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{r.period_month}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(r.total_allocated), 'KES')}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(r.total_claimed), 'KES')}</TableCell>
                         <TableCell className={`text-right font-mono text-sm ${Number(r.variance) < 0 ? 'text-rose-600' : ''}`}>
@@ -1887,12 +1887,12 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                 <TableBody>
                   {acctRequests.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-6 text-slate-400">No accountant misc requests found.</TableCell>
+                      <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">No accountant misc requests found.</TableCell>
                     </TableRow>
                   ) : (
                     acctRequests.map((r: /* // */ any) => (
                       <TableRow key={r.id} className={r.status === 'pending' ? 'bg-amber-50/50' : ''}>
-                        <TableCell className="text-sm text-slate-500">{formatDate(r.created_at)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{formatDate(r.created_at)}</TableCell>
                         <TableCell className="font-medium text-sm max-w-[200px] truncate">{r.purpose}</TableCell>
                         <TableCell className="text-sm">{(r.users as /* // */ any)?.full_name || '—'}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(r.amount_requested), 'KES')}</TableCell>
@@ -1905,7 +1905,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                                   : 'bg-blue-100 text-blue-700'
                           }>{r.status}</Badge>
                         </TableCell>
-                        <TableCell className="text-xs text-slate-500 max-w-[150px] truncate">
+                        <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">
                           {r.cfo_notes ? r.cfo_notes.replace(/\[PENDING_DELETE\]/g, '').replace(/\[prev:\w+\]/g, '').trim() : '—'}
                         </TableCell>
                       </TableRow>
@@ -1933,7 +1933,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
               <CardContent className="py-12 text-center">
                 <CheckCircle2 className="h-12 w-12 text-emerald-400 mx-auto mb-3" />
                 <p className="text-lg font-medium text-emerald-700">All Clear</p>
-                <p className="text-sm text-slate-400">No active red flags. Everything is in order.</p>
+                <p className="text-sm text-muted-foreground">No active red flags. Everything is in order.</p>
               </CardContent>
             </Card>
           ) : (
@@ -1966,11 +1966,11 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                           }>{f.severity}</Badge>
                         </TableCell>
                         <TableCell className="font-medium text-sm">{f.title}</TableCell>
-                        <TableCell className="text-sm text-slate-500 max-w-[300px]">
+                        <TableCell className="text-sm text-muted-foreground max-w-[300px]">
                           <p className="line-clamp-2">{f.description}</p>
                         </TableCell>
-                        <TableCell className="text-xs text-slate-400">{f.flag_type}</TableCell>
-                        <TableCell className="text-xs text-slate-400">{f.year_month}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{f.flag_type}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{f.year_month}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1989,21 +1989,21 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
           </CardHeader>
           <CardContent>
             {paginatedFeed.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-8">No draws for this period.</p>
+              <p className="text-sm text-muted-foreground text-center py-8">No draws for this period.</p>
             ) : (
               <div className="space-y-2">
                 {paginatedFeed.map((d: /* // */ any) => (
                   <div key={d.id} className={`flex items-center justify-between rounded-lg border p-3 text-sm ${d.cfo_flagged ? 'border-rose-200 bg-rose-50/30' : ''}`}>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-slate-400 text-xs">{timeAgo(d.created_at)}</span>
+                        <span className="text-muted-foreground text-xs">{timeAgo(d.created_at)}</span>
                         <strong>{(d.projects as /* // */ any)?.name || 'Unknown'}</strong>
                         <span>—</span>
                         <span className="font-mono">{formatCurrency(Number(d.amount_approved), 'KES')}</span>
-                        <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-[#1e293b] text-white text-xs' : 'bg-amber-100 text-amber-800 text-xs'}>
+                        <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white text-xs' : 'bg-amber-100 text-amber-800 text-xs'}>
                           {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'}
                         </Badge>
-                        <span className="text-slate-400">— {(d.users as /* // */ any)?.full_name || 'Unknown'}</span>
+                        <span className="text-muted-foreground">— {(d.users as /* // */ any)?.full_name || 'Unknown'}</span>
                         {d.raised_by_role === 'accountant' && (
                           <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px]">Delegated</Badge>
                         )}
@@ -2014,13 +2014,13 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                           <Badge variant="secondary" className="bg-rose-100 text-rose-700 text-[10px]">Declined</Badge>
                         )}
                         {d.status === 'deleted' && (
-                          <Badge variant="secondary" className="bg-slate-200 text-slate-500 text-[10px]">Deleted</Badge>
+                          <Badge variant="secondary" className="bg-muted text-muted-foreground text-[10px]">Deleted</Badge>
                         )}
                         {!d.expense_id && ![MISC_DRAW_STATUS.PENDING_PM_APPROVAL, MISC_DRAW_STATUS.DECLINED, MISC_DRAW_STATUS.DELETED].includes(d.status) && (
-                          <Badge variant="secondary" className="bg-slate-100 text-slate-500 text-xs">Not Recorded</Badge>
+                          <Badge variant="secondary" className="bg-muted text-muted-foreground text-xs">Not Recorded</Badge>
                         )}
                       </div>
-                      {d.purpose && <p className="text-slate-500 truncate max-w-lg">{d.purpose}</p>}
+                      {d.purpose && <p className="text-muted-foreground truncate max-w-lg">{d.purpose}</p>}
                       {d.cfo_flagged && d.cfo_flag_reason && (
                         <p className="text-rose-600 text-xs mt-1">⚑ Flagged: {d.cfo_flag_reason}</p>
                       )}
@@ -2057,7 +2057,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
           <div className="space-y-4">
             <h4 className="text-sm font-semibold">Current Month Draws ({formatYearMonth(selectedMonth)})</h4>
             {detailDraws.length === 0 ? (
-              <p className="text-sm text-slate-400">No draws this month.</p>
+              <p className="text-sm text-muted-foreground">No draws this month.</p>
             ) : (
               <Table>
                 <TableHeader>
@@ -2075,7 +2075,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                     <TableRow key={d.id} className={d.cfo_flagged ? 'bg-rose-50/50' : ''}>
                       <TableCell className="text-sm">{formatDate(d.created_at)}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-[#1e293b] text-white text-xs' : 'bg-amber-100 text-amber-800 text-xs'}>
+                        <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white text-xs' : 'bg-amber-100 text-amber-800 text-xs'}>
                           {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'}
                         </Badge>
                       </TableCell>
@@ -2091,7 +2091,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                       <TableCell>{d.expense_id ? <span className="text-emerald-600">✓</span> : <span className="text-amber-500">⚠</span>}</TableCell>
                     </TableRow>
                   ))}
-                  <TableRow className="font-bold bg-slate-50">
+                  <TableRow className="font-bold bg-muted/50">
                     <TableCell colSpan={3} className="text-right">Total</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(detailDraws.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0), 'KES')}</TableCell>
                     <TableCell colSpan={2}></TableCell>
@@ -2105,7 +2105,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
             {/* Report items for previous month */}
             <h4 className="text-sm font-semibold">Previous Month Report Items ({formatYearMonth(prevMonthStr)})</h4>
             {detailReportItems.length === 0 ? (
-              <p className="text-sm text-slate-400">No report items for previous month.</p>
+              <p className="text-sm text-muted-foreground">No report items for previous month.</p>
             ) : (
               <Table>
                 <TableHeader>
@@ -2119,13 +2119,13 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                 <TableBody>
                   {detailReportItems.map((item: /* // */ any, idx: number) => (
                     <TableRow key={item.id}>
-                      <TableCell className="text-slate-400 text-sm">{idx + 1}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{idx + 1}</TableCell>
                       <TableCell className="text-sm">{formatDate(item.expense_date)}</TableCell>
                       <TableCell className="text-sm">{item.description}</TableCell>
                       <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(item.amount), 'KES')}</TableCell>
                     </TableRow>
                   ))}
-                  <TableRow className="font-bold bg-slate-50">
+                  <TableRow className="font-bold bg-muted/50">
                     <TableCell colSpan={3} className="text-right">Total Claimed</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(detailReportItems.reduce((s: number, i: /* // */ any) => s + Number(i.amount || 0), 0), 'KES')}</TableCell>
                   </TableRow>
@@ -2157,7 +2157,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
           {reviewReport?.variance_explanation && (
             <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm mb-3">
               <strong className="text-amber-700">Variance Explanation:</strong>
-              <p className="text-slate-600 mt-1">{reviewReport.variance_explanation}</p>
+              <p className="text-foreground/80 mt-1">{reviewReport.variance_explanation}</p>
             </div>
           )}
           <Table>
@@ -2177,7 +2177,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                 </TableRow>
               ))}
               {reviewItems.length > 0 && (
-                <TableRow className="font-bold bg-slate-50">
+                <TableRow className="font-bold bg-muted/50">
                   <TableCell colSpan={2} className="text-right">Total</TableCell>
                   <TableCell className="text-right font-mono">{formatCurrency(reviewItems.reduce((s: number, i: /* // */ any) => s + Number(i.amount || 0), 0), 'KES')}</TableCell>
                 </TableRow>
@@ -2187,7 +2187,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
           <DialogFooter>
             <Button variant="outline" onClick={() => setReviewReport(null)}>Close</Button>
             {reviewReport?.status === 'submitted' && (
-              <Button onClick={markReviewed} className="bg-[#0f172a] text-white">Mark as CFO Reviewed</Button>
+              <Button onClick={markReviewed} className="bg-primary text-white">Mark as CFO Reviewed</Button>
             )}
           </DialogFooter>
         </DialogContent>
@@ -2463,7 +2463,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
   }
 
   if (loading) {
-    return <div className="text-center text-slate-400 py-8">Loading accountant view...</div>;
+    return <div className="text-center text-muted-foreground py-8">Loading accountant view...</div>;
   }
 
   const pendingTotal = pendingDraws.reduce((s, d) => s + Number(d.amount_approved || 0), 0);
@@ -2516,7 +2516,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                   <div key={d.id} className="flex items-center justify-between rounded-lg border border-purple-200 bg-purple-50/50 p-3 text-sm">
                     <div>
                       <strong>{(d.projects as /* // */ any)?.name}</strong> &mdash; {formatCurrency(Number(d.amount_requested), 'KES')}
-                      <p className="text-xs text-slate-500 truncate max-w-md">{d.purpose}</p>
+                      <p className="text-xs text-muted-foreground truncate max-w-md">{d.purpose}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-xs">Awaiting PM</Badge>
@@ -2553,12 +2553,12 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                         </Button>
                       </div>
                     </div>
-                    <p className="text-xs text-slate-600">{d.purpose} &mdash; {formatCurrency(Number(d.amount_requested), 'KES')}</p>
+                    <p className="text-xs text-foreground/80">{d.purpose} &mdash; {formatCurrency(Number(d.amount_requested), 'KES')}</p>
                     {d.pm_decline_reason && (
                       <p className="text-xs text-rose-600 mt-1">PM Decline Reason: {d.pm_decline_reason}</p>
                     )}
                     {d.revision_count > 0 && (
-                      <p className="text-xs text-slate-400">Revision #{d.revision_count}</p>
+                      <p className="text-xs text-muted-foreground">Revision #{d.revision_count}</p>
                     )}
                   </div>
                 ))}
@@ -2567,7 +2567,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
           )}
 
           {myPendingDraws.length === 0 && returnedDraws.length === 0 && (
-            <p className="text-sm text-slate-400 text-center py-4">No pending or returned requests. Use the button above to raise a request on behalf of a PM.</p>
+            <p className="text-sm text-muted-foreground text-center py-4">No pending or returned requests. Use the button above to raise a request on behalf of a PM.</p>
           )}
         </CardContent>
       </Card>
@@ -2632,7 +2632,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                 {draw.pm_decline_reason && (
                   <div className="rounded-lg bg-rose-50 border border-rose-200 p-3 text-sm">
                     <strong className="text-rose-700">PM Decline Reason:</strong>
-                    <p className="text-slate-600 mt-1">{draw.pm_decline_reason}</p>
+                    <p className="text-foreground/80 mt-1">{draw.pm_decline_reason}</p>
                   </div>
                 )}
                 <div className="space-y-1">
@@ -2683,7 +2683,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
             <TableBody>
               {pendingDraws.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-6 text-slate-400">All draws have been recorded. You are up to date.</TableCell>
+                  <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">All draws have been recorded. You are up to date.</TableCell>
                 </TableRow>
               ) : (
                 pendingDraws.map((d: /* // */ any) => {
@@ -2693,7 +2693,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                       <TableCell className="font-medium">{(d.projects as /* // */ any)?.name || '—'}</TableCell>
                       <TableCell className="text-sm">{(d.users as /* // */ any)?.full_name || '—'}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-[#1e293b] text-white' : 'bg-amber-100 text-amber-800'}>
+                        <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white' : 'bg-amber-100 text-amber-800'}>
                           {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'}
                         </Badge>
                       </TableCell>
@@ -2733,7 +2733,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
             <TableBody>
               {projects.filter((p) => allDrawsByProject.has(p.id)).length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6 text-slate-400">No draws for this period.</TableCell>
+                  <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">No draws for this period.</TableCell>
                 </TableRow>
               ) : (
                 projects.filter((p) => allDrawsByProject.has(p.id)).map((p) => {
@@ -2752,7 +2752,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                         <Badge variant="secondary" className={
                           report?.status === 'submitted' ? 'bg-blue-100 text-blue-700'
                             : report?.status === 'cfo_reviewed' ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-slate-100 text-slate-600'
+                              : 'bg-muted text-foreground/80'
                         }>
                           {report ? (report.status === 'cfo_reviewed' ? 'Reviewed' : report.status) : 'No Report'}
                         </Badge>
@@ -2784,14 +2784,14 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
           </DialogHeader>
           {recordDraw && (
             <div className="space-y-3 text-sm">
-              <div className="rounded-lg border bg-slate-50 p-3 space-y-1">
-                <div className="flex justify-between"><span className="text-slate-400">Project:</span><strong>{(recordDraw.projects as /* // */ any)?.name}</strong></div>
-                <div className="flex justify-between"><span className="text-slate-400">Amount:</span><strong>{formatCurrency(Number(recordDraw.amount_approved), 'KES')}</strong></div>
-                <div className="flex justify-between"><span className="text-slate-400">Purpose:</span><strong>{recordDraw.purpose || 'Standing allocation'}</strong></div>
-                <div className="flex justify-between"><span className="text-slate-400">Date:</span><strong>{formatDate(recordDraw.created_at)}</strong></div>
-                <div className="flex justify-between"><span className="text-slate-400">Type:</span><strong>{recordDraw.draw_type === 'standing' ? 'Standing' : 'Top-Up'}</strong></div>
+              <div className="rounded-lg border bg-muted/50 p-3 space-y-1">
+                <div className="flex justify-between"><span className="text-muted-foreground">Project:</span><strong>{(recordDraw.projects as /* // */ any)?.name}</strong></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Amount:</span><strong>{formatCurrency(Number(recordDraw.amount_approved), 'KES')}</strong></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Purpose:</span><strong>{recordDraw.purpose || 'Standing allocation'}</strong></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Date:</span><strong>{formatDate(recordDraw.created_at)}</strong></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Type:</span><strong>{recordDraw.draw_type === 'standing' ? 'Standing' : 'Top-Up'}</strong></div>
               </div>
-              <p className="text-slate-500">This will create an expense entry and link it to this draw.</p>
+              <p className="text-muted-foreground">This will create an expense entry and link it to this draw.</p>
             </div>
           )}
           <DialogFooter>

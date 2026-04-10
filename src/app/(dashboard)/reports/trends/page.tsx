@@ -84,11 +84,11 @@ interface TooltipProps {
 }
 
 function ChartSkeleton() {
-  return <div className="h-80 bg-slate-50 rounded-lg animate-pulse flex items-center justify-center text-slate-300">Loading chart...</div>;
+  return <div className="h-80 bg-muted/50 rounded-lg animate-pulse flex items-center justify-center text-muted-foreground/60">Loading chart...</div>;
 }
 
 function InsightBadge({ text }: { text: string }) {
-  return <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm">{text}</div>;
+  return <div className="bg-muted/50 border border-border rounded-lg px-4 py-3 text-sm">{text}</div>;
 }
 
 const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
@@ -103,16 +103,16 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
       }).format(new Date(`${paymentMonth}-01T00:00:00+03:00`))
     : null;
   return (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs">
+    <div className="bg-card border border-border rounded-lg shadow-lg p-3 text-xs">
       <p className="font-semibold mb-1">{label}</p>
-      {paidIn && <p className="text-slate-500 mb-1">Paid in: {paidIn}</p>}
+      {paidIn && <p className="text-muted-foreground mb-1">Paid in: {paidIn}</p>}
       {(payload ?? []).map((entry, i: number) => (
         <p key={i} style={{ color: entry.color }}>
           {entry.name}: {typeof entry.value === 'number' ? formatKesShort(entry.value) : (entry.value ?? '—')}
         </p>
       ))}
       {hasUndistributed && (
-        <p className="text-slate-400 mt-1 italic">Profit share not yet distributed to directors</p>
+        <p className="text-muted-foreground mt-1 italic">Profit share not yet distributed to directors</p>
       )}
     </div>
   );
@@ -610,7 +610,7 @@ export default function TrendsPage() {
           <CardHeader><CardTitle className="text-base">Agent Efficiency Over Time</CardTitle></CardHeader>
           <CardContent>
             {loading ? <ChartSkeleton /> : agentEff.every(a => a.agentCount === 0) ? (
-              <div className="h-80 bg-slate-50 rounded-lg flex flex-col items-center justify-center text-slate-400 gap-2">
+              <div className="h-80 bg-muted/50 rounded-lg flex flex-col items-center justify-center text-muted-foreground gap-2">
                 <p className="text-sm font-medium">No agent counts recorded yet</p>
                 <p className="text-xs">Agent efficiency metrics will appear once monthly agent counts are entered for each project.</p>
               </div>

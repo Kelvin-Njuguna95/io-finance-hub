@@ -178,7 +178,7 @@ export default function NotificationsPage() {
         <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={markAllRead}>
           <Check className="h-3.5 w-3.5" /> Mark All Read
         </Button>
-        <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-slate-500" onClick={clearOldRead}>
+        <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground" onClick={clearOldRead}>
           <Trash2 className="h-3.5 w-3.5" /> Clear Old Read
         </Button>
       </PageHeader>
@@ -197,16 +197,16 @@ export default function NotificationsPage() {
         </Tabs>
 
         {loading ? (
-          <p className="text-sm text-neutral-400 py-8 text-center">Please wait</p>
+          <p className="text-sm text-muted-foreground py-8 text-center">Please wait</p>
         ) : filtered.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center">
-            <p className="text-sm font-medium text-slate-700">You&apos;re all caught up — no new notifications at this time.</p>
-            <p className="mt-1 text-xs text-slate-500">New activity from budgets, expenses, and finance workflows will appear here automatically.</p>
+          <div className="rounded-lg border border-dashed border-border bg-muted/50 px-4 py-10 text-center">
+            <p className="text-sm font-medium text-foreground/90">You&apos;re all caught up — no new notifications at this time.</p>
+            <p className="mt-1 text-xs text-muted-foreground">New activity from budgets, expenses, and finance workflows will appear here automatically.</p>
           </div>
         ) : (
           Object.entries(groups).map(([group, items]) => (
             <div key={group}>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1">{group}</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">{group}</p>
               <div className="space-y-1">
                 {items.map((n) => {
                   const icon = (n.type ? NOTIF_ICONS[n.type] : null) || '\uD83D\uDD14';
@@ -217,23 +217,23 @@ export default function NotificationsPage() {
                       className={cn(
                         'w-full text-left flex gap-3 rounded-lg px-4 py-3 transition-colors',
                         !n.is_read
-                          ? 'bg-white border border-slate-200 border-l-4 border-l-[#0f172a] shadow-sm'
-                          : 'bg-slate-50 hover:bg-slate-100',
+                          ? 'bg-card border border-border border-l-4 border-l-primary shadow-sm'
+                          : 'bg-muted/50 hover:bg-muted',
                       )}
                     >
                       <span className="text-lg mt-0.5 shrink-0">{icon}</span>
                       <div className="min-w-0 flex-1">
                         <p className={cn(
                           'text-sm leading-tight',
-                          !n.is_read ? 'font-semibold text-[#0f172a]' : 'text-slate-600',
+                          !n.is_read ? 'font-semibold text-foreground' : 'text-foreground/80',
                         )}>
                           {n.title}
                         </p>
                         {n.body && (
-                          <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{n.body}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>
                         )}
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] text-slate-300">{timeAgo(n.created_at)}</span>
+                          <span className="text-[10px] text-muted-foreground/60">{timeAgo(n.created_at)}</span>
                           {n.link && (
                             <span className="text-[10px] text-blue-500">View &rarr;</span>
                           )}
@@ -252,7 +252,7 @@ export default function NotificationsPage() {
           ))
         )}
 
-        <p className="text-center text-xs text-slate-300 pt-4">
+        <p className="text-center text-xs text-muted-foreground/60 pt-4">
           <Link href="/settings" className="text-blue-500 hover:underline">Manage notification preferences</Link>
         </p>
       </div>

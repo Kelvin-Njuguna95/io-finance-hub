@@ -26,7 +26,7 @@ const STATUS_COLOR: Record<string, string> = {
   under_review: 'bg-blue-100 text-blue-700',
   modified: 'bg-purple-100 text-purple-700',
   voided: 'bg-red-100 text-red-700',
-  carried_forward: 'bg-slate-100 text-slate-600',
+  carried_forward: 'bg-muted text-foreground/80',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -101,11 +101,11 @@ export function ExpenseQueuePanel({ projectId, compact }: Props) {
     >
         {/* Progress bar */}
         <div>
-          <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
             <span>{confirmed.length + modified.length} of {items.length} items processed</span>
             <span>{progressPct}%</span>
           </div>
-          <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
             <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progressPct}%` }} />
           </div>
         </div>
@@ -124,11 +124,11 @@ export function ExpenseQueuePanel({ projectId, compact }: Props) {
             <p className="text-xl font-bold text-indigo-700">{formatCurrency(totalBudgeted, 'KES')}</p>
             <p className="text-[11px] text-indigo-600">Budgeted Total</p>
           </div>
-          <div className="rounded-md bg-slate-50 p-2.5 text-center">
+          <div className="rounded-md bg-muted/50 p-2.5 text-center">
             <p className={`text-xl font-bold ${totalActualAll > totalBudgeted ? 'text-red-600' : 'text-emerald-700'}`}>
               {formatCurrency(totalActualAll, 'KES')}
             </p>
-            <p className="text-[11px] text-slate-500">Confirmed Spend</p>
+            <p className="text-[11px] text-muted-foreground">Confirmed Spend</p>
           </div>
         </div>
 
@@ -139,7 +139,7 @@ export function ExpenseQueuePanel({ projectId, compact }: Props) {
               <div key={item.id} className="flex items-center justify-between rounded-md border p-2.5 text-sm">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{item.description}</p>
-                  <p className="text-xs text-slate-400 truncate">
+                  <p className="text-xs text-muted-foreground truncate">
                     {item.projects?.name || 'Shared'} · {item.category || '—'}
                   </p>
                 </div>
@@ -154,7 +154,7 @@ export function ExpenseQueuePanel({ projectId, compact }: Props) {
                       </p>
                     )}
                   </div>
-                  <Badge className={`${STATUS_COLOR[item.status] || 'bg-slate-100'} border-0 text-[10px]`}>
+                  <Badge className={`${STATUS_COLOR[item.status] || 'bg-muted'} border-0 text-[10px]`}>
                     {STATUS_LABEL[item.status] || item.status}
                   </Badge>
                 </div>

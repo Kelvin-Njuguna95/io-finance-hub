@@ -297,13 +297,13 @@ export default function OutstandingReceivablesPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={canAct ? 10 : 9} className="text-center py-8 text-neutral-500">
+                    <TableCell colSpan={canAct ? 10 : 9} className="text-center py-8 text-muted-foreground">
                       Please wait
                     </TableCell>
                   </TableRow>
                 ) : invoices.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={canAct ? 10 : 9} className="text-center py-8 text-neutral-500">
+                    <TableCell colSpan={canAct ? 10 : 9} className="text-center py-8 text-muted-foreground">
                       No outstanding receivables
                     </TableCell>
                   </TableRow>
@@ -368,7 +368,7 @@ export default function OutstandingReceivablesPage() {
 
           {selectedInvoice && (
             <div className="space-y-4">
-              <div className="rounded-md bg-neutral-50 p-3 text-sm space-y-1">
+              <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
                 <p><span className="font-medium">Invoice:</span> {selectedInvoice.invoice_number}</p>
                 <p><span className="font-medium">Project:</span> {selectedInvoice.project_name}</p>
                 <p><span className="font-medium">Outstanding:</span> {formatCurrency(selectedInvoice.balance, 'USD')}</p>

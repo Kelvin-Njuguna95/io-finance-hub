@@ -273,7 +273,7 @@ export default function BudgetsPage() {
               <TableBody>
                 {filteredBudgets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-neutral-500">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       No budgets found for {formatYearMonth(selectedMonth)}
                     </TableCell>
                   </TableRow>

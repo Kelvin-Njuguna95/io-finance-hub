@@ -142,7 +142,7 @@ export function UserFormDialog({ open, onClose, onSaved }: Props) {
                 {DIRECTORS.map((d) => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            <p className="text-xs text-neutral-400">Only set this for the 5 originating directors</p>
+            <p className="text-xs text-muted-foreground">Only set this for the 5 originating directors</p>
           </div>
         </div>
 

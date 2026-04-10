@@ -142,9 +142,9 @@ export default function ExpenseImportPage() {
         {step === 'upload' && (
           <Card className="io-card">
             <CardContent className="p-8 text-center">
-              <FileSpreadsheet className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-              <h2 className="text-lg font-semibold text-slate-700 mb-2">Upload Expense Spreadsheet</h2>
-              <p className="text-sm text-slate-400 mb-6 max-w-md mx-auto">
+              <FileSpreadsheet className="h-12 w-12 text-muted-foreground/60 mx-auto mb-4" />
+              <h2 className="text-lg font-semibold text-foreground/90 mb-2">Upload Expense Spreadsheet</h2>
+              <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
                 Upload an .xlsx file with columns: expense_date, expense_type, project_id, description, amount_kes, paid_to, payment_method, approved_by, overhead_category, budget_link_note, import_action, flag_detail
               </p>
               <label className="inline-flex items-center gap-2 px-6 py-3 rounded-lg cursor-pointer btn-gradient text-white font-medium">
@@ -163,7 +163,7 @@ export default function ExpenseImportPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
               <Card className="io-card">
                 <CardContent className="p-4">
-                  <p className="text-[11px] uppercase tracking-wider text-slate-400 font-medium">Total Rows</p>
+                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Total Rows</p>
                   <p className="text-2xl font-bold">{parseResult.total_rows}</p>
                 </CardContent>
               </Card>
@@ -228,11 +228,11 @@ export default function ExpenseImportPage() {
                                 type="checkbox"
                                 checked={approvedRows.has(row.row_index)}
                                 onChange={() => toggleRow(row.row_index)}
-                                className="rounded border-slate-300"
+                                className="rounded border-border"
                               />
                             )}
                           </TableCell>
-                          <TableCell className="text-slate-400 text-sm">{row.row_index}</TableCell>
+                          <TableCell className="text-muted-foreground text-sm">{row.row_index}</TableCell>
                           <TableCell>{statusIcon(row.status)}</TableCell>
                           <TableCell className="text-sm">{row.expense_date}</TableCell>
                           <TableCell className="text-sm font-medium">{row.project_name}</TableCell>
@@ -243,7 +243,7 @@ export default function ExpenseImportPage() {
                             {[...row.errors, ...row.warnings].map((msg, i) => (
                               <p key={i} className={`text-[11px] ${row.errors.includes(msg) ? 'text-rose-600' : 'text-amber-600'}`}>{msg}</p>
                             ))}
-                            {row.flag_detail && <p className="text-[11px] text-slate-500">{row.flag_detail}</p>}
+                            {row.flag_detail && <p className="text-[11px] text-muted-foreground">{row.flag_detail}</p>}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -274,8 +274,8 @@ export default function ExpenseImportPage() {
           <Card className="io-card">
             <CardContent className="p-8 text-center">
               <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
-              <h2 className="text-lg font-semibold text-slate-700 mb-2">Import Complete</h2>
-              <p className="text-sm text-slate-500 mb-4">
+              <h2 className="text-lg font-semibold text-foreground/90 mb-2">Import Complete</h2>
+              <p className="text-sm text-muted-foreground mb-4">
                 {importResult.imported_count} expenses imported successfully.
                 {importResult.skipped_count > 0 && ` ${importResult.skipped_count} rows skipped.`}
               </p>

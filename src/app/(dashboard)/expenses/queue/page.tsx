@@ -67,7 +67,7 @@ const STATUS_BADGE: Record<PendingExpenseStatus, string> = {
   under_review: 'bg-blue-100 text-blue-700',
   modified: 'bg-purple-100 text-purple-700',
   voided: 'bg-red-100 text-red-700',
-  carried_forward: 'bg-slate-100 text-slate-600',
+  carried_forward: 'bg-muted text-foreground/80',
 };
 
 const STATUS_LABELS: Record<PendingExpenseStatus, string> = {
@@ -82,7 +82,7 @@ const STATUS_LABELS: Record<PendingExpenseStatus, string> = {
 function varianceColor(variance: number) {
   if (variance < 0) return 'text-emerald-600';
   if (variance > 0) return 'text-rose-600';
-  return 'text-slate-500';
+  return 'text-muted-foreground';
 }
 
 function variancePercent(budgeted: number, actual: number) {
@@ -529,7 +529,7 @@ export default function ExpenseQueuePage() {
         {/* Bulk actions */}
         {canAct && selected.size > 0 && (
           <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-500">{selected.size} item(s) selected</span>
+            <span className="text-sm text-muted-foreground">{selected.size} item(s) selected</span>
             <Button size="sm" onClick={handleBulkConfirm}>
               Confirm All Selected
             </Button>
@@ -543,15 +543,15 @@ export default function ExpenseQueuePage() {
         <Card className="io-card">
           <CardContent className="p-0">
             {loading ? (
-              <div className="flex items-center justify-center py-16 text-sm text-slate-400">
+              <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
                 Please wait
               </div>
             ) : selectedMonthPendingCount === 0 ? (
-              <div className="flex items-center justify-center py-16 text-sm text-slate-500">
+              <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
                 No pending expenses — all approved budgets have been confirmed for {formatYearMonth(selectedMonth)}.
               </div>
             ) : filtered.length === 0 ? (
-              <div className="flex items-center justify-center py-16 text-sm text-slate-400">
+              <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
                 {hasPendingItems
                   ? 'No pending expenses for this period'
                   : 'No pending expenses this month — all budgets are up to date'}
@@ -595,8 +595,8 @@ export default function ExpenseQueuePage() {
                           </TableCell>
                         )}
                         <TableCell className="font-medium">{item.description}</TableCell>
-                        <TableCell className="text-slate-500">{item.category || '-'}</TableCell>
-                        <TableCell className="text-slate-500">
+                        <TableCell className="text-muted-foreground">{item.category || '-'}</TableCell>
+                        <TableCell className="text-muted-foreground">
                           {item.projects?.name || item.departments?.name || '-'}
                         </TableCell>
                         <TableCell className="text-right font-mono">
@@ -752,15 +752,15 @@ export default function ExpenseQueuePage() {
           {confirmDialog && (
             <div className="space-y-4">
               <div>
-                <p className="text-sm font-medium text-slate-700">{confirmDialog.description}</p>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-sm font-medium text-foreground/90">{confirmDialog.description}</p>
+                <p className="text-xs text-muted-foreground mt-1">
                   {confirmDialog.projects?.name || confirmDialog.departments?.name || 'No project/dept'}
                 </p>
               </div>
               <Separator />
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-slate-400">Budgeted Amount</Label>
+                  <Label className="text-xs text-muted-foreground">Budgeted Amount</Label>
                   <p className="font-mono text-sm font-medium">
                     {formatCurrency(Number(confirmDialog.budgeted_amount_kes), 'KES')}
                   </p>
@@ -779,8 +779,8 @@ export default function ExpenseQueuePage() {
                 </div>
               </div>
               {confirmAmount && !isNaN(parseFloat(confirmAmount)) && (
-                <div className="rounded-md bg-slate-50 p-3">
-                  <p className="text-xs text-slate-400">Variance Preview</p>
+                <div className="rounded-md bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground">Variance Preview</p>
                   {(() => {
                     const v = parseFloat(confirmAmount) - Number(confirmDialog.budgeted_amount_kes);
                     const pct = variancePercent(Number(confirmDialog.budgeted_amount_kes), parseFloat(confirmAmount));
@@ -812,8 +812,8 @@ export default function ExpenseQueuePage() {
           {voidDialog && (
             <div className="space-y-4">
               <div>
-                <p className="text-sm font-medium text-slate-700">{voidDialog.description}</p>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-sm font-medium text-foreground/90">{voidDialog.description}</p>
+                <p className="text-xs text-muted-foreground mt-1">
                   Budgeted: {formatCurrency(Number(voidDialog.budgeted_amount_kes), 'KES')}
                 </p>
               </div>
@@ -848,8 +848,8 @@ export default function ExpenseQueuePage() {
           {modifyDialog && (
             <div className="space-y-4">
               <div>
-                <p className="text-sm font-medium text-slate-700">{modifyDialog.description}</p>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-sm font-medium text-foreground/90">{modifyDialog.description}</p>
+                <p className="text-xs text-muted-foreground mt-1">
                   Budgeted: {formatCurrency(Number(modifyDialog.budgeted_amount_kes), 'KES')}
                 </p>
               </div>

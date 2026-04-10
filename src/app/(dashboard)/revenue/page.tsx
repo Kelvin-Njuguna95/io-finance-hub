@@ -542,7 +542,7 @@ export default function RevenuePage() {
                   <TableBody>
                     {filteredInvoices.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={canCreate ? 10 : 9} className="text-center py-8 text-neutral-500">
+                        <TableCell colSpan={canCreate ? 10 : 9} className="text-center py-8 text-muted-foreground">
                           No invoices found.
                         </TableCell>
                       </TableRow>
@@ -629,7 +629,7 @@ export default function RevenuePage() {
                   <TableBody>
                     {filteredPayments.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-neutral-500">
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                           {selectedMonth === 'all' ? 'No payments found' : `No payments for ${formatYearMonth(selectedMonth)}`}
                         </TableCell>
                       </TableRow>
@@ -656,7 +656,7 @@ export default function RevenuePage() {
             <Card>
               <CardContent className="space-y-4 p-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-neutral-600">
+                  <p className="text-sm text-foreground/80">
                     Open receivables with a remaining balance.
                   </p>
                   <Link href="/reports/outstanding">
@@ -681,7 +681,7 @@ export default function RevenuePage() {
                   <TableBody>
                     {outstandingInvoices.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={canCreate ? 7 : 6} className="text-center py-8 text-neutral-500">
+                        <TableCell colSpan={canCreate ? 7 : 6} className="text-center py-8 text-muted-foreground">
                           No outstanding receivables.
                         </TableCell>
                       </TableRow>

@@ -9,12 +9,12 @@ export default function NotFound() {
       <Card className="w-full max-w-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <SearchX className="h-5 w-5 text-slate-500" />
+            <SearchX className="h-5 w-5 text-muted-foreground" />
             Page not found
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-foreground/80">
             The page you are looking for does not exist or may have moved.
           </p>
           <Link href="/">

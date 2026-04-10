@@ -190,7 +190,7 @@ export default function ExpensesPage() {
               <TableBody>
                 {expenses.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isCfo ? 6 : 5} className="text-center py-8 text-neutral-500">
+                    <TableCell colSpan={isCfo ? 6 : 5} className="text-center py-8 text-muted-foreground">
                       No expenses for {formatYearMonth(selectedMonth)}
                     </TableCell>
                   </TableRow>
@@ -204,7 +204,7 @@ export default function ExpensesPage() {
                           {capitalize(e.expense_type)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-neutral-500">
+                      <TableCell className="text-sm text-muted-foreground">
                         {e.project_name || 'Shared'}
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">

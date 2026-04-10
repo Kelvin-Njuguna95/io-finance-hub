@@ -336,11 +336,11 @@ export default function VarianceDashboardPage() {
         <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-neutral-400">Please wait</TableCell>
+              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Please wait</TableCell>
             </TableRow>
           ) : rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-neutral-500">
+              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                 No data for {formatYearMonth(selectedMonth)}
               </TableCell>
             </TableRow>
@@ -359,7 +359,7 @@ export default function VarianceDashboardPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   {varianceBadge(r.variancePct)}
-                  <span className="ml-1 text-xs text-slate-500">{r.variancePct.toFixed(1)}%</span>
+                  <span className="ml-1 text-xs text-muted-foreground">{r.variancePct.toFixed(1)}%</span>
                 </TableCell>
                 <TableCell className="text-center space-x-1">
                   <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-xs">{r.confirmed}</Badge>
@@ -450,7 +450,7 @@ export default function VarianceDashboardPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               <Card className="io-card">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-500">Total Budgeted</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Budgeted</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-lg font-semibold font-mono">{formatCurrency(totalBudgeted, 'KES')}</p>
@@ -458,7 +458,7 @@ export default function VarianceDashboardPage() {
               </Card>
               <Card className="io-card">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-500">Total Actual</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Actual</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-lg font-semibold font-mono">{formatCurrency(totalActual, 'KES')}</p>
@@ -466,18 +466,18 @@ export default function VarianceDashboardPage() {
               </Card>
               <Card className="io-card">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-500">Net Variance</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Net Variance</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className={`text-lg font-semibold font-mono ${netVariance > 0 ? 'text-red-600' : netVariance < 0 ? 'text-emerald-600' : ''}`}>
                     {formatCurrency(netVariance, 'KES')}
                   </p>
-                  <p className="text-xs text-slate-400">{overallPct.toFixed(1)}%</p>
+                  <p className="text-xs text-muted-foreground">{overallPct.toFixed(1)}%</p>
                 </CardContent>
               </Card>
               <Card className="io-card">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-500">Avg Accuracy</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Avg Accuracy</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-lg font-semibold font-mono">{avgAccuracy.toFixed(1)}%</p>
@@ -485,7 +485,7 @@ export default function VarianceDashboardPage() {
               </Card>
               <Card className="io-card">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-500">Items Pending</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Items Pending</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-lg font-semibold font-mono text-amber-600">{totalPending}</p>
@@ -493,7 +493,7 @@ export default function VarianceDashboardPage() {
               </Card>
               <Card className="io-card">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-500">Items Voided</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Items Voided</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-lg font-semibold font-mono text-rose-600">{totalVoided}</p>
@@ -577,7 +577,7 @@ export default function VarianceDashboardPage() {
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
-                    <p className="text-center text-sm text-slate-400 py-12">No items for this month</p>
+                    <p className="text-center text-sm text-muted-foreground py-12">No items for this month</p>
                   )}
                 </CardContent>
               </Card>

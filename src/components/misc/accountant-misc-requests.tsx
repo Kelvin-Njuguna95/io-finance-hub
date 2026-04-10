@@ -140,7 +140,7 @@ export function AccountantMiscRequests() {
         </CardHeader>
         <CardContent>
           {requests.length === 0 ? (
-            <p className="text-sm text-neutral-500 py-4 text-center">No misc requests this month</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">No misc requests this month</p>
           ) : (
             <>
               <Table>
@@ -177,7 +177,7 @@ export function AccountantMiscRequests() {
                         <TableCell className="text-right font-mono text-sm">
                           {r.amount_approved ? formatCurrency(r.amount_approved, 'KES') : '—'}
                         </TableCell>
-                        <TableCell className="text-sm text-neutral-500">{cleanNotes(r.cfo_notes)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{cleanNotes(r.cfo_notes)}</TableCell>
                         <TableCell>
                           {pendingDelete ? (
                             <span className="text-xs text-rose-500">Awaiting CFO</span>
@@ -214,10 +214,10 @@ export function AccountantMiscRequests() {
           <DialogHeader>
             <DialogTitle>Request Deletion</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-neutral-600">
+          <p className="text-sm text-foreground/80">
             Are you sure you want to request deletion of this misc request?
           </p>
-          <div className="bg-slate-50 rounded-lg p-3 text-sm space-y-1">
+          <div className="bg-muted/50 rounded-lg p-3 text-sm space-y-1">
             <p><strong>Purpose:</strong> {deleteTarget?.purpose}</p>
             <p><strong>Amount:</strong> {formatCurrency(deleteTarget?.amount_requested || 0, 'KES')}</p>
             <p><strong>Status:</strong> {deleteTarget?.status}</p>
