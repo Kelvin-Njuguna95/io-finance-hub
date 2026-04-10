@@ -3,10 +3,13 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
+
   const pathname = request.nextUrl.pathname;
 
   // Keep auth entry routes reachable even when cookies are stale.
-  if (pathname === '/login' || pathname.startsWith('/auth/callback')) {
+  // /auth/signout must bypass so the middleware doesn't refresh tokens
+  // before the signout handler has a chance to clear them.
+  if (pathname === '/login' || pathname.startsWith('/auth/callback') || pathname === '/auth/signout') {
     return supabaseResponse;
   }
 
