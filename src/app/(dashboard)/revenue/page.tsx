@@ -89,7 +89,6 @@ export default function RevenuePage() {
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
-
     const { data: invoiceData, error: invoiceError } = await supabase
       .from('invoices')
       .select(`
@@ -103,32 +102,51 @@ export default function RevenuePage() {
         amount_kes,
         status,
         description,
-        client_name,
-        payment_status,
-        total_paid,
-        balance_outstanding,
         created_at,
         updated_at,
         notes,
-        created_by,
-        projects(name),
-        payments(id, amount_usd, payment_date, payment_method, reference, notes, invoice_id, amount_kes, recorded_by, created_at, updated_at)
+        created_by
       `)
       .order('created_at', { ascending: false });
 
-    if (invoiceError) {
+    if (invoiceError || !invoiceData) {
       setInvoices([]);
       toast.error(getUserErrorMessage());
     } else {
-      setInvoices((invoiceData || []).map((i: /* // */ any) => ({
-        ...i,
-        payments: i.payments || [],
-        payment_status: i.payment_status || i.status || 'unpaid',
-        total_paid: (i.payments || []).reduce((sum: number, payment: /* // */ any) => sum + Number(payment.amount_usd || 0), 0),
-        balance_outstanding: Math.max(0, Number(i.amount_usd || 0) - (i.payments || []).reduce((sum: number, payment: /* // */ any) => sum + Number(payment.amount_usd || 0), 0)),
-        project_name: i.projects?.name,
-        client_name: i.client_name,
-      })));
+      const [projectsRes, paymentsRes] = await Promise.all([
+        supabase.from('projects').select('id, name'),
+        supabase.from('payments').select('id, amount_usd, payment_date, payment_method, reference, notes, invoice_id, amount_kes, recorded_by, created_at, updated_at'),
+      ]);
+
+      const projectsById = new Map<string, string>();
+      if (projectsRes.data) {
+        for (const p of projectsRes.data as Array<{ id: string; name: string }>) {
+          projectsById.set(p.id, p.name);
+        }
+      }
+
+      const paymentsByInvoice = new Map<string, Payment[]>();
+      if (paymentsRes.data) {
+        for (const payment of paymentsRes.data as Payment[]) {
+          const current = paymentsByInvoice.get(payment.invoice_id) ?? [];
+          current.push(payment);
+          paymentsByInvoice.set(payment.invoice_id, current);
+        }
+      }
+
+      setInvoices(invoiceData.map((i: Invoice) => {
+        const invoicePayments = paymentsByInvoice.get(i.id) ?? [];
+        const paidUsd = invoicePayments.reduce((sum, payment) => sum + Number(payment.amount_usd || 0), 0);
+        const outstandingUsd = Math.max(0, Number(i.amount_usd || 0) - paidUsd);
+        return {
+          ...i,
+          payments: invoicePayments,
+          payment_status: outstandingUsd <= 0 ? 'paid' : paidUsd > 0 ? 'partially_paid' : (i.status || 'unpaid'),
+          total_paid: paidUsd,
+          balance_outstanding: outstandingUsd,
+          project_name: projectsById.get(i.project_id),
+        };
+      }));
     }
 
     const { data: balSetting } = await supabase.from('system_settings').select('value').eq('key', 'bank_balance_usd').single();
@@ -157,7 +175,7 @@ export default function RevenuePage() {
       .flatMap((inv) => (inv.payments ?? []).map((payment) => ({
         ...payment,
         invoice_number: inv.invoice_number,
-        project_name: inv.projects?.name,
+        project_name: inv.project_name,
       })))
       .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
   ), [invoices]);
