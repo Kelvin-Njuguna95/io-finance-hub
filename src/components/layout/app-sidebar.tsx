@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
 import { useUser } from '@/hooks/use-user';
 import { useNotifications } from '@/hooks/use-notifications';
 import { getNavigation } from '@/lib/navigation';
@@ -53,8 +54,24 @@ export function AppSidebar() {
   async function handleSignOut() {
     if (isSigningOut) return;
     setIsSigningOut(true);
-    toast.message('Signing out…');
-    window.location.href = '/auth/signout';
+
+    try {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Supabase signOut error:', error);
+        toast.error('Signed out locally. Refreshing login page…');
+      }
+    } catch (error) {
+      console.error('Sign out exception:', error);
+      toast.error('Sign out encountered an issue. Redirecting to login…');
+    } finally {
+      setIsSigningOut(false);
+      window.location.href = '/login';
+    }
   }
 
   const initials = user?.full_name
