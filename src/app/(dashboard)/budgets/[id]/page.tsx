@@ -167,80 +167,22 @@ export default function BudgetDetailPage() {
   async function performApproval() {
     if (!activeVersion) return;
     setProcessing(true);
-    const supabase = createClient();
-
-    // Calculate approved total from line items (if PM reviewed them)
-    const approvedItems = items.filter((i: /* // */ any) => ['approved', 'adjusted'].includes(i.pm_status));
-    const removedItems = items.filter((i: /* // */ any) => i.pm_status === 'removed');
-    const hasLineReview = approvedItems.length > 0 || removedItems.length > 0;
-
-    if (hasLineReview) {
-      const approvedTotal = approvedItems.reduce((s: number, i: /* // */ any) => s + Number(i.pm_approved_amount || 0), 0);
-      const originalTotal = items.reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes || 0), 0);
-      await supabase.from('budgets').update({
-        pm_original_total: originalTotal,
-        pm_approved_total: approvedTotal,
-        pm_review_summary: {
-          approved_count: approvedItems.length,
-          adjusted_count: items.filter((i: /* // */ any) => i.pm_status === 'adjusted').length,
-          removed_count: removedItems.length,
-          original_total: originalTotal,
-          approved_total: approvedTotal,
-          variance: originalTotal - approvedTotal,
-        },
-      }).eq('id', budget!.id);
-    }
-
-    // Update version status
-    await supabase.from('budget_versions').update({
-      status: 'approved',
-      reviewed_by: user!.id,
-      reviewed_at: new Date().toISOString(),
-    }).eq('id', activeVersion.id);
-
-    // Create approval record
-    await supabase.from('budget_approvals').insert({
-      budget_version_id: activeVersion.id,
-      action: 'approved',
-      approved_by: user!.id,
-    });
-
-    // Handle auto-reject of sibling budgets if chosen
-    if (autoRejectChoice === 'reject' && siblingBudgets.length > 0) {
-      const headers = await getAuthHeaders();
-      await fetch('/api/budgets/auto-reject-sibling', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers },
-        body: JSON.stringify({
-          approved_budget_id: budget!.id,
-          sibling_budget_ids: siblingBudgets.map((s: /* // */ any) => s.id),
-          approved_submitted_by_role: (budget as /* // */ any)?.submitted_by_role || 'team_leader',
-        }),
-      });
-    }
-
-    // Auto-populate pending expenses from approved budget items
     try {
       const headers = await getAuthHeaders();
-      const lifecycleRes = await fetch('/api/expense-lifecycle', {
+      const res = await fetch('/api/budgets/cfo-approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({
-          action: 'auto_populate',
-          budget_version_id: activeVersion.id,
           budget_id: budget!.id,
+          action: 'approve',
+          auto_reject_siblings: autoRejectChoice === 'reject',
+          sibling_budget_ids: siblingBudgets.map((s: any) => s.id),
         }),
       });
-      const lifecycleData = await lifecycleRes.json().catch(() => ({ success: false, error: 'Failed to queue expenses' }));
-      if (!lifecycleRes.ok || !lifecycleData.success) {
-        throw new Error(lifecycleData.error || 'Failed to queue expenses');
-      }
-    } catch (e) {
-      console.error('Failed to auto-populate expenses:', e);
-      toast.error(e instanceof Error ? e.message : 'Budget approved but expense queue population failed');
-    }
-
-    toast.success('Budget approved — expenses queued');
+      const data = await res.json();
+      if (data.success) { toast.success('Budget approved \u2014 expenses queued'); }
+      else { toast.error(data.error || 'Failed to approve budget'); }
+    } catch (e) { toast.error('Failed to approve budget'); }
     setShowAutoRejectDialog(false);
     setProcessing(false);
     load();
@@ -249,25 +191,17 @@ export default function BudgetDetailPage() {
   async function handleReject() {
     if (!activeVersion || !rejectionReason.trim()) return;
     setProcessing(true);
-    const supabase = createClient();
-
-    // Update version status
-    await supabase.from('budget_versions').update({
-      status: 'rejected',
-      reviewed_by: user!.id,
-      reviewed_at: new Date().toISOString(),
-      rejection_reason: rejectionReason,
-    }).eq('id', activeVersion.id);
-
-    // Create approval record
-    await supabase.from('budget_approvals').insert({
-      budget_version_id: activeVersion.id,
-      action: 'rejected',
-      approved_by: user!.id,
-      reason: rejectionReason,
-    });
-
-    toast.success('Budget rejected');
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/budgets/cfo-approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ budget_id: budget!.id, action: 'reject', reason: rejectionReason }),
+      });
+      const data = await res.json();
+      if (data.success) { toast.success('Budget rejected'); }
+      else { toast.error(data.error || 'Failed to reject budget'); }
+    } catch (e) { toast.error('Failed to reject budget'); }
     setShowRejectDialog(false);
     setRejectionReason('');
     setProcessing(false);
@@ -276,13 +210,17 @@ export default function BudgetDetailPage() {
 
   async function handleMarkUnderReview() {
     if (!activeVersion) return;
-    const supabase = createClient();
-    await supabase.from('budget_versions').update({
-      status: 'under_review',
-      reviewed_by: user!.id,
-      reviewed_at: new Date().toISOString(),
-    }).eq('id', activeVersion.id);
-    toast.success('Budget marked as under review');
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/budgets/cfo-approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ budget_id: budget!.id, action: 'mark_under_review' }),
+      });
+      const data = await res.json();
+      if (data.success) { toast.success('Budget marked as under review'); }
+      else { toast.error(data.error || 'Failed to update'); }
+    } catch (e) { toast.error('Failed to update'); }
     load();
   }
 
@@ -350,37 +288,22 @@ export default function BudgetDetailPage() {
 
   async function handleResubmit() {
     if (!budget || !activeVersion) return;
-    const supabase = createClient();
-    // Update version status to pm_review for resubmission
-    await supabase.from('budget_versions').update({
-      status: 'pm_review',
-      submitted_at: new Date().toISOString(),
-      submitted_by: user!.id,
-      pm_return_reason: null,
-    }).eq('id', activeVersion.id);
-    // Clear PM review fields on budget
-    await supabase.from('budgets').update({
-      pm_review_opened_at: null,
-      pm_reviewer_id: null,
-    }).eq('id', budget.id);
-    // Reset pm_status on all items back to pending
-    await supabase.from('budget_items').update({
-      pm_status: 'pending',
-      pm_approved_amount: null,
-      pm_adjustment_reason: null,
-      pm_reviewed_by: null,
-      pm_reviewed_at: null,
-    }).eq('budget_version_id', activeVersion.id);
-    toast.success('Budget resubmitted for PM review');
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/budgets/resubmit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ budget_id: budget.id }),
+      });
+      const data = await res.json();
+      if (data.success) { toast.success('Budget resubmitted for review'); }
+      else { toast.error(data.error || 'Failed to resubmit'); }
+    } catch (e) { toast.error('Failed to resubmit'); }
     load();
   }
+
   const pendingLineItems = items.filter((i: /* // */ any) => !i.pm_status || i.pm_status === 'pending').length;
-  const canCfoApprove = isCfo && (
-    activeVersion?.status === 'pm_approved'
-    || activeVersion?.status === 'under_review'
-    || activeVersion?.status === 'submitted'
-    || activeVersion?.status === 'pm_review'
-  );
+  const canCfoApprove = isCfo && activeVersion?.status === 'pm_approved';
   const canPmReview = isPmOrCfo && activeVersion?.status === 'pm_review';
   // CFO can also do line-item review on pm_review, pm_approved, submitted budgets
   const canLineReview = canPmReview || (isCfo && ['pm_review', 'pm_approved', 'submitted', 'under_review'].includes(activeVersion?.status || ''));
