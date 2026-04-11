@@ -34,7 +34,7 @@ interface InvoiceSummary {
 
 export default function WithdrawalsPage() {
   const { user } = useUser();
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [withdrawals, setWithdrawals] = useState<(Withdrawal & { projects?: { name: string } | null })[]>([]);
   const [budgetSummaries, setBudgetSummaries] = useState<BudgetSummaryRow[]>([]);
   const [invoiceSummary, setInvoiceSummary] = useState<InvoiceSummary>({ total_invoiced_usd: 0, total_paid_usd: 0, total_pending_usd: 0 });
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
@@ -51,7 +51,7 @@ export default function WithdrawalsPage() {
         .select('*')
         .eq('year_month', selectedMonth)
         .order('withdrawal_date', { ascending: false });
-      setWithdrawals((wData || []) as Withdrawal[]);
+      setWithdrawals((wData || []) as (Withdrawal & { projects?: { name: string } | null })[]);
 
       // Load budgets
       const { data: bData } = await supabase
@@ -296,6 +296,7 @@ export default function WithdrawalsPage() {
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Purpose</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead className="text-right">USD</TableHead>
                   <TableHead className="text-right">Rate</TableHead>
@@ -308,7 +309,7 @@ export default function WithdrawalsPage() {
               <TableBody>
                 {withdrawals.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       No withdrawals for {formatYearMonth(selectedMonth)}
                     </TableCell>
                   </TableRow>
@@ -317,6 +318,17 @@ export default function WithdrawalsPage() {
                     {withdrawals.map((w) => (
                       <TableRow key={w.id}>
                         <TableCell>{formatDate(w.withdrawal_date)}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                      w.withdrawal_type === 'company_operations' || w.purpose === 'company_operations'
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'bg-purple-50 text-purple-700'
+                    }`}>
+                      {w.withdrawal_type === 'company_operations' || w.purpose === 'company_operations'
+                        ? (w.projects?.name || 'Company Ops')
+                        : (w.director_name || w.director_tag || 'Director')}
+                    </span>
+                  </TableCell>
                         <TableCell>
                           {w.withdrawal_type === 'director_payout' ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
