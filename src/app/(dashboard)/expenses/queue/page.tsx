@@ -20,7 +20,7 @@ import { formatCurrency, formatDate, getCurrentYearMonth, formatYearMonth } from
 import { toast } from 'sonner';
 import { DollarSign, CheckCircle, Clock, TrendingDown } from 'lucide-react';
 import { EXPENSE_STATUS } from '@/lib/constants/status';
-import { getPendingExpensesByMonth } from '@/lib/queries/expenses';
+import { getConfirmedExpensesByMonth, getPendingExpensesByMonth } from '@/lib/queries/expenses';
 
 // -----------------------------------------------
 // Types
@@ -47,6 +47,11 @@ interface PendingExpense {
 interface Project {
   id: string;
   name: string;
+}
+
+interface ConfirmedExpense {
+  project_id: string | null;
+  amount_kes: number;
 }
 
 // -----------------------------------------------
@@ -119,6 +124,7 @@ export default function ExpenseQueuePage() {
 
   // Data
   const [items, setItems] = useState<PendingExpense[]>([]);
+  const [confirmedItems, setConfirmedItems] = useState<ConfirmedExpense[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasPendingItems, setHasPendingItems] = useState(true);
@@ -143,9 +149,12 @@ export default function ExpenseQueuePage() {
 
   async function loadItems() {
     setLoading(true);
-    const { data } = await getPendingExpensesByMonth(supabase, selectedMonth);
-
-    setItems((data as PendingExpense[] | null) || []);
+    const [{ data: pendingData }, { data: confirmedData }] = await Promise.all([
+      getPendingExpensesByMonth(supabase, selectedMonth),
+      getConfirmedExpensesByMonth(supabase, selectedMonth),
+    ]);
+    setItems((pendingData as PendingExpense[] | null) || []);
+    setConfirmedItems((confirmedData as ConfirmedExpense[] | null) || []);
     setLoading(false);
   }
 
@@ -219,9 +228,11 @@ export default function ExpenseQueuePage() {
   // -----------------------------------------------
 
   const totalBudgeted = filtered.reduce((s, i) => s + Number(i.budgeted_amount_kes), 0);
-  const totalConfirmed = filtered
-    .filter((i) => i.status === EXPENSE_STATUS.CONFIRMED)
-    .reduce((s, i) => s + Number(i.actual_amount_kes || 0), 0);
+  const totalConfirmed = (statusFilter === 'all' || statusFilter === EXPENSE_STATUS.CONFIRMED)
+    ? confirmedItems
+      .filter((item) => projectFilter === 'all' || item.project_id === projectFilter)
+      .reduce((sum, item) => sum + Number(item.amount_kes || 0), 0)
+    : 0;
   const pendingCount = filtered.filter((i) => i.status === EXPENSE_STATUS.PENDING_AUTH).length;
   const selectedMonthPendingCount = items.filter((i) => i.status === EXPENSE_STATUS.PENDING_AUTH).length;
   const totalActual = filtered.reduce((s, i) => s + Number(i.actual_amount_kes || i.budgeted_amount_kes), 0);

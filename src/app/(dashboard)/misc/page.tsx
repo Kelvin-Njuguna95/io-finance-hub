@@ -136,11 +136,7 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
   const reportMonth = getPrevMonth(selectedMonth);
-  const selectedMonthLabel = new Intl.DateTimeFormat('en-KE', {
-    timeZone: 'Africa/Nairobi',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date(`${selectedMonth}-01`));
+  const selectedMonthLabel = formatYearMonth(selectedMonth);
 
   const loadProjects = useCallback(async () => {
     setLoading(true);
@@ -290,9 +286,7 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
             <Label>Project</Label>
             <Select value={selectedProjectId} onValueChange={(v) => setSelectedProjectId(v ?? '')} disabled={loading || projects.length === 0}>
               <SelectTrigger>
-                <SelectValue placeholder={loading ? 'Loading projects...' : 'Select project'}>
-                  {projects.find((project: { id: string; name: string }) => project.id === selectedProjectId)?.name}
-                </SelectValue>
+                <SelectValue placeholder={loading ? 'Loading projects...' : 'Select project'} />
               </SelectTrigger>
               <SelectContent>
                 {projects.map((p: /* // */ any) => (
@@ -2591,9 +2585,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
               <Label>Project *</Label>
               <Select value={raiseProjectId} onValueChange={(v) => v && setRaiseProjectId(v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select project...">
-                    {projects.find((project: { id: string; name: string }) => project.id === raiseProjectId)?.name}
-                  </SelectValue>
+                  <SelectValue placeholder="Select project..." />
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map((p: /* // */ any) => (
