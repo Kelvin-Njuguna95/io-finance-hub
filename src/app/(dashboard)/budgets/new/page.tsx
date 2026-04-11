@@ -238,7 +238,7 @@ export default function NewBudgetPage() {
   }
 
   function updateItem(id: string, field: keyof LineItem, value: string | number) {
-    setItems(items.map((i) => (i.id === id ? { ...i, [field]: value } : i)));
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, [field]: value } : i)));
   }
 
   function getItemTotal(item: LineItem) {
@@ -398,11 +398,7 @@ export default function NewBudgetPage() {
                 <Label>{scopeType === 'project' ? 'Project' : 'Department'} *</Label>
                 <Select value={scopeId} onValueChange={(v) => v && setScopeId(v)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select...">
-                      {scopeType === 'project'
-                        ? projects.find((project) => project.id === scopeId)?.name
-                        : departments.find((department) => department.id === scopeId)?.name}
-                    </SelectValue>
+                    <SelectValue placeholder="Select..." />
                   </SelectTrigger>
                   <SelectContent>
                     {scopeType === 'project'
@@ -529,14 +525,10 @@ export default function NewBudgetPage() {
                   <div className="space-y-1">
                     <Label className="text-xs">Category</Label>
                     <Select
-                      value={item.category}
-                      onValueChange={(value) => updateItem(item.id, 'category', value ?? '')}
+                      value={item.category || undefined}
+                      onValueChange={(value) => updateItem(item.id, 'category', value)}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select...">
-                          {item.category || undefined}
-                        </SelectValue>
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                       <SelectContent>
                         {categories.map((cat) => (
                           <SelectItem key={cat} value={cat}>{cat}</SelectItem>
