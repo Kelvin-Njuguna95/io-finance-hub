@@ -190,12 +190,15 @@ export interface Withdrawal {
   id: string;
   withdrawal_date: string;
   withdrawal_type: WithdrawalType;
-  director_tag: DirectorEnum;
-  director_user_id: string;
+  purpose: 'director_payout' | 'company_operations';
+  director_tag: DirectorEnum | null;
+  director_user_id: string | null;
   director_name: string | null;
   profit_share_record_id: string | null;
   payout_type: PayoutType | null;
   partial_payout_sequence: number | null;
+  project_id: string | null;
+  budget_id: string | null;
   amount_usd: number;
   exchange_rate: number;
   amount_kes: number;
