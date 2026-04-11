@@ -3,7 +3,18 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 function currentPeriodInEAT(): { yearMonth: string; periodDate: string; day: number } {
   const now = new Date();
-  const eatDate = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Nairobi' }));
+  const parts = new Intl.DateTimeFormat('en-KE', {
+    timeZone: 'Africa/Nairobi',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+  const val = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+  const eatDate = new Date(`${val('year')}-${val('month')}-${val('day')}T${val('hour')}:${val('minute')}:${val('second')}Z`);
   const year = eatDate.getFullYear();
   const month = String(eatDate.getMonth() + 1).padStart(2, '0');
   return {

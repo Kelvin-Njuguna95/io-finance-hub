@@ -16,7 +16,12 @@ function createAdminClient() {
 export async function GET() {
   try {
     const admin = createAdminClient();
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
+    const today = new Intl.DateTimeFormat('en-KE', {
+      timeZone: 'Africa/Nairobi',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date()).split('/').reverse().join('-');
 
   // Check if auto-send is enabled + trigger sources
   const { data: settings } = await admin

@@ -12,9 +12,9 @@ import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency, formatE
 
 import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { getLaggedMonth, getUnifiedServicePeriodLabel } from '@/lib/report-utils';
-import { isBackdated } from '@/lib/backdated-utils';
 import { FileDown } from 'lucide-react';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, PieChart, Pie } from 'recharts';
+import { EXPENSE_STATUS } from '@/lib/constants/status';
 
 interface ProjectRevenue {
   name: string;
@@ -97,19 +97,18 @@ export default function MonthlyPnlReport() {
       const revMonth = historical ? selectedMonth : getLaggedMonth(selectedMonth);
       setRevenueSourceMonth(revMonth);
 
-      const [projRes, invRes, projExpRes, sharedExpRes, rateRes, projAssign] = await Promise.all([
+      const [projRes, laggedRevenueRes, projExpRes, sharedExpRes, rateRes, projAssign] = await Promise.all([
         supabase.from('projects').select('id, name, director_tag').eq('is_active', true),
-        supabase.from('invoices').select('project_id, amount_usd, amount_kes, description').eq('billing_period', revMonth),
-        supabase.from('expenses').select('id, project_id, expense_category_id, amount_kes, description, expense_date, vendor, expense_categories(name)').eq('year_month', selectedMonth).eq('expense_type', 'project_expense'),
-        supabase.from('expenses').select('id, project_id, expense_category_id, amount_kes, description, expense_date, vendor, expense_categories(name)').eq('year_month', selectedMonth).eq('expense_type', 'shared_expense'),
+        supabase.from('lagged_revenue_by_project_month').select('project_id, lagged_revenue').eq('payment_month', `${selectedMonth}-01`),
+        supabase.from('expenses').select('id, project_id, expense_category_id, amount_kes, description, expense_date, vendor, expense_categories(name)').eq('year_month', selectedMonth).eq('expense_type', 'project_expense').eq('lifecycle_status', EXPENSE_STATUS.CONFIRMED),
+        supabase.from('expenses').select('id, project_id, expense_category_id, amount_kes, description, expense_date, vendor, expense_categories(name)').eq('year_month', selectedMonth).eq('expense_type', 'shared_expense').eq('lifecycle_status', EXPENSE_STATUS.CONFIRMED),
         supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single(),
         supabase.from('user_project_assignments').select('project_id').eq('user_id', user?.id || ''),
       ]);
 
       const stdRate = parseFloat(rateRes.data?.value || '129.5');
       const projects = projRes.data || [];
-      const invoices = invRes.data || [];
-      const nonBackdatedInvoices = invoices.filter((i: /* // */ any) => !isBackdated(i.description));
+      const laggedRevenue = laggedRevenueRes.data || [];
       const projExpenses = projExpRes.data || [];
       const sharedExpenses = sharedExpRes.data || [];
       const assignedProjects = (projAssign.data || []).map((a: /* // */ any) => a.project_id);
@@ -120,8 +119,8 @@ export default function MonthlyPnlReport() {
 
       // Revenue per project (lagged)
       const revMap = new Map<string, number>();
-      nonBackdatedInvoices.forEach((i: /* // */ any) => {
-        const kes = Number(i.amount_kes) > 0 ? Number(i.amount_kes) : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
+      laggedRevenue.forEach((i: /* // */ any) => {
+        const kes = Number(i.lagged_revenue || 0);
         revMap.set(i.project_id, (revMap.get(i.project_id) || 0) + kes);
       });
 
@@ -214,8 +213,8 @@ export default function MonthlyPnlReport() {
     if (!pnl) return;
     const { default: jsPDF } = await import('jspdf');
     const doc = new jsPDF();
-    const navy = '#0f172a';
-    const gold = '#F5C518';
+    const navy = '#0b1220';
+    const gold = '#eab308';
 
     // Header
     doc.setFillColor(navy);
@@ -242,7 +241,7 @@ export default function MonthlyPnlReport() {
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(bold ? 10 : 9);
       doc.text(label, leftX + indent, y);
-      const formatted = amount < 0 ? `(KES ${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : `KES ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const formatted = amount < 0 ? `(${formatCurrency(Math.abs(amount), 'KES')})` : formatCurrency(amount, 'KES');
       doc.text(formatted, rightX, y, { align: 'right' });
       y += bold ? 7 : 6;
     }
@@ -288,7 +287,7 @@ export default function MonthlyPnlReport() {
       addSection('DISTRIBUTABLE PROFIT');
       pnl.distributable.forEach(d => {
         if (d.profit > 0) {
-          addLine(`${d.project} — ${d.director} 70%: KES ${d.directorShare.toLocaleString('en-US', { maximumFractionDigits: 0 })}  |  Co 30%: KES ${d.companyShare.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, d.profit, false, 4);
+          addLine(`${d.project} — ${d.director} 70%: ${formatCurrency(d.directorShare, 'KES')}  |  Co 30%: ${formatCurrency(d.companyShare, 'KES')}`, d.profit, false, 4);
         }
       });
     }
@@ -297,7 +296,7 @@ export default function MonthlyPnlReport() {
     doc.setFontSize(7);
     doc.setTextColor(150, 150, 150);
     doc.text('CONFIDENTIAL - INTERNAL USE ONLY', 105, 285, { align: 'center' });
-    doc.text(`Impact Outsourcing Limited | Generated: ${new Date().toLocaleString('en-US', { timeZone: 'Africa/Nairobi' })}`, 105, 290, { align: 'center' });
+    doc.text(`Impact Outsourcing Limited | Generated: ${new Intl.DateTimeFormat('en-KE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Nairobi' }).format(new Date())}`, 105, 290, { align: 'center' });
 
     doc.save(`IO_PnL_${selectedMonth}.pdf`);
   }, [pnl, selectedMonth, revenueSourceMonth, userRole, servicePeriodLabel]);
@@ -412,7 +411,7 @@ export default function MonthlyPnlReport() {
             </div>
 
             <Card className="io-card max-w-6xl overflow-hidden border-border">
-              <CardHeader className="bg-gradient-to-r from-[#0f172a] via-[#12203c] to-[#1e293b] text-white rounded-t-lg border-b border-white/10">
+              <CardHeader className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white rounded-t-lg border-b border-white/10">
 
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>

@@ -92,7 +92,7 @@ export function EodPanel() {
     setIsResend(resend);
     const lines: string[] = [];
     lines.push(`IO Finance — End of Day Report`);
-    lines.push(`${new Date().toLocaleDateString('en-US', { timeZone: 'Africa/Nairobi', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`);
+    lines.push(`${new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())}`);
     lines.push('');
     lines.push(`Expenses: ${status.summary.expense_count} entries — ${formatCurrency(status.summary.expense_total_kes || 0, 'KES')}`);
     lines.push(`Withdrawals: ${status.summary.withdrawal_count} entries`);
@@ -142,7 +142,7 @@ export function EodPanel() {
   let statusBadge: React.ReactNode;
   if (sent) {
     const time = s?.existing_report?.created_at
-      ? new Date(s.existing_report.created_at).toLocaleTimeString('en-US', { timeZone: 'Africa/Nairobi', hour: '2-digit', minute: '2-digit', hour12: false })
+      ? new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(s.existing_report.created_at))
       : '--:--';
     statusBadge = <Badge className="bg-green-100 text-green-700"><CheckCircle className="h-3 w-3 mr-1" /> Sent at {time} EAT</Badge>;
   } else if (hasActivity) {

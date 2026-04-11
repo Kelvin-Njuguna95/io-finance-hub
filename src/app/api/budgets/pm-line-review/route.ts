@@ -175,7 +175,7 @@ export async function POST(request: Request) {
       await admin.from('notifications').insert({
         user_id: cfo.id,
         title: 'Budget ready for approval',
-        message: `${profile?.full_name} reviewed the budget for ${project?.name}. Original: KES ${originalTotal.toLocaleString()}, Approved: KES ${approvedTotal.toLocaleString()} (${summary.adjusted_count} adjusted, ${summary.removed_count} removed).`,
+        message: `${profile?.full_name} reviewed the budget for ${project?.name}. Original: KES ` + originalTotal.toLocaleString() + `, Approved: KES ` + approvedTotal.toLocaleString() + ` (${summary.adjusted_count} adjusted, ${summary.removed_count} removed).`,
         link: '/budgets/' + budget_id,
       });
     }

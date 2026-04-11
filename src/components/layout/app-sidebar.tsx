@@ -49,9 +49,7 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   function handleSignOut() {
-    // Route through the server endpoint so HTTP-only auth cookies are cleared
-    // The server clears all cookies and redirects to /login.
-    window.location.href = '/auth/signout';
+    window.location.href = '/login';
   }
 
   const initials = user?.full_name

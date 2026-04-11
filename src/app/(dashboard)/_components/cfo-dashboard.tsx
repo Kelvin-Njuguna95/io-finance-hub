@@ -38,6 +38,7 @@ import {
   getCurrentYearMonth,
   formatYearMonth,
 } from '@/lib/format';
+import { EXPENSE_STATUS } from '@/lib/constants/status';
 import { CfoMiscApproval } from '@/components/misc/cfo-misc-approval';
 import { OutstandingReceivablesPanel } from '@/components/revenue/outstanding-receivables-panel';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
@@ -190,7 +191,7 @@ export function CfoDashboard() {
           .from('invoices')
           .select('amount_usd, amount_kes')
           .eq('billing_period', prevMonth),
-        supabase.from('expenses').select('amount_kes').eq('year_month', currentMonth),
+        supabase.from('expenses').select('amount_kes').eq('year_month', currentMonth).eq('lifecycle_status', EXPENSE_STATUS.CONFIRMED),
         supabase
           .from('system_settings')
           .select('value')
@@ -547,12 +548,12 @@ export function CfoDashboard() {
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] text-muted-foreground tabular-nums">
                     {log.created_at
-                      ? new Date(log.created_at).toLocaleTimeString('en-US', {
+                      ? new Intl.DateTimeFormat('en-KE', {
                           timeZone: 'Africa/Nairobi',
                           hour: '2-digit',
                           minute: '2-digit',
                           hour12: false,
-                        })
+                        }).format(new Date(log.created_at))
                       : '--:--'}{' '}
                     EAT
                   </span>
@@ -703,7 +704,7 @@ function EodPayloadFallback({ log }: { log: EodLogRow }) {
             <p key={i} className="ml-3 text-sm text-muted-foreground">
               • {w.director_tag as string} — USD{' '}
               {Number(w.amount_usd).toLocaleString()} @{' '}
-              {Number(w.exchange_rate).toFixed(2)} = KES{' '}
+              {Number(w.exchange_rate).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} = KES{' '}
               {Number(w.amount_kes).toLocaleString()} —{' '}
               {(w.forex_bureau as string) || '—'}
             </p>

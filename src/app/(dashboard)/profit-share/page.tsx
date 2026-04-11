@@ -376,7 +376,7 @@ export default function ProfitSharePage() {
                                       <tr key={w.id}>
                                         <td>{formatDate(w.withdrawal_date)}</td>
                                         <td className="capitalize">{w.payout_type || '—'}</td>
-                                        <td className="text-right">USD {Number(w.amount_usd || 0).toFixed(2)}</td>
+                                        <td className="text-right">USD {Number(w.amount_usd || 0).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                         <td className="text-right">{formatKES(Number(w.amount_kes || 0))}</td>
                                         <td>{w.users?.full_name || '—'}</td>
                                       </tr>

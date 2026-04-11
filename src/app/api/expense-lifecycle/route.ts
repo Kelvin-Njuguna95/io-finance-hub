@@ -479,7 +479,7 @@ export async function POST(request: Request) {
     });
 
     // Notify
-    await notifyRole(admin, 'cfo', 'Expense confirmed', `Pending expense "${pending.description}" confirmed at KES ${actual_amount_kes.toLocaleString()} for ${pending.year_month}.`, '/expenses');
+    await notifyRole(admin, 'cfo', 'Expense confirmed', `Pending expense "${pending.description}" confirmed at KES ` + actual_amount_kes.toLocaleString() + ` for ${pending.year_month}.`, '/expenses');
     await recomputeExpenseVariancesForMonth(admin, pending.year_month);
 
     return NextResponse.json({ success: true, data: updated });
@@ -575,7 +575,7 @@ export async function POST(request: Request) {
       new_values: { status: 'confirmed', actual_amount_kes, modified_reason, expense_id: expense?.id },
     });
 
-    await notifyRole(admin, 'cfo', 'Expense modified', `Pending expense "${pending.description}" modified to KES ${actual_amount_kes.toLocaleString()}. Reason: ${modified_reason}`, '/expenses');
+    await notifyRole(admin, 'cfo', 'Expense modified', `Pending expense "${pending.description}" modified to KES ` + actual_amount_kes.toLocaleString() + `. Reason: ${modified_reason}`, '/expenses');
     await recomputeExpenseVariancesForMonth(admin, pending.year_month);
 
     return NextResponse.json({ success: true, data: updated });
@@ -955,7 +955,7 @@ export async function POST(request: Request) {
           flag_type: 'expense_variance_overspend',
           severity: variancePct > thresholdPct * 2 ? 'critical' as const : 'high' as const,
           title: `Expense variance exceeds ${thresholdPct}% threshold`,
-          description: `Variance of ${variancePct.toFixed(1)}% (KES ${variance.toLocaleString()}) detected for ${year_month}. Project: ${g.project_id || 'N/A'}, Dept: ${g.department_id || 'N/A'}, Category: ${g.category || 'N/A'}.`,
+          description: `Variance of ${variancePct.toFixed(1)}% (KES ` + variance.toLocaleString() + `) detected for ${year_month}. Project: ${g.project_id || 'N/A'}, Dept: ${g.department_id || 'N/A'}, Category: ${g.category || 'N/A'}.`,
           project_id: g.project_id,
           year_month,
           reference_table: 'expense_variances',
@@ -1049,7 +1049,7 @@ async function checkVarianceRedFlag(
       flag_type: 'expense_variance_overspend',
       severity: variancePct > thresholdPct * 2 ? 'critical' : 'high',
       title: `Expense overspend: ${variancePct.toFixed(1)}% over budget`,
-      description: `"${pending.description}" actual KES ${actualAmountKes.toLocaleString()} vs budgeted KES ${budgeted.toLocaleString()} (${variancePct.toFixed(1)}% variance) for ${pending.year_month}.`,
+      description: `"${pending.description}" actual KES ` + actualAmountKes.toLocaleString() + ` vs budgeted KES ` + budgeted.toLocaleString() + ` (${variancePct.toFixed(1)}% variance) for ${pending.year_month}.`,
       project_id: pending.project_id,
       year_month: pending.year_month,
       reference_id: pending.id,

@@ -145,9 +145,9 @@ export default function OutstandingReceivablesPage() {
       inv.project_name,
       inv.invoice_date,
       inv.due_date || '',
-      inv.amount_usd.toFixed(2),
-      inv.totalPaid.toFixed(2),
-      inv.balance.toFixed(2),
+      inv.amount_usd.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      inv.totalPaid.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      inv.balance.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       String(inv.aging.days),
       inv.aging.bucket,
     ]);
@@ -167,7 +167,7 @@ export default function OutstandingReceivablesPage() {
     await exportSimpleReportPdf(
       'Outstanding Receivables',
       'Unpaid invoices and aging analysis',
-      invoices.slice(0, 120).map((inv) => `${inv.invoice_number} | ${inv.project_name} | outstanding ${inv.balance.toFixed(2)} USD | aging ${inv.aging.bucket}`),
+      invoices.slice(0, 120).map((inv) => `${inv.invoice_number} | ${inv.project_name} | outstanding ${inv.balance.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD | aging ${inv.aging.bucket}`),
       `IO_Outstanding_Receivables_${new Date().toISOString().split('T')[0]}.pdf`,
     );
   }

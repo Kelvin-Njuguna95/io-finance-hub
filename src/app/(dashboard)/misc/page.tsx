@@ -1763,7 +1763,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                         </div>
                         <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
                           <span>{pct.toFixed(0)}% utilised</span>
-                          <span>{isOver ? `KES ${(drawn - alloc).toLocaleString()} over` : `KES ${(alloc - drawn).toLocaleString()} remaining`}</span>
+                          <span>{isOver ? 'KES ' + (drawn - alloc).toLocaleString() + ' over' : 'KES ' + (alloc - drawn).toLocaleString() + ' remaining'}</span>
                         </div>
                       </div>
                     );

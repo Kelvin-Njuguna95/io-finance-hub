@@ -277,9 +277,6 @@ export default function SettingsPage() {
 
   async function handleRemoveHistoricalSeed() {
     if (!canEdit) return;
-    const shouldContinue = window.confirm('This will remove historical seed records from all seed-related tables. Continue?');
-    if (!shouldContinue) return;
-
     setRemovingSeed(true);
     try {
       const supabase = createClient();

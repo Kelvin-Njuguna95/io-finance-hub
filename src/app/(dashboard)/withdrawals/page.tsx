@@ -187,8 +187,8 @@ export default function WithdrawalsPage() {
           />
           <StatCard
             title="Avg Exchange Rate"
-            value={avgRate > 0 ? avgRate.toFixed(2) : '—'}
-            subtitle={avgRate > 0 ? `USD 1 = KES ${avgRate.toFixed(2)}` : 'No withdrawals yet'}
+            value={avgRate > 0 ? new Intl.NumberFormat('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(avgRate) : '—'}
+            subtitle={avgRate > 0 ? 'USD 1 = KES ' + new Intl.NumberFormat('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(avgRate) : 'No withdrawals yet'}
             icon={TrendingUp}
           />
         </div>
@@ -320,11 +320,11 @@ export default function WithdrawalsPage() {
                         <TableCell>{formatDate(w.withdrawal_date)}</TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                      w.withdrawal_type === 'company_operations' || w.purpose === 'company_operations'
+                      w.withdrawal_type === 'operations' || w.purpose === 'company_operations'
                         ? 'bg-blue-50 text-blue-700'
                         : 'bg-purple-50 text-purple-700'
                     }`}>
-                      {w.withdrawal_type === 'company_operations' || w.purpose === 'company_operations'
+                      {w.withdrawal_type === 'operations' || w.purpose === 'company_operations'
                         ? (w.projects?.name || 'Company Ops')
                         : (w.director_name || w.director_tag || 'Director')}
                     </span>
@@ -349,14 +349,14 @@ export default function WithdrawalsPage() {
                               </p>
                             </div>
                           ) : (
-                            capitalize(w.director_tag)
+                            capitalize(w.director_tag || '')
                           )}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {formatCurrency(Number(w.amount_usd), 'USD')}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
-                          {Number(w.exchange_rate).toFixed(2)}
+                          {new Intl.NumberFormat('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(w.exchange_rate))}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {formatCurrency(Number(w.amount_kes), 'KES')}
@@ -371,7 +371,7 @@ export default function WithdrawalsPage() {
                     <TableRow className="font-semibold bg-muted/50">
                       <TableCell colSpan={3} className="text-right">Totals</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalWithdrawnUsd, 'USD')}</TableCell>
-                      <TableCell className="text-right font-mono text-sm">{avgRate > 0 ? `Avg: ${avgRate.toFixed(2)}` : ''}</TableCell>
+                      <TableCell className="text-right font-mono text-sm">{avgRate > 0 ? `Avg: ${new Intl.NumberFormat('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(avgRate)}` : ''}</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalReceivedKes, 'KES')}</TableCell>
                       <TableCell colSpan={2}></TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalVariance, 'KES')}</TableCell>

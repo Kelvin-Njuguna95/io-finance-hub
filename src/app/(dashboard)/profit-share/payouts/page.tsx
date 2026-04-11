@@ -52,6 +52,7 @@ export default function DirectorPayoutsPage() {
   const [availableWithdrawals, setAvailableWithdrawals] = useState<WithdrawalOption[]>([]);
   const [selectedWithdrawalId, setSelectedWithdrawalId] = useState('');
   const [markPaidId, setMarkPaidId] = useState<string | null>(null);
+  const [isMutating, setIsMutating] = useState(false);
 
   useEffect(() => {
     void load();
@@ -219,24 +220,29 @@ export default function DirectorPayoutsPage() {
               Cancel
             </Button>
             <Button
-              disabled={!selectedWithdrawalId}
+              disabled={!selectedWithdrawalId || isMutating}
               onClick={async () => {
                 if (!linkModal || !selectedWithdrawalId) return;
-                const res = await fetch(`/api/director-payouts/${linkModal.payoutId}/link-withdrawal`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    withdrawal_id: selectedWithdrawalId,
-                  }),
-                });
-                if (!res.ok) {
-                  const payload = (await res.json()) as { error?: string };
-                  toast.error(payload?.error || 'Failed to link');
-                  return;
+                setIsMutating(true);
+                try {
+                  const res = await fetch(`/api/director-payouts/${linkModal.payoutId}/link-withdrawal`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      withdrawal_id: selectedWithdrawalId,
+                    }),
+                  });
+                  if (!res.ok) {
+                    const payload = (await res.json()) as { error?: string };
+                    toast.error(payload?.error || 'Failed to link');
+                    return;
+                  }
+                  toast.success('Withdrawal linked — payout marked as paid');
+                  setLinkModal(null);
+                  await load();
+                } finally {
+                  setIsMutating(false);
                 }
-                toast.success('Withdrawal linked — payout marked as paid');
-                setLinkModal(null);
-                await load();
               }}
             >
               Link & Mark as Paid
@@ -265,19 +271,25 @@ export default function DirectorPayoutsPage() {
               Cancel
             </Button>
             <Button
+              disabled={isMutating}
               onClick={async () => {
                 if (!markPaidId) return;
-                const res = await fetch(`/api/director-payouts/${markPaidId}/mark-paid`, {
-                  method: 'PATCH',
-                });
-                if (!res.ok) {
-                  const payload = (await res.json()) as { error?: string };
-                  toast.error(payload?.error || 'Failed to mark paid');
-                  return;
+                setIsMutating(true);
+                try {
+                  const res = await fetch(`/api/director-payouts/${markPaidId}/mark-paid`, {
+                    method: 'PATCH',
+                  });
+                  if (!res.ok) {
+                    const payload = (await res.json()) as { error?: string };
+                    toast.error(payload?.error || 'Failed to mark paid');
+                    return;
+                  }
+                  toast.success('Payout marked as paid');
+                  setMarkPaidId(null);
+                  await load();
+                } finally {
+                  setIsMutating(false);
                 }
-                toast.success('Payout marked as paid');
-                setMarkPaidId(null);
-                await load();
               }}
             >
               Confirm Paid

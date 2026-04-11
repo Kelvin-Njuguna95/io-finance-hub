@@ -124,6 +124,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
       const [usersRes, forexRes, projectsRes] = await Promise.all([
         supabase.from('users').select('*').not('director_tag', 'is', null).eq('is_active', true),
         supabase.from('forex_bureaus').select('id, name').eq('is_active', true).order('name'),
+        supabase.from('projects').select('id, name, director_tag').eq('is_active', true).order('name'),
       ]);
       setDirectorUsers((usersRes.data || []) as User[]);
       setForexBureaus((forexRes.data || []) as { id: string; name: string }[]);
@@ -360,7 +361,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
               
           <div className="space-y-1">
             <Label>Project *</Label>
-            <Select value={selectedProjectId} onValueChange={(v) => { setSelectedProjectId(v); const proj = projects.find(p => p.id === v); if (proj) setDirectorTag(proj.director_tag as DirectorEnum); }}>
+            <Select value={selectedProjectId} onValueChange={(v) => { if (!v) return; setSelectedProjectId(v); const proj = projects.find(p => p.id === v); if (proj) setDirectorTag(proj.director_tag as DirectorEnum); }}>
               <SelectTrigger><SelectValue placeholder="Select project..." /></SelectTrigger>
               <SelectContent>
                 {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}

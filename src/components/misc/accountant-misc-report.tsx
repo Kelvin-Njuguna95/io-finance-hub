@@ -179,7 +179,7 @@ export function AccountantMiscReport() {
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium">
-          Monthly Misc Report — {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          Monthly Misc Report — {new Intl.DateTimeFormat('en-KE', { month: 'long', year: 'numeric', timeZone: 'Africa/Nairobi' }).format(now)}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

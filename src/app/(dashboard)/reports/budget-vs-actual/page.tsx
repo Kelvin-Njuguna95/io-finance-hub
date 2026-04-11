@@ -194,7 +194,7 @@ export default function BudgetVsActualPage() {
     await exportSimpleReportPdf(
       'Budget vs Actual',
       `Service period: ${servicePeriodLabel}`,
-      rows.slice(0, 120).map((r) => `${r.scope} | budget ${r.budget_kes.toFixed(2)} | actual ${r.actual_kes.toFixed(2)} | variance ${r.variance_kes.toFixed(2)}`),
+      rows.slice(0, 120).map((r) => `${r.scope} | budget ${r.budget_kes.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | actual ${r.actual_kes.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | variance ${r.variance_kes.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
       `IO_Budget_vs_Actual_${selectedMonth}.pdf`,
     );
   }

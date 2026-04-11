@@ -198,7 +198,7 @@ function CalendarDayButton({
     <Button
       variant="ghost"
       size="icon"
-      data-day={day.date.toLocaleDateString(locale?.code)}
+      data-day={new Intl.DateTimeFormat(locale?.code || 'en-KE', { timeZone: 'Africa/Nairobi' }).format(day.date)}
       data-selected-single={
         modifiers.selected &&
         !modifiers.range_start &&

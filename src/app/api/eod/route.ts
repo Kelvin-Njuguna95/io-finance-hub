@@ -10,11 +10,11 @@ function createAdminClient() {
 }
 
 function formatKES(amount: number): string {
-  return `KES ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return 'KES ' + new Intl.NumberFormat('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
 }
 
 function formatUSD(amount: number): string {
-  return `USD ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `USD ${new Intl.NumberFormat('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)}`;
 }
 
 async function getAuthUser(request: Request) {
@@ -118,7 +118,7 @@ function buildMessage(
     const totalWdKes = withdrawals.reduce((s: number, w: /* // */ any) => s + Number(w.amount_kes), 0);
     for (const w of withdrawals) {
       const dir = (w as /* // */ any).director_tag?.charAt(0).toUpperCase() + (w as /* // */ any).director_tag?.slice(1);
-      msg += `• ${dir} — ${formatUSD(Number(w.amount_usd))} @ ${Number(w.exchange_rate).toFixed(2)} = ${formatKES(Number(w.amount_kes))} — ${w.forex_bureau || '—'}\n`;
+      msg += `• ${dir} — ${formatUSD(Number(w.amount_usd))} @ ${new Intl.NumberFormat('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(w.exchange_rate))} = ${formatKES(Number(w.amount_kes))} — ${w.forex_bureau || '—'}\n`;
     }
     msg += `_Total: ${formatUSD(totalWdUsd)} (${formatKES(totalWdKes)})_\n`;
   }
@@ -161,7 +161,7 @@ export async function GET(request: Request) {
   if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const admin = createAdminClient();
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
+  const today = new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).split('/').reverse().join('-');
 
   const { data: existing } = await admin
     .from('eod_reports')
@@ -208,7 +208,7 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
+  const today = new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).split('/').reverse().join('-');
 
   const { data: existing } = await admin.from('eod_reports').select('id').eq('report_date', today).single();
   if (existing && !forceResend) {
@@ -229,8 +229,8 @@ export async function POST(request: Request) {
   }
 
   const now = new Date();
-  const timeEAT = now.toLocaleTimeString('en-US', { timeZone: 'Africa/Nairobi', hour: '2-digit', minute: '2-digit', hour12: false });
-  const dateFormatted = now.toLocaleDateString('en-US', { timeZone: 'Africa/Nairobi', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const timeEAT = new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
+  const dateFormatted = new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(now);
 
   const msg = buildMessage(expenses, withdrawals, cashReceipts, budgetActions, senderName, dateFormatted, timeEAT);
 

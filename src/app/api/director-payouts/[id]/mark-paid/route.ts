@@ -10,8 +10,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     const { profile, user, admin } = auth;
-    if (!['cfo', 'accountant'].includes(profile.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (profile.role !== 'cfo') {
+      return NextResponse.json({ error: 'Only CFO can mark payouts as paid.' }, { status: 403 });
     }
 
     const { id } = await params;

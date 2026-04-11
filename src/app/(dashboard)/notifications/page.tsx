@@ -67,7 +67,7 @@ function timeAgo(dateStr: string): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   if (days < 7) return `${days}d ago`;
-  return then.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return new Intl.DateTimeFormat('en-KE', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Nairobi' }).format(then);
 }
 
 function getDateGroup(dateStr: string): string {

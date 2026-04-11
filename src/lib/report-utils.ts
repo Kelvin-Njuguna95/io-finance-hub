@@ -5,9 +5,9 @@
 export function formatKesShort(amount: number): string {
   const abs = Math.abs(amount);
   const sign = amount < 0 ? '-' : '';
-  if (abs >= 1_000_000) return `${sign}KES ${(abs / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `${sign}KES ${(abs / 1_000).toFixed(0)}k`;
-  return `${sign}KES ${abs.toFixed(0)}`;
+  if (abs >= 1_000_000) return sign + 'KES ' + (abs / 1_000_000).toFixed(1) + 'M';
+  if (abs >= 1_000) return sign + 'KES ' + (abs / 1_000).toFixed(0) + 'k';
+  return sign + 'KES ' + abs.toFixed(0);
 }
 
 export function getLaggedMonth(ym: string): string {
@@ -24,8 +24,8 @@ export function getUnifiedServicePeriodLabel(paymentMonth: string): string {
   const serviceMonth = getLaggedMonth(paymentMonth);
   const [serviceYear, serviceMon] = serviceMonth.split('-');
   const [paymentYear, paymentMon] = paymentMonth.split('-');
-  const serviceText = new Date(parseInt(serviceYear), parseInt(serviceMon) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  const paymentText = new Date(parseInt(paymentYear), parseInt(paymentMon) - 1, 1).toLocaleDateString('en-US', { month: 'long' });
+  const serviceText = new Intl.DateTimeFormat('en-KE', { month: 'long', year: 'numeric', timeZone: 'Africa/Nairobi' }).format(new Date(parseInt(serviceYear), parseInt(serviceMon) - 1, 1));
+  const paymentText = new Intl.DateTimeFormat('en-KE', { month: 'long', timeZone: 'Africa/Nairobi' }).format(new Date(parseInt(paymentYear), parseInt(paymentMon) - 1, 1));
   return `${serviceText} (paid in ${paymentText})`;
 }
 
@@ -66,7 +66,7 @@ export function getMonthRange(months: number, endYm?: string): string[] {
 export function shortMonth(ym: string): string {
   const [year, month] = ym.split('-');
   const d = new Date(parseInt(year), parseInt(month) - 1, 1);
-  return d.toLocaleDateString('en-US', { month: 'short' }) + ' ' + year.slice(2);
+  return new Intl.DateTimeFormat('en-KE', { month: 'short', timeZone: 'Africa/Nairobi' }).format(d) + ' ' + year.slice(2);
 }
 
 // Chart color constants matching IO design system
