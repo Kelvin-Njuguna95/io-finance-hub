@@ -138,7 +138,11 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
           <div className="space-y-1">
             <Label>Project *</Label>
             <Select value={projectId} onValueChange={(v) => v && setProjectId(v)}>
-              <SelectTrigger><SelectValue placeholder="Select project..." /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Select project...">
+                  {projects.find((project) => project.id === projectId)?.name}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>

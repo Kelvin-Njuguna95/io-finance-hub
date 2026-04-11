@@ -362,7 +362,11 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
           <div className="space-y-1">
             <Label>Project *</Label>
             <Select value={selectedProjectId} onValueChange={(v) => { if (!v) return; setSelectedProjectId(v); const proj = projects.find(p => p.id === v); if (proj) setDirectorTag(proj.director_tag as DirectorEnum); }}>
-              <SelectTrigger><SelectValue placeholder="Select project..." /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Select project...">
+                  {projects.find((project) => project.id === selectedProjectId)?.name}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>

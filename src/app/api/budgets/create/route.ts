@@ -2,16 +2,18 @@ import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
 
+const ALLOWED_BUDGET_CREATOR_ROLES = ['cfo', 'team_leader', 'project_manager', 'accountant', 'department_head'] as const;
+
 export async function POST(request: Request) {
   try {
     const auth = await getAuthUserProfile(request);
     if ('error' in auth) return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
     const { user, profile, admin } = auth;
 
-  // Only these roles can create budgets
-  if (!['cfo', 'team_leader', 'project_manager', 'accountant', 'department_head'].includes(profile.role)) {
-    return NextResponse.json({ error: 'Not authorized to create budgets' }, { status: 403 });
-  }
+    // Only these roles can create budgets
+    if (!ALLOWED_BUDGET_CREATOR_ROLES.includes(profile.role as (typeof ALLOWED_BUDGET_CREATOR_ROLES)[number])) {
+      return NextResponse.json({ error: 'Not authorized to create budgets' }, { status: 403 });
+    }
 
   const body = await request.json();
   const {

@@ -13,6 +13,5 @@ export async function getPendingExpensesByMonth(supabase: SupabaseClient, yearMo
     .from('pending_expenses')
     .select('*, projects(name), departments(name)')
     .eq('year_month', yearMonth)
-    .eq('status', 'pending_auth')
     .order('created_at');
 }

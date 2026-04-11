@@ -136,6 +136,11 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
   const reportMonth = getPrevMonth(selectedMonth);
+  const selectedMonthLabel = new Intl.DateTimeFormat('en-KE', {
+    timeZone: 'Africa/Nairobi',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(`${selectedMonth}-01`));
 
   const loadProjects = useCallback(async () => {
     setLoading(true);
@@ -277,7 +282,7 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-xs text-foreground/80">
-          Enter project-level misc expenditure for <strong>{formatYearMonth(reportMonth)}</strong>. This section is available to CFO, Accountant, PM, and Team Leader.
+          Enter project-level misc expenditure for <strong>{selectedMonthLabel}</strong>. This section is available to CFO, Accountant, PM, and Team Leader.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -285,7 +290,9 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
             <Label>Project</Label>
             <Select value={selectedProjectId} onValueChange={(v) => setSelectedProjectId(v ?? '')} disabled={loading || projects.length === 0}>
               <SelectTrigger>
-                <SelectValue placeholder={loading ? 'Loading projects...' : 'Select project'} />
+                <SelectValue placeholder={loading ? 'Loading projects...' : 'Select project'}>
+                  {projects.find((project: { id: string; name: string }) => project.id === selectedProjectId)?.name}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {projects.map((p: /* // */ any) => (
@@ -2584,7 +2591,9 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
               <Label>Project *</Label>
               <Select value={raiseProjectId} onValueChange={(v) => v && setRaiseProjectId(v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select project..." />
+                  <SelectValue placeholder="Select project...">
+                    {projects.find((project: { id: string; name: string }) => project.id === raiseProjectId)?.name}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map((p: /* // */ any) => (
