@@ -213,7 +213,7 @@ export function AppSidebar() {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onSelect={(event) => { event.preventDefault(); void handleSignOut(); }}
+                onClick={() => handleSignOut()}
               >
                 <LogOut className="size-4" aria-hidden />
                 <span>Sign Out</span>
