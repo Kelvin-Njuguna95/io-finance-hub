@@ -267,7 +267,7 @@ export default function ExpenseQueuePage() {
       await callAction('confirm', { id: confirmDialog.id, actual_amount_kes: amount });
       toast.success('Expense confirmed');
       setConfirmDialog(null);
-      loadItems();
+      await loadItems();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to confirm');
     }
@@ -284,7 +284,7 @@ export default function ExpenseQueuePage() {
       toast.success('Expense voided');
       setVoidDialog(null);
       setVoidReason('');
-      loadItems();
+      await loadItems();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to void');
     }
@@ -307,7 +307,7 @@ export default function ExpenseQueuePage() {
       setModifyDialog(null);
       setModifyAmount('');
       setModifyReason('');
-      loadItems();
+      await loadItems();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to modify');
     }
@@ -327,7 +327,7 @@ export default function ExpenseQueuePage() {
         target_month: targetMonth.trim(),
       });
       toast.success('Expense carried forward');
-      loadItems();
+      await loadItems();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to carry forward');
     }
@@ -338,7 +338,7 @@ export default function ExpenseQueuePage() {
     try {
       await callAction('under_review', { id: item.id, review_notes: reviewNotes.trim() });
       toast.success('Expense flagged for review');
-      loadItems();
+      await loadItems();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to flag');
     }
@@ -358,7 +358,7 @@ export default function ExpenseQueuePage() {
       );
       toast.success(`${toConfirm.length} expense(s) confirmed at budgeted amounts`);
       setSelected(new Set());
-      loadItems();
+      await loadItems();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Bulk confirm failed');
     }
@@ -380,7 +380,7 @@ export default function ExpenseQueuePage() {
       })));
       toast.success(`${toCarry.length} expense(s) carried forward`);
       setSelected(new Set());
-      loadItems();
+      await loadItems();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Bulk carry forward failed');
     }
@@ -488,7 +488,7 @@ export default function ExpenseQueuePage() {
                 const result = await res.json();
                 if (result.success) {
                   toast.success(`Backfilled ${result.data?.total_created || 0} expense items from approved budgets`);
-                  loadItems();
+                  await loadItems();
                 } else {
                   toast.error(result.error || 'Backfill failed');
                 }

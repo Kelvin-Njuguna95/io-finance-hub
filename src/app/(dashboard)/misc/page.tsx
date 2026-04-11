@@ -284,13 +284,13 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="space-y-1 md:col-span-2">
             <Label>Project</Label>
-            <Select value={selectedProjectId} onValueChange={(v) => setSelectedProjectId(v ?? '')} disabled={loading || projects.length === 0}>
+            <Select value={selectedProjectId} onValueChange={(v) => v && setSelectedProjectId(v)} disabled={loading || projects.length === 0}>
               <SelectTrigger>
-                <SelectValue placeholder={loading ? 'Loading projects...' : 'Select project'} />
+                <SelectValue placeholder={loading ? 'Loading projects...' : 'Select project...'} />
               </SelectTrigger>
               <SelectContent>
-                {projects.map((p: /* // */ any) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

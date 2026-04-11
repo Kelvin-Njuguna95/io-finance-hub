@@ -526,7 +526,9 @@ export default function NewBudgetPage() {
                     <Label className="text-xs">Category</Label>
                     <Select
                       value={item.category || undefined}
-                      onValueChange={(value) => updateItem(item.id, 'category', value)}
+                      onValueChange={(value) => {
+                        if (value) updateItem(item.id, 'category', value);
+                      }}
                     >
                       <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                       <SelectContent>
