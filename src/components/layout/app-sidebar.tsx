@@ -49,9 +49,9 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   function handleSignOut() {
-    // Navigate directly to the server sign-out route.
+    // Route through the server endpoint so HTTP-only auth cookies are cleared
     // The server clears all cookies and redirects to /login.
-    window.location.href = "/api/auth/signout";
+    window.location.href = '/auth/signout';
   }
 
   const initials = user?.full_name
@@ -213,7 +213,7 @@ export function AppSidebar() {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onSelect={() => handleSignOut()}
+                onSelect={(event) => { event.preventDefault(); void handleSignOut(); }}
               >
                 <LogOut className="size-4" aria-hidden />
                 <span>Sign Out</span>
