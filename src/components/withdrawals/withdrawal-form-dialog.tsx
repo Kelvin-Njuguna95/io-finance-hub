@@ -95,6 +95,9 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
   const [directorUsers, setDirectorUsers] = useState<User[]>([]);
   const [forexBureaus, setForexBureaus] = useState<{ id: string; name: string }[]>([]);
 
+  const [projects, setProjects] = useState<{ id: string; name: string; director_tag: string }[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+
   const [directorTag, setDirectorTag] = useState<DirectorEnum | ''>('');
   const [withdrawalDate, setWithdrawalDate] = useState(getNairobiDateISO());
   const [amountUsd, setAmountUsd] = useState(0);
@@ -118,12 +121,13 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
     if (!open) return;
     async function load() {
       const supabase = createClient();
-      const [usersRes, forexRes] = await Promise.all([
+      const [usersRes, forexRes, projectsRes] = await Promise.all([
         supabase.from('users').select('*').not('director_tag', 'is', null).eq('is_active', true),
         supabase.from('forex_bureaus').select('id, name').eq('is_active', true).order('name'),
       ]);
       setDirectorUsers((usersRes.data || []) as User[]);
       setForexBureaus((forexRes.data || []) as { id: string; name: string }[]);
+    setProjects((projectsRes.data || []) as { id: string; name: string; director_tag: string }[]);
     }
     load();
   }, [open]);
@@ -211,8 +215,8 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
       return;
     }
 
-    if (withdrawalType === 'operations' && (!directorTag || amountUsd <= 0 || exchangeRate <= 0)) {
-      toast.error('Director, USD amount, and exchange rate are required');
+    if (withdrawalType === 'operations' && (!selectedProjectId || amountUsd <= 0 || exchangeRate <= 0)) {
+      toast.error('Project, USD amount, and exchange rate are required');
       return;
     }
 
@@ -353,7 +357,18 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
 
           {withdrawalType === 'operations' && (
             <>
-              <div className="grid grid-cols-2 gap-3">
+              
+          <div className="space-y-1">
+            <Label>Project *</Label>
+            <Select value={selectedProjectId} onValueChange={(v) => { setSelectedProjectId(v); const proj = projects.find(p => p.id === v); if (proj) setDirectorTag(proj.director_tag as DirectorEnum); }}>
+              <SelectTrigger><SelectValue placeholder="Select project..." /></SelectTrigger>
+              <SelectContent>
+                {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+<div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>Director *</Label>
                   <Select value={directorTag} onValueChange={(v) => v && setDirectorTag(v as DirectorEnum)}>
