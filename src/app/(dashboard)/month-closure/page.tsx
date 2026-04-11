@@ -92,40 +92,58 @@ export default function MonthClosurePage() {
 
   async function handleClose() {
     setLoading(true);
-    const supabase = createClient();
-    const { error } = await supabase.rpc('fn_close_month', {
-      p_year_month: selectedMonth,
-      p_warnings_acknowledged: warnings.map((w) => w.warning_type),
-    });
-
-    if (error) {
-      toast.error(getUserErrorMessage());
-    } else {
+    try {
+      const res = await fetch('/api/month-closure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'close',
+          year_month: selectedMonth,
+          warnings_acknowledged: warnings.map((w) => w.warning_type),
+        }),
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        toast.error(getUserErrorMessage(payload?.error));
+        return;
+      }
       toast.success('Month closed successfully');
       setShowCloseDialog(false);
       loadData();
+    } catch (error) {
+      toast.error(getUserErrorMessage(error, 'Failed to close month.'));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleReopen() {
     if (!reopenReason.trim()) return;
     setLoading(true);
-    const supabase = createClient();
-    const { error } = await supabase.rpc('fn_reopen_month', {
-      p_year_month: selectedMonth,
-      p_reason: reopenReason,
-    });
-
-    if (error) {
-      toast.error(getUserErrorMessage());
-    } else {
+    try {
+      const res = await fetch('/api/month-closure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reopen',
+          year_month: selectedMonth,
+          reason: reopenReason,
+        }),
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        toast.error(getUserErrorMessage(payload?.error));
+        return;
+      }
       toast.success('Month reopened');
       setShowReopenDialog(false);
       setReopenReason('');
       loadData();
+    } catch (error) {
+      toast.error(getUserErrorMessage(error, 'Failed to reopen month.'));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   const isCfo = user?.role === 'cfo';

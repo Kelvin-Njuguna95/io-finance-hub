@@ -70,12 +70,13 @@ export function HeroCard({
   children,
   className,
 }: HeroCardProps) {
-  const today = new Date().toLocaleDateString('en-US', {
+  const today = new Intl.DateTimeFormat('en-KE', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  });
+    timeZone: 'Africa/Nairobi',
+  }).format(new Date());
 
   const count = stats?.length ?? 0;
   const gridCols =

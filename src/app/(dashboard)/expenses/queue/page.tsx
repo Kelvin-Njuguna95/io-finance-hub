@@ -303,8 +303,6 @@ export default function ExpenseQueuePage() {
   }
 
   async function handleCarryForward(item: PendingExpense) {
-    const proceed = window.confirm('Carry-forward this item to the next month?');
-    if (!proceed) return;
     const reason = 'Carry forward';
     const targetMonth = new Date(new Date(selectedMonth + '-01').setMonth(new Date(selectedMonth + '-01').getMonth() + 1)).toISOString().slice(0, 7);
     if (targetMonth <= selectedMonth) {
@@ -325,8 +323,6 @@ export default function ExpenseQueuePage() {
   }
 
   async function handleFlagForReview(item: PendingExpense) {
-    const proceedReview = window.confirm('Flag this expense for review?');
-    if (!proceedReview) return;
     const reviewNotes = 'Under review';
     try {
       await callAction('under_review', { id: item.id, review_notes: reviewNotes.trim() });
@@ -363,8 +359,6 @@ export default function ExpenseQueuePage() {
       toast.error('No pending items selected');
       return;
     }
-    const proceedBulk = window.confirm('Carry-forward selected items to next month?');
-    if (!proceedBulk) return;
     const reason = 'Bulk carry forward';
     const targetMonth = new Date(new Date(selectedMonth + '-01').setMonth(new Date(selectedMonth + '-01').getMonth() + 1)).toISOString().slice(0, 7);
     try {

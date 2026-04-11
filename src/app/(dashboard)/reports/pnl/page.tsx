@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { FileDown } from 'lucide-react';
 import { exportSimpleReportPdf } from '@/lib/pdf-export';
+import { EXPENSE_STATUS } from '@/lib/constants/status';
 
 function PnlLine({ label, kes, bold, negative }: {
   label: string; kes: number; bold?: boolean; negative?: boolean;
@@ -111,13 +112,19 @@ export default function PnLReportPage() {
       }
 
       // 2. Compute live from invoices + expenses
-      const [invRes, projExpRes, sharedExpRes, agentRes, rateRes, payRes] = await Promise.all([
-        // Lagged revenue: previous month's invoices
-        supabase.from('invoices').select('amount_usd, amount_kes').eq('billing_period', reportMode === 'accrual' ? revMonth : selectedMonth),
+      const [laggedRevenueRes, invRes, projExpRes, sharedExpRes, agentRes, rateRes, payRes] = await Promise.all([
+        // Accrual mode source of truth
+        supabase
+          .from('lagged_revenue_company_month')
+          .select('lagged_revenue')
+          .eq('payment_month', `${selectedMonth}-01`)
+          .maybeSingle(),
+        // Cash mode uses invoice/payment activity
+        supabase.from('invoices').select('amount_usd, amount_kes').eq('billing_period', selectedMonth),
         // Direct project expenses this month
-        supabase.from('expenses').select('amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense'),
+        supabase.from('expenses').select('amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense').eq('lifecycle_status', EXPENSE_STATUS.CONFIRMED),
         // Shared overhead this month
-        supabase.from('expenses').select('amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'shared_expense'),
+        supabase.from('expenses').select('amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'shared_expense').eq('lifecycle_status', EXPENSE_STATUS.CONFIRMED),
         // Agent count
         supabase.from('agent_counts').select('agent_count').eq('year_month', selectedMonth),
         // Exchange rate
@@ -132,10 +139,9 @@ export default function PnLReportPage() {
       let revenueUsd = 0;
 
       if (reportMode === 'accrual') {
-        // Lagged: previous month invoice converted to KES
+        const lagged = Number(laggedRevenueRes.data?.lagged_revenue || 0);
+        revenue = lagged > 0 ? lagged : 0;
         revenueUsd = (invRes.data || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_usd), 0);
-        const revKes = (invRes.data || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes), 0);
-        revenue = revKes > 0 ? revKes : Math.round(revenueUsd * stdRate * 100) / 100;
       } else {
         // Cash mode: payments received in this month
         const monthPayments = (payRes.data || []).filter((p: /* // */ any) => p.payment_date?.startsWith(selectedMonth));
@@ -170,12 +176,12 @@ export default function PnLReportPage() {
       'Profit & Loss',
       reportMode === 'accrual' ? servicePeriodLabel : 'Cash basis',
       [
-        `Revenue: ${pnl.revenue.toFixed(2)}`,
-        `Direct costs: ${pnl.directCosts.toFixed(2)}`,
-        `Gross profit: ${pnl.grossProfit.toFixed(2)}`,
-        `Overhead: ${pnl.sharedOverhead.toFixed(2)}`,
-        `Operating profit: ${pnl.operatingProfit.toFixed(2)}`,
-        `Net profit: ${pnl.netProfit.toFixed(2)}`,
+        `Revenue: ${formatCurrency(pnl.revenue, 'KES')}`,
+        `Direct costs: ${formatCurrency(pnl.directCosts, 'KES')}`,
+        `Gross profit: ${formatCurrency(pnl.grossProfit, 'KES')}`,
+        `Overhead: ${formatCurrency(pnl.sharedOverhead, 'KES')}`,
+        `Operating profit: ${formatCurrency(pnl.operatingProfit, 'KES')}`,
+        `Net profit: ${formatCurrency(pnl.netProfit, 'KES')}`,
       ],
       `IO_PnL_${selectedMonth}.pdf`,
     );

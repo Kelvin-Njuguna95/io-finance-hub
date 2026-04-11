@@ -273,7 +273,6 @@ export default function BudgetDetailPage() {
   }
 
   async function handleDeleteItem(itemId: string) {
-    if (!confirm('Remove this line item?')) return;
     const supabase = createClient();
     await supabase.from('budget_items').delete().eq('id', itemId);
     // Update version total
@@ -401,8 +400,6 @@ export default function BudgetDetailPage() {
         {isCfo && activeVersion?.status === 'approved' && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={async () => {
-              const proceed = window.confirm('Send this budget back to TL?');
-              if (!proceed) return;
               const reason = 'Returned by CFO';
               const headers = await getAuthHeaders();
               const res = await fetch('/api/budgets/cfo-revert', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
@@ -411,8 +408,6 @@ export default function BudgetDetailPage() {
               if (data.success) { toast.success('Budget sent back to TL'); load(); } else { toast.error(data.error); }
             }} className="text-amber-600">Send Back to TL</Button>
             <Button variant="destructive" size="sm" onClick={async () => {
-              const proceed = window.confirm('Delete this budget permanently?');
-              if (!proceed) { toast.error('Deletion cancelled'); return; }
               const reason = 'Deleted by CFO';
               const headers = await getAuthHeaders();
               const res = await fetch('/api/budgets/cfo-revert', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
@@ -500,8 +495,6 @@ export default function BudgetDetailPage() {
                   </span>
                 )}
                 <Button variant="outline" size="sm" onClick={async () => {
-                  const proceed = window.confirm('Remove all pending items?');
-                  if (!proceed) return;
                   const reason = 'Bulk remove';
                   const pendingIds = items.filter((i: /* // */ any) => (i as /* // */ any).pm_status === 'pending' || !(i as /* // */ any).pm_status).map(i => i.id);
                   if (pendingIds.length === 0) { toast.info('No pending items'); return; }
@@ -632,8 +625,6 @@ export default function BudgetDetailPage() {
                               )}
                               {pmStatus !== 'removed' && (
                                 <Button variant="ghost" size="sm" className="text-xs text-rose-600 h-7" disabled={lineActionId === item.id} onClick={() => {
-                                  const proceed = window.confirm('Remove this line item?');
-                                  if (!proceed) return;
                                   const reason = 'Removed item';
                                   setLineActionId(item.id);
                                   getAuthHeaders().then(headers => {

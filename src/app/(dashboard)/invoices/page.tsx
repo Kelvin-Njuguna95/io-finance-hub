@@ -84,7 +84,6 @@ export default function InvoicesPage() {
   }, [rows]);
 
   async function handleDeleteInvoice(id: string) {
-    if (!window.confirm('Delete this invoice and all linked payments? This cannot be undone.')) return;
     const supabase = createClient();
     const { error: paymentDeleteError } = await supabase.from('payments').delete().eq('invoice_id', id);
     if (paymentDeleteError) {

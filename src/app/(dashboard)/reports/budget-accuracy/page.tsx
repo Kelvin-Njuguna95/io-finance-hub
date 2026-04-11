@@ -159,7 +159,7 @@ export default function BudgetAccuracyPage() {
     await exportSimpleReportPdf(
       'Budget Accuracy Report',
       `${rangeMonths}-month window`,
-      rows.slice(0, 120).map((r) => `${r.month} | ${r.project} | budget ${r.budgeted.toFixed(2)} | actual ${r.actual.toFixed(2)} | accuracy ${r.accuracy.toFixed(1)}%`),
+      rows.slice(0, 120).map((r) => `${r.month} | ${r.project} | budget ${r.budgeted.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | actual ${r.actual.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | accuracy ${r.accuracy.toFixed(1)}%`),
       `IO_Budget_Accuracy_${rangeMonths}m.pdf`,
     );
   }

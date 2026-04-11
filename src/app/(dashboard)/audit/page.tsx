@@ -96,20 +96,20 @@ function defaultTo(): string {
 
 function formatDateTimeInEAT(iso: string): string {
   const d = new Date(iso);
-  const formattedDate = d.toLocaleDateString('en-GB', {
+  const formattedDate = new Intl.DateTimeFormat('en-KE', {
     day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Africa/Nairobi',
-  });
-  const formattedTime = d.toLocaleTimeString('en-GB', {
+  }).format(d);
+  const formattedTime = new Intl.DateTimeFormat('en-KE', {
     hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Africa/Nairobi',
-  });
+  }).format(d);
   return `${formattedDate} ${formattedTime}`;
 }
 
 function getSummary(log: AuditLog): string {
   const nv = log.new_values;
   if (!nv) return '';
-  if (nv.total_amount_kes && nv.status) return `KES ${Number(nv.total_amount_kes).toLocaleString()} → ${nv.status}`;
-  if (nv.description && nv.amount_kes) return `${nv.description} KES ${Number(nv.amount_kes).toLocaleString()}`;
+  if (nv.total_amount_kes && nv.status) return 'KES ' + Number(nv.total_amount_kes).toLocaleString() + ` → ${nv.status}`;
+  if (nv.description && nv.amount_kes) return `${nv.description} KES ` + Number(nv.amount_kes).toLocaleString();
   if (nv.status) return `Status: ${nv.status}`;
   if (nv.comments) return String(nv.comments).slice(0, 100);
   const keys = Object.keys(nv);

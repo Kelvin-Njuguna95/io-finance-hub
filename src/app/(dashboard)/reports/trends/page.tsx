@@ -442,7 +442,7 @@ export default function TrendsPage() {
     await exportSimpleReportPdf(
       'Trends & Analytics',
       `${rangeMonths}-month analytics window`,
-      monthlyData.slice(0, 120).map((m) => `${m.month} | revenue ${m.revenue.toFixed(2)} | expenses ${(m.directExpenses + m.overhead).toFixed(2)} | net ${m.netProfit.toFixed(2)}`),
+      monthlyData.slice(0, 120).map((m) => `${m.month} | revenue ${m.revenue.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | expenses ${(m.directExpenses + m.overhead).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | net ${m.netProfit.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
       `IO_Trends_${rangeMonths}m.pdf`,
     );
   }

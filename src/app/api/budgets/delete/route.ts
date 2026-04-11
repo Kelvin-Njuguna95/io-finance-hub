@@ -8,9 +8,9 @@ export async function POST(request: Request) {
     if ('error' in auth) return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
     const { user, profile, admin } = auth;
 
-  // CFO, TL, PM, and Accountant (own drafts only) can delete
-  if (!['cfo', 'team_leader', 'project_manager', 'accountant'].includes(profile.role)) {
-    return NextResponse.json({ error: 'Not authorized to delete budgets' }, { status: 403 });
+  // CFO only
+  if (profile.role !== 'cfo') {
+    return NextResponse.json({ error: 'Only CFO can delete budgets' }, { status: 403 });
   }
 
   const body = await request.json();
@@ -31,22 +31,6 @@ export async function POST(request: Request) {
   // Month lock enforcement
   const monthErr = await assertMonthOpen(admin, budget.year_month);
   if (monthErr) return NextResponse.json({ error: monthErr.message }, { status: monthErr.status });
-
-  // Verify ownership for non-CFO
-  if (profile.role === 'accountant') {
-    // Accountant can only delete their own budget submissions
-    if (budget.created_by !== user.id) {
-      return NextResponse.json({ error: 'Can only delete your own budget submissions' }, { status: 403 });
-    }
-  } else if (profile.role !== 'cfo' && budget.project_id) {
-    const { data: assignment } = await admin
-      .from('user_project_assignments')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('project_id', budget.project_id)
-      .single();
-    if (!assignment) return NextResponse.json({ error: 'Not your project' }, { status: 403 });
-  }
 
   // Check status
   const versions = (budget as /* // */ any).budget_versions || [];

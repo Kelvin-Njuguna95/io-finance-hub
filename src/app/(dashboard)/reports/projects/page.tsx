@@ -189,7 +189,7 @@ export default function ProjectComparisonPage() {
     await exportSimpleReportPdf(
       'Project Comparison',
       isHistorical ? `Historical month ${selectedMonth}` : servicePeriodLabel,
-      data.slice(0, 120).map((r) => `${r.name} | revenue ${r.revenue.toFixed(2)} | direct ${r.directExpenses.toFixed(2)} | distributable ${r.distributableProfit.toFixed(2)}`),
+      data.slice(0, 120).map((r) => `${r.name} | revenue ${r.revenue.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | direct ${r.directExpenses.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | distributable ${r.distributableProfit.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
       `IO_Project_Comparison_${selectedMonth}.pdf`,
     );
   }

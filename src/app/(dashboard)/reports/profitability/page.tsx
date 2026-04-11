@@ -107,7 +107,7 @@ export default function ProfitabilityPage() {
     await exportSimpleReportPdf(
       'Project Profitability',
       isHistorical ? `Historical month ${selectedMonth}` : servicePeriodLabel,
-      data.slice(0, 120).map((r) => `${r.project_name} | revenue ${r.revenue.toFixed(2)} | costs ${r.direct_costs.toFixed(2)} | margin ${r.margin.toFixed(1)}%`),
+      data.slice(0, 120).map((r) => `${r.project_name} | revenue ${r.revenue.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | costs ${r.direct_costs.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | margin ${r.margin.toFixed(1)}%`),
       `IO_Project_Profitability_${selectedMonth}.pdf`,
     );
   }

@@ -7,10 +7,10 @@ export function formatKES(amount: number): string {
 
 export function formatKESCompact(amount: number): string {
   if (amount >= 1_000_000) {
-    return `KES ${(amount / 1_000_000).toFixed(1)}M`;
+    return 'KES ' + (amount / 1_000_000).toFixed(1) + 'M';
   }
   if (amount >= 1_000) {
-    return `KES ${(amount / 1_000).toFixed(0)}k`;
+    return 'KES ' + (amount / 1_000).toFixed(0) + 'k';
   }
   return formatKES(amount);
 }
