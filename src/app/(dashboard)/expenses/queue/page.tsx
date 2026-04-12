@@ -20,7 +20,7 @@ import { formatCurrency, formatDate, getCurrentYearMonth, formatYearMonth } from
 import { toast } from 'sonner';
 import { DollarSign, CheckCircle, Clock, TrendingDown } from 'lucide-react';
 import { EXPENSE_STATUS } from '@/lib/constants/status';
-import { getConfirmedExpensesByMonth, getPendingExpensesByMonth } from '@/lib/queries/expenses';
+import { getPendingExpensesByMonth } from '@/lib/queries/expenses';
 
 // -----------------------------------------------
 // Types
@@ -47,11 +47,6 @@ interface PendingExpense {
 interface Project {
   id: string;
   name: string;
-}
-
-interface ConfirmedExpense {
-  project_id: string | null;
-  amount_kes: number;
 }
 
 // -----------------------------------------------
@@ -124,7 +119,6 @@ export default function ExpenseQueuePage() {
 
   // Data
   const [items, setItems] = useState<PendingExpense[]>([]);
-  const [confirmedItems, setConfirmedItems] = useState<ConfirmedExpense[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasPendingItems, setHasPendingItems] = useState(true);
@@ -149,12 +143,8 @@ export default function ExpenseQueuePage() {
 
   async function loadItems() {
     setLoading(true);
-    const [{ data: pendingData }, { data: confirmedData }] = await Promise.all([
-      getPendingExpensesByMonth(supabase, selectedMonth),
-      getConfirmedExpensesByMonth(supabase, selectedMonth),
-    ]);
+    const { data: pendingData } = await getPendingExpensesByMonth(supabase, selectedMonth);
     setItems((pendingData as PendingExpense[] | null) || []);
-    setConfirmedItems((confirmedData as ConfirmedExpense[] | null) || []);
     setLoading(false);
   }
 
@@ -168,7 +158,7 @@ export default function ExpenseQueuePage() {
   }, []);
 
   useEffect(() => {
-    async function syncToLatestPendingMonth() {
+    async function checkPendingItemsExist() {
       const { data } = await supabase
         .from('pending_expenses')
         .select('year_month')
@@ -177,11 +167,8 @@ export default function ExpenseQueuePage() {
         .limit(1)
         .maybeSingle();
       setHasPendingItems(Boolean(data?.year_month));
-      if (data?.year_month && data.year_month !== selectedMonth) {
-        setSelectedMonth(data.year_month);
-      }
     }
-    syncToLatestPendingMonth();
+    checkPendingItemsExist();
   }, []);
 
   useEffect(() => {
@@ -223,20 +210,38 @@ export default function ExpenseQueuePage() {
     [items],
   );
 
+  const pendingItems = useMemo(
+    () => items.filter((i) => i.status === EXPENSE_STATUS.PENDING_AUTH),
+    [items],
+  );
+
+  const confirmedQueueItems = useMemo(
+    () => items.filter((i) => i.status === EXPENSE_STATUS.CONFIRMED),
+    [items],
+  );
+
   // -----------------------------------------------
   // Summary stats
   // -----------------------------------------------
 
-  const totalBudgeted = filtered.reduce((s, i) => s + Number(i.budgeted_amount_kes), 0);
-  const totalConfirmed = (statusFilter === 'all' || statusFilter === EXPENSE_STATUS.CONFIRMED)
-    ? confirmedItems
-      .filter((item) => projectFilter === 'all' || item.project_id === projectFilter)
-      .reduce((sum, item) => sum + Number(item.amount_kes || 0), 0)
-    : 0;
-  const pendingCount = filtered.filter((i) => i.status === EXPENSE_STATUS.PENDING_AUTH).length;
-  const selectedMonthPendingCount = items.filter((i) => i.status === EXPENSE_STATUS.PENDING_AUTH).length;
-  const totalActual = filtered.reduce((s, i) => s + Number(i.actual_amount_kes || i.budgeted_amount_kes), 0);
-  const overallVariance = totalActual - totalBudgeted;
+  const baseFilter = (item: PendingExpense) =>
+    (projectFilter === 'all' || item.project_id === projectFilter) &&
+    (categoryFilter === 'all' || item.category === categoryFilter);
+
+  const filteredPendingItems = pendingItems.filter(baseFilter);
+  const filteredConfirmedItems = confirmedQueueItems.filter(baseFilter);
+
+  const totalBudgeted = filteredPendingItems.reduce((s, i) => s + Number(i.budgeted_amount_kes || 0), 0);
+  const totalConfirmed = filteredConfirmedItems.reduce(
+    (s, i) => s + Number(i.actual_amount_kes ?? i.budgeted_amount_kes ?? 0),
+    0,
+  );
+  const pendingCount = filteredPendingItems.length;
+  const totalConfirmedBudget = filteredConfirmedItems.reduce(
+    (s, i) => s + Number(i.budgeted_amount_kes || 0),
+    0,
+  );
+  const overallVariance = totalConfirmed - totalConfirmedBudget;
 
   // -----------------------------------------------
   // API Actions
@@ -552,9 +557,9 @@ export default function ExpenseQueuePage() {
                   <div key={i} className="h-12 rounded-md bg-muted skeleton-shimmer" />
                 ))}
               </div>
-            ) : selectedMonthPendingCount === 0 ? (
+            ) : items.length === 0 ? (
               <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-                No pending expenses — all approved budgets have been confirmed for {formatYearMonth(selectedMonth)}.
+                No expense queue items for {formatYearMonth(selectedMonth)}.
               </div>
             ) : filtered.length === 0 ? (
               <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
