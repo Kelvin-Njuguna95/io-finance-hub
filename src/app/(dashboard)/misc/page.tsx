@@ -29,7 +29,7 @@ import {
 import { toast } from 'sonner';
 import { getUserErrorMessage } from '@/lib/errors';
 import { getActiveProjects, getAssignedActiveProjects } from '@/lib/queries/projects';
-import { getMiscDrawsByProjectAndPeriod, getPendingPmMiscDrawsByProjectAndPeriod, getMiscReportByProjectAndPeriod } from '@/lib/queries/misc';
+import { getMiscDrawsByProjectAndPeriod, getPendingPmMiscDrawsByProjectAndPeriod } from '@/lib/queries/misc';
 import { MISC_DRAW_STATUS } from '@/lib/constants/status';
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -157,18 +157,45 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
 
   const loadReport = useCallback(async () => {
     if (!selectedProjectId) return;
+    setLoading(true);
     const supabase = createClient();
-    const { data: rep } = await getMiscReportByProjectAndPeriod(supabase, selectedProjectId, reportMonth);
-    setReport(rep || null);
-    if (rep?.id) {
-      const { data: itemRows } = await supabase
+    try {
+      const { data: rep, error: reportErr } = await supabase
+        .from('misc_reports')
+        .select('id, total_allocated, total_claimed, status')
+        .eq('project_id', selectedProjectId)
+        .eq('period_month', reportMonth)
+        .maybeSingle();
+
+      if (reportErr) {
+        console.error('Error loading misc report:', reportErr);
+        toast.error('Failed to load misc report.');
+        return;
+      }
+
+      if (!rep) {
+        setReport(null);
+        setItems([]);
+        return;
+      }
+
+      setReport(rep);
+
+      const { data: itemRows, error: itemsErr } = await supabase
         .from('misc_report_items')
         .select('*')
         .eq('misc_report_id', rep.id)
-        .order('expense_date');
+        .order('created_at', { ascending: true });
+
+      if (itemsErr) {
+        console.error('Error loading misc report line items:', itemsErr);
+        toast.error('Failed to load saved line items.');
+        return;
+      }
+
       setItems(itemRows || []);
-    } else {
-      setItems([]);
+    } finally {
+      setLoading(false);
     }
   }, [reportMonth, selectedProjectId]);
 
@@ -196,22 +223,75 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
     setCreating(true);
     const supabase = createClient();
     const periodDate = `${reportMonth}-01`;
+    const monthStr = reportMonth;
 
     const { data: draws } = await getMiscDrawsByProjectAndPeriod(supabase, selectedProjectId, periodDate);
-    const { data: alloc } = await supabase
+    let { data: alloc, error: allocErr } = await supabase
       .from('misc_allocations')
-      .select('monthly_amount')
+      .select('id, monthly_amount')
       .eq('project_id', selectedProjectId)
+      .eq('period_month', monthStr)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
+
+    if (allocErr) {
+      console.error('Failed to load misc allocation:', allocErr);
+      toast.error('Could not load misc allocation for this period.');
+      setCreating(false);
+      return null;
+    }
+
+    if (!alloc) {
+      const { data: createdAlloc, error: createAllocErr } = await supabase
+        .from('misc_allocations')
+        .insert({
+          project_id: selectedProjectId,
+          period_month: monthStr,
+          monthly_amount: 0,
+          is_active: true,
+          created_by: user.id,
+        })
+        .select('id, monthly_amount')
+        .single();
+
+      if (createAllocErr || !createdAlloc) {
+        console.error('Failed to create misc allocation:', createAllocErr);
+        toast.error('Could not initialize misc allocation for this period.');
+        setCreating(false);
+        return null;
+      }
+
+      alloc = createdAlloc;
+    }
 
     const totalDrawn = (draws || []).reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
     const standingAmount = (draws || []).find((d: /* // */ any) => d.draw_type === 'standing')?.amount_approved || Number(alloc?.monthly_amount || 0);
     const topUpTotal = (draws || []).filter((d: /* // */ any) => d.draw_type === 'top_up').reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
 
+    const { data: existingReport, error: existingReportErr } = await supabase
+      .from('misc_reports')
+      .select('*')
+      .eq('project_id', selectedProjectId)
+      .eq('period_month', monthStr)
+      .maybeSingle();
+
+    if (existingReportErr) {
+      console.error('Failed to load misc report:', existingReportErr);
+      toast.error('Could not load misc report for this period.');
+      setCreating(false);
+      return null;
+    }
+
+    if (existingReport) {
+      setReport(existingReport);
+      setCreating(false);
+      return existingReport;
+    }
+
     const { data: newReport, error } = await supabase.from('misc_reports').insert({
       project_id: selectedProjectId,
-      period_month: reportMonth,
+      period_month: monthStr,
+      misc_allocation_id: alloc.id,
       submitted_by: user.id,
       total_allocated: Number(alloc?.monthly_amount || 0),
       total_drawn: totalDrawn,
@@ -231,41 +311,73 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
   }
 
   async function handleSave() {
-    const targetReport = await ensureReport();
-    if (!targetReport?.id) return;
-    setSaving(true);
-    const supabase = createClient();
-
-    await supabase.from('misc_report_items').delete().eq('misc_report_id', targetReport.id);
-    const rows = items
-      .filter((i) => i.description?.trim() && Number(i.amount) > 0)
-      .map((i) => ({
-        misc_report_id: targetReport.id,
-        description: i.description,
-        amount: Number(i.amount),
-        expense_date: i.expense_date,
-        misc_draw_id: i.misc_draw_id || null,
-      }));
-
-    if (rows.length > 0) {
-      const { error } = await supabase.from('misc_report_items').insert(rows);
-      if (error) {
-        toast.error(error.message || 'Failed to save line items.');
-        setSaving(false);
-        return;
-      }
+    if (items.length === 0) {
+      toast.error('Add at least one line item before saving.');
+      return;
     }
 
-    const totalClaimed = rows.reduce((s, r) => s + Number(r.amount), 0);
-    await supabase.from('misc_reports').update({
-      total_claimed: totalClaimed,
-      variance: Number(targetReport.total_allocated || 0) - totalClaimed,
-      submitted_by: user.id,
-    }).eq('id', targetReport.id);
+    setSaving(true);
+    try {
+      const targetReport = await ensureReport();
+      if (!targetReport?.id) return;
 
-    toast.success('Project misc line items saved.');
-    setSaving(false);
-    loadReport();
+      const supabase = createClient();
+      const { error: deleteErr } = await supabase
+        .from('misc_report_items')
+        .delete()
+        .eq('misc_report_id', targetReport.id);
+
+      if (deleteErr) {
+        console.error('Failed to clear old line items:', deleteErr);
+        toast.error('Failed to save — could not clear existing items.');
+        return;
+      }
+
+      const rows = items
+        .filter((i) => i.description?.trim())
+        .map((i) => ({
+          misc_report_id: targetReport.id,
+          description: i.description.trim(),
+          amount: Number(i.amount) || 0,
+          expense_date: i.expense_date,
+          misc_draw_id: i.misc_draw_id || null,
+        }));
+
+      if (rows.length === 0) {
+        toast.error('No valid line items to save.');
+        return;
+      }
+
+      const { error: insertErr } = await supabase.from('misc_report_items').insert(rows);
+      if (insertErr) {
+        console.error('Failed to insert line items:', insertErr);
+        toast.error(insertErr.message || 'Failed to save line items.');
+        return;
+      }
+
+      const totalClaimed = rows.reduce((s, r) => s + Number(r.amount), 0);
+      const { error: updateErr } = await supabase.from('misc_reports').update({
+        total_claimed: totalClaimed,
+        variance: Number(targetReport.total_allocated || 0) - totalClaimed,
+        submitted_by: user.id,
+        item_count: rows.length,
+        updated_at: new Date().toISOString(),
+      }).eq('id', targetReport.id);
+
+      if (updateErr) {
+        console.error('Failed to update misc report totals:', updateErr);
+        toast.error('Line items saved, but failed to update report totals.');
+        return;
+      }
+
+      await loadReport();
+      toast.success(`Saved ${rows.length} line item(s) successfully.`);
+    } catch (error) {
+      console.error('Unexpected error while saving misc line items:', error);
+      toast.error('An unexpected error occurred while saving.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   const canEdit = user.role === 'accountant' || user.role === 'cfo' || !report || ['draft', 'submitted'].includes(report.status);
