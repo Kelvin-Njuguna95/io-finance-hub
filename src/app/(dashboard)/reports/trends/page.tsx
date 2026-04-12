@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ChartStatusBadge, ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency } from '@/components/reports/executive-kit';
 import { formatCurrency, formatYearMonth } from '@/lib/format';
 import { getLaggedMonth, getMonthRange, shortMonth, formatKesShort, CHART_COLORS, getProjectColor } from '@/lib/report-utils';
-import { isBackdated } from '@/lib/backdated-utils';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, ComposedChart, Area, ReferenceLine, Cell,
@@ -159,47 +158,30 @@ export default function TrendsPage() {
         const isRestricted = role === 'team_leader' || role === 'project_manager';
 
       // Fetch all data needed
-        const [projRes, rateRes] = await Promise.all([
+        const [projRes] = await Promise.all([
           supabase.from('projects').select('id, name, director_tag').eq('is_active', true),
-          supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single(),
         ]);
         if (projRes.error) throw projRes.error;
-        const stdRate = parseFloat(rateRes.data?.value || '129.5');
+        const stdRate = 128.5;
         let projects = projRes.data || [];
         if (isRestricted) projects = projects.filter(p => assignedProjects.includes(p.id));
 
-      // Detect historical (seeded) months — these use direct matching, not lagged revenue
-        const { data: snapshots, error: snapshotsError } = await supabase
-          .from('monthly_financial_snapshots')
-          .select('year_month, data_source')
-          .in('year_month', months);
-        if (snapshotsError) throw snapshotsError;
-        const historicalMonths = new Set(
-          (snapshots || [])
-            .filter((s) => s.data_source && s.data_source.startsWith('historical_seed'))
-            .map((s) => s.year_month)
-        );
-
-      // Revenue months needed (lagged for live months, direct for historical)
-      const allRevenueMonths = months.map(m => historicalMonths.has(m) ? m : getLaggedMonth(m));
-      const allMonthsNeeded = [...new Set([...months, ...allRevenueMonths])];
-
-        const [invRes, projExpRes, sharedExpRes, agentRes, payRes, psRecRes] = await Promise.all([
-          supabase.from('invoices').select('project_id, amount_usd, amount_kes, billing_period, description').in('billing_period', allRevenueMonths),
-          supabase.from('expenses').select('project_id, amount_kes, expense_type, expense_category_id, year_month, expense_categories(name)').in('year_month', months).eq('expense_type', 'project_expense'),
-          supabase.from('expenses').select('amount_kes, year_month, expense_categories(name)').in('year_month', months).eq('expense_type', 'shared_expense'),
+        const [laggedRevRes, projExpRes, sharedExpRes, agentRes, payRes, psRecRes] = await Promise.all([
+          supabase.from('lagged_revenue_by_project_month').select('project_id, expense_month, lagged_revenue_kes, revenue_kes_estimated').in('expense_month', months),
+          supabase.from('expenses').select('project_id, amount_kes, expense_type, expense_category_id, year_month, expense_categories(name)').in('year_month', months).eq('expense_type', 'project_expense').eq('lifecycle_status', 'confirmed'),
+          supabase.from('expenses').select('amount_kes, year_month, expense_categories(name)').in('year_month', months).eq('expense_type', 'shared_expense').eq('lifecycle_status', 'confirmed'),
           supabase.from('agent_counts').select('project_id, agent_count, year_month').in('year_month', months),
           supabase.from('payments').select('amount_usd, payment_date, invoice_id'),
           supabase.from('profit_share_records').select('year_month, status, total_distributed').in('year_month', months),
         ]);
-        if (invRes.error) throw invRes.error;
+        if (laggedRevRes.error) throw laggedRevRes.error;
         if (projExpRes.error) throw projExpRes.error;
         if (sharedExpRes.error) throw sharedExpRes.error;
         if (agentRes.error) throw agentRes.error;
         if (payRes.error) throw payRes.error;
         if (psRecRes.error) throw psRecRes.error;
 
-        const invoices = (invRes.data || []).filter((i) => !isBackdated(i.description));
+        const laggedRows = laggedRevRes.data || [];
         const projExpenses = isRestricted
           ? (projExpRes.data || []).filter((e) => assignedProjects.includes(e.project_id))
           : projExpRes.data || [];
@@ -223,17 +205,16 @@ export default function TrendsPage() {
       let baseExpense = 0;
 
       for (const m of months) {
-        const revenueMonth = historicalMonths.has(m) ? m : getLaggedMonth(m);
         const serviceMonth = getLaggedMonth(m);
         const label = shortMonth(serviceMonth);
 
-        // Revenue (direct for historical, lagged for live)
-        const mInvoices = invoices.filter(i => i.billing_period === revenueMonth);
+        // Revenue (lagged model)
+        const mRevenueRows = laggedRows.filter((row) => row.expense_month === m);
         let revenue = 0;
         const projRevMap = new Map<string, number>();
-        mInvoices.forEach((i: /* // */ any) => {
+        mRevenueRows.forEach((i: { project_id: string; lagged_revenue_kes: number | null }) => {
           if (isRestricted && !assignedProjects.includes(i.project_id)) return;
-          const kes = Number(i.amount_kes) > 0 ? Number(i.amount_kes) : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
+          const kes = Number(i.lagged_revenue_kes || 0);
           revenue += kes;
           projRevMap.set(i.project_id, (projRevMap.get(i.project_id) || 0) + kes);
         });

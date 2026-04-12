@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/table';
 import { formatCurrency, formatPercent, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
 import { getLaggedMonth, getUnifiedServicePeriodLabel } from '@/lib/report-utils';
-import { getConfirmedExpensesByMonth } from '@/lib/queries/expenses';
 import { FileDown } from 'lucide-react';
 import { exportSimpleReportPdf } from '@/lib/pdf-export';
 
@@ -25,27 +24,6 @@ interface BvaRow {
   actual_kes: number;
   variance_kes: number;
   utilization_pct: number;
-}
-
-interface BudgetVersionRow {
-  total_amount_kes: number | null;
-  status: string | null;
-  version_number: number | null;
-}
-
-interface BudgetScopeRow {
-  id: string;
-  project_id: string | null;
-  pm_approved_total: number | null;
-  projects: Array<{ name: string | null }> | null;
-  departments: Array<{ name: string | null }> | null;
-  budget_versions: BudgetVersionRow[] | null;
-}
-
-interface ExpenseRow {
-  budget_id: string | null;
-  project_id: string | null;
-  amount_kes: number | null;
 }
 
 export default function BudgetVsActualPage() {
@@ -78,64 +56,28 @@ export default function BudgetVsActualPage() {
         const revMonth = historical ? selectedMonth : getLaggedMonth(selectedMonth);
         setRevenueSourceMonth(revMonth);
 
-        const [{ data: budgetData, error: budgetError }, expenseResult] = await Promise.all([
+        const [{ data: varianceData, error: varianceError }, laggedCompanyRes] = await Promise.all([
           supabase
-            .from('budgets')
-            .select('id, project_id, pm_approved_total, projects(name), departments(name), budget_versions(total_amount_kes, status, version_number)')
+            .from('variance_summary_by_project')
+            .select('project_name, budget_kes, actual_kes, variance_kes')
             .eq('year_month', selectedMonth),
-          getConfirmedExpensesByMonth(supabase, selectedMonth),
+          supabase.from('lagged_revenue_company_month').select('total_revenue_kes').eq('expense_month', selectedMonth).maybeSingle(),
         ]);
 
-        if (budgetError) {
-          console.error('Budget query failed:', budgetError);
-          setLoadError('Unable to load budgets for the selected month.');
-        }
-        if (expenseResult.error) {
-          console.error('Expense query failed:', expenseResult.error);
+        if (varianceError) {
+          console.error('Variance query failed:', varianceError);
           setLoadError('Unable to load expenses for the selected month.');
         }
 
-        const budgets = (budgetData ?? []) as BudgetScopeRow[];
-        const expenses = (expenseResult.data ?? []) as ExpenseRow[];
-
-        const expenseByBudget = new Map<string, number>();
-        expenses.forEach((expense) => {
-          if (!expense.budget_id) return;
-          const amount = Number(expense.amount_kes ?? 0);
-          expenseByBudget.set(expense.budget_id, (expenseByBudget.get(expense.budget_id) ?? 0) + amount);
-        });
-
-        const expenseByProject = new Map<string, number>();
-        expenses.forEach((expense) => {
-          if (!expense.project_id) return;
-          const amount = Number(expense.amount_kes ?? 0);
-          expenseByProject.set(expense.project_id, (expenseByProject.get(expense.project_id) ?? 0) + amount);
-        });
-
-        const result: BvaRow[] = budgets.map((budget) => {
-          const versions = budget.budget_versions ?? [];
-          const approved = versions.find((version) => version.status === 'approved');
-          const pmApproved = versions.find((version) => version.status === 'pm_approved');
-          const latest = [...versions].sort(
-            (a, b) => Number(b.version_number ?? 0) - Number(a.version_number ?? 0)
-          )[0];
-          const bestVersion = approved ?? pmApproved ?? latest;
-
-          const budgetKes = budget.pm_approved_total
-            ? Number(budget.pm_approved_total)
-            : Number(bestVersion?.total_amount_kes ?? 0);
-          const bestStatus = approved
-            ? 'approved'
-            : (pmApproved?.status ?? bestVersion?.status ?? 'draft');
-          const actualKes =
-            expenseByBudget.get(budget.id) ??
-            (budget.project_id ? (expenseByProject.get(budget.project_id) ?? 0) : 0);
-          const variance = budgetKes - actualKes;
+        const result: BvaRow[] = (varianceData ?? []).map((row: { project_name: string | null; budget_kes: number | null; actual_kes: number | null; variance_kes: number | null }) => {
+          const budgetKes = Number(row.budget_kes ?? 0);
+          const actualKes = Number(row.actual_kes ?? 0);
+          const variance = Number(row.variance_kes ?? 0);
           const utilization = budgetKes > 0 ? (actualKes / budgetKes) * 100 : 0;
 
           return {
-            scope: budget.projects?.[0]?.name ?? budget.departments?.[0]?.name ?? '—',
-            status: bestStatus,
+            scope: row.project_name ?? '—',
+            status: 'approved',
             budget_kes: budgetKes,
             actual_kes: actualKes,
             variance_kes: variance,
@@ -144,24 +86,7 @@ export default function BudgetVsActualPage() {
         });
 
         setRows(result);
-
-        const [{ data: invoiceData, error: invoiceError }, { data: rateSetting, error: rateError }] = await Promise.all([
-          supabase.from('invoices').select('amount_usd, amount_kes').eq('billing_period', revMonth),
-          supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').maybeSingle(),
-        ]);
-        if (invoiceError) {
-          console.error('Invoice query failed:', invoiceError);
-          setLoadError('Unable to load lagged revenue for the selected month.');
-        }
-        if (rateError) {
-          console.error('Exchange-rate query failed:', rateError);
-        }
-
-        const stdRate = parseFloat(rateSetting?.value ?? '129.5');
-        const invoices = invoiceData ?? [];
-        const revUsd = invoices.reduce((sum, invoice) => sum + Number(invoice.amount_usd ?? 0), 0);
-        const revKes = invoices.reduce((sum, invoice) => sum + Number(invoice.amount_kes ?? 0), 0);
-        setLaggedRevenue(revKes > 0 ? revKes : Math.round(revUsd * stdRate * 100) / 100);
+        setLaggedRevenue(Number(laggedCompanyRes.data?.total_revenue_kes || 0));
       } catch (error) {
         console.error('Budget vs Actual page error:', error);
         setRows([]);

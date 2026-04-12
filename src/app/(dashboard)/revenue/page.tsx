@@ -67,6 +67,14 @@ function getStatusBadgeClass(status: InvoiceFilter) {
   return 'bg-danger-soft text-danger-soft-foreground';
 }
 
+function formatInvoiceKesAmount(invoice: RevenueInvoice): string {
+  const kes = Number(invoice.amount_kes || 0);
+  if (kes > 0) return formatCurrency(kes, 'KES');
+  const usd = Number(invoice.amount_usd || 0);
+  if (usd > 0) return `≈ ${formatCurrency(usd * 128.5, 'KES')}`;
+  return '—';
+}
+
 export default function RevenuePage() {
   const { user } = useUser();
   const [invoices, setInvoices] = useState<RevenueInvoice[]>([]);
@@ -584,7 +592,7 @@ export default function RevenuePage() {
                             <TableCell>{inv.project_name || '—'}</TableCell>
                             <TableCell>{inv.client_name || '—'}</TableCell>
                             <TableCell className="font-mono text-sm">{formatCurrency(Number(inv.amount_usd || 0), 'USD')}</TableCell>
-                            <TableCell className="font-mono text-sm">{inv.amount_kes ? formatCurrency(Number(inv.amount_kes), 'KES') : '—'}</TableCell>
+                            <TableCell className="font-mono text-sm">{formatInvoiceKesAmount(inv)}</TableCell>
                             <TableCell className="font-mono text-sm text-success-soft-foreground">{formatCurrency(paidAmount, 'USD')}</TableCell>
                             <TableCell className={`font-mono text-sm font-semibold ${outstandingAmount > 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>
                               {formatCurrency(outstandingAmount, 'USD')}

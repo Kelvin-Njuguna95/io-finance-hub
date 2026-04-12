@@ -132,6 +132,7 @@ export function CfoDashboard() {
   const [eodLogs, setEodLogs] = useState<EodLogRow[]>([]);
   const [healthScores, setHealthScores] = useState<HealthScoreRow[]>([]);
   const [bankBalance, setBankBalance] = useState(0);
+  const [revenueEstimated, setRevenueEstimated] = useState(false);
   const currentMonth = getCurrentYearMonth();
 
   useEffect(() => {
@@ -174,7 +175,7 @@ export function CfoDashboard() {
         supabase
           .from('budget_versions')
           .select('*, budgets(project_id, department_id, year_month)')
-          .in('status', ['submitted', 'under_review'])
+          .in('status', ['submitted', 'under_review', 'pm_approved'])
           .order('created_at', { ascending: false })
           .limit(10),
         supabase
@@ -188,9 +189,10 @@ export function CfoDashboard() {
           .eq('period_month', periodMonth)
           .order('score', { ascending: true }),
         supabase
-          .from('invoices')
-          .select('amount_usd, amount_kes')
-          .eq('billing_period', prevMonth),
+          .from('lagged_revenue_company_month')
+          .select('total_revenue_kes, total_revenue_usd, revenue_kes_estimated')
+          .eq('expense_month', currentMonth)
+          .maybeSingle(),
         supabase.from('expenses').select('amount_kes').eq('year_month', currentMonth).eq('lifecycle_status', EXPENSE_STATUS.CONFIRMED),
         supabase
           .from('system_settings')
@@ -201,18 +203,10 @@ export function CfoDashboard() {
       ]);
 
       const stdRate = parseFloat(rateRes.data?.value || '129.5');
-      const laggedRevUsd = (laggedInvRes.data || []).reduce(
-        (s: number, i: { amount_usd: number }) => s + Number(i.amount_usd),
-        0,
-      );
-      const laggedRevKes = (laggedInvRes.data || []).reduce(
-        (s: number, i: { amount_kes: number }) => s + Number(i.amount_kes),
-        0,
-      );
-      const revenueKes =
-        laggedRevKes > 0
-          ? laggedRevKes
-          : Math.round(laggedRevUsd * stdRate * 100) / 100;
+      const laggedRevUsd = Number(laggedInvRes.data?.total_revenue_usd || 0);
+      const laggedRevKes = Number(laggedInvRes.data?.total_revenue_kes || 0);
+      const revenueKes = laggedRevKes > 0 ? laggedRevKes : Math.round(laggedRevUsd * stdRate * 100) / 100;
+      setRevenueEstimated(Boolean(laggedInvRes.data?.revenue_kes_estimated));
       const totalExpKes = (expenseRes.data || []).reduce(
         (s: number, e: { amount_kes: number }) => s + Number(e.amount_kes),
         0,
@@ -306,7 +300,7 @@ export function CfoDashboard() {
           {
             label: 'Revenue (Lagged)',
             value: snapshot
-              ? formatCurrency(snapshot.total_revenue_kes, 'KES')
+              ? `${revenueEstimated ? '≈ ' : ''}${formatCurrency(snapshot.total_revenue_kes, 'KES')}`
               : '—',
             subtitle: `From ${formatYearMonth(revenueSourceMonth)} invoice`,
             icon: DollarSign,
