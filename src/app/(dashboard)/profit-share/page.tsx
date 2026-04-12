@@ -287,14 +287,28 @@ export default function ProfitSharePage() {
   const totalCompanyShare = shares.reduce((s, r) => s + r.company_share, 0);
   const totalDistributable = shares.reduce((s, r) => s + (r.distributable_profit > 0 ? r.distributable_profit : 0), 0);
   const isLiveData = shares.length > 0 && shares[0].source === 'live';
-  const payoutRecords: PayoutRecordOption[] = shares
-    .filter((share) => Boolean(share.record_id))
-    .map((share) => ({
-      id: share.record_id!,
-      director_name: capitalize(share.director_tag),
-      balance_remaining: Number(share.balance_remaining ?? share.director_share ?? 0),
-    }))
-    .filter((record) => record.balance_remaining > 0);
+  const payoutRecords: PayoutRecordOption[] = (() => {
+    const directorMap = new Map<string, { id: string; director_name: string; balance_remaining: number }>();
+
+    shares
+      .filter((share) => Boolean(share.record_id))
+      .forEach((share) => {
+        const tag = share.director_tag;
+        const existing = directorMap.get(tag);
+
+        if (existing) {
+          existing.balance_remaining += Number(share.balance_remaining ?? share.director_share ?? 0);
+        } else {
+          directorMap.set(tag, {
+            id: share.record_id!,
+            director_name: capitalize(tag),
+            balance_remaining: Number(share.balance_remaining ?? share.director_share ?? 0),
+          });
+        }
+      });
+
+    return Array.from(directorMap.values()).filter((record) => record.balance_remaining > 0);
+  })();
   useEffect(() => {
     if (!pendingDialogOpen || loading) return;
 

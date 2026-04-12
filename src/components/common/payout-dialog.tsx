@@ -150,12 +150,18 @@ export function PayoutDialog({
             <Label htmlFor="payout-director">Director</Label>
             <Select value={selectedRecordId} onValueChange={(value) => setSelectedRecordId(value ?? '')}>
               <SelectTrigger id="payout-director">
-                <SelectValue placeholder="Select director" />
+                {selectedRecord ? (
+                  <span>
+                    {selectedRecord.director_name} — Bal: {formatKES(selectedRecord.balance_remaining)}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Select director</span>
+                )}
               </SelectTrigger>
               <SelectContent>
                 {records.map((record) => (
                   <SelectItem key={record.id} value={record.id}>
-                    {record.director_name}
+                    {record.director_name} — Bal: {formatKES(record.balance_remaining)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -164,7 +170,9 @@ export function PayoutDialog({
 
           <div className="space-y-2">
             <Label>Period</Label>
-            <Input value={formatYearMonth(selectedMonth)} readOnly aria-readonly />
+            <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+              {formatYearMonth(selectedMonth)}
+            </div>
           </div>
 
           <div className="space-y-2">
