@@ -464,15 +464,14 @@ export default function ExpenseQueuePage() {
       <div className="space-y-6 p-6">
         {/* Backfill banner — show when no items and user is CFO */}
         {items.length === 0 && canAct && hasPendingItems && (
-          <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-center justify-between rounded-lg border-l-[3px] border-l-warning bg-warning-soft/50 p-4">
             <div>
-              <p className="text-sm font-medium text-amber-800">No pending expenses found for this month.</p>
-              <p className="text-xs text-amber-600 mt-1">Click below to populate expenses from all approved budgets.</p>
+              <p className="text-sm font-medium text-warning-soft-foreground">No pending expenses found for this month.</p>
+              <p className="text-xs text-muted-foreground mt-1">Click below to populate expenses from all approved budgets.</p>
             </div>
             <Button
               variant="outline"
               size="sm"
-              className="border-amber-300 text-amber-700 hover:bg-amber-100"
               onClick={async () => {
                 const headers = await getAuthHeaders();
                 const res = await fetch('/api/expense-lifecycle', {
@@ -543,8 +542,10 @@ export default function ExpenseQueuePage() {
         <Card className="io-card">
           <CardContent className="p-0">
             {loading ? (
-              <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-                Please wait
+              <div className="p-4 space-y-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="h-12 rounded-md bg-muted skeleton-shimmer" />
+                ))}
               </div>
             ) : selectedMonthPendingCount === 0 ? (
               <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
@@ -585,7 +586,7 @@ export default function ExpenseQueuePage() {
                     const pct = variancePercent(Number(item.budgeted_amount_kes), Number(actual));
 
                     return (
-                      <TableRow key={item.id}>
+                      <TableRow key={item.id} className={`status-row-${item.status === 'pending_auth' ? 'pending' : item.status}`}>
                         {canAct && (
                           <TableCell>
                             <Checkbox

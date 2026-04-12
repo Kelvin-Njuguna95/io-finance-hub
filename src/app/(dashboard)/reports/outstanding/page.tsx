@@ -44,10 +44,10 @@ interface OutstandingInvoice {
 }
 
 const bucketColors: Record<string, string> = {
-  '0-30 days': 'bg-emerald-100 text-emerald-700',
-  '31-60 days': 'bg-blue-100 text-blue-700',
-  '61-90 days': 'bg-amber-100 text-amber-700',
-  '90+ days': 'bg-red-100 text-red-700',
+  '0-30 days': 'bg-success-soft text-success-soft-foreground',
+  '31-60 days': 'bg-info-soft text-info-soft-foreground',
+  '61-90 days': 'bg-warning-soft text-warning-soft-foreground',
+  '90+ days': 'bg-danger-soft text-danger-soft-foreground',
 };
 
 const chartBarColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
@@ -324,7 +324,7 @@ export default function OutstandingReceivablesPage() {
                       <TableCell className="text-right font-mono text-sm">
                         {formatCurrency(inv.amount_usd, 'USD')}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-sm text-emerald-600">
+                      <TableCell className="text-right font-mono text-sm text-success-soft-foreground">
                         {inv.totalPaid > 0 ? formatCurrency(inv.totalPaid, 'USD') : '—'}
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm font-semibold text-rose-600">

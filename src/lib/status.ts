@@ -2,10 +2,10 @@ export type StatusTone = 'default' | 'success' | 'warning' | 'danger' | 'info' |
 
 const STATUS_CLASS_MAP: Record<StatusTone, string> = {
   default: 'bg-muted text-foreground/90',
-  success: 'bg-green-100 text-green-700',
-  warning: 'bg-amber-100 text-amber-700',
-  danger: 'bg-red-100 text-red-700',
-  info: 'bg-blue-100 text-blue-700',
+  success: 'bg-success-soft text-success-soft-foreground',
+  warning: 'bg-warning-soft text-warning-soft-foreground',
+  danger: 'bg-danger-soft text-danger-soft-foreground',
+  info: 'bg-info-soft text-info-soft-foreground',
   muted: 'bg-muted text-foreground/80',
 };
 

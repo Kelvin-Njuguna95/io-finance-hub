@@ -30,7 +30,8 @@ export type StatCardTone =
   | 'danger'
   | 'info'
   | 'violet'
-  | 'teal';
+  | 'teal'
+  | 'electric';
 
 type TrendDirection = 'up' | 'down' | 'flat';
 
@@ -80,6 +81,8 @@ function normalizeTrend(
 const TONE_TILE: Record<StatCardTone, string> = {
   brand:
     'bg-primary/10 text-primary ring-1 ring-inset ring-primary/20 dark:bg-primary/15',
+  electric:
+    'bg-electric-soft text-electric-soft-foreground ring-1 ring-inset ring-electric/25',
   success:
     'bg-success-soft text-success-soft-foreground ring-1 ring-inset ring-success/25',
   warning:
@@ -96,6 +99,7 @@ const TONE_TILE: Record<StatCardTone, string> = {
 
 const TONE_ACCENT_RAIL: Record<StatCardTone, string> = {
   brand: 'before:bg-primary/60',
+  electric: 'before:bg-electric/70',
   success: 'before:bg-success/70',
   warning: 'before:bg-warning/70',
   danger: 'before:bg-danger/70',
@@ -176,7 +180,7 @@ export function StatCard({
           </p>
           <p
             data-slot="stat-card-value"
-            className="text-[1.75rem] font-bold leading-none tracking-tight text-foreground tabular-nums"
+            className="text-[2rem] font-bold leading-none tracking-tight text-foreground tabular-nums"
           >
             {value}
           </p>

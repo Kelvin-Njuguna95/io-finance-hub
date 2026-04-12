@@ -17,7 +17,8 @@ type PageHeaderProps = {
     | 'danger'
     | 'info'
     | 'violet'
-    | 'teal';
+    | 'teal'
+    | 'electric';
   /** Pills rendered below the title — month chips, status, counts. */
   meta?: React.ReactNode;
   /** Right-aligned actions (buttons, selects). */
@@ -28,6 +29,8 @@ type PageHeaderProps = {
 const TONE_STYLES: Record<NonNullable<PageHeaderProps['tone']>, string> = {
   brand:
     'bg-primary/10 text-primary ring-1 ring-inset ring-primary/15 dark:bg-primary/15',
+  electric:
+    'bg-electric-soft text-electric-soft-foreground ring-1 ring-inset ring-electric/20',
   success:
     'bg-success-soft text-success-soft-foreground ring-1 ring-inset ring-success/20',
   warning:

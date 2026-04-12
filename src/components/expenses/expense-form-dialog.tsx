@@ -187,7 +187,7 @@ export function ExpenseFormDialog({ open, onClose, onSaved }: ExpenseFormDialogP
               </SelectContent>
             </Select>
             {budgets.length === 0 && (
-              <p className="text-xs text-red-500 mt-1">No approved budgets for {yearMonth}</p>
+              <p className="text-xs text-danger-soft-foreground mt-1">No approved budgets for {yearMonth}</p>
             )}
           </div>
 

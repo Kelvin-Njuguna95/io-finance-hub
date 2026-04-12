@@ -22,6 +22,7 @@ export type SectionTone =
   | 'info'
   | 'violet'
   | 'teal'
+  | 'electric'
   | 'neutral';
 
 type SectionCardProps = {
@@ -47,6 +48,8 @@ type SectionCardProps = {
 const TONE_TILE: Record<SectionTone, string> = {
   brand:
     'bg-primary/10 text-primary ring-1 ring-inset ring-primary/20 dark:bg-primary/15',
+  electric:
+    'bg-electric-soft text-electric-soft-foreground ring-1 ring-inset ring-electric/25',
   success:
     'bg-success-soft text-success-soft-foreground ring-1 ring-inset ring-success/25',
   warning:
@@ -84,7 +87,8 @@ export function SectionCard({
       aria-labelledby={labelId}
       className={cn(
         'rounded-xl border border-border bg-card shadow-elev-1',
-        'transition-shadow duration-[var(--dur-base)] ease-[cubic-bezier(0.2,0,0,1)]',
+        'transition-all duration-[var(--dur-base)] ease-[var(--ease-standard)]',
+        'hover:shadow-elev-2 hover:border-border-strong',
         className,
       )}
     >

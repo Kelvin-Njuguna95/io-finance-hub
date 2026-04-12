@@ -103,7 +103,7 @@ export function AppSidebar() {
         ) : (
           getNavigation(user.role).map((group, gi) => (
             <SidebarGroup key={group.title}>
-              <SidebarGroupLabel className="px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">
+              <SidebarGroupLabel className="px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">
                 {group.title}
               </SidebarGroupLabel>
               <SidebarGroupContent>
@@ -126,14 +126,16 @@ export function AppSidebar() {
                           }
                           className={cn(
                             'h-9 rounded-lg px-2.5 text-[0.8125rem] font-medium',
-                            'text-white/75 hover:bg-white/5 hover:text-white',
-                            // IO gold active state
-                            'data-active:bg-[color-mix(in_oklab,var(--sidebar-primary)_18%,transparent)]',
-                            'data-active:text-sidebar-primary-foreground',
+                            'text-white/75 transition-all duration-[var(--dur-base)] ease-[var(--ease-standard)]',
+                            'hover:bg-white/[0.06] hover:text-white',
+                            // IO gold active state: rgba(245,197,24,0.12) + #F5C518 text
+                            'data-active:bg-[rgba(245,197,24,0.12)]',
+                            'data-active:text-[#F5C518]',
                             'data-active:font-semibold',
                             'data-active:shadow-none',
-                            'data-active:ring-1 data-active:ring-inset data-active:ring-sidebar-primary/30',
-                            '[&_svg]:text-white/60 data-active:[&_svg]:text-sidebar-primary',
+                            'data-active:ring-1 data-active:ring-inset data-active:ring-[rgba(245,197,24,0.25)]',
+                            '[&_svg]:text-white/55 [&_svg]:transition-colors [&_svg]:duration-[var(--dur-fast)]',
+                            'data-active:[&_svg]:text-[#F5C518]',
                           )}
                         >
                           <Icon strokeWidth={1.75} />

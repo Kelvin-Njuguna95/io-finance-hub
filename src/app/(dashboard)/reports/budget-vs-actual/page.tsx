@@ -182,11 +182,11 @@ export default function BudgetVsActualPage() {
 
   const statusColors: Record<string, string> = {
     draft: 'bg-muted text-foreground/80',
-    submitted: 'bg-blue-100 text-blue-700',
+    submitted: 'bg-info-soft text-info-soft-foreground',
     pm_review: 'bg-purple-100 text-purple-700',
-    pm_approved: 'bg-teal-100 text-teal-700',
-    returned_to_tl: 'bg-amber-200 text-amber-800',
-    approved: 'bg-emerald-100 text-emerald-700',
+    pm_approved: 'bg-teal-soft text-teal-soft-foreground',
+    returned_to_tl: 'bg-warning-soft text-warning-soft-foreground',
+    approved: 'bg-success-soft text-success-soft-foreground',
     rejected: 'bg-rose-100 text-rose-700',
   };
 
@@ -284,14 +284,14 @@ export default function BudgetVsActualPage() {
                         <TableCell className="text-right font-mono text-sm">
                           {formatCurrency(r.actual_kes, 'KES')}
                         </TableCell>
-                        <TableCell className={`text-right font-mono text-sm ${r.variance_kes < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                        <TableCell className={`text-right font-mono text-sm ${r.variance_kes < 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>
                           {formatCurrency(r.variance_kes, 'KES')}
                         </TableCell>
                         <TableCell className="text-right">
                           <Badge variant="secondary" className={
                             r.utilization_pct > 100 ? 'bg-rose-100 text-rose-700' :
-                            r.utilization_pct > 90 ? 'bg-amber-100 text-amber-700' :
-                            'bg-emerald-100 text-emerald-700'
+                            r.utilization_pct > 90 ? 'bg-warning-soft text-warning-soft-foreground' :
+                            'bg-success-soft text-success-soft-foreground'
                           }>
                             {formatPercent(r.utilization_pct)}
                           </Badge>
@@ -302,9 +302,9 @@ export default function BudgetVsActualPage() {
                       <TableCell colSpan={2} className="text-right">Total</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalBudget, 'KES')}</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalActual, 'KES')}</TableCell>
-                      <TableCell className={`text-right font-mono ${totalVariance < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(totalVariance, 'KES')}</TableCell>
+                      <TableCell className={`text-right font-mono ${totalVariance < 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>{formatCurrency(totalVariance, 'KES')}</TableCell>
                       <TableCell className="text-right">
-                        <Badge variant="secondary" className={totalUtil > 100 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}>
+                        <Badge variant="secondary" className={totalUtil > 100 ? 'bg-rose-100 text-rose-700' : 'bg-success-soft text-success-soft-foreground'}>
                           {formatPercent(totalUtil)}
                         </Badge>
                       </TableCell>
@@ -325,14 +325,14 @@ export default function BudgetVsActualPage() {
               <span>Revenue ({formatYearMonth(revenueSourceMonth)} invoice)</span>
               <span className="font-mono font-semibold">{formatCurrency(laggedRevenue, 'KES')}</span>
             </div>
-            <div className="flex justify-between text-sm text-red-600">
+            <div className="flex justify-between text-sm text-danger-soft-foreground">
               <span>Total Expenses ({formatYearMonth(selectedMonth)})</span>
               <span className="font-mono">-{formatCurrency(totalActual, 'KES')}</span>
             </div>
             <Separator />
             <div className="flex justify-between text-sm font-bold">
               <span>Gross Profit</span>
-              <span className={`font-mono ${grossProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(grossProfit, 'KES')}</span>
+              <span className={`font-mono ${grossProfit < 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>{formatCurrency(grossProfit, 'KES')}</span>
             </div>
           </CardContent>
         </Card>

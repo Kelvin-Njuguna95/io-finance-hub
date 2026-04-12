@@ -20,7 +20,8 @@ export type HeroStatTone =
   | 'info'
   | 'violet'
   | 'teal'
-  | 'accent';
+  | 'accent'
+  | 'electric';
 
 export type HeroStat = {
   label: string;
@@ -47,7 +48,9 @@ const TILE_TONES: Record<HeroStatTone, string> = {
   brand:
     'bg-white/10 text-white ring-1 ring-inset ring-white/15',
   accent:
-    'bg-[oklch(0.85_0.17_88_/_0.18)] text-[oklch(0.95_0.14_88)] ring-1 ring-inset ring-[oklch(0.85_0.17_88_/_0.28)]',
+    'bg-[oklch(0.84_0.18_88_/_0.20)] text-[oklch(0.95_0.14_88)] ring-1 ring-inset ring-[oklch(0.84_0.18_88_/_0.30)]',
+  electric:
+    'bg-[oklch(0.78_0.18_210_/_0.22)] text-[oklch(0.92_0.14_210)] ring-1 ring-inset ring-[oklch(0.78_0.18_210_/_0.32)]',
   success:
     'bg-[oklch(0.70_0.16_158_/_0.18)] text-[oklch(0.90_0.14_158)] ring-1 ring-inset ring-[oklch(0.70_0.16_158_/_0.28)]',
   warning:
@@ -70,7 +73,7 @@ export function HeroCard({
   children,
   className,
 }: HeroCardProps) {
-  const today = new Date().toLocaleDateString('en-US', {
+  const today = new Date().toLocaleDateString('en-KE', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -93,13 +96,13 @@ export function HeroCard({
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/45">
             {eyebrow}
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white md:text-[1.65rem]">
+          <h1 className="mt-1 text-[20px] font-bold tracking-tight text-white md:text-[22px]">
             {title}
           </h1>
-          <p className="mt-1 text-sm text-white/55">{today}</p>
+          <p className="mt-1.5 text-[13px] text-white/50">{today}</p>
         </div>
         {actions && (
           <div className="flex items-center gap-2">{actions}</div>
@@ -124,14 +127,14 @@ export function HeroCard({
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 space-y-1.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-white/55">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50">
                       {stat.label}
                     </p>
-                    <p className="text-[1.25rem] font-semibold leading-none tracking-tight text-white tabular-nums">
+                    <p className="text-[1.5rem] font-bold leading-none tracking-tight text-white tabular-nums md:text-[1.625rem]">
                       {stat.value}
                     </p>
                     {stat.subtitle && (
-                      <p className="text-[11px] text-white/55">
+                      <p className="text-[11px] text-white/45">
                         {stat.subtitle}
                       </p>
                     )}

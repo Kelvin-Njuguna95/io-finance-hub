@@ -29,7 +29,7 @@ export function DashboardTopbar({ className }: { className?: string }) {
     <header
       className={cn(
         'sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border/70',
-        'bg-background/85 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/70',
+        'bg-background/90 px-4 backdrop-blur-lg supports-[backdrop-filter]:bg-background/75',
         className,
       )}
     >

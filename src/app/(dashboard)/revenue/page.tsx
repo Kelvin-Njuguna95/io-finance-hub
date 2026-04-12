@@ -61,10 +61,10 @@ function normalizeStatus(invoice: RevenueInvoice): InvoiceFilter {
 }
 
 function getStatusBadgeClass(status: InvoiceFilter) {
-  if (status === 'paid') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-  if (status === 'partially_paid') return 'bg-amber-100 text-amber-700 border-amber-200';
-  if (status === 'overdue') return 'bg-rose-200 text-rose-900 border-rose-300';
-  return 'bg-rose-100 text-rose-700 border-rose-200';
+  if (status === 'paid') return 'bg-success-soft text-success-soft-foreground';
+  if (status === 'partially_paid') return 'bg-warning-soft text-warning-soft-foreground';
+  if (status === 'overdue') return 'bg-danger-soft text-danger-soft-foreground';
+  return 'bg-danger-soft text-danger-soft-foreground';
 }
 
 export default function RevenuePage() {
@@ -567,8 +567,8 @@ export default function RevenuePage() {
                             <TableCell>{inv.client_name || '—'}</TableCell>
                             <TableCell className="font-mono text-sm">{formatCurrency(Number(inv.amount_usd || 0), 'USD')}</TableCell>
                             <TableCell className="font-mono text-sm">{inv.amount_kes ? formatCurrency(Number(inv.amount_kes), 'KES') : '—'}</TableCell>
-                            <TableCell className="font-mono text-sm text-emerald-600">{formatCurrency(paidAmount, 'USD')}</TableCell>
-                            <TableCell className={`font-mono text-sm font-semibold ${outstandingAmount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            <TableCell className="font-mono text-sm text-success-soft-foreground">{formatCurrency(paidAmount, 'USD')}</TableCell>
+                            <TableCell className={`font-mono text-sm font-semibold ${outstandingAmount > 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>
                               {formatCurrency(outstandingAmount, 'USD')}
                             </TableCell>
                             <TableCell>
@@ -698,11 +698,11 @@ export default function RevenuePage() {
                             <TableCell>{formatDate(inv.invoice_date)}</TableCell>
                             <TableCell>{inv.due_date ? formatDate(inv.due_date) : '—'}</TableCell>
                             <TableCell>
-                              <Badge variant="outline" className={aging.days > 90 ? 'bg-rose-100 text-rose-700 border-rose-200' : aging.days > 60 ? 'bg-amber-100 text-amber-700 border-amber-200' : aging.days > 30 ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'}>
+                              <Badge variant="outline" className={aging.days > 90 ? 'bg-danger-soft text-danger-soft-foreground' : aging.days > 60 ? 'bg-warning-soft text-warning-soft-foreground' : aging.days > 30 ? 'bg-info-soft text-info-soft-foreground' : 'bg-success-soft text-success-soft-foreground'}>
                                 {aging.bucket}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right font-mono text-sm font-semibold text-rose-600">
+                            <TableCell className="text-right font-mono text-sm font-semibold text-danger-soft-foreground">
                               {formatCurrency(outstandingAmount, 'USD')}
                             </TableCell>
                             {canCreate && (
