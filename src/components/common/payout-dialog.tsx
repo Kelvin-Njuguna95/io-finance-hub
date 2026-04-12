@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
+import { formatYearMonth } from '@/lib/format';
 import { formatKES } from '@/lib/utils/currency';
 import { Button } from '@/components/ui/button';
 import {
@@ -140,14 +141,14 @@ export function PayoutDialog({
         <DialogHeader>
           <DialogTitle>Initiate Director Payout</DialogTitle>
           <DialogDescription>
-            Create a new payout request for {selectedMonth}. Available balance is validated automatically.
+            Create a new payout request for {formatYearMonth(selectedMonth)}. Available balance is validated automatically.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="payout-director">Director</Label>
-            <Select value={selectedRecordId} onValueChange={setSelectedRecordId}>
+            <Select value={selectedRecordId} onValueChange={(value) => setSelectedRecordId(value ?? '')}>
               <SelectTrigger id="payout-director">
                 <SelectValue placeholder="Select director" />
               </SelectTrigger>
@@ -163,7 +164,7 @@ export function PayoutDialog({
 
           <div className="space-y-2">
             <Label>Period</Label>
-            <Input value={selectedMonth} readOnly aria-readonly />
+            <Input value={formatYearMonth(selectedMonth)} readOnly aria-readonly />
           </div>
 
           <div className="space-y-2">
@@ -184,7 +185,10 @@ export function PayoutDialog({
             <Label htmlFor="payment-method">Payment Method</Label>
             <Select
               value={paymentMethod}
-              onValueChange={(value: 'cash' | 'withdrawal') => setPaymentMethod(value)}
+              onValueChange={(value) => {
+                if (!value) return;
+                setPaymentMethod(value);
+              }}
             >
               <SelectTrigger id="payment-method">
                 <SelectValue />
@@ -208,7 +212,7 @@ export function PayoutDialog({
 
           {records.length === 0 && (
             <p className="text-sm text-warning-soft-foreground">
-              No profit share records available for {selectedMonth}. Finalize profit share first.
+              No profit share records available for {formatYearMonth(selectedMonth)}. Finalize profit share first.
             </p>
           )}
 
