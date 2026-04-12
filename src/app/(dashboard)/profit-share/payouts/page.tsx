@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/hooks/use-user';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -21,6 +22,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PayoutDialog, type PayoutRecordOption } from '@/components/common/payout-dialog';
+import { getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { formatKES } from '@/lib/utils/currency';
 import { cn } from '@/lib/utils';
 
@@ -42,8 +46,12 @@ type WithdrawalOption = {
 };
 
 export default function DirectorPayoutsPage() {
+  const { user } = useUser();
   const [rows, setRows] = useState<DirectorPayout[]>([]);
   const [loading, setLoading] = useState(true);
+  const [payoutDialogOpen, setPayoutDialogOpen] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
+  const [payoutRecords, setPayoutRecords] = useState<PayoutRecordOption[]>([]);
   const [linkModal, setLinkModal] = useState<{
     open: boolean;
     payoutId: string;
@@ -53,6 +61,7 @@ export default function DirectorPayoutsPage() {
   const [selectedWithdrawalId, setSelectedWithdrawalId] = useState('');
   const [markPaidId, setMarkPaidId] = useState<string | null>(null);
   const [isMutating, setIsMutating] = useState(false);
+  const isCfo = user?.role === 'cfo';
 
   useEffect(() => {
     void load();
@@ -110,9 +119,62 @@ export default function DirectorPayoutsPage() {
     setLinkModal({ open: true, payoutId, directorName });
   }
 
+  async function openPayoutDialog() {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('profit_share_records')
+      .select('id, director_name, director_tag, balance_remaining, director_share_kes')
+      .eq('year_month', selectedMonth)
+      .order('director_tag');
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    const records = (data ?? [])
+      .map((record: {
+        id: string;
+        director_name: string | null;
+        director_tag: string | null;
+        balance_remaining: number | null;
+        director_share_kes: number | null;
+      }) => ({
+        id: record.id,
+        director_name: record.director_name || (record.director_tag ? `${record.director_tag.charAt(0).toUpperCase()}${record.director_tag.slice(1)}` : 'Director'),
+        balance_remaining: Number(record.balance_remaining ?? record.director_share_kes ?? 0),
+      }))
+      .filter((record) => record.balance_remaining > 0);
+
+    setPayoutRecords(records);
+    setPayoutDialogOpen(true);
+  }
+
   return (
     <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-semibold">Director Payouts</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Director Payouts</h1>
+        <div className="flex items-center gap-2">
+          <Select value={selectedMonth} onValueChange={(value) => value && setSelectedMonth(value)}>
+            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 12 }, (_, index) => {
+                const date = new Date();
+                date.setMonth(date.getMonth() - index);
+                const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                return (
+                  <SelectItem key={month} value={month}>
+                    {formatYearMonth(month)}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+          {isCfo && (
+            <Button onClick={openPayoutDialog}>+ New Payout</Button>
+          )}
+        </div>
+      </div>
 
       <Card>
         <CardContent className="p-0">
@@ -319,6 +381,14 @@ export default function DirectorPayoutsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PayoutDialog
+        open={payoutDialogOpen}
+        onOpenChange={setPayoutDialogOpen}
+        selectedMonth={selectedMonth}
+        records={payoutRecords}
+        onCreated={load}
+      />
     </div>
   );
 }

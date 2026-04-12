@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { PageHeader } from '@/components/layout/page-header';
@@ -15,6 +16,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { PayoutDialog, type PayoutRecordOption } from '@/components/common/payout-dialog';
 import { formatCurrency, getCurrentYearMonth, formatYearMonth, capitalize, formatDate } from '@/lib/format';
 import { formatKES } from '@/lib/utils/currency';
 import { cn } from '@/lib/utils';
@@ -72,6 +74,7 @@ export default function ProfitSharePage() {
   const [disputeTarget, setDisputeTarget] = useState<ProjectShare | null>(null);
   const [disputeReason, setDisputeReason] = useState('');
   const [loading, setLoading] = useState(true);
+  const [payoutDialogOpen, setPayoutDialogOpen] = useState(false);
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [payoutHistory, setPayoutHistory] = useState<Record<string, PayoutWithdrawal[]>>({});
 
@@ -221,6 +224,14 @@ export default function ProfitSharePage() {
   const totalCompanyShare = shares.reduce((s, r) => s + r.company_share, 0);
   const totalDistributable = shares.reduce((s, r) => s + (r.distributable_profit > 0 ? r.distributable_profit : 0), 0);
   const isLiveData = shares.length > 0 && shares[0].source === 'live';
+  const payoutRecords: PayoutRecordOption[] = shares
+    .filter((share) => Boolean(share.record_id))
+    .map((share) => ({
+      id: share.record_id!,
+      director_name: capitalize(share.director_tag),
+      balance_remaining: Number(share.balance_remaining ?? share.director_share ?? 0),
+    }))
+    .filter((record) => record.balance_remaining > 0);
 
   const statusColors: Record<string, string> = {
     pending_review: 'bg-warning-soft text-warning-soft-foreground',
@@ -232,13 +243,14 @@ export default function ProfitSharePage() {
     <div>
       <PageHeader title="Profit Share" description={'70/30 distribution — revenue from ' + formatYearMonth(revenueSourceMonth) + ' invoice'}>
         {userRole === 'cfo' && (
-          <Button
-            onClick={() => {
-              window.location.href = '/profit-share/payouts';
-            }}
-          >
-            + Initiate Payout
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setPayoutDialogOpen(true)}>
+              + Initiate Payout
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/profit-share/payouts">View All Payouts</Link>
+            </Button>
+          </div>
         )}
         <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
           <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
@@ -429,6 +441,14 @@ export default function ProfitSharePage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <PayoutDialog
+          open={payoutDialogOpen}
+          onOpenChange={setPayoutDialogOpen}
+          selectedMonth={selectedMonth}
+          records={payoutRecords}
+          onCreated={load}
+        />
       </div>
     </div>
   );
