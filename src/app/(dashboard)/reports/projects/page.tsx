@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/table';
 import { formatCurrency, formatPercent, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { getLaggedMonth, getUnifiedServicePeriodLabel, getProjectColor } from '@/lib/report-utils';
-import { isBackdated } from '@/lib/backdated-utils';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Legend, Tooltip,
@@ -40,6 +39,7 @@ interface ProjectComparison {
   radarBudgetUtil: number;
   radarRevPerAgent: number;
   radarCostEff: number;
+  revenueEstimated: boolean;
 }
 
 export default function ProjectComparisonPage() {
@@ -81,19 +81,17 @@ export default function ProjectComparisonPage() {
       const revMonth = historical ? selectedMonth : getLaggedMonth(selectedMonth);
       setRevenueSourceMonth(revMonth);
 
-      const [projRes, rateRes, invRes, projExpRes, sharedExpRes, agentRes, budRes] = await Promise.all([
+      const [projRes, laggedRes, projExpRes, sharedExpRes, agentRes, budRes] = await Promise.all([
         supabase.from('projects').select('id, name, director_tag').eq('is_active', true),
-        supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single(),
-        supabase.from('invoices').select('project_id, amount_usd, amount_kes, description').eq('billing_period', revMonth),
-        supabase.from('expenses').select('project_id, amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense'),
-        supabase.from('expenses').select('amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'shared_expense'),
+        supabase.from('lagged_revenue_by_project_month').select('project_id, lagged_revenue_kes, revenue_kes_estimated').eq('expense_month', selectedMonth),
+        supabase.from('expenses').select('project_id, amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense').eq('lifecycle_status', 'confirmed'),
+        supabase.from('expenses').select('amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'shared_expense').eq('lifecycle_status', 'confirmed'),
         supabase.from('agent_counts').select('project_id, agent_count').eq('year_month', selectedMonth),
-        supabase.from('budgets').select('id, project_id, pm_approved_total, budget_versions(total_amount_kes, status)').eq('year_month', selectedMonth),
+        supabase.from('budgets').select('id, project_id, budget_versions(total_amount_kes, status)').eq('year_month', selectedMonth),
       ]);
 
-      const stdRate = parseFloat(rateRes.data?.value || '129.5');
       const projects = projRes.data || [];
-      const invoices = invRes.data || [];
+      const laggedRows = laggedRes.data || [];
       const projExpenses = projExpRes.data || [];
       const totalOverhead = (sharedExpRes.data || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
       const agents = agentRes.data || [];
@@ -102,10 +100,13 @@ export default function ProjectComparisonPage() {
       const directorLabels: Record<string, string> = { kelvin: 'Kelvin', evans: 'Evans', dan: 'Dan', gidraph: 'Gidraph', victor: 'Victor' };
 
       // Revenue map
-      const revMap = new Map<string, number>();
-      invoices.filter((i: /* // */ any) => !isBackdated(i.description)).forEach((i: /* // */ any) => {
-        const kes = Number(i.amount_kes) > 0 ? Number(i.amount_kes) : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
-        revMap.set(i.project_id, (revMap.get(i.project_id) || 0) + kes);
+      const revMap = new Map<string, { amount: number; estimated: boolean }>();
+      laggedRows.forEach((row: { project_id: string; lagged_revenue_kes: number | null; revenue_kes_estimated: boolean | null }) => {
+        const existing = revMap.get(row.project_id) || { amount: 0, estimated: false };
+        revMap.set(row.project_id, {
+          amount: existing.amount + Number(row.lagged_revenue_kes || 0),
+          estimated: existing.estimated || Boolean(row.revenue_kes_estimated),
+        });
       });
 
       // Expense map
@@ -122,17 +123,17 @@ export default function ProjectComparisonPage() {
       const budgetMap = new Map<string, number>();
       budgets.forEach((b: /* // */ any) => {
         if (!b.project_id) return;
-        const approved = (b.budget_versions || []).find((v: /* // */ any) => v.status === 'approved');
-        const amt = b.pm_approved_total ? Number(b.pm_approved_total) : Number(approved?.total_amount_kes || 0);
+        const approved = (b.budget_versions || []).find((v: { status: string | null }) => v.status === 'approved');
+        const amt = Number(approved?.total_amount_kes || 0);
         budgetMap.set(b.project_id, (budgetMap.get(b.project_id) || 0) + amt);
       });
 
-      const totalRevenue = Array.from(revMap.values()).reduce((s, v) => s + v, 0);
+      const totalRevenue = Array.from(revMap.values()).reduce((s, v) => s + v.amount, 0);
 
       const rows: ProjectComparison[] = projects
         .filter(p => revMap.has(p.id) || expMap.has(p.id) || agentMap.has(p.id))
         .map(p => {
-          const revenue = revMap.get(p.id) || 0;
+          const revenue = revMap.get(p.id)?.amount || 0;
           const directExpenses = expMap.get(p.id) || 0;
           const grossProfit = revenue - directExpenses;
           const grossMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
@@ -162,6 +163,7 @@ export default function ProjectComparisonPage() {
             radarBudgetUtil: Math.min(100, Math.max(0, budgetUtil > 85 ? 100 - Math.abs(budgetUtil - 85) : budgetUtil)),
             radarRevPerAgent: 0, // normalized below
             radarCostEff: 0,
+            revenueEstimated: revMap.get(p.id)?.estimated || false,
           };
         })
         .sort((a, b) => b.distributableProfit - a.distributableProfit);
@@ -280,7 +282,7 @@ export default function ProjectComparisonPage() {
                   <>
                     {data.map(r => (
                       <TableRow key={r.name} className={r.revenue === 0 && r.directExpenses === 0 ? 'opacity-50' : r.distributableProfit > 0 ? 'bg-emerald-50/50' : r.distributableProfit < 0 ? 'bg-red-50/50' : ''}>
-                        <TableCell className="font-medium">{r.name}</TableCell>
+                  <TableCell className="font-medium">{r.revenueEstimated ? `≈ ${r.name}` : r.name}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(r.revenue, 'KES')}</TableCell>
                         <TableCell className={`text-right font-mono text-sm ${r.grossProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(r.grossProfit, 'KES')}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatPercent(r.grossMargin)}</TableCell>

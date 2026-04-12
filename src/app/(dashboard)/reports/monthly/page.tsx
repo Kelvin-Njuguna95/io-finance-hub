@@ -19,6 +19,7 @@ import { EXPENSE_STATUS } from '@/lib/constants/status';
 interface ProjectRevenue {
   name: string;
   revenue: number;
+  estimated: boolean;
 }
 
 interface ExpenseGroup {
@@ -97,16 +98,17 @@ export default function MonthlyPnlReport() {
       const revMonth = historical ? selectedMonth : getLaggedMonth(selectedMonth);
       setRevenueSourceMonth(revMonth);
 
-      const [projRes, laggedRevenueRes, projExpRes, sharedExpRes, rateRes, projAssign] = await Promise.all([
+      const [projRes, laggedRevenueRes, projExpRes, sharedExpRes, projAssign] = await Promise.all([
         supabase.from('projects').select('id, name, director_tag').eq('is_active', true),
-        supabase.from('lagged_revenue_by_project_month').select('project_id, lagged_revenue').eq('payment_month', `${selectedMonth}-01`),
+        supabase
+          .from('lagged_revenue_by_project_month')
+          .select('project_id, lagged_revenue_kes, revenue_kes_estimated')
+          .eq('expense_month', selectedMonth),
         supabase.from('expenses').select('id, project_id, expense_category_id, amount_kes, description, expense_date, vendor, expense_categories(name)').eq('year_month', selectedMonth).eq('expense_type', 'project_expense').eq('lifecycle_status', EXPENSE_STATUS.CONFIRMED),
         supabase.from('expenses').select('id, project_id, expense_category_id, amount_kes, description, expense_date, vendor, expense_categories(name)').eq('year_month', selectedMonth).eq('expense_type', 'shared_expense').eq('lifecycle_status', EXPENSE_STATUS.CONFIRMED),
-        supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single(),
         supabase.from('user_project_assignments').select('project_id').eq('user_id', user?.id || ''),
       ]);
 
-      const stdRate = parseFloat(rateRes.data?.value || '129.5');
       const projects = projRes.data || [];
       const laggedRevenue = laggedRevenueRes.data || [];
       const projExpenses = projExpRes.data || [];
@@ -118,16 +120,25 @@ export default function MonthlyPnlReport() {
       const isRestricted = normalizedRole === 'team_leader' || normalizedRole === 'project_manager' || normalizedRole === 'team_lead' || normalizedRole === 'pm';
 
       // Revenue per project (lagged)
-      const revMap = new Map<string, number>();
-      laggedRevenue.forEach((i: /* // */ any) => {
-        const kes = Number(i.lagged_revenue || 0);
-        revMap.set(i.project_id, (revMap.get(i.project_id) || 0) + kes);
+      const revMap = new Map<string, { amount: number; estimated: boolean }>();
+      laggedRevenue.forEach((i: { project_id: string; lagged_revenue_kes: number | null; revenue_kes_estimated: boolean | null }) => {
+        const kes = Number(i.lagged_revenue_kes || 0);
+        const existing = revMap.get(i.project_id) || { amount: 0, estimated: false };
+        const next = {
+          amount: existing.amount + kes,
+          estimated: existing.estimated || Boolean(i.revenue_kes_estimated),
+        };
+        revMap.set(i.project_id, next);
       });
 
       const projectRevenues: ProjectRevenue[] = projects
         .filter(p => revMap.has(p.id))
         .filter(p => !isRestricted || assignedProjects.includes(p.id))
-        .map(p => ({ name: p.name, revenue: revMap.get(p.id) || 0 }))
+        .map(p => ({
+          name: p.name,
+          revenue: revMap.get(p.id)?.amount || 0,
+          estimated: revMap.get(p.id)?.estimated || false,
+        }))
         .sort((a, b) => b.revenue - a.revenue);
 
       const totalRevenue = projectRevenues.reduce((s, p) => s + p.revenue, 0);
@@ -177,7 +188,7 @@ export default function MonthlyPnlReport() {
       const distributable = projects
         .filter(p => revMap.has(p.id))
         .map(p => {
-          const rev = revMap.get(p.id) || 0;
+          const rev = revMap.get(p.id)?.amount || 0;
           const dirCosts = projExpenses.filter((e: /* // */ any) => e.project_id === p.id).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
           const profit = rev - dirCosts;
           return {
@@ -448,7 +459,7 @@ export default function MonthlyPnlReport() {
                   <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Revenue Streams</p>
                   <Separator className="my-2" />
                   {pnl.projectRevenues.map(p => (
-                    <PnlSection key={p.name} label={p.name} amount={p.revenue} />
+                    <PnlSection key={p.name} label={p.estimated ? `≈ ${p.name}` : p.name} amount={p.revenue} />
                   ))}
                   <Separator className="my-1" />
                   <PnlSection label="Total Revenue" amount={pnl.totalRevenue} bold />

@@ -71,39 +71,27 @@ export default function BudgetAccuracyPage() {
       }
       const isRestricted = role === 'team_leader' || role === 'project_manager';
 
-      const [projRes, budRes, expRes] = await Promise.all([
+      const [projRes, varianceRes] = await Promise.all([
         supabase.from('projects').select('id, name').eq('is_active', true),
-        supabase.from('budgets').select('id, project_id, year_month, pm_approved_total, budget_versions(total_amount_kes, status)').in('year_month', months),
-        supabase.from('expenses').select('project_id, amount_kes, year_month').in('year_month', months).eq('expense_type', 'project_expense'),
+        supabase.from('variance_summary_by_project').select('project_id, project_name, year_month, budget_kes, actual_kes, variance_kes').in('year_month', months),
       ]);
 
       const projects = (projRes.data || []).filter(p => !isRestricted || assignedProjects.includes(p.id));
-      const budgets = (budRes.data || []).filter((b: /* // */ any) => !isRestricted || assignedProjects.includes(b.project_id));
-      const expenses = (expRes.data || []).filter((e: /* // */ any) => !isRestricted || assignedProjects.includes(e.project_id));
+      const variances = (varianceRes.data || []).filter((v: { project_id: string }) => !isRestricted || assignedProjects.includes(v.project_id));
       const projMap = new Map<string, string>(projects.map((p: { id: string; name: string }) => [p.id, p.name]));
       const projNameSet = new Set<string>();
-
-      // Build expense by project+month
-      const expByPM = new Map<string, number>();
-      expenses.forEach((e: /* // */ any) => {
-        const key = `${e.project_id}|${e.year_month}`;
-        expByPM.set(key, (expByPM.get(key) || 0) + Number(e.amount_kes));
-      });
 
       // Build accuracy rows
       const allRows: AccuracyRow[] = [];
       const freqMap = new Map<string, { over: number; under: number; on: number }>();
 
-      budgets.forEach((b: /* // */ any) => {
+      variances.forEach((b: { project_id: string; project_name: string; year_month: string; budget_kes: number | null; actual_kes: number | null }) => {
         if (!b.project_id || !projMap.has(b.project_id)) return;
-        const projName = projMap.get(b.project_id)!;
+        const projName = b.project_name || projMap.get(b.project_id)!;
         projNameSet.add(projName);
-
-        const approved = (b.budget_versions || []).find((v: /* // */ any) => v.status === 'approved');
-        const budgeted = b.pm_approved_total ? Number(b.pm_approved_total) : Number(approved?.total_amount_kes || 0);
+        const budgeted = Number(b.budget_kes || 0);
         if (budgeted === 0) return;
-
-        const actual = expByPM.get(`${b.project_id}|${b.year_month}`) || 0;
+        const actual = Number(b.actual_kes || 0);
         const variance = actual - budgeted;
         const accuracy = Math.max(0, (1 - Math.abs(variance) / budgeted) * 100);
 

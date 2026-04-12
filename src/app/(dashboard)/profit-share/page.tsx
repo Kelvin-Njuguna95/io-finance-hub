@@ -44,6 +44,7 @@ interface ProjectShare {
   total_paid_out?: number;
   balance_remaining?: number;
   payout_status?: 'unpaid' | 'partial' | 'paid';
+  revenueEstimated?: boolean;
 }
 
 function PayoutStatusBadge({ status }: { status: string }) {
@@ -144,16 +145,19 @@ export default function ProfitSharePage() {
     }
 
     const { data: projects } = await supabase.from('projects').select('id, name, director_tag').eq('is_active', true);
-    const { data: rateSetting } = await supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single();
-    const stdRate = parseFloat(rateSetting?.value || '129.5');
+    const { data: laggedRows } = await supabase
+      .from('lagged_revenue_by_project_month')
+      .select('project_id, lagged_revenue_kes, revenue_kes_estimated')
+      .eq('expense_month', selectedMonth);
+    const { data: expenses } = await supabase.from('expenses').select('project_id, amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense').eq('lifecycle_status', 'confirmed');
 
-    const { data: invoices } = await supabase.from('invoices').select('project_id, amount_usd, amount_kes').eq('billing_period', revenueSourceMonth);
-    const { data: expenses } = await supabase.from('expenses').select('project_id, amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense');
-
-    const invMap = new Map<string, number>();
-    (invoices || []).forEach((i: { project_id: string; amount_kes: number; amount_usd: number }) => {
-      const kes = Number(i.amount_kes) > 0 ? Number(i.amount_kes) : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
-      invMap.set(i.project_id, (invMap.get(i.project_id) || 0) + kes);
+    const invMap = new Map<string, { amount: number; estimated: boolean }>();
+    (laggedRows || []).forEach((i: { project_id: string; lagged_revenue_kes: number | null; revenue_kes_estimated: boolean | null }) => {
+      const existing = invMap.get(i.project_id) || { amount: 0, estimated: false };
+      invMap.set(i.project_id, {
+        amount: existing.amount + Number(i.lagged_revenue_kes || 0),
+        estimated: existing.estimated || Boolean(i.revenue_kes_estimated),
+      });
     });
 
     const expMap = new Map<string, number>();
@@ -163,7 +167,7 @@ export default function ProfitSharePage() {
 
     const rows: ProjectShare[] = (projects || [])
       .map((p: { id: string; name: string; director_tag: string }) => {
-        const revenue = invMap.get(p.id) || 0;
+        const revenue = invMap.get(p.id)?.amount || 0;
         const directCosts = expMap.get(p.id) || 0;
         const distributable = revenue - directCosts;
         const directorShare = distributable > 0 ? Math.round(distributable * 0.70 * 100) / 100 : 0;
@@ -177,6 +181,7 @@ export default function ProfitSharePage() {
           director_share: directorShare,
           company_share: companyShare,
           source: 'live' as const,
+          revenueEstimated: invMap.get(p.id)?.estimated || false,
         };
       })
       .filter(r => r.revenue > 0 || r.direct_costs > 0)
@@ -294,7 +299,7 @@ export default function ProfitSharePage() {
                   <>
                     {shares.map((r, i) => (
                       <TableRow key={`row-${r.record_id || i}`}>
-                        <TableCell className="font-medium">{r.project_name}</TableCell>
+                        <TableCell className="font-medium">{r.revenueEstimated ? `≈ ${r.project_name}` : r.project_name}</TableCell>
                         <TableCell>{capitalize(r.director_tag)}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(r.revenue, 'KES')}</TableCell>
                         <TableCell className="text-right font-mono text-sm text-red-600">{formatCurrency(r.direct_costs, 'KES')}</TableCell>

@@ -39,6 +39,7 @@ interface PnlData {
   netProfit: number;
   agents: number;
   revenueUsd: number;
+  revenueEstimated: boolean;
 }
 
 export default function PnLReportPage() {
@@ -106,6 +107,7 @@ export default function PnLReportPage() {
           netProfit: snapshot.net_profit_kes,
           agents: liveAgents > 0 ? liveAgents : snapshot.total_agents,
           revenueUsd: snapshot.total_revenue_usd,
+          revenueEstimated: false,
         });
         setLoading(false);
         return;
@@ -116,8 +118,8 @@ export default function PnLReportPage() {
         // Accrual mode source of truth
         supabase
           .from('lagged_revenue_company_month')
-          .select('lagged_revenue')
-          .eq('payment_month', `${selectedMonth}-01`)
+          .select('total_revenue_kes, total_revenue_usd, revenue_kes_estimated')
+          .eq('expense_month', selectedMonth)
           .maybeSingle(),
         // Cash mode uses invoice/payment activity
         supabase.from('invoices').select('amount_usd, amount_kes').eq('billing_period', selectedMonth),
@@ -139,9 +141,9 @@ export default function PnLReportPage() {
       let revenueUsd = 0;
 
       if (reportMode === 'accrual') {
-        const lagged = Number(laggedRevenueRes.data?.lagged_revenue || 0);
+        const lagged = Number(laggedRevenueRes.data?.total_revenue_kes || 0);
         revenue = lagged > 0 ? lagged : 0;
-        revenueUsd = (invRes.data || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_usd), 0);
+        revenueUsd = Number(laggedRevenueRes.data?.total_revenue_usd || 0) || (invRes.data || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_usd), 0);
       } else {
         // Cash mode: payments received in this month
         const monthPayments = (payRes.data || []).filter((p: /* // */ any) => p.payment_date?.startsWith(selectedMonth));
@@ -164,6 +166,7 @@ export default function PnLReportPage() {
         netProfit: operatingProfit,
         agents,
         revenueUsd,
+        revenueEstimated: reportMode === 'accrual' ? Boolean(laggedRevenueRes.data?.revenue_kes_estimated) : false,
       });
       setLoading(false);
     }
@@ -220,7 +223,7 @@ export default function PnLReportPage() {
 
         {!!pnl && (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <ExecutiveKpiCard label="Revenue" value={formatCompactCurrency(pnl.revenue, 'KES')} trend="↑ +7.2%" />
+            <ExecutiveKpiCard label="Revenue" value={`${pnl.revenueEstimated ? '≈ ' : ''}${formatCompactCurrency(pnl.revenue, 'KES')}`} trend="↑ +7.2%" />
             <ExecutiveKpiCard label="Direct Costs" value={formatCompactCurrency(pnl.directCosts, 'KES')} trend="↓ -1.9%" />
             <ExecutiveKpiCard label="Net Profit" value={formatCompactCurrency(pnl.netProfit, 'KES')} trend={pnl.netProfit >= 0 ? '↑ +6.0%' : '↓ -6.0%'} positive={pnl.netProfit >= 0} />
             <ExecutiveKpiCard label="Cash Balance (USD)" value={formatCompactCurrency(cashBalance, 'USD')} trend="On liquidity watch" />

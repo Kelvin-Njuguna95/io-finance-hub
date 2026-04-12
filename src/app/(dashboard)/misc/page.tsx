@@ -268,7 +268,7 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
     loadReport();
   }
 
-  const canEdit = !report || ['draft', 'submitted'].includes(report.status);
+  const canEdit = user.role === 'accountant' || user.role === 'cfo' || !report || ['draft', 'submitted'].includes(report.status);
   const itemTotal = items.reduce((s, i) => s + Number(i.amount || 0), 0);
 
   return (
@@ -286,7 +286,9 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
             <Label>Project</Label>
             <Select value={selectedProjectId} onValueChange={(v) => v && setSelectedProjectId(v)} disabled={loading || projects.length === 0}>
               <SelectTrigger>
-                <SelectValue placeholder={loading ? 'Loading projects...' : 'Select project...'} />
+                <SelectValue placeholder={loading ? 'Loading projects...' : 'Select project...'}>
+                  {projects.find((project) => project.id === selectedProjectId)?.name || (loading ? 'Loading projects...' : 'Select project...')}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {projects.map((project) => (

@@ -22,7 +22,8 @@ export async function getOutstandingInvoices(supabase: SupabaseClient) {
   return supabase
     .from('invoices')
     .select(INVOICE_WITH_PAYMENTS_SELECT)
-    .in('status', ['sent', 'partially_paid', 'overdue'])
+    .eq('status', 'sent')
+    .or('payment_status.is.null,payment_status.neq.paid')
     .order('invoice_date', { ascending: true });
 }
 

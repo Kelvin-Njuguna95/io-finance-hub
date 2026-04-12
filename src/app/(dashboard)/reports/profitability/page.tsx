@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency, formatExecutivePercent } from '@/components/reports/executive-kit';
 import { getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { getUnifiedServicePeriodLabel } from '@/lib/report-utils';
-import { isBackdated } from '@/lib/backdated-utils';
 import { FileDown } from 'lucide-react';
 import { exportSimpleReportPdf } from '@/lib/pdf-export';
 
@@ -20,6 +19,7 @@ interface ProjectRow {
   direct_costs: number;
   gross_profit: number;
   margin: number;
+  revenueEstimated: boolean;
 }
 
 export default function ProfitabilityPage() {
@@ -58,21 +58,23 @@ export default function ProfitabilityPage() {
       // Get all active projects
       const { data: projects } = await supabase.from('projects').select('id, name').eq('is_active', true).order('name');
 
-      // Get standard exchange rate
-      const { data: rateSetting } = await supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single();
-      const stdRate = parseFloat(rateSetting?.value || '129.5');
-
-      // Get invoices for the revenue source month
-      const { data: invoices } = await supabase.from('invoices').select('project_id, amount_usd, amount_kes, description').eq('billing_period', revMonth);
+      // Get lagged revenue by project for the expense month
+      const { data: laggedRows } = await supabase
+        .from('lagged_revenue_by_project_month')
+        .select('project_id, lagged_revenue_kes, revenue_kes_estimated')
+        .eq('expense_month', selectedMonth);
 
       // Get direct expenses (current month) for all projects
-      const { data: expenses } = await supabase.from('expenses').select('project_id, amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense');
+      const { data: expenses } = await supabase.from('expenses').select('project_id, amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense').eq('lifecycle_status', 'confirmed');
 
       // Build per-project map
-      const invMap = new Map<string, number>();
-      (invoices || []).filter((i: /* // */ any) => !isBackdated(i.description)).forEach((i: /* // */ any) => {
-        const kes = Number(i.amount_kes) > 0 ? Number(i.amount_kes) : Math.round(Number(i.amount_usd) * stdRate * 100) / 100;
-        invMap.set(i.project_id, (invMap.get(i.project_id) || 0) + kes);
+      const invMap = new Map<string, { amount: number; estimated: boolean }>();
+      (laggedRows || []).forEach((row: { project_id: string; lagged_revenue_kes: number | null; revenue_kes_estimated: boolean | null }) => {
+        const existing = invMap.get(row.project_id) || { amount: 0, estimated: false };
+        invMap.set(row.project_id, {
+          amount: existing.amount + Number(row.lagged_revenue_kes || 0),
+          estimated: existing.estimated || Boolean(row.revenue_kes_estimated),
+        });
       });
 
       const expMap = new Map<string, number>();
@@ -83,11 +85,11 @@ export default function ProfitabilityPage() {
       // Build rows — only include projects that have revenue or expenses
       const rows: ProjectRow[] = (projects || [])
         .map((p: /* // */ any) => {
-          const revenue = invMap.get(p.id) || 0;
+          const revenue = invMap.get(p.id)?.amount || 0;
           const directCosts = expMap.get(p.id) || 0;
           const grossProfit = revenue - directCosts;
           const margin = revenue > 0 ? (grossProfit / revenue * 100) : 0;
-          return { project_name: p.name, revenue, direct_costs: directCosts, gross_profit: grossProfit, margin };
+          return { project_name: p.name, revenue, direct_costs: directCosts, gross_profit: grossProfit, margin, revenueEstimated: invMap.get(p.id)?.estimated || false };
         })
         .filter(r => r.revenue > 0 || r.direct_costs > 0)
         .sort((a, b) => b.gross_profit - a.gross_profit);
@@ -149,7 +151,7 @@ export default function ProfitabilityPage() {
             <Card key={r.project_name} className="border-border">
               <CardContent className="pt-5 space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-base font-semibold">{r.project_name}</p>
+                  <p className="text-base font-semibold">{r.revenueEstimated ? `≈ ${r.project_name}` : r.project_name}</p>
                   <Badge className={r.margin >= 40 ? 'bg-emerald-100 text-emerald-700' : r.margin >= 25 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}>
                     {r.margin >= 40 ? 'On Track' : r.margin >= 25 ? 'Watch' : 'Action Needed'}
                   </Badge>
