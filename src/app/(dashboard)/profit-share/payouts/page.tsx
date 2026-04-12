@@ -58,6 +58,19 @@ export default function DirectorPayoutsPage() {
     void load();
   }, []);
 
+  async function getAuthHeaders() {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('Your session has expired. Please sign in again.');
+    }
+
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    };
+  }
+
   async function load() {
     setLoading(true);
     const supabase = createClient();
@@ -225,21 +238,25 @@ export default function DirectorPayoutsPage() {
                 if (!linkModal || !selectedWithdrawalId) return;
                 setIsMutating(true);
                 try {
+                  const headers = await getAuthHeaders();
                   const res = await fetch(`/api/director-payouts/${linkModal.payoutId}/link-withdrawal`, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers,
                     body: JSON.stringify({
                       withdrawal_id: selectedWithdrawalId,
                     }),
                   });
+                  const payload = (await res.json()) as { error?: string };
                   if (!res.ok) {
-                    const payload = (await res.json()) as { error?: string };
                     toast.error(payload?.error || 'Failed to link');
                     return;
                   }
                   toast.success('Withdrawal linked — payout marked as paid');
                   setLinkModal(null);
                   await load();
+                } catch (error) {
+                  console.error('Failed to link withdrawal to payout:', error);
+                  toast.error(error instanceof Error ? error.message : 'An unexpected error occurred.');
                 } finally {
                   setIsMutating(false);
                 }
@@ -276,17 +293,22 @@ export default function DirectorPayoutsPage() {
                 if (!markPaidId) return;
                 setIsMutating(true);
                 try {
+                  const headers = await getAuthHeaders();
                   const res = await fetch(`/api/director-payouts/${markPaidId}/mark-paid`, {
                     method: 'PATCH',
+                    headers,
                   });
+                  const payload = (await res.json()) as { error?: string };
                   if (!res.ok) {
-                    const payload = (await res.json()) as { error?: string };
                     toast.error(payload?.error || 'Failed to mark paid');
                     return;
                   }
                   toast.success('Payout marked as paid');
                   setMarkPaidId(null);
                   await load();
+                } catch (error) {
+                  console.error('Failed to mark payout paid:', error);
+                  toast.error(error instanceof Error ? error.message : 'An unexpected error occurred.');
                 } finally {
                   setIsMutating(false);
                 }
