@@ -5,10 +5,10 @@ import { AlertCircle, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 export type DashboardAlertVariant = 'info' | 'success' | 'warning' | 'error';
 
 const variantStyles: Record<DashboardAlertVariant, { icon: React.ComponentType<{ className?: string }>; className: string }> = {
-  info: { icon: Info, className: 'border-blue-200 bg-blue-50 text-blue-800' },
-  success: { icon: CheckCircle2, className: 'border-green-200 bg-green-50 text-green-800' },
-  warning: { icon: AlertTriangle, className: 'border-amber-200 bg-amber-50 text-amber-800' },
-  error: { icon: AlertCircle, className: 'border-red-200 bg-red-50 text-red-800' },
+  info: { icon: Info, className: 'border-info/40 bg-info-soft text-info-soft-foreground' },
+  success: { icon: CheckCircle2, className: 'border-success/40 bg-success-soft text-success-soft-foreground' },
+  warning: { icon: AlertTriangle, className: 'border-warning/40 bg-warning-soft text-warning-soft-foreground' },
+  error: { icon: AlertCircle, className: 'border-danger/40 bg-danger-soft text-danger-soft-foreground' },
 };
 
 type Props = {

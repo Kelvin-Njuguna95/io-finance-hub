@@ -209,14 +209,14 @@ export default function BudgetAccuracyPage() {
                     <TableCell className="font-medium">{r.project}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{formatCurrency(r.budgeted, 'KES')}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{formatCurrency(r.actual, 'KES')}</TableCell>
-                    <TableCell className={`text-right font-mono text-sm ${r.variance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                    <TableCell className={`text-right font-mono text-sm ${r.variance > 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>
                       {r.variance > 0 ? '+' : ''}{formatCurrency(r.variance, 'KES')}
                     </TableCell>
                     <TableCell className="text-right">
                       <Badge variant="secondary" className={
-                        r.accuracy >= 90 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' :
-                        r.accuracy >= 75 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' :
-                        'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                        r.accuracy >= 90 ? 'bg-success-soft text-success-soft-foreground' :
+                        r.accuracy >= 75 ? 'bg-warning-soft text-warning-soft-foreground' :
+                        'bg-danger-soft text-danger-soft-foreground'
                       }>
                         {formatPercent(r.accuracy)}
                       </Badge>

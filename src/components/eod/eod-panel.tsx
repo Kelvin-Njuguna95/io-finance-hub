@@ -144,9 +144,9 @@ export function EodPanel() {
     const time = s?.existing_report?.created_at
       ? new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(s.existing_report.created_at))
       : '--:--';
-    statusBadge = <Badge className="bg-green-100 text-green-700"><CheckCircle className="h-3 w-3 mr-1" /> Sent at {time} EAT</Badge>;
+    statusBadge = <Badge className="bg-success-soft text-success-soft-foreground"><CheckCircle className="h-3 w-3 mr-1" /> Sent at {time} EAT</Badge>;
   } else if (hasActivity) {
-    statusBadge = <Badge className="bg-amber-100 text-amber-700"><Clock className="h-3 w-3 mr-1" /> Not Sent</Badge>;
+    statusBadge = <Badge className="bg-warning-soft text-warning-soft-foreground"><Clock className="h-3 w-3 mr-1" /> Not Sent</Badge>;
   } else {
     statusBadge = <Badge className="bg-muted text-muted-foreground"><Minus className="h-3 w-3 mr-1" /> No Activity Today</Badge>;
   }
@@ -180,7 +180,7 @@ export function EodPanel() {
 
           {/* New activity detected since last send */}
           {hasNewActivity && (
-            <div className="flex items-center gap-2 rounded-md bg-amber-50 border border-amber-200 p-2 text-sm text-amber-700">
+            <div className="flex items-center gap-2 rounded-md bg-warning-soft border border-warning/40 p-2 text-sm text-warning-soft-foreground">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>New activity recorded since last send. Resend to capture all changes.</span>
             </div>
@@ -208,7 +208,7 @@ export function EodPanel() {
           )}
 
           {sent && s?.existing_report?.slack_status === 'failed' && (
-            <div className="flex items-center gap-2 rounded-md bg-red-50 p-2 text-sm text-red-700">
+            <div className="flex items-center gap-2 rounded-md bg-danger-soft p-2 text-sm text-danger-soft-foreground">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               Slack delivery failed: {s.existing_report.error_message}
             </div>

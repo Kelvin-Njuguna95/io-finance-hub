@@ -71,7 +71,7 @@ function LoadingSplash() {
           IO
         </div>
         <div className="text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/85">
             Impact Outsourcing
           </p>
           <p className="mt-1 text-sm font-semibold text-white">
@@ -98,13 +98,13 @@ function SignedOutSplash() {
         >
           IO
         </div>
-        <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
+        <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/85">
           Impact Outsourcing
         </p>
         <h1 className="mt-2 text-base font-semibold text-white">
           Session required
         </h1>
-        <p className="mt-1 text-sm text-white/50">
+        <p className="mt-1 text-sm text-white/78">
           Your session has expired. Sign in to continue.
         </p>
         <Link

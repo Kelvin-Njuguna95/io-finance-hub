@@ -199,9 +199,9 @@ export function CfoMiscApproval() {
     <>
       {/* Pending Deletion Requests — shown prominently */}
       {deletionRequests.length > 0 && (
-        <Card className="border-rose-200">
+        <Card className="border-danger/40">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-rose-700">
+            <CardTitle className="text-sm font-medium text-danger-soft-foreground">
               Misc Requests — Pending Deletion ({deletionRequests.length})
             </CardTitle>
           </CardHeader>
@@ -219,7 +219,7 @@ export function CfoMiscApproval() {
               </TableHeader>
               <TableBody>
                 {deletionRequests.map((r) => (
-                  <TableRow key={r.id} className="bg-rose-50/50">
+                  <TableRow key={r.id} className="bg-danger-soft/50">
                     <TableCell className="font-medium">{r.purpose}</TableCell>
                     <TableCell className="text-sm">{r.sender_name}</TableCell>
                     <TableCell>
@@ -286,10 +286,10 @@ export function CfoMiscApproval() {
                     <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => { setApproveReq(r); setApproveAmount(r.amount_requested); }} title="Approve">
-                          <Check className="h-4 w-4 text-green-600" />
+                          <Check className="h-4 w-4 text-success-soft-foreground" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => setDeclineReq(r)} title="Decline">
-                          <X className="h-4 w-4 text-red-600" />
+                          <X className="h-4 w-4 text-danger-soft-foreground" />
                         </Button>
                       </div>
                     </TableCell>
@@ -325,12 +325,12 @@ export function CfoMiscApproval() {
                     <TableCell className="font-medium">{r.period_month}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{formatCurrency(r.total_approved, 'KES')}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{formatCurrency(r.total_claimed, 'KES')}</TableCell>
-                    <TableCell className={`text-right font-mono text-sm ${Number(r.variance) < 0 ? 'text-red-600' : ''}`}>
+                    <TableCell className={`text-right font-mono text-sm ${Number(r.variance) < 0 ? 'text-danger-soft-foreground' : ''}`}>
                       {formatCurrency(Number(r.variance), 'KES')}
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={
-                        r.status === 'submitted' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                        r.status === 'submitted' ? 'bg-info-soft text-info-soft-foreground' : 'bg-success-soft text-success-soft-foreground'
                       }>{r.status === 'cfo_reviewed' ? 'Reviewed' : r.status}</Badge>
                     </TableCell>
                     <TableCell>
@@ -353,7 +353,7 @@ export function CfoMiscApproval() {
           <p className="text-sm text-foreground/80">
             The accountant has requested deletion of this misc request. This action is permanent and cannot be undone.
           </p>
-          <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 text-sm space-y-1">
+          <div className="bg-danger-soft border border-danger/40 rounded-lg p-3 text-sm space-y-1">
             <p><strong>Purpose:</strong> {confirmDelete?.purpose}</p>
             <p><strong>Requested:</strong> {formatCurrency(confirmDelete?.amount_requested || 0, 'KES')}</p>
             {confirmDelete?.amount_approved && (
@@ -416,7 +416,7 @@ export function CfoMiscApproval() {
           <div className="flex gap-4 text-sm mb-3">
             <span>Approved: <strong>{formatCurrency(reviewReport?.total_approved || 0, 'KES')}</strong></span>
             <span>Claimed: <strong>{formatCurrency(reviewReport?.total_claimed || 0, 'KES')}</strong></span>
-            <span className={Number(reviewReport?.variance) < 0 ? 'text-red-600' : ''}>
+            <span className={Number(reviewReport?.variance) < 0 ? 'text-danger-soft-foreground' : ''}>
               Variance: <strong>{formatCurrency(Number(reviewReport?.variance || 0), 'KES')}</strong>
             </span>
           </div>
@@ -431,7 +431,7 @@ export function CfoMiscApproval() {
             </TableHeader>
             <TableBody>
               {reviewItems.map((item: /* // */ any) => (
-                <TableRow key={item.id} className={item.flagged ? 'bg-red-50' : ''}>
+                <TableRow key={item.id} className={item.flagged ? 'bg-danger-soft' : ''}>
                   <TableCell className="text-sm">{formatDate(item.expense_date)}</TableCell>
                   <TableCell className="font-medium text-sm">{item.description}</TableCell>
                   <TableCell className="text-right font-mono text-sm">{formatCurrency(item.amount, 'KES')}</TableCell>

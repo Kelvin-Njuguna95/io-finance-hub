@@ -122,15 +122,15 @@ export default function ExpenseImportPage() {
   }
 
   const statusIcon = (status: string) => {
-    if (status === 'valid') return <CheckCircle className="h-4 w-4 text-emerald-500" />;
-    if (status === 'review') return <AlertTriangle className="h-4 w-4 text-amber-500" />;
-    return <XCircle className="h-4 w-4 text-rose-500" />;
+    if (status === 'valid') return <CheckCircle className="h-4 w-4 text-success-soft-foreground" />;
+    if (status === 'review') return <AlertTriangle className="h-4 w-4 text-warning-soft-foreground" />;
+    return <XCircle className="h-4 w-4 text-danger-soft-foreground" />;
   };
 
   const statusBg = (status: string) => {
     if (status === 'valid') return '';
-    if (status === 'review') return 'bg-amber-50';
-    return 'bg-rose-50';
+    if (status === 'review') return 'bg-warning-soft';
+    return 'bg-danger-soft';
   };
 
   return (
@@ -169,20 +169,20 @@ export default function ExpenseImportPage() {
               </Card>
               <Card className="io-card">
                 <CardContent className="p-4">
-                  <p className="text-[11px] uppercase tracking-wider text-emerald-500 font-medium">Ready to Import</p>
-                  <p className="text-2xl font-bold text-emerald-600">{parseResult.valid_count}</p>
+                  <p className="text-[11px] uppercase tracking-wider text-success-soft-foreground font-medium">Ready to Import</p>
+                  <p className="text-2xl font-bold text-success-soft-foreground">{parseResult.valid_count}</p>
                 </CardContent>
               </Card>
               <Card className="io-card">
                 <CardContent className="p-4">
-                  <p className="text-[11px] uppercase tracking-wider text-amber-500 font-medium">Needs Review</p>
-                  <p className="text-2xl font-bold text-amber-600">{parseResult.review_count}</p>
+                  <p className="text-[11px] uppercase tracking-wider text-warning-soft-foreground font-medium">Needs Review</p>
+                  <p className="text-2xl font-bold text-warning-soft-foreground">{parseResult.review_count}</p>
                 </CardContent>
               </Card>
               <Card className="io-card">
                 <CardContent className="p-4">
-                  <p className="text-[11px] uppercase tracking-wider text-rose-500 font-medium">Reroute (Blocked)</p>
-                  <p className="text-2xl font-bold text-rose-600">{parseResult.reroute_count}</p>
+                  <p className="text-[11px] uppercase tracking-wider text-danger-soft-foreground font-medium">Reroute (Blocked)</p>
+                  <p className="text-2xl font-bold text-danger-soft-foreground">{parseResult.reroute_count}</p>
                 </CardContent>
               </Card>
             </div>
@@ -190,8 +190,8 @@ export default function ExpenseImportPage() {
             {/* Reroute warning */}
             {parseResult.reroute_count > 0 && (
               <div className="alert-danger rounded-lg p-4">
-                <p className="text-sm font-medium text-rose-800">Profit Share Entries Detected</p>
-                <p className="text-sm text-rose-700 mt-1">
+                <p className="text-sm font-medium text-danger-soft-foreground">Profit Share Entries Detected</p>
+                <p className="text-sm text-danger-soft-foreground mt-1">
                   {parseResult.reroute_count} row(s) appear to be profit share payments, not operating expenses. These cannot be imported here — enter them in the Profit Share module instead.
                 </p>
               </div>
@@ -241,7 +241,7 @@ export default function ExpenseImportPage() {
                           <TableCell className="text-sm">{row.paid_to || '—'}</TableCell>
                           <TableCell>
                             {[...row.errors, ...row.warnings].map((msg, i) => (
-                              <p key={i} className={`text-[11px] ${row.errors.includes(msg) ? 'text-rose-600' : 'text-amber-600'}`}>{msg}</p>
+                              <p key={i} className={`text-[11px] ${row.errors.includes(msg) ? 'text-danger-soft-foreground' : 'text-warning-soft-foreground'}`}>{msg}</p>
                             ))}
                             {row.flag_detail && <p className="text-[11px] text-muted-foreground">{row.flag_detail}</p>}
                           </TableCell>
@@ -273,7 +273,7 @@ export default function ExpenseImportPage() {
         {step === 'done' && importResult && (
           <Card className="io-card">
             <CardContent className="p-8 text-center">
-              <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
+              <CheckCircle className="h-12 w-12 text-success-soft-foreground mx-auto mb-4" />
               <h2 className="text-lg font-semibold text-foreground/90 mb-2">Import Complete</h2>
               <p className="text-sm text-muted-foreground mb-4">
                 {importResult.imported_count} expenses imported successfully.

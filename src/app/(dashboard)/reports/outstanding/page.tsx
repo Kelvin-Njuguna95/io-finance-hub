@@ -327,7 +327,7 @@ export default function OutstandingReceivablesPage() {
                       <TableCell className="text-right font-mono text-sm text-success-soft-foreground">
                         {inv.totalPaid > 0 ? formatCurrency(inv.totalPaid, 'USD') : '—'}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-sm font-semibold text-rose-600">
+                      <TableCell className="text-right font-mono text-sm font-semibold text-danger-soft-foreground">
                         {formatCurrency(inv.balance, 'USD')}
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">

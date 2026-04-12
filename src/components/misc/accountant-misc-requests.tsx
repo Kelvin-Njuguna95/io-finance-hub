@@ -113,10 +113,10 @@ export function AccountantMiscRequests() {
   }
 
   const statusColors: Record<string, string> = {
-    pending: 'bg-amber-100 text-amber-700',
-    approved: 'bg-green-100 text-green-700',
-    declined: 'bg-red-100 text-red-700',
-    reported: 'bg-blue-100 text-blue-700',
+    pending: 'bg-warning-soft text-warning-soft-foreground',
+    approved: 'bg-success-soft text-success-soft-foreground',
+    declined: 'bg-danger-soft text-danger-soft-foreground',
+    reported: 'bg-info-soft text-info-soft-foreground',
   };
 
   const totalApproved = requests
@@ -158,10 +158,10 @@ export function AccountantMiscRequests() {
                   {requests.map((r) => {
                     const pendingDelete = isPendingDeletion(r);
                     return (
-                      <TableRow key={r.id} className={pendingDelete ? 'bg-rose-50/50' : ''}>
+                      <TableRow key={r.id} className={pendingDelete ? 'bg-danger-soft/50' : ''}>
                         <TableCell>
                           {pendingDelete ? (
-                            <Badge variant="secondary" className="bg-rose-100 text-rose-700">
+                            <Badge variant="secondary" className="bg-danger-soft text-danger-soft-foreground">
                               Pending Delete
                             </Badge>
                           ) : (
@@ -180,7 +180,7 @@ export function AccountantMiscRequests() {
                         <TableCell className="text-sm text-muted-foreground">{cleanNotes(r.cfo_notes)}</TableCell>
                         <TableCell>
                           {pendingDelete ? (
-                            <span className="text-xs text-rose-500">Awaiting CFO</span>
+                            <span className="text-xs text-danger-soft-foreground">Awaiting CFO</span>
                           ) : r.status !== 'reported' ? (
                             <Button
                               variant="ghost"
@@ -189,7 +189,7 @@ export function AccountantMiscRequests() {
                               onClick={() => setDeleteTarget(r)}
                               title="Request deletion"
                             >
-                              <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                              <Trash2 className="h-3.5 w-3.5 text-danger-soft-foreground" />
                             </Button>
                           ) : null}
                         </TableCell>
@@ -222,7 +222,7 @@ export function AccountantMiscRequests() {
             <p><strong>Amount:</strong> {formatCurrency(deleteTarget?.amount_requested || 0, 'KES')}</p>
             <p><strong>Status:</strong> {deleteTarget?.status}</p>
           </div>
-          <p className="text-xs text-amber-600">
+          <p className="text-xs text-warning-soft-foreground">
             This will send a deletion request to the CFO for final confirmation.
           </p>
           <DialogFooter>

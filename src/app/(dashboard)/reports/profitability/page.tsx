@@ -152,14 +152,14 @@ export default function ProfitabilityPage() {
               <CardContent className="pt-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-base font-semibold">{r.revenueEstimated ? `≈ ${r.project_name}` : r.project_name}</p>
-                  <Badge className={r.margin >= 40 ? 'bg-emerald-100 text-emerald-700' : r.margin >= 25 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}>
+                  <Badge className={r.margin >= 40 ? 'bg-success-soft text-success-soft-foreground' : r.margin >= 25 ? 'bg-warning-soft text-warning-soft-foreground' : 'bg-danger-soft text-danger-soft-foreground'}>
                     {r.margin >= 40 ? 'On Track' : r.margin >= 25 ? 'Watch' : 'Action Needed'}
                   </Badge>
                 </div>
                 <div className="h-3 rounded-full bg-muted overflow-hidden">
                   <div className="h-full bg-primary" style={{ width: `${Math.min(100, (r.revenue <= 0 ? 0 : (r.gross_profit / r.revenue) * 100))}%` }} />
                 </div>
-                <div className="flex items-center justify-between text-sm text-foreground/80">
+                <div className="flex items-center justify-between text-sm text-foreground/90">
                   <span>Revenue {formatCompactCurrency(r.revenue, 'KES')}</span>
                   <span>Costs {formatCompactCurrency(r.direct_costs, 'KES')}</span>
                 </div>

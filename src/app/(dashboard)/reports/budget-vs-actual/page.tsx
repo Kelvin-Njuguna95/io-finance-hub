@@ -106,13 +106,13 @@ export default function BudgetVsActualPage() {
   const grossProfit = laggedRevenue - totalActual;
 
   const statusColors: Record<string, string> = {
-    draft: 'bg-muted text-foreground/80',
+    draft: 'bg-muted text-foreground/90',
     submitted: 'bg-info-soft text-info-soft-foreground',
     pm_review: 'bg-purple-100 text-purple-700',
     pm_approved: 'bg-teal-soft text-teal-soft-foreground',
     returned_to_tl: 'bg-warning-soft text-warning-soft-foreground',
     approved: 'bg-success-soft text-success-soft-foreground',
-    rejected: 'bg-rose-100 text-rose-700',
+    rejected: 'bg-danger-soft text-danger-soft-foreground',
   };
 
   async function exportPdf() {
@@ -144,9 +144,9 @@ export default function BudgetVsActualPage() {
 
       <div className="p-6 space-y-6">
         {loadError && (
-          <Card className="border-rose-200 bg-rose-50">
+          <Card className="border-danger/40 bg-danger-soft">
             <CardContent className="flex flex-col gap-3 p-4">
-              <p className="text-sm text-rose-700">{loadError}</p>
+              <p className="text-sm text-danger-soft-foreground">{loadError}</p>
               <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
                 Try Again
               </Button>
@@ -199,7 +199,7 @@ export default function BudgetVsActualPage() {
                       <TableRow key={i}>
                         <TableCell className="font-medium">{r.scope}</TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className={statusColors[r.status] || 'bg-muted text-foreground/80'}>
+                          <Badge variant="secondary" className={statusColors[r.status] || 'bg-muted text-foreground/90'}>
                             {capitalize(r.status.replace(/_/g, ' '))}
                           </Badge>
                         </TableCell>
@@ -214,7 +214,7 @@ export default function BudgetVsActualPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <Badge variant="secondary" className={
-                            r.utilization_pct > 100 ? 'bg-rose-100 text-rose-700' :
+                            r.utilization_pct > 100 ? 'bg-danger-soft text-danger-soft-foreground' :
                             r.utilization_pct > 90 ? 'bg-warning-soft text-warning-soft-foreground' :
                             'bg-success-soft text-success-soft-foreground'
                           }>
@@ -229,7 +229,7 @@ export default function BudgetVsActualPage() {
                       <TableCell className="text-right font-mono">{formatCurrency(totalActual, 'KES')}</TableCell>
                       <TableCell className={`text-right font-mono ${totalVariance < 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>{formatCurrency(totalVariance, 'KES')}</TableCell>
                       <TableCell className="text-right">
-                        <Badge variant="secondary" className={totalUtil > 100 ? 'bg-rose-100 text-rose-700' : 'bg-success-soft text-success-soft-foreground'}>
+                        <Badge variant="secondary" className={totalUtil > 100 ? 'bg-danger-soft text-danger-soft-foreground' : 'bg-success-soft text-success-soft-foreground'}>
                           {formatPercent(totalUtil)}
                         </Badge>
                       </TableCell>

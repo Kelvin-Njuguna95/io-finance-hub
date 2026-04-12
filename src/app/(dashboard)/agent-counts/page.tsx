@@ -199,7 +199,7 @@ export default function AgentCountsPage() {
                 {rows.map((r) => {
                   const changed = editValues[r.project_id] !== undefined && editValues[r.project_id] !== r.agent_count;
                   return (
-                    <TableRow key={r.project_id} className={changed ? 'bg-blue-50/50' : ''}>
+                    <TableRow key={r.project_id} className={changed ? 'bg-info-soft/50' : ''}>
                       <TableCell className="font-medium">{r.project_name}</TableCell>
                       <TableCell>
                         <Input
@@ -220,9 +220,9 @@ export default function AgentCountsPage() {
                         {r.is_locked ? (
                           <span className="text-xs text-muted-foreground">Locked</span>
                         ) : changed ? (
-                          <span className="text-xs text-blue-600 font-medium">Unsaved</span>
+                          <span className="text-xs text-info-soft-foreground font-medium">Unsaved</span>
                         ) : r.agent_count !== null ? (
-                          <span className="flex items-center gap-1 text-xs text-green-600">
+                          <span className="flex items-center gap-1 text-xs text-success-soft-foreground">
                             <CheckCircle className="h-3 w-3" /> Set
                           </span>
                         ) : (

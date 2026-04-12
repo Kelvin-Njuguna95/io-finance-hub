@@ -682,7 +682,7 @@ export default function RevenuePage() {
             <Card>
               <CardContent className="space-y-4 p-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-foreground/80">
+                  <p className="text-sm text-foreground/90">
                     Open receivables with a remaining balance.
                   </p>
                   <Link href="/reports/outstanding">

@@ -188,7 +188,7 @@ export default function NotificationsPage() {
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="unread">Unread {unreadCount > 0 && <Badge variant="secondary" className="ml-1 h-5 bg-red-100 text-red-600">{unreadCount}</Badge>}</TabsTrigger>
+            <TabsTrigger value="unread">Unread {unreadCount > 0 && <Badge variant="secondary" className="ml-1 h-5 bg-danger-soft text-danger-soft-foreground">{unreadCount}</Badge>}</TabsTrigger>
             <TabsTrigger value="budget">Budget</TabsTrigger>
             <TabsTrigger value="misc">Misc</TabsTrigger>
             <TabsTrigger value="finance">Finance</TabsTrigger>
@@ -235,13 +235,13 @@ export default function NotificationsPage() {
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[10px] text-muted-foreground/60">{timeAgo(n.created_at)}</span>
                           {n.link && (
-                            <span className="text-[10px] text-blue-500">View &rarr;</span>
+                            <span className="text-[10px] text-info-soft-foreground">View &rarr;</span>
                           )}
                         </div>
                       </div>
                       {!n.is_read && (
                         <div className="shrink-0 mt-1">
-                          <div className="h-2 w-2 rounded-full bg-blue-500" />
+                          <div className="h-2 w-2 rounded-full bg-info-soft0" />
                         </div>
                       )}
                     </button>
@@ -253,7 +253,7 @@ export default function NotificationsPage() {
         )}
 
         <p className="text-center text-xs text-muted-foreground/60 pt-4">
-          <Link href="/settings" className="text-blue-500 hover:underline">Manage notification preferences</Link>
+          <Link href="/settings" className="text-info-soft-foreground hover:underline">Manage notification preferences</Link>
         </p>
       </div>
     </div>

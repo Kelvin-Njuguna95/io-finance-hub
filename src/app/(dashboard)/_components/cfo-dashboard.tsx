@@ -603,7 +603,7 @@ export function CfoDashboard() {
               </DialogHeader>
               <div className="max-h-[60vh] overflow-y-auto pr-1">
                 {viewingEod.payload?.message ? (
-                  <pre className="whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-foreground/85">
+                  <pre className="whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-foreground/90">
                     {viewingEod.payload.message}
                   </pre>
                 ) : (
@@ -646,7 +646,7 @@ function EodCountChip({
   return (
     <span className="inline-flex items-center gap-1">
       <Icon className="size-3" aria-hidden />
-      <span className="tabular-nums font-medium text-foreground/80">{value}</span>
+      <span className="tabular-nums font-medium text-foreground/90">{value}</span>
       <span>{label}</span>
     </span>
   );

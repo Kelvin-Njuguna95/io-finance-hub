@@ -6,7 +6,7 @@ const STATUS_CLASS_MAP: Record<StatusTone, string> = {
   warning: 'bg-warning-soft text-warning-soft-foreground',
   danger: 'bg-danger-soft text-danger-soft-foreground',
   info: 'bg-info-soft text-info-soft-foreground',
-  muted: 'bg-muted text-foreground/80',
+  muted: 'bg-muted text-foreground/90',
 };
 
 const STATUS_TONE_BY_VALUE: Record<string, StatusTone> = {

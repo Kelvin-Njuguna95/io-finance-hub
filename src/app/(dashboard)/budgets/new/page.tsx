@@ -427,29 +427,29 @@ export default function NewBudgetPage() {
 
             {/* Existing budgets context panel */}
             {scopeId && scopeType === 'project' && existingBudgets.length > 0 && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-1">
-                <div className="flex items-center gap-2 text-amber-800 font-medium text-sm">
+              <div className="rounded-lg border border-warning/40 bg-warning-soft p-3 space-y-1">
+                <div className="flex items-center gap-2 text-warning-soft-foreground font-medium text-sm">
                   <AlertTriangle className="h-4 w-4" />
                   {projects.find(p => p.id === scopeId)?.name} — {formatYearMonth(yearMonth)}
                 </div>
-                <p className="text-sm text-amber-700">
+                <p className="text-sm text-warning-soft-foreground">
                   Existing budgets this month:
                 </p>
                 {existingBudgets.map((eb, i) => (
-                  <p key={i} className="text-sm text-amber-700 pl-2">
+                  <p key={i} className="text-sm text-warning-soft-foreground pl-2">
                     — Submitted by <strong>{eb.submitted_by_name}</strong> ({ROLE_LABELS[eb.submitted_by_role as keyof typeof ROLE_LABELS] || eb.submitted_by_role})
                     {eb.status !== 'draft' && <> · {formatCurrency(eb.total_kes, 'KES')} · Status: {eb.status}</>}
                   </p>
                 ))}
-                <p className="text-xs text-amber-600 mt-1">
+                <p className="text-xs text-warning-soft-foreground mt-1">
                   Submitting yours will create an additional version. Both will be visible to the PM for review.
                 </p>
               </div>
             )}
 
             {scopeId && scopeType === 'project' && existingBudgets.length === 0 && (isAccountant || user?.role === 'team_leader') && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                <div className="flex items-center gap-2 text-blue-700 text-sm">
+              <div className="rounded-lg border border-info/40 bg-info-soft p-3">
+                <div className="flex items-center gap-2 text-info-soft-foreground text-sm">
                   <Info className="h-4 w-4" />
                   No budget submitted yet for this period. You are the first to submit.
                 </div>
@@ -457,8 +457,8 @@ export default function NewBudgetPage() {
             )}
 
             {scopeType === 'department' && scopeId && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                <div className="flex items-center gap-2 text-blue-700 text-sm">
+              <div className="rounded-lg border border-info/40 bg-info-soft p-3">
+                <div className="flex items-center gap-2 text-info-soft-foreground text-sm">
                   <Info className="h-4 w-4" />
                   Department expenditures are classified as <strong>shared costs</strong> and will be distributed across projects during P&amp;L reporting.
                 </div>
@@ -467,12 +467,12 @@ export default function NewBudgetPage() {
 
             {/* Misc gate warning */}
             {miscGateBlocked && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                <div className="flex items-center gap-2 text-red-800 font-medium text-sm">
+              <div className="rounded-lg border border-danger/40 bg-danger-soft p-3">
+                <div className="flex items-center gap-2 text-danger-soft-foreground font-medium text-sm">
                   <AlertTriangle className="h-4 w-4" />
                   Submission Blocked
                 </div>
-                <p className="text-sm text-red-700 mt-1">{miscGateMessage}</p>
+                <p className="text-sm text-danger-soft-foreground mt-1">{miscGateMessage}</p>
               </div>
             )}
 
@@ -508,7 +508,7 @@ export default function NewBudgetPage() {
                       className="h-6 w-6"
                       onClick={() => removeItem(item.id)}
                     >
-                      <Trash2 className="h-3 w-3 text-red-500" />
+                      <Trash2 className="h-3 w-3 text-danger-soft-foreground" />
                     </Button>
                   )}
                 </div>

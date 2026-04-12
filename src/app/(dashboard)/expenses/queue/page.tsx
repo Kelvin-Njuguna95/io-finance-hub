@@ -62,12 +62,12 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 }
 
 const STATUS_BADGE: Record<PendingExpenseStatus, string> = {
-  pending_auth: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-emerald-100 text-emerald-700',
-  under_review: 'bg-blue-100 text-blue-700',
+  pending_auth: 'bg-warning-soft text-warning-soft-foreground',
+  confirmed: 'bg-success-soft text-success-soft-foreground',
+  under_review: 'bg-info-soft text-info-soft-foreground',
   modified: 'bg-purple-100 text-purple-700',
-  voided: 'bg-red-100 text-red-700',
-  carried_forward: 'bg-muted text-foreground/80',
+  voided: 'bg-danger-soft text-danger-soft-foreground',
+  carried_forward: 'bg-muted text-foreground/90',
 };
 
 const STATUS_LABELS: Record<PendingExpenseStatus, string> = {
@@ -80,8 +80,8 @@ const STATUS_LABELS: Record<PendingExpenseStatus, string> = {
 };
 
 function varianceColor(variance: number) {
-  if (variance < 0) return 'text-emerald-600';
-  if (variance > 0) return 'text-rose-600';
+  if (variance < 0) return 'text-success-soft-foreground';
+  if (variance > 0) return 'text-danger-soft-foreground';
   return 'text-muted-foreground';
 }
 
@@ -666,7 +666,7 @@ export default function ExpenseQueuePage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-7 text-xs text-red-600"
+                                    className="h-7 text-xs text-danger-soft-foreground"
                                     disabled={user?.role !== 'cfo'}
                                     hidden={user?.role !== 'cfo'}
                                     onClick={() => {
@@ -712,7 +712,7 @@ export default function ExpenseQueuePage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-7 text-xs text-red-600"
+                                    className="h-7 text-xs text-danger-soft-foreground"
                                     disabled={user?.role !== 'cfo'}
                                     hidden={user?.role !== 'cfo'}
                                     onClick={() => {

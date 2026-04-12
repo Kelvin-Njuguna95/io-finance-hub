@@ -57,7 +57,7 @@ function PnlSection({ label, bold, negative, amount }: { label: string; bold?: b
 
 function MetricCard({ label, value, accent, tone }: { label: string; value: string; accent: string; tone?: 'default' | 'good' | 'bad' }) {
   return (
-    <div className={`rounded-xl border p-4 shadow-sm ${accent} ${tone === 'good' ? 'bg-emerald-50 border-emerald-200' : tone === 'bad' ? 'bg-red-50 border-red-200' : 'bg-card'}`}>
+    <div className={`rounded-xl border p-4 shadow-sm ${accent} ${tone === 'good' ? 'bg-success-soft border-success/40' : tone === 'bad' ? 'bg-danger-soft border-danger/40' : 'bg-card'}`}>
       <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="mt-2 text-lg font-semibold font-mono text-foreground">{value}</p>
     </div>
@@ -527,7 +527,7 @@ export default function MonthlyPnlReport() {
                         <span>{pnl.operatingProfit > 0 ? `${pnl.operatingMargin.toFixed(1)}%` : 'N/A'}</span>
                       </div>
                     </div>
-                    <div className={`rounded-lg px-3 py-2 ${pnl.netProfit >= 0 ? 'bg-emerald-50' : 'bg-danger-soft/50'}`}>
+                    <div className={`rounded-lg px-3 py-2 ${pnl.netProfit >= 0 ? 'bg-success-soft' : 'bg-danger-soft/50'}`}>
                       <PnlSection label="NET PROFIT / (LOSS)" amount={pnl.netProfit} bold negative />
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Net Margin</span>

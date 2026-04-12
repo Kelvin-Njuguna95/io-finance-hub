@@ -218,14 +218,14 @@ export function AccountantMiscReport() {
             <div className="flex items-center justify-between">
               <Badge variant="secondary" className={
                 report.status === 'draft' ? 'bg-muted text-foreground/90' :
-                report.status === 'submitted' ? 'bg-blue-100 text-blue-700' :
-                'bg-green-100 text-green-700'
+                report.status === 'submitted' ? 'bg-info-soft text-info-soft-foreground' :
+                'bg-success-soft text-success-soft-foreground'
               }>
                 {report.status === 'cfo_reviewed' ? 'CFO Reviewed' : report.status}
               </Badge>
               <div className="flex gap-4 text-sm">
                 <span>Claimed: <strong>{formatCurrency(totalClaimed, 'KES')}</strong></span>
-                <span className={variance < 0 ? 'text-red-600 font-medium' : 'text-green-600'}>
+                <span className={variance < 0 ? 'text-danger-soft-foreground font-medium' : 'text-success-soft-foreground'}>
                   Variance: {formatCurrency(variance, 'KES')}
                 </span>
               </div>
@@ -277,7 +277,7 @@ export function AccountantMiscReport() {
                     <div className="col-span-1 flex justify-end">
                       {report.status === 'draft' && (
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeItem(idx)}>
-                          <Trash2 className="h-3 w-3 text-red-500" />
+                          <Trash2 className="h-3 w-3 text-danger-soft-foreground" />
                         </Button>
                       )}
                     </div>

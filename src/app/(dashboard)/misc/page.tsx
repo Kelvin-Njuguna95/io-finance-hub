@@ -277,7 +277,7 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
         <CardTitle className="text-sm font-medium">Project Misc Expenditure Line Items</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-xs text-foreground/80">
+        <p className="text-xs text-foreground/90">
           Enter project-level misc expenditure for <strong>{selectedMonthLabel}</strong>. This section is available to CFO, Accountant, PM, and Team Leader.
         </p>
 
@@ -882,7 +882,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                             : d.status === 'flagged' ? 'bg-danger-soft text-danger-soft-foreground'
                               : d.status === MISC_DRAW_STATUS.PENDING_PM_APPROVAL ? 'bg-purple-100 text-purple-700'
                                 : d.status === 'declined' ? 'bg-danger-soft text-danger-soft-foreground'
-                                  : 'bg-muted text-foreground/80'
+                                  : 'bg-muted text-foreground/90'
                       }>
                         {d.status === 'approved' ? 'Active' : d.status === 'accounted' ? 'Accounted' : d.status === 'flagged' ? 'Flagged' : d.status === MISC_DRAW_STATUS.PENDING_PM_APPROVAL ? 'Pending Approval' : d.status === 'declined' ? 'Declined' : d.status}
                       </Badge>
@@ -1031,7 +1031,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                               </Select>
                             ) : (
                               item.misc_draw_id ? (
-                                <Badge variant="secondary" className="bg-muted text-foreground/80 text-xs">Linked</Badge>
+                                <Badge variant="secondary" className="bg-muted text-foreground/90 text-xs">Linked</Badge>
                               ) : '—'
                             )}
                           </TableCell>
@@ -1448,7 +1448,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === t.key
                 ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground/80'
+                : 'border-transparent text-muted-foreground hover:text-foreground/90'
             }`}
           >
             {t.label}
@@ -2153,14 +2153,14 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
           <div className="flex gap-4 text-sm mb-3">
             <span>Allocated: <strong>{formatCurrency(Number(reviewReport?.total_allocated || 0), 'KES')}</strong></span>
             <span>Claimed: <strong>{formatCurrency(Number(reviewReport?.total_claimed || 0), 'KES')}</strong></span>
-            <span className={Number(reviewReport?.variance) < 0 ? 'text-red-600' : ''}>
+            <span className={Number(reviewReport?.variance) < 0 ? 'text-danger-soft-foreground' : ''}>
               Variance: <strong>{formatCurrency(Number(reviewReport?.variance || (reviewReport?.total_allocated - reviewReport?.total_claimed) || 0), 'KES')}</strong>
             </span>
           </div>
           {reviewReport?.variance_explanation && (
             <div className="rounded-lg bg-warning-soft/50 border border-warning/30 p-3 text-sm mb-3">
               <strong className="text-warning-soft-foreground">Variance Explanation:</strong>
-              <p className="text-foreground/80 mt-1">{reviewReport.variance_explanation}</p>
+              <p className="text-foreground/90 mt-1">{reviewReport.variance_explanation}</p>
             </div>
           )}
           <Table>
@@ -2556,7 +2556,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                         </Button>
                       </div>
                     </div>
-                    <p className="text-xs text-foreground/80">{d.purpose} &mdash; {formatCurrency(Number(d.amount_requested), 'KES')}</p>
+                    <p className="text-xs text-foreground/90">{d.purpose} &mdash; {formatCurrency(Number(d.amount_requested), 'KES')}</p>
                     {d.pm_decline_reason && (
                       <p className="text-xs text-danger-soft-foreground mt-1">PM Decline Reason: {d.pm_decline_reason}</p>
                     )}
@@ -2635,7 +2635,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                 {draw.pm_decline_reason && (
                   <div className="rounded-lg bg-danger-soft/50 border border-danger/30 p-3 text-sm">
                     <strong className="text-danger-soft-foreground">PM Decline Reason:</strong>
-                    <p className="text-foreground/80 mt-1">{draw.pm_decline_reason}</p>
+                    <p className="text-foreground/90 mt-1">{draw.pm_decline_reason}</p>
                   </div>
                 )}
                 <div className="space-y-1">
@@ -2755,7 +2755,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                         <Badge variant="secondary" className={
                           report?.status === 'submitted' ? 'bg-info-soft text-info-soft-foreground'
                             : report?.status === 'cfo_reviewed' ? 'bg-success-soft text-success-soft-foreground'
-                              : 'bg-muted text-foreground/80'
+                              : 'bg-muted text-foreground/90'
                         }>
                           {report ? (report.status === 'cfo_reviewed' ? 'Reviewed' : report.status) : 'No Report'}
                         </Badge>

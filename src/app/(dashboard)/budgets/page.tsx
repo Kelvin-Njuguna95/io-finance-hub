@@ -341,17 +341,17 @@ export default function BudgetsPage() {
                             </Link>
                             {canWithdraw(b) && (
                               <Button variant="ghost" size="icon" title="Withdraw to draft" onClick={() => handleWithdraw(b.id)}>
-                                <Undo2 className="h-4 w-4 text-amber-600" />
+                                <Undo2 className="h-4 w-4 text-warning-soft-foreground" />
                               </Button>
                             )}
                             {canEdit(b) && (
                               <Link href={`/budgets/${b.id}`}>
-                                <Button variant="ghost" size="sm" className="text-amber-600 text-xs">Edit & Resubmit</Button>
+                                <Button variant="ghost" size="sm" className="text-warning-soft-foreground text-xs">Edit & Resubmit</Button>
                               </Link>
                             )}
                             {canDeleteBudget(b) && (
                               <Button variant="ghost" size="icon" title="Delete Budget Record" onClick={() => setDeleteTarget(b)}>
-                                <Trash2 className="h-4 w-4 text-red-500" />
+                                <Trash2 className="h-4 w-4 text-danger-soft-foreground" />
                               </Button>
                             )}
                           </div>

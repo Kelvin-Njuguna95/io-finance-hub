@@ -450,9 +450,9 @@ export default function SettingsPage() {
               </div>
 
               {activeSection === 'eod' && (
-                <div className="mt-6 p-3 rounded-lg bg-amber-50 border border-amber-200">
-                  <p className="text-xs text-amber-700">
-                    To update the Slack webhook URL, update the <code className="font-mono bg-amber-100 px-1 rounded">EOD_SLACK_WEBHOOK_URL</code> secret in your Vercel project settings.
+                <div className="mt-6 p-3 rounded-lg bg-warning-soft border border-warning/40">
+                  <p className="text-xs text-warning-soft-foreground">
+                    To update the Slack webhook URL, update the <code className="font-mono bg-warning-soft px-1 rounded">EOD_SLACK_WEBHOOK_URL</code> secret in your Vercel project settings.
                   </p>
                 </div>
               )}
@@ -460,7 +460,7 @@ export default function SettingsPage() {
               <div className="mt-8 flex items-center gap-3">
                 <Button onClick={handleSave} disabled={!canEdit}>Save Changes</Button>
                 {dirty && (
-                  <span className="text-xs text-amber-600">Unsaved changes</span>
+                  <span className="text-xs text-warning-soft-foreground">Unsaved changes</span>
                 )}
               </div>
             </div>
@@ -525,7 +525,7 @@ export default function SettingsPage() {
             <div>
               <h2 className="text-lg font-semibold text-foreground mb-1">User Management</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                Manage users and project assignments from the <a href="/users" className="text-blue-600 hover:underline">Users page</a>.
+                Manage users and project assignments from the <a href="/users" className="text-info-soft-foreground hover:underline">Users page</a>.
               </p>
               <Button variant="outline" onClick={() => window.location.href = '/users'}>
                 Go to User Management
@@ -570,9 +570,9 @@ export default function SettingsPage() {
                 </Card>
               )}
               {seedSnapshots.length > 0 && (
-                <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
-                  <p className="text-sm font-medium text-amber-900">Historical Seed Cleanup</p>
-                  <p className="mt-1 text-xs text-amber-800">
+                <div className="mb-6 rounded-lg border border-warning/40 bg-warning-soft p-4">
+                  <p className="text-sm font-medium text-warning-soft-foreground">Historical Seed Cleanup</p>
+                  <p className="mt-1 text-xs text-warning-soft-foreground">
                     Use this action only when you need to permanently remove previously-seeded historical records.
                   </p>
                   <Button
@@ -611,7 +611,7 @@ export default function SettingsPage() {
                             <TableCell className="text-sm">{b.record_count || 0}</TableCell>
                             <TableCell className="text-xs text-muted-foreground">{formatDate(b.created_at)}</TableCell>
                             <TableCell>
-                              <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
+                              <Badge variant="secondary" className="bg-success-soft text-success-soft-foreground">
                                 {b.status || 'complete'}
                               </Badge>
                             </TableCell>

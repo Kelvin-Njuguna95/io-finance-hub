@@ -393,15 +393,15 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
                 onClick={() => setWithdrawalType('director_payout')}
                 className={cn(
                   'flex flex-col items-start p-4 rounded-lg border-2 text-left transition-colors',
-                  withdrawalType === 'director_payout' ? 'border-amber-500 bg-amber-500 text-white' : 'border-slate-200 bg-white text-slate-700',
-                  'hover:border-amber-500',
+                  withdrawalType === 'director_payout' ? 'border-warning/40 bg-warning-soft0 text-white' : 'border-slate-200 bg-white text-slate-700',
+                  'hover:border-warning/40',
                 )}
               >
                 <div className="flex items-center gap-2">
                   <UserCircle className="h-4 w-4" />
                   <span className="text-sm font-semibold">Director Payout</span>
                 </div>
-                <span className={cn('text-xs mt-1', withdrawalType === 'director_payout' ? 'text-amber-100' : 'text-slate-500')}>
+                <span className={cn('text-xs mt-1', withdrawalType === 'director_payout' ? 'text-warning-foreground/85' : 'text-muted-foreground')}>
                   Profit share distribution to a director. No budget required.
                 </span>
               </button>
@@ -431,11 +431,11 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
               {/* Budget info for company_operations */}
               {selectedProjectId && (
                 approvedBudgets.length > 0 ? (
-                  <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                  <div className="rounded-md border border-success/40 bg-success-soft p-3 text-sm text-success-soft-foreground">
                     Approved budget: {formatCurrency(approvedBudgets[0].total_kes, 'KES')}
                   </div>
                 ) : (
-                  <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                  <div className="rounded-md border border-danger/40 bg-danger-soft p-3 text-sm text-danger-soft-foreground">
                     No approved budget found for this project in {getCurrentYearMonth()}. An approved budget is required for company operations withdrawals.
                   </div>
                 )
@@ -492,7 +492,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
                         ))}
                         <Separator className="my-1" />
                         <SelectItem value="__add_new__">
-                          <span className="flex items-center gap-1 text-blue-600">
+                          <span className="flex items-center gap-1 text-info-soft-foreground">
                             <Plus className="h-3 w-3" /> Add new bureau
                           </span>
                         </SelectItem>
@@ -525,7 +525,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
               </div>
 
               {varianceKes !== 0 && (
-                <div className={`rounded-md p-3 text-sm ${varianceKes > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                <div className={`rounded-md p-3 text-sm ${varianceKes > 0 ? 'bg-success-soft text-success-soft-foreground' : 'bg-danger-soft text-danger-soft-foreground'}`}>
                   Forex variance: {formatCurrency(varianceKes, 'KES')} ({varianceKes > 0 ? 'gain' : 'loss'})
                 </div>
               )}
@@ -587,8 +587,8 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
               )}
 
               {selectedPayoutRecord && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-2">
-                  <p className="text-xs font-medium text-amber-800 uppercase tracking-wide">Profit Share Summary</p>
+                <div className="rounded-lg border border-warning/40 bg-warning-soft p-4 space-y-2">
+                  <p className="text-xs font-medium text-warning-soft-foreground uppercase tracking-wide">Profit Share Summary</p>
                   <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
                       <p className="text-slate-500 text-xs">Allocated</p>
@@ -600,7 +600,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
                     </div>
                     <div>
                       <p className="text-slate-500 text-xs">Remaining</p>
-                      <p className={cn('font-semibold', selectedPayoutRecord.balance_remaining === 0 ? 'text-green-600' : 'text-amber-700')}>
+                      <p className={cn('font-semibold', selectedPayoutRecord.balance_remaining === 0 ? 'text-success-soft-foreground' : 'text-warning-soft-foreground')}>
                         {formatKES(selectedPayoutRecord.balance_remaining)}
                       </p>
                     </div>

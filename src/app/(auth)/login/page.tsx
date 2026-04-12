@@ -54,33 +54,33 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#0a0f1e] px-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
       <div
         aria-hidden
-        className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#00d4ff] to-transparent"
+        className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-electric to-transparent"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 [background:radial-gradient(800px_400px_at_50%_-10%,oklch(0.78_0.18_210_/_0.12)_0%,transparent_60%),radial-gradient(600px_300px_at_80%_100%,oklch(0.84_0.18_88_/_0.06)_0%,transparent_60%)]"
+        className="pointer-events-none absolute inset-0 [background:radial-gradient(800px_400px_at_50%_-10%,oklch(0.76_0.13_245_/_0.20)_0%,transparent_60%),radial-gradient(600px_300px_at_80%_100%,oklch(0.80_0.11_75_/_0.12)_0%,transparent_60%)]"
       />
-      <Card className="relative w-full max-w-sm border border-white/10 bg-white/[0.04] shadow-elev-3 backdrop-blur">
+      <Card className="relative w-full max-w-sm border border-border/70 bg-card/85 shadow-elev-3 backdrop-blur">
         <CardHeader className="items-center text-center">
           <div
             aria-hidden
-            className="mx-auto flex size-12 items-center justify-center rounded-xl bg-[#F5C518] text-[14px] font-bold text-[#0a0f1e] shadow-elev-2 ring-1 ring-white/10"
+            className="mx-auto flex size-12 items-center justify-center rounded-xl bg-gold text-[14px] font-bold text-gold-foreground shadow-elev-2 ring-1 ring-white/10"
           >
             IO
           </div>
-          <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
+          <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground/75">
             Impact Outsourcing
           </p>
-          <CardTitle className="mt-1 text-xl text-white">Finance Hub</CardTitle>
-          <CardDescription className="text-white/50">Sign in to continue</CardDescription>
+          <CardTitle className="mt-1 text-xl text-foreground">Finance Hub</CardTitle>
+          <CardDescription className="text-foreground/75">Sign in to continue</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4" noValidate>
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-white/70">Email</Label>
+              <Label htmlFor="email" className="text-foreground/80">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -89,11 +89,11 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="border-white/10 bg-white/[0.06] text-white placeholder:text-white/30 focus-visible:border-[#00d4ff]/50 focus-visible:ring-[#00d4ff]/20"
+                className="border-border/70 bg-surface-3 text-foreground placeholder:text-foreground/60 focus-visible:border-electric/60 focus-visible:ring-electric/25"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pin" className="text-white/70">PIN</Label>
+              <Label htmlFor="pin" className="text-foreground/80">PIN</Label>
               <Input
                 id="pin"
                 type="password"
@@ -110,7 +110,7 @@ export default function LoginPage() {
                 required
                 aria-describedby={error ? 'login-error' : undefined}
                 aria-invalid={Boolean(error) || undefined}
-                className="text-center font-mono text-lg tracking-[0.5em] border-white/10 bg-white/[0.06] text-white placeholder:text-white/30 focus-visible:border-[#00d4ff]/50 focus-visible:ring-[#00d4ff]/20"
+                className="border-border/70 bg-surface-3 text-center font-mono text-lg tracking-[0.5em] text-foreground placeholder:text-foreground/60 focus-visible:border-electric/60 focus-visible:ring-electric/25"
               />
             </div>
             {error && (
@@ -133,7 +133,7 @@ export default function LoginPage() {
               ) : (
                 <button
                   type="button"
-                  className="text-sm text-white/40 underline transition-colors hover:text-white/70"
+                  className="text-sm text-foreground/70 underline transition-colors hover:text-foreground/95"
                   disabled={resetLoading}
                   onClick={async () => {
                     if (!email) {

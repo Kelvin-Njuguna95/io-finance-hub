@@ -49,7 +49,7 @@ export function DashboardTopbar({ className }: { className?: string }) {
               >
                 {i > 0 && (
                   <ChevronRight
-                    className="size-3.5 shrink-0 text-muted-foreground/60"
+                    className="size-3.5 shrink-0 text-muted-foreground/75"
                     aria-hidden
                   />
                 )}

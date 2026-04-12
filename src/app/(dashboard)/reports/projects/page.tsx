@@ -281,16 +281,16 @@ export default function ProjectComparisonPage() {
                 ) : (
                   <>
                     {data.map(r => (
-                      <TableRow key={r.name} className={r.revenue === 0 && r.directExpenses === 0 ? 'opacity-50' : r.distributableProfit > 0 ? 'bg-emerald-50/50' : r.distributableProfit < 0 ? 'bg-red-50/50' : ''}>
+                      <TableRow key={r.name} className={r.revenue === 0 && r.directExpenses === 0 ? 'opacity-50' : r.distributableProfit > 0 ? 'bg-success-soft/50' : r.distributableProfit < 0 ? 'bg-danger-soft/50' : ''}>
                   <TableCell className="font-medium">{r.revenueEstimated ? `≈ ${r.name}` : r.name}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(r.revenue, 'KES')}</TableCell>
-                        <TableCell className={`text-right font-mono text-sm ${r.grossProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(r.grossProfit, 'KES')}</TableCell>
+                        <TableCell className={`text-right font-mono text-sm ${r.grossProfit < 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>{formatCurrency(r.grossProfit, 'KES')}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatPercent(r.grossMargin)}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(r.revenuePerAgent, 'KES')}</TableCell>
-                        {showMoreColumns && <TableCell className="text-right font-mono text-sm text-red-600">{formatCurrency(r.directExpenses, 'KES')}</TableCell>}
-                        {showMoreColumns && <TableCell className="text-right font-mono text-sm text-amber-600">{formatCurrency(r.overheadAllocated, 'KES')}</TableCell>}
-                        {showMoreColumns && <TableCell className={`text-right font-mono text-sm font-semibold ${r.distributableProfit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(r.distributableProfit, 'KES')}</TableCell>}
-                        {showMoreColumns && <TableCell className={`text-right font-mono text-sm ${r.netMargin < 10 ? 'text-amber-600' : ''}`}>{formatPercent(r.netMargin)}</TableCell>}
+                        {showMoreColumns && <TableCell className="text-right font-mono text-sm text-danger-soft-foreground">{formatCurrency(r.directExpenses, 'KES')}</TableCell>}
+                        {showMoreColumns && <TableCell className="text-right font-mono text-sm text-warning-soft-foreground">{formatCurrency(r.overheadAllocated, 'KES')}</TableCell>}
+                        {showMoreColumns && <TableCell className={`text-right font-mono text-sm font-semibold ${r.distributableProfit < 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>{formatCurrency(r.distributableProfit, 'KES')}</TableCell>}
+                        {showMoreColumns && <TableCell className={`text-right font-mono text-sm ${r.netMargin < 10 ? 'text-warning-soft-foreground' : ''}`}>{formatPercent(r.netMargin)}</TableCell>}
                         {showMoreColumns && <TableCell className="text-right font-mono text-sm">{r.agentCount}</TableCell>}
                         {showMoreColumns && <TableCell className="text-right font-mono text-sm">{formatCurrency(r.costPerAgent, 'KES')}</TableCell>}
                         {showMoreColumns && userRole === 'cfo' && <TableCell className="text-sm">{r.director}</TableCell>}
