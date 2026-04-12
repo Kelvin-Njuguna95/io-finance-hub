@@ -28,7 +28,7 @@ interface Warning {
 const statusColors: Record<string, string> = {
   open: 'bg-blue-100 text-blue-700',
   under_review: 'bg-yellow-100 text-yellow-700',
-  closed: 'bg-green-100 text-green-700',
+  closed: 'bg-success-soft text-success-soft-foreground',
   locked: 'bg-muted text-foreground/90',
 };
 
@@ -207,7 +207,7 @@ export default function MonthClosurePage() {
           </CardHeader>
           <CardContent>
             {warnings.length === 0 ? (
-              <div className="flex items-center gap-2 text-sm text-green-600 py-2">
+              <div className="flex items-center gap-2 text-sm text-success-soft-foreground py-2">
                 <CheckCircle className="h-4 w-4" />
                 All checks passed — ready for closure
               </div>
@@ -219,7 +219,7 @@ export default function MonthClosurePage() {
                       variant="secondary"
                       className={
                         w.severity === 'critical'
-                          ? 'bg-red-100 text-red-700'
+                          ? 'bg-danger-soft text-danger-soft-foreground'
                           : w.severity === 'high'
                             ? 'bg-orange-100 text-orange-700'
                             : 'bg-yellow-100 text-yellow-700'

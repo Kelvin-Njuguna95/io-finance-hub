@@ -222,11 +222,11 @@ export default function AgentCountsPage() {
                         ) : changed ? (
                           <span className="text-xs text-blue-600 font-medium">Unsaved</span>
                         ) : r.agent_count !== null ? (
-                          <span className="flex items-center gap-1 text-xs text-green-600">
+                          <span className="flex items-center gap-1 text-xs text-success-soft-foreground">
                             <CheckCircle className="h-3 w-3" /> Set
                           </span>
                         ) : (
-                          <span className="text-xs text-yellow-600">Not set</span>
+                          <span className="text-xs text-warning-soft-foreground">Not set</span>
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">

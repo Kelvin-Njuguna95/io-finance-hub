@@ -269,7 +269,7 @@ export default function PnLReportPage() {
                       <YAxis tickFormatter={(v) => formatCompactCurrency(Number(v), 'KES')} />
                       <Tooltip formatter={(v: unknown) => formatCompactCurrency(Number(v || 0), 'KES')} />
                       <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                        {[0, 1, 2, 3, 4].map((i) => <Cell key={i} fill={['#22c55e', '#ef4444', '#0ea5e9', '#f59e0b', '#22c55e'][i]} />)}
+                        {[0, 1, 2, 3, 4].map((i) => <Cell key={i} fill={['oklch(0.68 0.16 158)', 'oklch(0.63 0.23 25)', 'oklch(0.78 0.18 210)', 'oklch(0.80 0.16 78)', 'oklch(0.68 0.16 158)'][i]} />)}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>

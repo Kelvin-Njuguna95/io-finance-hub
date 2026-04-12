@@ -4,7 +4,7 @@ export default function DashboardLoading() {
   return (
     <div className="p-6 space-y-6">
       {/* Hero card skeleton */}
-      <div className="rounded-[var(--radius-hero)] bg-[#0a0f1e] p-6 md:p-7">
+      <div className="rounded-[var(--radius-hero)] bg-sidebar p-6 md:p-7">
         <Skeleton className="h-3 w-32 bg-white/10" />
         <Skeleton className="mt-2 h-6 w-40 bg-white/10" />
         <Skeleton className="mt-2 h-4 w-52 bg-white/10" />

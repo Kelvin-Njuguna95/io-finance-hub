@@ -97,13 +97,13 @@ export function HeroCard({
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/45">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/65">
             {eyebrow}
           </p>
           <h1 className="mt-1 text-[20px] font-bold tracking-tight text-white md:text-[22px]">
             {title}
           </h1>
-          <p className="mt-1.5 text-[13px] text-white/50">{today}</p>
+          <p className="mt-1.5 text-[13px] text-white/65">{today}</p>
         </div>
         {actions && (
           <div className="flex items-center gap-2">{actions}</div>
@@ -128,14 +128,14 @@ export function HeroCard({
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 space-y-1.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/65">
                       {stat.label}
                     </p>
                     <p className="text-[1.5rem] font-bold leading-none tracking-tight text-white tabular-nums md:text-[1.625rem]">
                       {stat.value}
                     </p>
                     {stat.subtitle && (
-                      <p className="text-[11px] text-white/45">
+                      <p className="text-[11px] text-white/60">
                         {stat.subtitle}
                       </p>
                     )}

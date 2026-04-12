@@ -69,27 +69,27 @@ export function shortMonth(ym: string): string {
   return new Intl.DateTimeFormat('en-KE', { month: 'short', timeZone: 'Africa/Nairobi' }).format(d) + ' ' + year.slice(2);
 }
 
-// Chart color constants matching IO design system
+// Chart color constants matching IO design system (oklch-based tokens)
 export const CHART_COLORS = {
-  navy: '#0f172a',
-  gold: '#F5C518',
-  red: '#ef4444',
-  amber: '#f59e0b',
-  teal: '#0ea5e9',
-  emerald: '#22c55e',
-  grey: '#6b7280',
-  lightGreen: 'rgba(34,197,94,0.1)',
-  lightRed: 'rgba(239,68,68,0.1)',
-  zeroLine: '#e5e7eb',
+  navy: 'oklch(0.20 0.05 260)',
+  gold: 'oklch(0.84 0.18 88)',
+  red: 'oklch(0.63 0.23 25)',
+  amber: 'oklch(0.80 0.16 78)',
+  teal: 'oklch(0.70 0.11 195)',
+  emerald: 'oklch(0.68 0.16 158)',
+  grey: 'oklch(0.52 0.015 260)',
+  lightGreen: 'oklch(0.68 0.16 158 / 0.10)',
+  lightRed: 'oklch(0.63 0.23 25 / 0.10)',
+  zeroLine: 'oklch(0.80 0 0 / 0.15)',
 };
 
 export const PROJECT_COLORS: Record<string, string> = {
-  Windward: '#0f172a',
-  AIFI: '#0ea5e9',
-  Signafide: '#F5C518',
-  SEEO: '#8b5cf6',
-  Kemtai: '#ec4899',
-  Clickworker: '#14b8a6',
+  Windward: 'oklch(0.20 0.05 260)',
+  AIFI: 'oklch(0.78 0.18 210)',
+  Signafide: 'oklch(0.84 0.18 88)',
+  SEEO: 'oklch(0.64 0.19 290)',
+  Kemtai: 'oklch(0.70 0.19 350)',
+  Clickworker: 'oklch(0.70 0.11 195)',
 };
 
 export function getProjectColor(name: string): string {

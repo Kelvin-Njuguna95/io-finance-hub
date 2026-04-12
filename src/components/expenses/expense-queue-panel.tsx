@@ -21,11 +21,11 @@ interface PendingExpenseRow {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  pending_auth: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-emerald-100 text-emerald-700',
+  pending_auth: 'bg-warning-soft text-warning-soft-foreground',
+  confirmed: 'bg-success-soft text-success-soft-foreground',
   under_review: 'bg-blue-100 text-blue-700',
-  modified: 'bg-purple-100 text-purple-700',
-  voided: 'bg-red-100 text-red-700',
+  modified: 'bg-violet-soft text-violet-soft-foreground',
+  voided: 'bg-danger-soft text-danger-soft-foreground',
   carried_forward: 'bg-muted text-foreground/80',
 };
 
@@ -106,26 +106,26 @@ export function ExpenseQueuePanel({ projectId, compact }: Props) {
             <span>{progressPct}%</span>
           </div>
           <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progressPct}%` }} />
+            <div className="h-full rounded-full bg-success transition-all" style={{ width: `${progressPct}%` }} />
           </div>
         </div>
 
         {/* Summary stats */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-md bg-amber-50 p-2.5 text-center">
-            <p className="text-xl font-bold text-amber-700">{pending.length}</p>
-            <p className="text-[11px] text-amber-600">Pending Auth</p>
+          <div className="rounded-md bg-warning-soft/50 p-2.5 text-center">
+            <p className="text-xl font-bold text-warning-soft-foreground">{pending.length}</p>
+            <p className="text-[11px] text-warning-soft-foreground">Pending Auth</p>
           </div>
-          <div className="rounded-md bg-emerald-50 p-2.5 text-center">
-            <p className="text-xl font-bold text-emerald-700">{confirmed.length}</p>
-            <p className="text-[11px] text-emerald-600">Confirmed</p>
+          <div className="rounded-md bg-success-soft/50 p-2.5 text-center">
+            <p className="text-xl font-bold text-success-soft-foreground">{confirmed.length}</p>
+            <p className="text-[11px] text-success-soft-foreground">Confirmed</p>
           </div>
           <div className="rounded-md bg-indigo-50 p-2.5 text-center">
             <p className="text-xl font-bold text-indigo-700">{formatCurrency(totalBudgeted, 'KES')}</p>
             <p className="text-[11px] text-indigo-600">Budgeted Total</p>
           </div>
           <div className="rounded-md bg-muted/50 p-2.5 text-center">
-            <p className={`text-xl font-bold ${totalActualAll > totalBudgeted ? 'text-red-600' : 'text-emerald-700'}`}>
+            <p className={`text-xl font-bold ${totalActualAll > totalBudgeted ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>
               {formatCurrency(totalActualAll, 'KES')}
             </p>
             <p className="text-[11px] text-muted-foreground">Confirmed Spend</p>
@@ -149,7 +149,7 @@ export function ExpenseQueuePanel({ projectId, compact }: Props) {
                       {formatCurrency(Number(item.budgeted_amount_kes), 'KES')}
                     </p>
                     {item.actual_amount_kes != null && (
-                      <p className={`font-mono text-xs ${Number(item.actual_amount_kes) > Number(item.budgeted_amount_kes) ? 'text-red-600' : 'text-emerald-600'}`}>
+                      <p className={`font-mono text-xs ${Number(item.actual_amount_kes) > Number(item.budgeted_amount_kes) ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>
                         {formatCurrency(Number(item.actual_amount_kes), 'KES')}
                       </p>
                     )}
@@ -167,13 +167,13 @@ export function ExpenseQueuePanel({ projectId, compact }: Props) {
         {compact && (voided.length > 0 || underReview.length > 0 || modified.length > 0) && (
           <div className="flex gap-2 flex-wrap">
             {modified.length > 0 && (
-              <Badge className="bg-purple-100 text-purple-700 border-0">{modified.length} Modified</Badge>
+              <Badge className="bg-violet-soft text-violet-soft-foreground border-0">{modified.length} Modified</Badge>
             )}
             {underReview.length > 0 && (
               <Badge className="bg-blue-100 text-blue-700 border-0">{underReview.length} Under Review</Badge>
             )}
             {voided.length > 0 && (
-              <Badge className="bg-red-100 text-red-700 border-0">{voided.length} Voided</Badge>
+              <Badge className="bg-danger-soft text-danger-soft-foreground border-0">{voided.length} Voided</Badge>
             )}
           </div>
         )}

@@ -28,13 +28,13 @@ import { getUserErrorMessage } from '@/lib/errors';
 const statusColors: Record<string, string> = {
   draft: 'bg-muted text-foreground/80',
   submitted: 'bg-blue-100 text-blue-700',
-  under_review: 'bg-amber-100 text-amber-700',
-  pm_review: 'bg-purple-100 text-purple-700',
+  under_review: 'bg-warning-soft text-warning-soft-foreground',
+  pm_review: 'bg-violet-soft text-violet-soft-foreground',
   pm_approved: 'bg-teal-100 text-teal-700',
-  pm_rejected: 'bg-rose-100 text-rose-700',
-  returned_to_tl: 'bg-amber-200 text-amber-800',
-  approved: 'bg-emerald-100 text-emerald-700',
-  rejected: 'bg-rose-100 text-rose-700',
+  pm_rejected: 'bg-danger-soft text-danger-soft-foreground',
+  returned_to_tl: 'bg-warning-soft text-warning-soft-foreground',
+  approved: 'bg-success-soft text-success-soft-foreground',
+  rejected: 'bg-danger-soft text-danger-soft-foreground',
 };
 
 export default function BudgetDetailPage() {
@@ -373,7 +373,7 @@ export default function BudgetDetailPage() {
             }} disabled={processing || submittingReview || pendingLineItems > 0} className="gap-1 bg-teal-600 hover:bg-teal-700" size="sm">
               <Check className="h-4 w-4" /> Submit Review
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowReturnDialog(true)} disabled={processing} className="gap-1 text-amber-600">
+            <Button variant="outline" size="sm" onClick={() => setShowReturnDialog(true)} disabled={processing} className="gap-1 text-warning-soft-foreground">
               Return to TL
             </Button>
             <Button variant="destructive" size="sm" onClick={() => setShowPmRejectDialog(true)} disabled={processing} className="gap-1">
@@ -406,7 +406,7 @@ export default function BudgetDetailPage() {
                 body: JSON.stringify({ budget_id: id, action: 'send_back', reason }) });
               const data = await res.json();
               if (data.success) { toast.success('Budget sent back to TL'); load(); } else { toast.error(data.error); }
-            }} className="text-amber-600">Send Back to TL</Button>
+            }} className="text-warning-soft-foreground">Send Back to TL</Button>
             <Button variant="destructive" size="sm" onClick={async () => {
               const reason = 'Deleted by CFO';
               const headers = await getAuthHeaders();
@@ -449,28 +449,28 @@ export default function BudgetDetailPage() {
             )}
 
             {(activeVersion as /* // */ any)?.pm_return_reason && activeVersion?.status === 'returned_to_tl' && (
-              <Card className="border-amber-200 bg-amber-50">
+              <Card className="border-warning/30 bg-warning-soft/50">
                 <CardContent className="p-4">
-                  <p className="text-sm font-medium text-amber-800">Returned by PM</p>
-                  <p className="text-sm text-amber-700 mt-1">{(activeVersion as /* // */ any).pm_return_reason}</p>
+                  <p className="text-sm font-medium text-warning-soft-foreground">Returned by PM</p>
+                  <p className="text-sm text-warning-soft-foreground mt-1">{(activeVersion as /* // */ any).pm_return_reason}</p>
                 </CardContent>
               </Card>
             )}
 
             {(activeVersion as /* // */ any)?.pm_rejection_reason && (
-              <Card className="border-red-200 bg-red-50">
+              <Card className="border-danger/30 bg-danger-soft/50">
                 <CardContent className="p-4">
-                  <p className="text-sm font-medium text-red-800">Rejected by PM</p>
-                  <p className="text-sm text-red-700 mt-1">{(activeVersion as /* // */ any).pm_rejection_reason}</p>
+                  <p className="text-sm font-medium text-danger-soft-foreground">Rejected by PM</p>
+                  <p className="text-sm text-danger-soft-foreground mt-1">{(activeVersion as /* // */ any).pm_rejection_reason}</p>
                 </CardContent>
               </Card>
             )}
 
             {activeVersion?.rejection_reason && (
-              <Card className="border-red-200 bg-red-50">
+              <Card className="border-danger/30 bg-danger-soft/50">
                 <CardContent className="p-4">
-                  <p className="text-sm font-medium text-red-800">Rejection Reason</p>
-                  <p className="text-sm text-red-700 mt-1">{activeVersion.rejection_reason}</p>
+                  <p className="text-sm font-medium text-danger-soft-foreground">Rejection Reason</p>
+                  <p className="text-sm text-danger-soft-foreground mt-1">{activeVersion.rejection_reason}</p>
                 </CardContent>
               </Card>
             )}
@@ -488,9 +488,9 @@ export default function BudgetDetailPage() {
                   });
                   toast.success('Approved ' + pendingIds.length + ' items');
                   load();
-                }} className="gap-1 text-emerald-600">Approve All</Button>
+                }} className="gap-1 text-success-soft-foreground">Approve All</Button>
                 {isCfo && !isPm && (
-                  <span className="text-xs text-amber-700">
+                  <span className="text-xs text-warning-soft-foreground">
                     Mark all line items for PM review. Use &quot;Approve Budget&quot; below to finalise.
                   </span>
                 )}
@@ -507,7 +507,7 @@ export default function BudgetDetailPage() {
                   }
                   toast.success('Removed ' + pendingIds.length + ' items');
                   load();
-                }} className="gap-1 text-rose-600">Remove All Pending</Button>
+                }} className="gap-1 text-danger-soft-foreground">Remove All Pending</Button>
                 <span className="text-xs text-muted-foreground">
                   {pendingLineItems} pending
                 </span>
@@ -536,7 +536,7 @@ export default function BudgetDetailPage() {
                       const pmStatus = item.pm_status || 'pending';
                       const isRemoved = pmStatus === 'removed';
                       return (
-                      <TableRow key={item.id} className={isRemoved ? 'bg-rose-50 line-through opacity-60' : pmStatus === 'approved' ? 'bg-emerald-50/30' : pmStatus === 'adjusted' ? 'bg-amber-50/30' : ''}>
+                      <TableRow key={item.id} className={isRemoved ? 'bg-danger-soft/50 line-through opacity-60' : pmStatus === 'approved' ? 'bg-success-soft/50' : pmStatus === 'adjusted' ? 'bg-warning-soft/50' : ''}>
                         <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                         <TableCell className="font-medium">
                           {editingItem === item.id ? (
@@ -572,7 +572,7 @@ export default function BudgetDetailPage() {
                             ) : (
                               <div className="flex gap-1">
                                 <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setEditingItem(item.id); setEditDesc(item.description); setEditCategory(item.category || ''); setEditAmount(Number(item.amount_kes)); }}>Edit</Button>
-                                <Button size="sm" variant="ghost" className="h-7 text-xs text-rose-600" onClick={() => handleDeleteItem(item.id)}>Remove</Button>
+                                <Button size="sm" variant="ghost" className="h-7 text-xs text-danger-soft-foreground" onClick={() => handleDeleteItem(item.id)}>Remove</Button>
                               </div>
                             )}
                           </TableCell>
@@ -580,18 +580,18 @@ export default function BudgetDetailPage() {
                         {(canLineReview || isPm || isCfo) && (
                           <TableCell>
                             <Badge variant="secondary" className={
-                              pmStatus === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                              pmStatus === 'adjusted' ? 'bg-amber-100 text-amber-700' :
-                              pmStatus === 'removed' ? 'bg-rose-100 text-rose-700' :
+                              pmStatus === 'approved' ? 'bg-success-soft text-success-soft-foreground' :
+                              pmStatus === 'adjusted' ? 'bg-warning-soft text-warning-soft-foreground' :
+                              pmStatus === 'removed' ? 'bg-danger-soft text-danger-soft-foreground' :
                               'bg-muted text-muted-foreground'
                             }>{pmStatus === 'pending' ? 'Pending' : capitalize(pmStatus)}</Badge>
                           </TableCell>
                         )}
                         {(canLineReview || isPm || isCfo) && (
                           <TableCell className="text-right font-mono text-sm">
-                            {pmStatus === 'approved' ? <span className="text-emerald-600">{formatCurrency(Number(item.pm_approved_amount || item.amount_kes), 'KES')}</span> :
-                             pmStatus === 'adjusted' ? <span className="text-amber-600">{formatCurrency(Number(item.pm_approved_amount), 'KES')}</span> :
-                             pmStatus === 'removed' ? <span className="text-rose-500">KES 0</span> : '—'}
+                            {pmStatus === 'approved' ? <span className="text-success-soft-foreground">{formatCurrency(Number(item.pm_approved_amount || item.amount_kes), 'KES')}</span> :
+                             pmStatus === 'adjusted' ? <span className="text-warning-soft-foreground">{formatCurrency(Number(item.pm_approved_amount), 'KES')}</span> :
+                             pmStatus === 'removed' ? <span className="text-danger-soft-foreground">KES 0</span> : '—'}
                           </TableCell>
                         )}
                         {(canLineReview || isPm || isCfo) && (
@@ -601,7 +601,7 @@ export default function BudgetDetailPage() {
                           <TableCell>
                             <div className="flex gap-1 flex-wrap">
                               {pmStatus !== 'approved' && (
-                                <Button variant="ghost" size="sm" className="text-xs text-emerald-600 h-7" disabled={lineActionId === item.id} onClick={async () => {
+                                <Button variant="ghost" size="sm" className="text-xs text-success-soft-foreground h-7" disabled={lineActionId === item.id} onClick={async () => {
                                   setLineActionId(item.id);
                                   try {
                                     const headers = await getAuthHeaders();
@@ -617,14 +617,14 @@ export default function BudgetDetailPage() {
                                 }}>Approve</Button>
                               )}
                               {pmStatus !== 'adjusted' && (
-                                <Button variant="ghost" size="sm" className="text-xs text-amber-600 h-7" onClick={() => {
+                                <Button variant="ghost" size="sm" className="text-xs text-warning-soft-foreground h-7" onClick={() => {
                                   setAdjustItem(item);
                                   setAdjustAmount(Number(item.amount_kes));
                                   setAdjustReason('');
                                 }}>Adjust</Button>
                               )}
                               {pmStatus !== 'removed' && (
-                                <Button variant="ghost" size="sm" className="text-xs text-rose-600 h-7" disabled={lineActionId === item.id} onClick={() => {
+                                <Button variant="ghost" size="sm" className="text-xs text-danger-soft-foreground h-7" disabled={lineActionId === item.id} onClick={() => {
                                   const reason = 'Removed item';
                                   setLineActionId(item.id);
                                   getAuthHeaders().then(headers => {
@@ -660,7 +660,7 @@ export default function BudgetDetailPage() {
                         </TableCell>
                         {(canLineReview || isPm || isCfo) && <TableCell></TableCell>}
                         {(canLineReview || isPm || isCfo) && (
-                          <TableCell className="text-right font-mono text-emerald-700">
+                          <TableCell className="text-right font-mono text-success-soft-foreground">
                             {formatCurrency(items.filter((i: /* // */ any) => ['approved', 'adjusted'].includes(i.pm_status)).reduce((s: number, i: /* // */ any) => s + Number(i.pm_approved_amount || 0), 0), 'KES')}
                           </TableCell>
                         )}

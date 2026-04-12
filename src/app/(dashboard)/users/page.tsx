@@ -68,16 +68,16 @@ export default function UsersPage() {
                     <TableCell className="text-sm text-muted-foreground">{u.email}</TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={
-                        u.role === 'cfo' ? 'bg-purple-100 text-purple-700' :
+                        u.role === 'cfo' ? 'bg-violet-soft text-violet-soft-foreground' :
                         u.role === 'project_manager' ? 'bg-blue-100 text-blue-700' :
                         u.role === 'team_leader' ? 'bg-teal-100 text-teal-700' :
-                        u.role === 'accountant' ? 'bg-amber-100 text-amber-700' : ''
+                        u.role === 'accountant' ? 'bg-warning-soft text-warning-soft-foreground' : ''
                       }>{ROLE_LABELS[u.role]}</Badge>
                     </TableCell>
                     <TableCell>{u.director_tag ? capitalize(u.director_tag) : '—'}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={u.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground'}>
-                        {u.is_active && <span className="mr-1 inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
+                      <Badge variant="secondary" className={u.is_active ? 'bg-success-soft text-success-soft-foreground' : 'bg-muted text-muted-foreground'}>
+                        {u.is_active && <span className="mr-1 inline-block w-1.5 h-1.5 rounded-full bg-success animate-pulse" />}
                         {u.is_active ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>

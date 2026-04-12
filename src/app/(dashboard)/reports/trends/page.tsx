@@ -416,8 +416,8 @@ export default function TrendsPage() {
     load();
   }, [rangeMonths]);
 
-  const catColors = ['#0f172a', '#ef4444', '#f59e0b', '#0ea5e9', '#8b5cf6', '#ec4899', '#14b8a6', '#6b7280'];
-  const dirColors: Record<string, string> = { Kelvin: '#F5C518', Evans: '#0f172a', Dan: '#0ea5e9', Gidraph: '#ef4444', Victor: '#f59e0b', 'Company 30%': '#6b7280', Undistributed: '#d1d5db' };
+  const catColors = ['oklch(0.20 0.05 260)', 'oklch(0.63 0.23 25)', 'oklch(0.80 0.16 78)', 'oklch(0.78 0.18 210)', 'oklch(0.64 0.19 290)', 'oklch(0.70 0.19 350)', 'oklch(0.70 0.11 195)', 'oklch(0.52 0.015 260)'];
+  const dirColors: Record<string, string> = { Kelvin: 'oklch(0.84 0.18 88)', Evans: 'oklch(0.20 0.05 260)', Dan: 'oklch(0.78 0.18 210)', Gidraph: 'oklch(0.63 0.23 25)', Victor: 'oklch(0.80 0.16 78)', 'Company 30%': 'oklch(0.52 0.015 260)', Undistributed: 'oklch(0.87 0.005 260)' };
 
   async function exportPdf() {
     await exportSimpleReportPdf(

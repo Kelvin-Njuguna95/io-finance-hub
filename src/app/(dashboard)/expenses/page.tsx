@@ -215,7 +215,7 @@ export default function ExpensesPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                            className="h-7 w-7 text-danger-soft-foreground hover:text-danger-soft-foreground hover:bg-danger-soft/50"
                             onClick={() => { setDeleteTarget(e); setDeleteReason(''); }}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -239,16 +239,16 @@ export default function ExpensesPage() {
           </DialogHeader>
           {deleteTarget && (
             <div className="space-y-4">
-              <div className="rounded-md bg-red-50 border border-red-200 p-3">
-                <p className="text-sm font-medium text-red-800">You are about to permanently delete this expense:</p>
-                <div className="mt-2 text-sm text-red-700 space-y-1">
+              <div className="rounded-md bg-danger-soft/50 border border-danger/30 p-3">
+                <p className="text-sm font-medium text-danger-soft-foreground">You are about to permanently delete this expense:</p>
+                <div className="mt-2 text-sm text-danger-soft-foreground space-y-1">
                   <p><strong>{deleteTarget.description}</strong></p>
                   <p>{deleteTarget.project_name || 'Shared'} · {formatDate(deleteTarget.expense_date)}</p>
                   <p className="font-mono font-semibold">{formatCurrency(Number(deleteTarget.amount_kes), 'KES')}</p>
                 </div>
               </div>
               <div>
-                <Label className="text-sm">Reason for deletion <span className="text-red-500">*</span></Label>
+                <Label className="text-sm">Reason for deletion <span className="text-danger-soft-foreground">*</span></Label>
                 <Textarea
                   value={deleteReason}
                   onChange={(e) => setDeleteReason(e.target.value)}

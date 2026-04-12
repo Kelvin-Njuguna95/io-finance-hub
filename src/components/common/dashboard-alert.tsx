@@ -6,9 +6,9 @@ export type DashboardAlertVariant = 'info' | 'success' | 'warning' | 'error';
 
 const variantStyles: Record<DashboardAlertVariant, { icon: React.ComponentType<{ className?: string }>; className: string }> = {
   info: { icon: Info, className: 'border-blue-200 bg-blue-50 text-blue-800' },
-  success: { icon: CheckCircle2, className: 'border-green-200 bg-green-50 text-green-800' },
-  warning: { icon: AlertTriangle, className: 'border-amber-200 bg-amber-50 text-amber-800' },
-  error: { icon: AlertCircle, className: 'border-red-200 bg-red-50 text-red-800' },
+  success: { icon: CheckCircle2, className: 'border-success/30 bg-success-soft/50 text-success-soft-foreground' },
+  warning: { icon: AlertTriangle, className: 'border-warning/30 bg-warning-soft/50 text-warning-soft-foreground' },
+  error: { icon: AlertCircle, className: 'border-danger/30 bg-danger-soft/50 text-danger-soft-foreground' },
 };
 
 type Props = {

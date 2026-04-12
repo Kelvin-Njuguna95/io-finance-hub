@@ -49,9 +49,9 @@ interface ProjectShare {
 
 function PayoutStatusBadge({ status }: { status: string }) {
   const styles = {
-    unpaid: 'bg-slate-100 text-slate-600',
-    partial: 'bg-amber-100 text-amber-700',
-    paid: 'bg-green-100 text-green-700',
+    unpaid: 'bg-muted text-muted-foreground',
+    partial: 'bg-warning-soft text-warning-soft-foreground',
+    paid: 'bg-success-soft text-success-soft-foreground',
   };
   const labels = {
     unpaid: 'Not Paid',
@@ -223,9 +223,9 @@ export default function ProfitSharePage() {
   const isLiveData = shares.length > 0 && shares[0].source === 'live';
 
   const statusColors: Record<string, string> = {
-    pending_review: 'bg-amber-100 text-amber-700',
-    approved: 'bg-emerald-100 text-emerald-700',
-    disputed: 'bg-rose-100 text-rose-700',
+    pending_review: 'bg-warning-soft text-warning-soft-foreground',
+    approved: 'bg-success-soft text-success-soft-foreground',
+    disputed: 'bg-danger-soft text-danger-soft-foreground',
   };
 
   return (
@@ -261,7 +261,7 @@ export default function ProfitSharePage() {
 
         <div className="flex gap-6 text-sm">
           <span>Distributable Profit: <strong>{formatCurrency(totalDistributable, 'KES')}</strong></span>
-          <span>Director Share (70%): <strong className="text-emerald-600">{formatCurrency(totalDirectorShare, 'KES')}</strong></span>
+          <span>Director Share (70%): <strong className="text-success-soft-foreground">{formatCurrency(totalDirectorShare, 'KES')}</strong></span>
           <span>Company Share (30%): <strong>{formatCurrency(totalCompanyShare, 'KES')}</strong></span>
         </div>
 
@@ -302,11 +302,11 @@ export default function ProfitSharePage() {
                         <TableCell className="font-medium">{r.revenueEstimated ? `≈ ${r.project_name}` : r.project_name}</TableCell>
                         <TableCell>{capitalize(r.director_tag)}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(r.revenue, 'KES')}</TableCell>
-                        <TableCell className="text-right font-mono text-sm text-red-600">{formatCurrency(r.direct_costs, 'KES')}</TableCell>
-                        <TableCell className={`text-right font-mono text-sm font-semibold ${r.distributable_profit < 0 ? 'text-red-600' : ''}`}>
+                        <TableCell className="text-right font-mono text-sm text-danger-soft-foreground">{formatCurrency(r.direct_costs, 'KES')}</TableCell>
+                        <TableCell className={`text-right font-mono text-sm font-semibold ${r.distributable_profit < 0 ? 'text-danger-soft-foreground' : ''}`}>
                           {formatCurrency(r.distributable_profit, 'KES')}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm text-emerald-600">
+                        <TableCell className="text-right font-mono text-sm text-success-soft-foreground">
                           {r.director_share > 0 ? formatCurrency(r.director_share, 'KES') : '—'}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
@@ -330,10 +330,10 @@ export default function ProfitSharePage() {
                               {r.record_status === 'pending_review' && r.record_id && (
                                 <>
                                   <Button variant="ghost" size="icon" onClick={() => handleApprove(r.record_id!)} title="Approve">
-                                    <Check className="h-4 w-4 text-green-600" />
+                                    <Check className="h-4 w-4 text-success-soft-foreground" />
                                   </Button>
                                   <Button variant="ghost" size="icon" onClick={() => setDisputeTarget(r)} title="Dispute">
-                                    <X className="h-4 w-4 text-red-600" />
+                                    <X className="h-4 w-4 text-danger-soft-foreground" />
                                   </Button>
                                 </>
                               )}
@@ -345,7 +345,7 @@ export default function ProfitSharePage() {
                               {r.record_id && r.payout_status !== 'paid' && (
                                 <Button
                                   variant="link"
-                                  className="text-xs text-amber-700 hover:text-amber-900 font-medium p-0"
+                                  className="text-xs text-warning-soft-foreground hover:text-warning-soft-foreground font-medium p-0"
                                   onClick={() => {
                                     window.location.href = `/withdrawals?type=director_payout&profit_share_record_id=${r.record_id}`;
                                   }}
@@ -361,14 +361,14 @@ export default function ProfitSharePage() {
                     {shares.map((r, i) => (
                       expandedRecordId === r.record_id ? (
                         <TableRow key={r.record_id || i}>
-                            <TableCell colSpan={12} className="bg-amber-50 p-4">
-                              <p className="text-xs font-medium text-amber-800 mb-2">Payout History</p>
+                            <TableCell colSpan={12} className="bg-warning-soft/50 p-4">
+                              <p className="text-xs font-medium text-warning-soft-foreground mb-2">Payout History</p>
                               {(payoutHistory[r.record_id || ''] || []).length === 0 ? (
-                                <p className="text-xs text-slate-500">No payouts recorded yet.</p>
+                                <p className="text-xs text-muted-foreground">No payouts recorded yet.</p>
                               ) : (
                                 <table className="text-xs w-full">
                                   <thead>
-                                    <tr className="text-slate-500">
+                                    <tr className="text-muted-foreground">
                                       <th className="text-left">Date</th>
                                       <th className="text-left">Type</th>
                                       <th className="text-right">Amount (USD)</th>
@@ -396,7 +396,7 @@ export default function ProfitSharePage() {
                     <TableRow className="font-bold bg-muted/50">
                       <TableCell colSpan={4} className="text-right">Total</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalDistributable, 'KES')}</TableCell>
-                      <TableCell className="text-right font-mono text-emerald-600">{formatCurrency(totalDirectorShare, 'KES')}</TableCell>
+                      <TableCell className="text-right font-mono text-success-soft-foreground">{formatCurrency(totalDirectorShare, 'KES')}</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalCompanyShare, 'KES')}</TableCell>
                       {!isLiveData && <TableCell></TableCell>}
                       {!isLiveData && <TableCell></TableCell>}

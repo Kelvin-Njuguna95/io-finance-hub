@@ -50,7 +50,7 @@ const bucketColors: Record<string, string> = {
   '90+ days': 'bg-danger-soft text-danger-soft-foreground',
 };
 
-const chartBarColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
+const chartBarColors = ['oklch(0.68 0.16 158)', 'oklch(0.66 0.15 240)', 'oklch(0.80 0.16 78)', 'oklch(0.63 0.23 25)'];
 
 export default function OutstandingReceivablesPage() {
   const { user } = useUser();
@@ -313,7 +313,7 @@ export default function OutstandingReceivablesPage() {
                       <TableCell className="font-medium">
                         {inv.invoice_number}
                         {inv.isBackdatedInv && (
-                          <Badge variant="secondary" className="ml-2 bg-purple-100 text-purple-700 text-[10px]">
+                          <Badge variant="secondary" className="ml-2 bg-violet-soft text-violet-soft-foreground text-[10px]">
                             Backdated
                           </Badge>
                         )}
@@ -327,7 +327,7 @@ export default function OutstandingReceivablesPage() {
                       <TableCell className="text-right font-mono text-sm text-success-soft-foreground">
                         {inv.totalPaid > 0 ? formatCurrency(inv.totalPaid, 'USD') : '—'}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-sm font-semibold text-rose-600">
+                      <TableCell className="text-right font-mono text-sm font-semibold text-danger-soft-foreground">
                         {formatCurrency(inv.balance, 'USD')}
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">

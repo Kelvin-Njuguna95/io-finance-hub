@@ -126,9 +126,9 @@ export default function WithdrawalsPage() {
   const statusColors: Record<string, string> = {
     draft: 'bg-muted text-foreground/90',
     submitted: 'bg-blue-100 text-blue-700',
-    under_review: 'bg-yellow-100 text-yellow-700',
-    approved: 'bg-green-100 text-green-700',
-    rejected: 'bg-red-100 text-red-700',
+    under_review: 'bg-warning-soft text-warning-soft-foreground',
+    approved: 'bg-success-soft text-success-soft-foreground',
+    rejected: 'bg-danger-soft text-danger-soft-foreground',
   };
 
   return (
@@ -215,12 +215,12 @@ export default function WithdrawalsPage() {
 
         {/* Over budget warning */}
         {pendingWithdrawalKes < 0 && (
-          <Card className="border-red-200 bg-red-50">
+          <Card className="border-danger/30 bg-danger-soft/50">
             <CardContent className="flex items-center gap-3 p-4">
-              <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
+              <AlertTriangle className="h-5 w-5 text-danger-soft-foreground shrink-0" />
               <div>
-                <p className="text-sm font-medium text-red-800">Over Budget Warning</p>
-                <p className="text-sm text-red-700">
+                <p className="text-sm font-medium text-danger-soft-foreground">Over Budget Warning</p>
+                <p className="text-sm text-danger-soft-foreground">
                   Withdrawals exceed approved budgets by {formatCurrency(Math.abs(pendingWithdrawalKes), 'KES')}
                 </p>
               </div>
@@ -272,7 +272,7 @@ export default function WithdrawalsPage() {
                         {formatCurrency(budgetSummaries.reduce((s, b) => s + b.total_kes, 0), 'KES')}
                       </TableCell>
                     </TableRow>
-                    <TableRow className="font-semibold text-green-700 bg-green-50/50">
+                    <TableRow className="font-semibold text-success-soft-foreground bg-success-soft/50">
                       <TableCell colSpan={3} className="text-right">Approved Only</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalApprovedKes, 'KES')}</TableCell>
                     </TableRow>
@@ -322,7 +322,7 @@ export default function WithdrawalsPage() {
                     <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                       w.withdrawal_type === 'operations' || w.purpose === 'company_operations'
                         ? 'bg-blue-50 text-blue-700'
-                        : 'bg-purple-50 text-purple-700'
+                        : 'bg-violet-soft/50 text-violet-soft-foreground'
                     }`}>
                       {w.withdrawal_type === 'operations' || w.purpose === 'company_operations'
                         ? (w.projects?.name || 'Company Ops')
@@ -331,11 +331,11 @@ export default function WithdrawalsPage() {
                   </TableCell>
                         <TableCell>
                           {w.withdrawal_type === 'director_payout' ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-warning-soft text-warning-soft-foreground border border-warning/30">
                               Director Payout
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                               Operations
                             </span>
                           )}
@@ -344,7 +344,7 @@ export default function WithdrawalsPage() {
                           {w.withdrawal_type === 'director_payout' ? (
                             <div>
                               <p className="font-medium text-sm">{w.director_name || 'Director'} — Profit Share Payout</p>
-                              <p className="text-xs text-slate-500">
+                              <p className="text-xs text-muted-foreground">
                                 {w.payout_type === 'full' ? 'Full payout' : 'Partial payout'} · {formatYearMonth(w.withdrawal_date.slice(0, 7))}
                               </p>
                             </div>

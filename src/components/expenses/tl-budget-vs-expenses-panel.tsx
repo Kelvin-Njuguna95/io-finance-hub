@@ -24,11 +24,11 @@ interface PendingExpenseRow {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  pending_auth: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-emerald-100 text-emerald-700',
+  pending_auth: 'bg-warning-soft text-warning-soft-foreground',
+  confirmed: 'bg-success-soft text-success-soft-foreground',
   under_review: 'bg-blue-100 text-blue-700',
-  modified: 'bg-purple-100 text-purple-700',
-  voided: 'bg-red-100 text-red-700',
+  modified: 'bg-violet-soft text-violet-soft-foreground',
+  voided: 'bg-danger-soft text-danger-soft-foreground',
   carried_forward: 'bg-muted text-foreground/80',
 };
 
@@ -101,16 +101,16 @@ export function TlBudgetVsExpensesPanel({ projectIds }: Props) {
             <p className="text-lg font-bold text-indigo-700">{formatCurrency(totalBudgeted, 'KES')}</p>
             <p className="text-[11px] text-indigo-600">Your Budget</p>
           </div>
-          <div className="rounded-md bg-emerald-50 p-2.5 text-center">
-            <p className="text-lg font-bold text-emerald-700">{formatCurrency(totalActual, 'KES')}</p>
-            <p className="text-[11px] text-emerald-600">Confirmed Spend</p>
+          <div className="rounded-md bg-success-soft/50 p-2.5 text-center">
+            <p className="text-lg font-bold text-success-soft-foreground">{formatCurrency(totalActual, 'KES')}</p>
+            <p className="text-[11px] text-success-soft-foreground">Confirmed Spend</p>
           </div>
-          <div className="rounded-md bg-amber-50 p-2.5 text-center">
-            <p className="text-lg font-bold text-amber-700">{pendingCount}</p>
-            <p className="text-[11px] text-amber-600">Awaiting Confirmation</p>
+          <div className="rounded-md bg-warning-soft/50 p-2.5 text-center">
+            <p className="text-lg font-bold text-warning-soft-foreground">{pendingCount}</p>
+            <p className="text-[11px] text-warning-soft-foreground">Awaiting Confirmation</p>
           </div>
-          <div className={`rounded-md p-2.5 text-center ${confirmedCount > 0 ? (variance > 0 ? 'bg-red-50' : 'bg-emerald-50') : 'bg-muted/50'}`}>
-            <p className={`text-lg font-bold ${confirmedCount > 0 ? (variance > 0 ? 'text-red-600' : 'text-emerald-700') : 'text-muted-foreground'}`}>
+          <div className={`rounded-md p-2.5 text-center ${confirmedCount > 0 ? (variance > 0 ? 'bg-danger-soft/50' : 'bg-success-soft/50') : 'bg-muted/50'}`}>
+            <p className={`text-lg font-bold ${confirmedCount > 0 ? (variance > 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground') : 'text-muted-foreground'}`}>
               {confirmedCount > 0 ? `${variance >= 0 ? '+' : ''}${formatCurrency(variance, 'KES')}` : '—'}
             </p>
             <p className="text-[11px] text-muted-foreground">Variance</p>
@@ -129,7 +129,7 @@ export function TlBudgetVsExpensesPanel({ projectIds }: Props) {
                 <p className="text-sm font-semibold text-foreground/90">{group.name}</p>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span>Budget: <strong className="text-indigo-600">{formatCurrency(groupBudgeted, 'KES')}</strong></span>
-                  <span>Spent: <strong className={groupActual > groupBudgeted ? 'text-red-600' : 'text-emerald-600'}>{formatCurrency(groupActual, 'KES')}</strong></span>
+                  <span>Spent: <strong className={groupActual > groupBudgeted ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}>{formatCurrency(groupActual, 'KES')}</strong></span>
                 </div>
               </div>
               <div className="rounded-md border overflow-hidden">
@@ -160,7 +160,7 @@ export function TlBudgetVsExpensesPanel({ projectIds }: Props) {
                               <span className="text-muted-foreground/60">—</span>
                             )}
                           </TableCell>
-                          <TableCell className={`text-right font-mono text-sm ${itemVariance != null ? (itemVariance > 0 ? 'text-red-600' : 'text-emerald-600') : ''}`}>
+                          <TableCell className={`text-right font-mono text-sm ${itemVariance != null ? (itemVariance > 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground') : ''}`}>
                             {itemVariance != null ? (
                               <>
                                 {itemVariance >= 0 ? '+' : ''}{formatCurrency(itemVariance, 'KES')}

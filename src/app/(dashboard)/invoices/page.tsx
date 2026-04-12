@@ -213,10 +213,10 @@ export default function InvoicesPage() {
                           <Badge className={getStatusBadgeClass(row.status)}>{capitalize(row.status)}</Badge>
                         </TableCell>
                         <TableCell className="text-right font-mono">{formatCurrency(Number(row.amount_usd || 0), 'USD')}</TableCell>
-                        <TableCell className="text-right font-mono text-emerald-700">
+                        <TableCell className="text-right font-mono text-success-soft-foreground">
                           {paidAmount > 0 ? formatCurrency(paidAmount, 'USD') : '—'}
                         </TableCell>
-                        <TableCell className={`text-right font-mono ${outstanding > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                        <TableCell className={`text-right font-mono ${outstanding > 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>
                           {outstanding > 0 ? formatCurrency(outstanding, 'USD') : 'Paid'}
                         </TableCell>
                         {canManage && (

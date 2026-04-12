@@ -584,7 +584,7 @@ export default function RevenuePage() {
                             <TableCell className="font-medium">
                               {inv.invoice_number}
                               {isBackdated(inv.description) && (
-                                <Badge variant="secondary" className="ml-2 bg-purple-100 text-purple-700 text-[10px]">
+                                <Badge variant="secondary" className="ml-2 bg-violet-soft text-violet-soft-foreground text-[10px]">
                                   <CalendarClock className="h-3 w-3 mr-1 inline" />Backdated
                                 </Badge>
                               )}

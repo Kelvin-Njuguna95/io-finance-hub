@@ -57,22 +57,22 @@ interface TrendPoint {
 // ---- Constants ----
 
 const COLORS = {
-  budgeted: '#6366f1',
-  actual: '#f59e0b',
-  overspend: '#ef4444',
-  underspend: '#22c55e',
-  onTarget: '#6366f1',
+  budgeted: 'oklch(0.64 0.19 290)',
+  actual: 'oklch(0.80 0.16 78)',
+  overspend: 'oklch(0.63 0.23 25)',
+  underspend: 'oklch(0.68 0.16 158)',
+  onTarget: 'oklch(0.64 0.19 290)',
 };
 
-const PIE_COLORS = ['#ef4444', '#22c55e', '#6366f1'];
+const PIE_COLORS = ['oklch(0.63 0.23 25)', 'oklch(0.68 0.16 158)', 'oklch(0.64 0.19 290)'];
 
 // ---- Helpers ----
 
 function varianceBadge(pct: number) {
   const abs = Math.abs(pct);
-  if (abs <= 5) return <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">On Target</Badge>;
-  if (abs <= 15) return <Badge variant="secondary" className="bg-amber-100 text-amber-700">Warning</Badge>;
-  return <Badge variant="secondary" className="bg-rose-100 text-rose-700">{pct > 0 ? 'Overspend' : 'Underspend'}</Badge>;
+  if (abs <= 5) return <Badge variant="secondary" className="bg-success-soft text-success-soft-foreground">On Target</Badge>;
+  if (abs <= 15) return <Badge variant="secondary" className="bg-warning-soft text-warning-soft-foreground">Warning</Badge>;
+  return <Badge variant="secondary" className="bg-danger-soft text-danger-soft-foreground">{pct > 0 ? 'Overspend' : 'Underspend'}</Badge>;
 }
 
 function calcAccuracy(variancePct: number): number {
@@ -354,7 +354,7 @@ export default function VarianceDashboardPage() {
                 <TableCell className="text-right font-mono text-sm">
                   {formatCurrency(r.actual, 'KES')}
                 </TableCell>
-                <TableCell className={`text-right font-mono text-sm ${r.variance > 0 ? 'text-red-600' : r.variance < 0 ? 'text-emerald-600' : ''}`}>
+                <TableCell className={`text-right font-mono text-sm ${r.variance > 0 ? 'text-danger-soft-foreground' : r.variance < 0 ? 'text-success-soft-foreground' : ''}`}>
                   {formatCurrency(r.variance, 'KES')}
                 </TableCell>
                 <TableCell className="text-right">
@@ -362,9 +362,9 @@ export default function VarianceDashboardPage() {
                   <span className="ml-1 text-xs text-muted-foreground">{r.variancePct.toFixed(1)}%</span>
                 </TableCell>
                 <TableCell className="text-center space-x-1">
-                  <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-xs">{r.confirmed}</Badge>
-                  <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">{r.pending}</Badge>
-                  <Badge variant="secondary" className="bg-rose-100 text-rose-700 text-xs">{r.voided}</Badge>
+                  <Badge variant="secondary" className="bg-success-soft text-success-soft-foreground text-xs">{r.confirmed}</Badge>
+                  <Badge variant="secondary" className="bg-warning-soft text-warning-soft-foreground text-xs">{r.pending}</Badge>
+                  <Badge variant="secondary" className="bg-danger-soft text-danger-soft-foreground text-xs">{r.voided}</Badge>
                 </TableCell>
                 <TableCell className="text-right font-mono text-sm">
                   {r.accuracyScore.toFixed(1)}%
@@ -469,7 +469,7 @@ export default function VarianceDashboardPage() {
                   <CardTitle className="text-sm font-medium text-muted-foreground">Net Variance</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className={`text-lg font-semibold font-mono ${netVariance > 0 ? 'text-red-600' : netVariance < 0 ? 'text-emerald-600' : ''}`}>
+                  <p className={`text-lg font-semibold font-mono ${netVariance > 0 ? 'text-danger-soft-foreground' : netVariance < 0 ? 'text-success-soft-foreground' : ''}`}>
                     {formatCurrency(netVariance, 'KES')}
                   </p>
                   <p className="text-xs text-muted-foreground">{overallPct.toFixed(1)}%</p>
@@ -488,7 +488,7 @@ export default function VarianceDashboardPage() {
                   <CardTitle className="text-sm font-medium text-muted-foreground">Items Pending</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-lg font-semibold font-mono text-amber-600">{totalPending}</p>
+                  <p className="text-lg font-semibold font-mono text-warning-soft-foreground">{totalPending}</p>
                 </CardContent>
               </Card>
               <Card className="io-card">
@@ -496,7 +496,7 @@ export default function VarianceDashboardPage() {
                   <CardTitle className="text-sm font-medium text-muted-foreground">Items Voided</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-lg font-semibold font-mono text-rose-600">{totalVoided}</p>
+                  <p className="text-lg font-semibold font-mono text-danger-soft-foreground">{totalVoided}</p>
                 </CardContent>
               </Card>
             </div>

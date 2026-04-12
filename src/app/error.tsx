@@ -20,7 +20,7 @@ export default function GlobalError({
     <div className="min-h-[60vh] flex items-center justify-center p-6">
       <Card className="w-full max-w-xl border-rose-200">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-rose-700">
+          <CardTitle className="flex items-center gap-2 text-danger-soft-foreground">
             <AlertTriangle className="h-5 w-5" />
             Something went wrong
           </CardTitle>

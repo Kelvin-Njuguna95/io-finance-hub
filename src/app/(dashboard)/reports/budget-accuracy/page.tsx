@@ -209,14 +209,14 @@ export default function BudgetAccuracyPage() {
                     <TableCell className="font-medium">{r.project}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{formatCurrency(r.budgeted, 'KES')}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{formatCurrency(r.actual, 'KES')}</TableCell>
-                    <TableCell className={`text-right font-mono text-sm ${r.variance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                    <TableCell className={`text-right font-mono text-sm ${r.variance > 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>
                       {r.variance > 0 ? '+' : ''}{formatCurrency(r.variance, 'KES')}
                     </TableCell>
                     <TableCell className="text-right">
                       <Badge variant="secondary" className={
-                        r.accuracy >= 90 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' :
-                        r.accuracy >= 75 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' :
-                        'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                        r.accuracy >= 90 ? 'bg-success-soft text-success-soft-foreground' :
+                        r.accuracy >= 75 ? 'bg-warning-soft text-warning-soft-foreground' :
+                        'bg-danger-soft text-danger-soft-foreground'
                       }>
                         {formatPercent(r.accuracy)}
                       </Badge>
@@ -235,7 +235,7 @@ export default function BudgetAccuracyPage() {
             <CardContent>
               <ResponsiveContainer width="100%" height={360}>
                 <LineChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.80 0 0 / 0.15)" />
                   <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                   <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11 }} />
                   <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} />
@@ -257,7 +257,7 @@ export default function BudgetAccuracyPage() {
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={freqData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.80 0 0 / 0.15)" />
                   <XAxis type="number" tick={{ fontSize: 11 }} />
                   <YAxis type="category" dataKey="project" tick={{ fontSize: 12 }} width={100} />
                   <Tooltip />

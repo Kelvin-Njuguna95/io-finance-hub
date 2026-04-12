@@ -469,7 +469,7 @@ export default function AuditLogPage() {
               {selectedLog.old_values && Object.keys(selectedLog.old_values).length > 0 && (
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground mb-1">Before</p>
-                  <pre className="text-xs bg-rose-50 rounded-md p-3 overflow-x-auto whitespace-pre-wrap">
+                  <pre className="text-xs bg-danger-soft/50 rounded-md p-3 overflow-x-auto whitespace-pre-wrap">
                     {JSON.stringify(selectedLog.old_values, null, 2)}
                   </pre>
                 </div>
@@ -478,7 +478,7 @@ export default function AuditLogPage() {
               {selectedLog.new_values && Object.keys(selectedLog.new_values).length > 0 && (
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground mb-1">After</p>
-                  <pre className="text-xs bg-emerald-50 rounded-md p-3 overflow-x-auto whitespace-pre-wrap">
+                  <pre className="text-xs bg-success-soft/50 rounded-md p-3 overflow-x-auto whitespace-pre-wrap">
                     {JSON.stringify(selectedLog.new_values, null, 2)}
                   </pre>
                 </div>

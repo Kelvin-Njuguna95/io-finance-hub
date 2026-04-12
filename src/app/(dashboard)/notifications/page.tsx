@@ -188,7 +188,7 @@ export default function NotificationsPage() {
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="unread">Unread {unreadCount > 0 && <Badge variant="secondary" className="ml-1 h-5 bg-red-100 text-red-600">{unreadCount}</Badge>}</TabsTrigger>
+            <TabsTrigger value="unread">Unread {unreadCount > 0 && <Badge variant="secondary" className="ml-1 h-5 bg-danger-soft text-danger-soft-foreground">{unreadCount}</Badge>}</TabsTrigger>
             <TabsTrigger value="budget">Budget</TabsTrigger>
             <TabsTrigger value="misc">Misc</TabsTrigger>
             <TabsTrigger value="finance">Finance</TabsTrigger>

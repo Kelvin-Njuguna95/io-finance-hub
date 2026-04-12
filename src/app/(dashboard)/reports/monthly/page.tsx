@@ -57,7 +57,7 @@ function PnlSection({ label, bold, negative, amount }: { label: string; bold?: b
 
 function MetricCard({ label, value, accent, tone }: { label: string; value: string; accent: string; tone?: 'default' | 'good' | 'bad' }) {
   return (
-    <div className={`rounded-xl border p-4 shadow-sm ${accent} ${tone === 'good' ? 'bg-emerald-50 border-emerald-200' : tone === 'bad' ? 'bg-red-50 border-red-200' : 'bg-card'}`}>
+    <div className={`rounded-xl border p-4 shadow-sm ${accent} ${tone === 'good' ? 'bg-success-soft/50 border-success/30' : tone === 'bad' ? 'bg-danger-soft/50 border-danger/30' : 'bg-card'}`}>
       <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="mt-2 text-lg font-semibold font-mono text-foreground">{value}</p>
     </div>
@@ -378,17 +378,17 @@ export default function MonthlyPnlReport() {
                   <div className="h-72">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={[
-                        { stage: 'Revenue', value: pnl.totalRevenue, color: '#22c55e' },
-                        { stage: 'Direct Costs', value: -pnl.totalDirectCosts, color: '#ef4444' },
-                        { stage: 'Gross Profit', value: pnl.grossProfit, color: '#0ea5e9' },
-                        { stage: 'Overhead', value: -pnl.totalOverhead, color: '#f59e0b' },
-                        { stage: 'Net Profit', value: pnl.netProfit, color: '#22c55e' },
+                        { stage: 'Revenue', value: pnl.totalRevenue, color: 'oklch(0.68 0.16 158)' },
+                        { stage: 'Direct Costs', value: -pnl.totalDirectCosts, color: 'oklch(0.63 0.23 25)' },
+                        { stage: 'Gross Profit', value: pnl.grossProfit, color: 'oklch(0.78 0.18 210)' },
+                        { stage: 'Overhead', value: -pnl.totalOverhead, color: 'oklch(0.80 0.16 78)' },
+                        { stage: 'Net Profit', value: pnl.netProfit, color: 'oklch(0.68 0.16 158)' },
                       ]}>
                         <XAxis dataKey="stage" tick={{ fontSize: 11 }} />
                         <YAxis tickFormatter={(v) => formatCompactCurrency(Number(v), 'KES')} />
                         <Tooltip formatter={(v: unknown) => formatCompactCurrency(Number(v || 0), 'KES')} />
                         <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                          {[0, 1, 2, 3, 4].map((i) => <Cell key={i} fill={['#22c55e', '#ef4444', '#0ea5e9', '#f59e0b', '#22c55e'][i]} />)}
+                          {[0, 1, 2, 3, 4].map((i) => <Cell key={i} fill={['oklch(0.68 0.16 158)', 'oklch(0.63 0.23 25)', 'oklch(0.78 0.18 210)', 'oklch(0.80 0.16 78)', 'oklch(0.68 0.16 158)'][i]} />)}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
@@ -411,7 +411,7 @@ export default function MonthlyPnlReport() {
                           outerRadius={80}
                           label={(e) => `${e.name} ${((e.value / Math.max(pnl.totalDirectCosts, 1)) * 100).toFixed(0)}%`}
                         >
-                          {pnl.directCosts.map((_, i) => <Cell key={i} fill={['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#a855f7'][i % 5]} />)}
+                          {pnl.directCosts.map((_, i) => <Cell key={i} fill={['oklch(0.78 0.18 210)', 'oklch(0.68 0.16 158)', 'oklch(0.80 0.16 78)', 'oklch(0.63 0.23 25)', 'oklch(0.64 0.19 290)'][i % 5]} />)}
                         </Pie>
                         <Tooltip formatter={(v: unknown) => formatCompactCurrency(Number(v || 0), 'KES')} />
                       </PieChart>
@@ -527,7 +527,7 @@ export default function MonthlyPnlReport() {
                         <span>{pnl.operatingProfit > 0 ? `${pnl.operatingMargin.toFixed(1)}%` : 'N/A'}</span>
                       </div>
                     </div>
-                    <div className={`rounded-lg px-3 py-2 ${pnl.netProfit >= 0 ? 'bg-emerald-50' : 'bg-danger-soft/50'}`}>
+                    <div className={`rounded-lg px-3 py-2 ${pnl.netProfit >= 0 ? 'bg-success-soft/50' : 'bg-danger-soft/50'}`}>
                       <PnlSection label="NET PROFIT / (LOSS)" amount={pnl.netProfit} bold negative />
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Net Margin</span>

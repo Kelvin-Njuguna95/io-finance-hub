@@ -62,16 +62,16 @@ export default function DashboardLayout({
 
 function LoadingSplash() {
   return (
-    <div className="flex h-screen items-center justify-center bg-[#0a0f1e]">
+    <div className="flex h-screen items-center justify-center bg-sidebar">
       <div className="flex flex-col items-center gap-4">
         <div
           aria-hidden
-          className="flex size-12 items-center justify-center rounded-xl bg-[#F5C518] text-[14px] font-bold text-[#0a0f1e] shadow-elev-2 ring-1 ring-white/10"
+          className="flex size-12 items-center justify-center rounded-xl bg-gold text-[14px] font-bold text-gold-foreground shadow-elev-2 ring-1 ring-white/10"
         >
           IO
         </div>
         <div className="text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/60">
             Impact Outsourcing
           </p>
           <p className="mt-1 text-sm font-semibold text-white">
@@ -79,9 +79,9 @@ function LoadingSplash() {
           </p>
         </div>
         <div className="mt-2 flex gap-1">
-          <span className="size-1.5 rounded-full bg-[#00d4ff] animate-pulse" />
-          <span className="size-1.5 rounded-full bg-[#00d4ff]/60 animate-pulse [animation-delay:150ms]" />
-          <span className="size-1.5 rounded-full bg-[#00d4ff]/30 animate-pulse [animation-delay:300ms]" />
+          <span className="size-1.5 rounded-full bg-electric animate-pulse" />
+          <span className="size-1.5 rounded-full bg-electric/60 animate-pulse [animation-delay:150ms]" />
+          <span className="size-1.5 rounded-full bg-electric/30 animate-pulse [animation-delay:300ms]" />
         </div>
       </div>
     </div>
@@ -90,26 +90,26 @@ function LoadingSplash() {
 
 function SignedOutSplash() {
   return (
-    <div className="flex h-screen items-center justify-center bg-[#0a0f1e] px-6">
+    <div className="flex h-screen items-center justify-center bg-sidebar px-6">
       <div className="w-full max-w-sm rounded-xl border border-white/10 bg-white/[0.04] p-6 text-center shadow-elev-2 backdrop-blur">
         <div
           aria-hidden
-          className="mx-auto flex size-12 items-center justify-center rounded-xl bg-[#F5C518] text-[14px] font-bold text-[#0a0f1e] shadow-elev-1 ring-1 ring-white/10"
+          className="mx-auto flex size-12 items-center justify-center rounded-xl bg-gold text-[14px] font-bold text-gold-foreground shadow-elev-1 ring-1 ring-white/10"
         >
           IO
         </div>
-        <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
+        <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/60">
           Impact Outsourcing
         </p>
         <h1 className="mt-2 text-base font-semibold text-white">
           Session required
         </h1>
-        <p className="mt-1 text-sm text-white/50">
+        <p className="mt-1 text-sm text-white/65">
           Your session has expired. Sign in to continue.
         </p>
         <Link
           href="/login"
-          className="mt-5 inline-flex h-9 items-center justify-center rounded-[8px] bg-[#00d4ff] px-4 text-sm font-medium text-[#0a0f1e] transition-colors hover:bg-[#00d4ff]/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0f1e]"
+          className="mt-5 inline-flex h-9 items-center justify-center rounded-[8px] bg-electric px-4 text-sm font-medium text-electric-foreground transition-colors hover:bg-electric/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric/60 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
         >
           Go to login
         </Link>

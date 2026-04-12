@@ -760,9 +760,9 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
 
       {/* Pending Your Approval — accountant-raised draws */}
       {pendingApprovals.length > 0 && (
-        <Card className="border-purple-200 bg-purple-50/30">
+        <Card className="border-violet/30 bg-violet-soft/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-purple-700">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-violet-soft-foreground">
               <Clock className="h-4 w-4" />
               Pending Your Approval ({pendingApprovals.length})
             </CardTitle>
@@ -784,7 +784,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                 {pendingApprovals.map((d: /* // */ any) => (
                   <TableRow key={d.id}>
                     <TableCell className="text-sm">
-                      <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-xs">Accountant</Badge>
+                      <Badge variant="secondary" className="bg-violet-soft text-violet-soft-foreground text-xs">Accountant</Badge>
                       <span className="ml-1 text-xs text-muted-foreground">{(d.users as /* // */ any)?.full_name || '—'}</span>
                     </TableCell>
                     <TableCell className="font-medium text-sm max-w-[200px] truncate">{d.purpose}</TableCell>
@@ -870,7 +870,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                     <TableCell className="text-sm max-w-[200px] truncate">{d.purpose || 'Standing allocation'}</TableCell>
                     <TableCell className="text-xs">
                       {d.raised_by_role === 'accountant' ? (
-                        <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px]">Accountant</Badge>
+                        <Badge variant="secondary" className="bg-violet-soft text-violet-soft-foreground text-[10px]">Accountant</Badge>
                       ) : (
                         <span className="text-muted-foreground">Self</span>
                       )}
@@ -880,7 +880,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                         d.status === 'approved' ? 'bg-success-soft text-success-soft-foreground'
                           : d.status === 'accounted' ? 'bg-info-soft text-info-soft-foreground'
                             : d.status === 'flagged' ? 'bg-danger-soft text-danger-soft-foreground'
-                              : d.status === MISC_DRAW_STATUS.PENDING_PM_APPROVAL ? 'bg-purple-100 text-purple-700'
+                              : d.status === MISC_DRAW_STATUS.PENDING_PM_APPROVAL ? 'bg-violet-soft text-violet-soft-foreground'
                                 : d.status === 'declined' ? 'bg-danger-soft text-danger-soft-foreground'
                                   : 'bg-muted text-foreground/80'
                       }>
@@ -2008,10 +2008,10 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                         </Badge>
                         <span className="text-muted-foreground">— {(d.users as /* // */ any)?.full_name || 'Unknown'}</span>
                         {d.raised_by_role === 'accountant' && (
-                          <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px]">Delegated</Badge>
+                          <Badge variant="secondary" className="bg-violet-soft text-violet-soft-foreground text-[10px]">Delegated</Badge>
                         )}
                         {d.status === MISC_DRAW_STATUS.PENDING_PM_APPROVAL && (
-                          <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px]">Pending PM</Badge>
+                          <Badge variant="secondary" className="bg-violet-soft text-violet-soft-foreground text-[10px]">Pending PM</Badge>
                         )}
                         {d.status === 'declined' && (
                           <Badge variant="secondary" className="bg-danger-soft text-danger-soft-foreground text-[10px]">Declined</Badge>
@@ -2153,7 +2153,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
           <div className="flex gap-4 text-sm mb-3">
             <span>Allocated: <strong>{formatCurrency(Number(reviewReport?.total_allocated || 0), 'KES')}</strong></span>
             <span>Claimed: <strong>{formatCurrency(Number(reviewReport?.total_claimed || 0), 'KES')}</strong></span>
-            <span className={Number(reviewReport?.variance) < 0 ? 'text-red-600' : ''}>
+            <span className={Number(reviewReport?.variance) < 0 ? 'text-danger-soft-foreground' : ''}>
               Variance: <strong>{formatCurrency(Number(reviewReport?.variance || (reviewReport?.total_allocated - reviewReport?.total_claimed) || 0), 'KES')}</strong>
             </span>
           </div>
@@ -2502,10 +2502,10 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
       <Card className="io-card">
         <CardHeader className="pb-2 flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Plus className="h-4 w-4 text-purple-600" />
+            <Plus className="h-4 w-4 text-violet-soft-foreground" />
             Raise Misc Request (on behalf of PM)
           </CardTitle>
-          <Button size="sm" className="gap-1 bg-purple-600 hover:bg-purple-700 text-white" onClick={() => setShowRaiseForm(true)}>
+          <Button size="sm" className="gap-1 bg-violet hover:bg-violet/90 text-white" onClick={() => setShowRaiseForm(true)}>
             <Plus className="h-3 w-3" /> Raise Request
           </Button>
         </CardHeader>
@@ -2513,16 +2513,16 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
           {/* My Pending Requests */}
           {myPendingDraws.length > 0 && (
             <div className="mb-4">
-              <p className="text-xs font-semibold text-purple-700 mb-2">Pending PM Approval ({myPendingDraws.length})</p>
+              <p className="text-xs font-semibold text-violet-soft-foreground mb-2">Pending PM Approval ({myPendingDraws.length})</p>
               <div className="space-y-2">
                 {myPendingDraws.map((d: /* // */ any) => (
-                  <div key={d.id} className="flex items-center justify-between rounded-lg border border-purple-200 bg-purple-50/50 p-3 text-sm">
+                  <div key={d.id} className="flex items-center justify-between rounded-lg border border-violet/30 bg-violet-soft/50 p-3 text-sm">
                     <div>
                       <strong>{(d.projects as /* // */ any)?.name}</strong> &mdash; {formatCurrency(Number(d.amount_requested), 'KES')}
                       <p className="text-xs text-muted-foreground truncate max-w-md">{d.purpose}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-xs">Awaiting PM</Badge>
+                      <Badge variant="secondary" className="bg-violet-soft text-violet-soft-foreground text-xs">Awaiting PM</Badge>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-danger/60 hover:text-danger" onClick={() => handleAccountantDeleteDraw(d.id)} title="Withdraw request">
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -2614,7 +2614,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowRaiseForm(false)}>Cancel</Button>
-            <Button onClick={handleRaiseRequest} disabled={raising || !raiseProjectId || !raiseAmount || parseFloat(raiseAmount) <= 0 || raisePurpose.trim().length < 10} className="bg-purple-600 hover:bg-purple-700 text-white">
+            <Button onClick={handleRaiseRequest} disabled={raising || !raiseProjectId || !raiseAmount || parseFloat(raiseAmount) <= 0 || raisePurpose.trim().length < 10} className="bg-violet hover:bg-violet/90 text-white">
               {raising ? 'Raising...' : 'Raise Request'}
             </Button>
           </DialogFooter>
@@ -2655,7 +2655,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
           })()}
           <DialogFooter>
             <Button variant="outline" onClick={() => setReviseDrawId(null)}>Cancel</Button>
-            <Button onClick={handleReviseRequest} disabled={revising || (!!reviseAmount && parseFloat(reviseAmount) <= 0) || revisePurpose.trim().length < 10} className="bg-purple-600 hover:bg-purple-700 text-white">
+            <Button onClick={handleReviseRequest} disabled={revising || (!!reviseAmount && parseFloat(reviseAmount) <= 0) || revisePurpose.trim().length < 10} className="bg-violet hover:bg-violet/90 text-white">
               {revising ? 'Resubmitting...' : 'Revise & Resubmit'}
             </Button>
           </DialogFooter>

@@ -79,7 +79,7 @@ export default function FinancialsPage() {
   }
 
   const d = data;
-  const healthColor = d?.health.score_band === 'healthy' ? 'text-green-600 bg-green-50 border-green-200' : d?.health.score_band === 'watch' ? 'text-amber-600 bg-amber-50 border-amber-200' : 'text-red-600 bg-red-50 border-red-200';
+  const healthColor = d?.health.score_band === 'healthy' ? 'text-success-soft-foreground bg-success-soft/50 border-success/30' : d?.health.score_band === 'watch' ? 'text-warning-soft-foreground bg-warning-soft/50 border-warning/30' : 'text-danger-soft-foreground bg-danger-soft/50 border-danger/30';
   const healthEmoji = d?.health.score_band === 'healthy' ? '🟢' : d?.health.score_band === 'watch' ? '🟡' : '🔴';
 
   return (
@@ -129,9 +129,9 @@ export default function FinancialsPage() {
               ) : (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <div><p className="text-xs text-muted-foreground">Invoice Raised</p><p className="text-lg font-semibold">{formatCurrency(d.revenue.invoice_amount, 'KES')}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Status</p><Badge variant="secondary" className={d.revenue.invoice_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}>{d.revenue.invoice_status}</Badge></div>
+                  <div><p className="text-xs text-muted-foreground">Status</p><Badge variant="secondary" className={d.revenue.invoice_status === 'paid' ? 'bg-success-soft text-success-soft-foreground' : 'bg-warning-soft text-warning-soft-foreground'}>{d.revenue.invoice_status}</Badge></div>
                   <div><p className="text-xs text-muted-foreground">Payment Received</p><p className="text-lg font-semibold">{formatCurrency(d.revenue.total_paid, 'KES')}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Outstanding (USD)</p><p className={`text-lg font-semibold ${d.revenue.outstanding > 0 ? 'text-red-600' : ''}`}>{formatCurrency(d.revenue.outstanding, 'USD')}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Outstanding (USD)</p><p className={`text-lg font-semibold ${d.revenue.outstanding > 0 ? 'text-danger-soft-foreground' : ''}`}>{formatCurrency(d.revenue.outstanding, 'USD')}</p></div>
                 </div>
               )}
             </CardContent>
@@ -144,8 +144,8 @@ export default function FinancialsPage() {
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div><p className="text-xs text-muted-foreground">Total Expenses</p><p className="text-lg font-semibold">{formatCurrency(d.expenses.total, 'KES')}</p></div>
                 <div><p className="text-xs text-muted-foreground">Approved Budget</p><p className="text-lg font-semibold">{formatCurrency(d.budget.total, 'KES')}</p></div>
-                <div><p className="text-xs text-muted-foreground">Variance</p><p className={`text-lg font-semibold ${d.budget.variance < 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(d.budget.variance, 'KES')}</p></div>
-                <div><p className="text-xs text-muted-foreground">Utilisation</p><Badge variant="secondary" className={d.budget.utilisation > 100 ? 'bg-red-100 text-red-700' : d.budget.utilisation > 90 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}>{formatPercent(d.budget.utilisation)}</Badge></div>
+                <div><p className="text-xs text-muted-foreground">Variance</p><p className={`text-lg font-semibold ${d.budget.variance < 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>{formatCurrency(d.budget.variance, 'KES')}</p></div>
+                <div><p className="text-xs text-muted-foreground">Utilisation</p><Badge variant="secondary" className={d.budget.utilisation > 100 ? 'bg-danger-soft text-danger-soft-foreground' : d.budget.utilisation > 90 ? 'bg-warning-soft text-warning-soft-foreground' : 'bg-success-soft text-success-soft-foreground'}>{formatPercent(d.budget.utilisation)}</Badge></div>
               </div>
               {d.expenses.by_category.length > 0 && (
                 <Table>
@@ -214,7 +214,7 @@ export default function FinancialsPage() {
                   <div><p className="text-xs text-muted-foreground">Agents</p><p className="text-lg font-semibold">{d.agents.count}</p></div>
                   <div><p className="text-xs text-muted-foreground">Revenue per Agent</p><p className="text-lg font-semibold">{formatCurrency(d.agents.revenue_per_agent, 'KES')}</p></div>
                   <div><p className="text-xs text-muted-foreground">Cost per Agent</p><p className="text-lg font-semibold">{formatCurrency(d.agents.cost_per_agent, 'KES')}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Contribution per Agent</p><p className={`text-lg font-semibold ${d.agents.contribution_per_agent < 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(d.agents.contribution_per_agent, 'KES')}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Contribution per Agent</p><p className={`text-lg font-semibold ${d.agents.contribution_per_agent < 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>{formatCurrency(d.agents.contribution_per_agent, 'KES')}</p></div>
                 </div>
               )}
             </CardContent>
@@ -240,7 +240,7 @@ export default function FinancialsPage() {
                         <TableCell className="font-medium">{formatYearMonth(t.year_month)}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(t.revenue, 'KES')}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(t.expenses, 'KES')}</TableCell>
-                        <TableCell className={`text-right font-mono text-sm ${t.contribution < 0 ? 'text-red-600' : ''}`}>{formatCurrency(t.contribution, 'KES')}</TableCell>
+                        <TableCell className={`text-right font-mono text-sm ${t.contribution < 0 ? 'text-danger-soft-foreground' : ''}`}>{formatCurrency(t.contribution, 'KES')}</TableCell>
                         <TableCell className="text-right">{t.agents || '—'}</TableCell>
                         <TableCell className="text-right">{formatPercent(t.margin)}</TableCell>
                       </TableRow>
@@ -257,7 +257,7 @@ export default function FinancialsPage() {
             <CardContent>
               <div className="space-y-2">
                 {d.hints.map((h, i) => (
-                  <div key={i} className={`flex items-start gap-3 rounded-md p-3 ${h.severity === 'critical' ? 'bg-red-50 border border-red-200' : h.severity === 'warning' ? 'bg-amber-50 border border-amber-200' : h.severity === 'positive' ? 'bg-green-50 border border-green-200' : 'bg-muted/50 border'}`}>
+                  <div key={i} className={`flex items-start gap-3 rounded-md p-3 ${h.severity === 'critical' ? 'bg-danger-soft/50 border border-danger/30' : h.severity === 'warning' ? 'bg-warning-soft/50 border border-warning/30' : h.severity === 'positive' ? 'bg-success-soft/50 border border-success/30' : 'bg-muted/50 border'}`}>
                     <span className="text-lg shrink-0">{h.icon}</span>
                     <p className="text-sm">{h.text}</p>
                   </div>

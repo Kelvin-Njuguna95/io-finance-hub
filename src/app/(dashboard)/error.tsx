@@ -20,7 +20,7 @@ export default function DashboardError({
     <div className="p-6">
       <Card className="border-rose-200">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-rose-700">
+          <CardTitle className="flex items-center gap-2 text-danger-soft-foreground">
             <AlertTriangle className="h-5 w-5" />
             Dashboard content failed to load
           </CardTitle>

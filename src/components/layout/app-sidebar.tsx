@@ -77,7 +77,7 @@ export function AppSidebar() {
             IO
           </span>
           <span className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
-            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/50">
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/60">
               Impact Outsourcing
             </span>
             <span className="text-sm font-semibold text-white">
@@ -103,7 +103,7 @@ export function AppSidebar() {
         ) : (
           getNavigation(user.role).map((group, gi) => (
             <SidebarGroup key={group.title}>
-              <SidebarGroupLabel className="px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">
+              <SidebarGroupLabel className="px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/50">
                 {group.title}
               </SidebarGroupLabel>
               <SidebarGroupContent>
@@ -128,14 +128,14 @@ export function AppSidebar() {
                             'h-9 rounded-lg px-2.5 text-[0.8125rem] font-medium',
                             'text-white/75 transition-all duration-[var(--dur-base)] ease-[var(--ease-standard)]',
                             'hover:bg-white/[0.06] hover:text-white',
-                            // IO gold active state: rgba(245,197,24,0.12) + #F5C518 text
-                            'data-active:bg-[rgba(245,197,24,0.12)]',
-                            'data-active:text-[#F5C518]',
+                            // IO gold active state
+                            'data-active:bg-gold/12',
+                            'data-active:text-gold',
                             'data-active:font-semibold',
                             'data-active:shadow-none',
-                            'data-active:ring-1 data-active:ring-inset data-active:ring-[rgba(245,197,24,0.25)]',
+                            'data-active:ring-1 data-active:ring-inset data-active:ring-gold/25',
                             '[&_svg]:text-white/55 [&_svg]:transition-colors [&_svg]:duration-[var(--dur-fast)]',
-                            'data-active:[&_svg]:text-[#F5C518]',
+                            'data-active:[&_svg]:text-gold',
                           )}
                         >
                           <Icon strokeWidth={1.75} />
@@ -188,11 +188,11 @@ export function AppSidebar() {
                 <span className="truncate text-[0.8125rem] font-semibold text-white">
                   {user.full_name}
                 </span>
-                <span className="truncate text-[11px] text-white/50">
+                <span className="truncate text-[11px] text-white/60">
                   {ROLE_LABELS[user.role]}
                 </span>
               </span>
-              <ChevronsUpDown className="size-4 shrink-0 text-white/40 group-data-[collapsible=icon]:hidden" />
+              <ChevronsUpDown className="size-4 shrink-0 text-white/55 group-data-[collapsible=icon]:hidden" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
