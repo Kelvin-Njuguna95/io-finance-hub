@@ -33,6 +33,7 @@ interface PayoutWithdrawal {
 }
 
 interface ProjectShare {
+  project_id?: string;
   project_name: string;
   director_tag: string;
   revenue: number;
@@ -75,6 +76,7 @@ export default function ProfitSharePage() {
   const [disputeReason, setDisputeReason] = useState('');
   const [loading, setLoading] = useState(true);
   const [payoutDialogOpen, setPayoutDialogOpen] = useState(false);
+  const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [payoutHistory, setPayoutHistory] = useState<Record<string, PayoutWithdrawal[]>>({});
 
@@ -119,6 +121,7 @@ export default function ProfitSharePage() {
     if (existingRecords && existingRecords.length > 0) {
       setShares(existingRecords.map((r: {
         projects?: { name?: string } | null;
+        project_id?: string | null;
         director_tag: string;
         distributable_profit_kes: number;
         director_share_kes: number;
@@ -129,6 +132,7 @@ export default function ProfitSharePage() {
         balance_remaining?: number | null;
         payout_status?: 'unpaid' | 'partial' | 'paid' | null;
       }) => ({
+        project_id: r.project_id || undefined,
         project_name: r.projects?.name || '—',
         director_tag: r.director_tag,
         revenue: 0,
@@ -176,6 +180,7 @@ export default function ProfitSharePage() {
         const directorShare = distributable > 0 ? Math.round(distributable * 0.70 * 100) / 100 : 0;
         const companyShare = distributable > 0 ? Math.round(distributable * 0.30 * 100) / 100 : 0;
         return {
+          project_id: p.id,
           project_name: p.name,
           director_tag: p.director_tag,
           revenue,
@@ -218,6 +223,65 @@ export default function ProfitSharePage() {
     load();
   }
 
+  async function handleInitiatePayout() {
+    if (payoutRecords.length > 0) {
+      setPayoutDialogOpen(true);
+      return;
+    }
+
+    if (shares.length === 0) {
+      toast.error(`No profit share data for ${formatYearMonth(selectedMonth)}.`);
+      return;
+    }
+
+    const allLive = shares.every((share) => !share.record_id);
+    if (!allLive) {
+      toast.error('No outstanding payout balances for this period.');
+      return;
+    }
+
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error('Session expired');
+      return;
+    }
+
+    const inserts = shares
+      .filter((share) => share.distributable_profit > 0 && share.project_id)
+      .map((share) => ({
+        year_month: selectedMonth,
+        project_id: share.project_id!,
+        director_tag: share.director_tag,
+        director_name: capitalize(share.director_tag),
+        distributable_profit_kes: share.distributable_profit,
+        director_share_kes: share.director_share,
+        company_share_kes: share.company_share,
+        status: 'pending_review',
+        balance_remaining: share.director_share,
+        total_paid_out: 0,
+        payout_status: 'unpaid',
+      }));
+
+    if (inserts.length === 0) {
+      toast.error('No distributable profit records are available to finalize.');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('profit_share_records')
+      .insert(inserts);
+
+    if (error) {
+      toast.error(`Failed to finalize records: ${error.message}`);
+      return;
+    }
+
+    toast.success(`Profit share records created for ${formatYearMonth(selectedMonth)}.`);
+    setPendingDialogOpen(true);
+    await load();
+  }
+
   const userRole = user?.role ?? null;
   const isCfo = userRole === 'cfo';
   const totalDirectorShare = shares.reduce((s, r) => s + r.director_share, 0);
@@ -232,6 +296,16 @@ export default function ProfitSharePage() {
       balance_remaining: Number(share.balance_remaining ?? share.director_share ?? 0),
     }))
     .filter((record) => record.balance_remaining > 0);
+  useEffect(() => {
+    if (!pendingDialogOpen || loading) return;
+
+    if (payoutRecords.length > 0) {
+      setPayoutDialogOpen(true);
+    } else {
+      toast.error('No directors have payout balances for this period.');
+    }
+    setPendingDialogOpen(false);
+  }, [pendingDialogOpen, payoutRecords, loading]);
 
   const statusColors: Record<string, string> = {
     pending_review: 'bg-warning-soft text-warning-soft-foreground',
@@ -244,12 +318,14 @@ export default function ProfitSharePage() {
       <PageHeader title="Profit Share" description={'70/30 distribution — revenue from ' + formatYearMonth(revenueSourceMonth) + ' invoice'}>
         {userRole === 'cfo' && (
           <div className="flex items-center gap-2">
-            <Button onClick={() => setPayoutDialogOpen(true)}>
+            <Button onClick={handleInitiatePayout}>
               + Initiate Payout
             </Button>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/profit-share/payouts">View All Payouts</Link>
-            </Button>
+            <Link href="/profit-share/payouts">
+              <Button variant="ghost" size="sm">
+                View All Payouts
+              </Button>
+            </Link>
           </div>
         )}
         <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
