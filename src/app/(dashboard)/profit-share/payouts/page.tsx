@@ -123,7 +123,7 @@ export default function DirectorPayoutsPage() {
     const supabase = createClient();
     const { data, error } = await supabase
       .from('profit_share_records')
-      .select('id, director_name, director_tag, balance_remaining, director_share_kes')
+      .select('id, director_tag, balance_remaining, director_share_kes')
       .eq('year_month', selectedMonth)
       .order('director_tag');
 
@@ -135,13 +135,14 @@ export default function DirectorPayoutsPage() {
     const records = (data ?? [])
       .map((record: {
         id: string;
-        director_name: string | null;
         director_tag: string | null;
         balance_remaining: number | null;
         director_share_kes: number | null;
       }) => ({
         id: record.id,
-        director_name: record.director_name || (record.director_tag ? `${record.director_tag.charAt(0).toUpperCase()}${record.director_tag.slice(1)}` : 'Director'),
+        director_name: record.director_tag
+          ? `${record.director_tag.charAt(0).toUpperCase()}${record.director_tag.slice(1)}`
+          : 'Director',
         balance_remaining: Number(record.balance_remaining ?? record.director_share_kes ?? 0),
       }))
       .filter((record) => record.balance_remaining > 0);
