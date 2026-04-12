@@ -19,7 +19,7 @@ function Table({ className, ...props }: React.ComponentProps<'table'>) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto rounded-lg ring-1 ring-border"
+      className="relative w-full overflow-x-auto rounded-lg ring-1 ring-border -webkit-overflow-scrolling-touch"
     >
       <table
         data-slot="table"
@@ -101,6 +101,7 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
         'bg-primary text-primary-foreground',
         'text-[0.78rem] font-semibold uppercase tracking-wide',
         'first:rounded-tl-lg last:rounded-tr-lg',
+        'sticky top-0 z-10',
         '[&:has([role=checkbox])]:pr-0',
         className,
       )}

@@ -15,11 +15,13 @@ import { Separator } from '@/components/ui/separator';
 import { getCurrentYearMonth, formatCurrency, capitalize } from '@/lib/format';
 import { formatKES } from '@/lib/utils/currency';
 import { DIRECTORS } from '@/types/database';
-import { Plus } from 'lucide-react';
+import { Plus, Building2, UserCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import type { User, DirectorEnum, PayoutType, WithdrawalType } from '@/types/database';
 import { getUserErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
+
+type WithdrawalPurpose = 'company_operations' | 'director_payout';
 
 interface Props {
   open: boolean;
@@ -96,7 +98,9 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
   const [forexBureaus, setForexBureaus] = useState<{ id: string; name: string }[]>([]);
 
   const [projects, setProjects] = useState<{ id: string; name: string; director_tag: string }[]>([]);
+  const [approvedBudgets, setApprovedBudgets] = useState<{ id: string; project_name: string; total_kes: number }[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [selectedBudgetId, setSelectedBudgetId] = useState('');
 
   const [directorTag, setDirectorTag] = useState<DirectorEnum | ''>('');
   const [withdrawalDate, setWithdrawalDate] = useState(getNairobiDateISO());
@@ -128,7 +132,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
       ]);
       setDirectorUsers((usersRes.data || []) as User[]);
       setForexBureaus((forexRes.data || []) as { id: string; name: string }[]);
-    setProjects((projectsRes.data || []) as { id: string; name: string; director_tag: string }[]);
+      setProjects((projectsRes.data || []) as { id: string; name: string; director_tag: string }[]);
     }
     load();
   }, [open]);
@@ -172,6 +176,38 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
     }
   }, [amountUsd, exchangeRate]);
 
+  // Load approved budgets when project changes (company_operations)
+  useEffect(() => {
+    if (withdrawalType !== 'operations' || !selectedProjectId) {
+      setApprovedBudgets([]);
+      setSelectedBudgetId('');
+      return;
+    }
+    async function loadBudgets() {
+      const supabase = createClient();
+      const currentMonth = getCurrentYearMonth();
+      const { data } = await supabase
+        .from('budgets')
+        .select('id, year_month, project_id, projects(name), budget_versions(status, total_amount_kes)')
+        .eq('project_id', selectedProjectId)
+        .eq('year_month', currentMonth);
+
+      const approved = (data || [])
+        .filter((b: any) => (b.budget_versions || []).some((v: any) => v.status === 'approved'))
+        .map((b: any) => {
+          const ver = (b.budget_versions || []).find((v: any) => v.status === 'approved');
+          return {
+            id: b.id,
+            project_name: (b as any).projects?.name || '—',
+            total_kes: Number(ver?.total_amount_kes || 0),
+          };
+        });
+      setApprovedBudgets(approved);
+      if (approved.length === 1) setSelectedBudgetId(approved[0].id);
+    }
+    loadBudgets();
+  }, [withdrawalType, selectedProjectId]);
+
   const selectedDirectorUser = directorUsers.find((u) => u.director_tag === directorTag);
   const periodOptions = useMemo(() => getProfitSharePeriodOptions(payoutRecords), [payoutRecords]);
   const selectedPayoutRecord = useMemo(
@@ -200,7 +236,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
       .single();
 
     if (error) {
-      toast.error(getUserErrorMessage());
+      toast.error('Failed to add forex bureau');
     } else {
       setForexBureaus([...forexBureaus, { id: data.id, name: data.name }].sort((a, b) => a.name.localeCompare(b.name)));
       setForexBureau(data.name);
@@ -216,9 +252,19 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
       return;
     }
 
-    if (withdrawalType === 'operations' && (!selectedProjectId || amountUsd <= 0 || exchangeRate <= 0)) {
-      toast.error('Project, USD amount, and exchange rate are required');
-      return;
+    if (withdrawalType === 'operations') {
+      if (!selectedProjectId) {
+        toast.error('Please select a project');
+        return;
+      }
+      if (amountUsd <= 0 || exchangeRate <= 0) {
+        toast.error('USD amount and exchange rate are required');
+        return;
+      }
+      if (approvedBudgets.length === 0) {
+        toast.error('No approved budget found for this project in the current month');
+        return;
+      }
     }
 
     if (withdrawalType === 'director_payout') {
@@ -259,9 +305,12 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
       const payload = withdrawalType === 'operations'
         ? {
           withdrawal_type: 'operations',
+          purpose: 'company_operations',
           withdrawal_date: withdrawalDate,
-          director_tag: directorTag,
-          director_user_id: selectedDirectorUser?.id,
+          director_tag: directorTag || null,
+          director_user_id: selectedDirectorUser?.id || null,
+          project_id: selectedProjectId,
+          budget_id: selectedBudgetId || null,
           amount_usd: amountUsd,
           exchange_rate: exchangeRate,
           amount_kes: amountKes,
@@ -274,6 +323,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
         }
         : {
           withdrawal_type: 'director_payout',
+          purpose: 'director_payout',
           withdrawal_date: withdrawalDate,
           director_name: payoutDirector,
           profit_share_record_id: payoutRecordId,
@@ -329,8 +379,11 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
                   'hover:border-slate-900',
                 )}
               >
-                <span className="text-sm font-semibold mb-1">Company Operations</span>
-                <span className={cn('text-xs', withdrawalType === 'operations' ? 'text-slate-300' : 'text-slate-500')}>
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  <span className="text-sm font-semibold">Company Operations</span>
+                </div>
+                <span className={cn('text-xs mt-1', withdrawalType === 'operations' ? 'text-slate-300' : 'text-slate-500')}>
                   Business expenses and operational costs. Requires an approved budget.
                 </span>
               </button>
@@ -344,8 +397,11 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
                   'hover:border-amber-500',
                 )}
               >
-                <span className="text-sm font-semibold mb-1">Director Payout</span>
-                <span className={cn('text-xs', withdrawalType === 'director_payout' ? 'text-amber-100' : 'text-slate-500')}>
+                <div className="flex items-center gap-2">
+                  <UserCircle className="h-4 w-4" />
+                  <span className="text-sm font-semibold">Director Payout</span>
+                </div>
+                <span className={cn('text-xs mt-1', withdrawalType === 'director_payout' ? 'text-amber-100' : 'text-slate-500')}>
                   Profit share distribution to a director. No budget required.
                 </span>
               </button>
@@ -358,22 +414,34 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
 
           {withdrawalType === 'operations' && (
             <>
-              
-          <div className="space-y-1">
-            <Label>Project *</Label>
-            <Select value={selectedProjectId} onValueChange={(v) => { if (!v) return; setSelectedProjectId(v); const proj = projects.find(p => p.id === v); if (proj) setDirectorTag(proj.director_tag as DirectorEnum); }}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select project...">
-                  {projects.find((project) => project.id === selectedProjectId)?.name}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-1">
+                <Label>Project *</Label>
+                <Select value={selectedProjectId} onValueChange={(v) => { if (!v) return; setSelectedProjectId(v); const proj = projects.find(p => p.id === v); if (proj) setDirectorTag(proj.director_tag as DirectorEnum); }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project...">
+                      {projects.find((project) => project.id === selectedProjectId)?.name}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
 
-<div className="grid grid-cols-2 gap-3">
+              {/* Budget info for company_operations */}
+              {selectedProjectId && (
+                approvedBudgets.length > 0 ? (
+                  <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                    Approved budget: {formatCurrency(approvedBudgets[0].total_kes, 'KES')}
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    No approved budget found for this project in {getCurrentYearMonth()}. An approved budget is required for company operations withdrawals.
+                  </div>
+                )
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>Director *</Label>
                   <Select value={directorTag} onValueChange={(v) => v && setDirectorTag(v as DirectorEnum)}>

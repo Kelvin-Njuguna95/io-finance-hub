@@ -20,9 +20,9 @@ export function formatExecutivePercent(value: number) {
 }
 
 export function statusTone(status: 'On Track' | 'Watch' | 'Action Needed') {
-  if (status === 'On Track') return 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700';
-  if (status === 'Watch') return 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700';
-  return 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-700';
+  if (status === 'On Track') return 'bg-success-soft text-success-soft-foreground border-emerald-200';
+  if (status === 'Watch') return 'bg-warning-soft text-warning-soft-foreground border-warning/30';
+  return 'bg-rose-100 text-rose-700 border-rose-200';
 }
 
 export function ChartStatusBadge({ status }: { status: 'On Track' | 'Watch' | 'Action Needed' }) {
@@ -37,7 +37,7 @@ export function ExecutiveKpiCard({ label, value, trend, positive = true }: { lab
       </CardHeader>
       <CardContent className="pt-4">
         <p className="text-3xl font-bold text-foreground">{value}</p>
-        <Badge className={`mt-3 ${positive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'}`}>{trend}</Badge>
+        <Badge className={`mt-3 ${positive ? 'bg-success-soft text-success-soft-foreground' : 'bg-rose-100 text-rose-700'}`}>{trend}</Badge>
       </CardContent>
     </Card>
   );

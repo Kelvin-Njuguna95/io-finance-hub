@@ -23,7 +23,7 @@ function PnlLine({ label, kes, bold, negative }: {
   return (
     <div className={`flex items-center justify-between py-2 ${bold ? 'font-semibold' : ''}`}>
       <span className="text-sm">{label}</span>
-      <span className={`text-sm font-mono ${negative ? 'text-red-600' : ''}`}>
+      <span className={`text-sm font-mono ${negative ? 'text-danger-soft-foreground' : ''}`}>
         {formatCurrency(kes, 'KES')}
       </span>
     </div>
@@ -250,7 +250,7 @@ export default function PnLReportPage() {
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-emerald-100 text-emerald-700">On Track</Badge>
+                  <Badge className="bg-success-soft text-success-soft-foreground">On Track</Badge>
                   <span className="text-xs text-muted-foreground">Revenue recognition lag: revenue is booked from prior month invoices.</span>
                 </div>
                 <div className="h-72">
@@ -289,7 +289,7 @@ export default function PnLReportPage() {
                 <Separator className="my-3" />
                 <div className="flex items-center justify-between py-2">
                   <span className="text-sm font-semibold">Cash Balance (USD)</span>
-                  <span className="text-sm font-mono font-semibold text-emerald-600">
+                  <span className="text-sm font-mono font-semibold text-success-soft-foreground">
                     {formatCurrency(cashBalance, 'USD')}
                   </span>
                 </div>

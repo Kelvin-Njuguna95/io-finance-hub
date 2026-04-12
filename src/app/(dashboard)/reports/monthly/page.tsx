@@ -47,7 +47,7 @@ function PnlSection({ label, bold, negative, amount }: { label: string; bold?: b
   return (
     <div className={`flex items-center justify-between py-1.5 ${bold ? 'font-semibold' : ''}`}>
       <span className="text-sm">{label}</span>
-      <span className={`text-sm font-mono ${negative && amount < 0 ? 'text-red-600' : ''} ${bold ? 'font-bold' : ''}`}>
+      <span className={`text-sm font-mono ${negative && amount < 0 ? 'text-danger-soft-foreground' : ''} ${bold ? 'font-bold' : ''}`}>
         {amount < 0 ? `(${formatCurrency(Math.abs(amount), 'KES')})` : formatCurrency(amount, 'KES')}
       </span>
     </div>
@@ -516,7 +516,7 @@ export default function MonthlyPnlReport() {
                         <span>{pnl.operatingProfit > 0 ? `${pnl.operatingMargin.toFixed(1)}%` : 'N/A'}</span>
                       </div>
                     </div>
-                    <div className={`rounded-lg px-3 py-2 ${pnl.netProfit >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                    <div className={`rounded-lg px-3 py-2 ${pnl.netProfit >= 0 ? 'bg-emerald-50' : 'bg-danger-soft/50'}`}>
                       <PnlSection label="NET PROFIT / (LOSS)" amount={pnl.netProfit} bold negative />
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Net Margin</span>

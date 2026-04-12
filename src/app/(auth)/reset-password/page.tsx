@@ -78,7 +78,7 @@ export default function ResetPasswordPage() {
         <CardContent>
           {success ? (
             <div className="text-center space-y-2">
-              <p className="text-sm text-green-600 font-medium">PIN updated successfully!</p>
+              <p className="text-sm text-success-soft-foreground font-medium">PIN updated successfully!</p>
               <p className="text-sm text-muted-foreground">Redirecting to dashboard...</p>
             </div>
           ) : (
@@ -122,7 +122,7 @@ export default function ResetPasswordPage() {
                 />
               </div>
               {error && (
-                <p className="text-sm text-red-600">{error}</p>
+                <p className="text-sm text-danger-soft-foreground">{error}</p>
               )}
               <Button
                 type="submit"

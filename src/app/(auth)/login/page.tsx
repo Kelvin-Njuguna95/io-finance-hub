@@ -54,30 +54,33 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-[#0a0f1e] px-4">
       <div
         aria-hidden
-        className="absolute inset-x-0 top-0 h-1 bg-accent"
+        className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#00d4ff] to-transparent"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-60 [background:radial-gradient(800px_400px_at_50%_-10%,color-mix(in_oklab,var(--primary)_18%,transparent)_0%,transparent_60%)]"
+        className="pointer-events-none absolute inset-0 [background:radial-gradient(800px_400px_at_50%_-10%,oklch(0.78_0.18_210_/_0.12)_0%,transparent_60%),radial-gradient(600px_300px_at_80%_100%,oklch(0.84_0.18_88_/_0.06)_0%,transparent_60%)]"
       />
-      <Card className="relative w-full max-w-sm border border-border shadow-elev-3">
+      <Card className="relative w-full max-w-sm border border-white/10 bg-white/[0.04] shadow-elev-3 backdrop-blur">
         <CardHeader className="items-center text-center">
           <div
             aria-hidden
-            className="mx-auto flex size-11 items-center justify-center rounded-xl bg-primary text-[13px] font-bold text-primary-foreground shadow-elev-1 ring-1 ring-white/10"
+            className="mx-auto flex size-12 items-center justify-center rounded-xl bg-[#F5C518] text-[14px] font-bold text-[#0a0f1e] shadow-elev-2 ring-1 ring-white/10"
           >
             IO
           </div>
-          <CardTitle className="mt-2 text-xl">IO Finance Hub</CardTitle>
-          <CardDescription>Impact Outsourcing Limited</CardDescription>
+          <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
+            Impact Outsourcing
+          </p>
+          <CardTitle className="mt-1 text-xl text-white">Finance Hub</CardTitle>
+          <CardDescription className="text-white/50">Sign in to continue</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4" noValidate>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-white/70">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -86,10 +89,11 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="border-white/10 bg-white/[0.06] text-white placeholder:text-white/30 focus-visible:border-[#00d4ff]/50 focus-visible:ring-[#00d4ff]/20"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pin">PIN</Label>
+              <Label htmlFor="pin" className="text-white/70">PIN</Label>
               <Input
                 id="pin"
                 type="password"
@@ -106,11 +110,11 @@ export default function LoginPage() {
                 required
                 aria-describedby={error ? 'login-error' : undefined}
                 aria-invalid={Boolean(error) || undefined}
-                className="text-center font-mono text-lg tracking-[0.5em]"
+                className="text-center font-mono text-lg tracking-[0.5em] border-white/10 bg-white/[0.06] text-white placeholder:text-white/30 focus-visible:border-[#00d4ff]/50 focus-visible:ring-[#00d4ff]/20"
               />
             </div>
             {error && (
-              <p id="login-error" role="alert" className="text-sm text-danger">
+              <p id="login-error" role="alert" className="text-sm text-[oklch(0.72_0.19_25)]">
                 {error}
               </p>
             )}
@@ -123,13 +127,13 @@ export default function LoginPage() {
             </Button>
             <div className="text-center">
               {resetSent ? (
-                <p className="text-sm text-success-soft-foreground">
+                <p className="text-sm text-[oklch(0.72_0.16_158)]">
                   Reset link sent! Check your email.
                 </p>
               ) : (
                 <button
                   type="button"
-                  className="text-sm text-muted-foreground underline hover:text-foreground"
+                  className="text-sm text-white/40 underline transition-colors hover:text-white/70"
                   disabled={resetLoading}
                   onClick={async () => {
                     if (!email) {

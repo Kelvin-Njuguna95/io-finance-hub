@@ -334,7 +334,7 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
                     <div className="col-span-1 flex justify-end">
                       {canEdit && (
                         <Button variant="ghost" size="icon" onClick={() => removeItem(idx)} title="Remove line item">
-                          <Trash2 className="h-4 w-4 text-rose-500" />
+                          <Trash2 className="h-4 w-4 text-danger" />
                         </Button>
                       )}
                     </div>
@@ -724,33 +724,33 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
       {/* Status Banner */}
       {prevStatus === 'submitted' || prevStatus === 'cfo_reviewed' ? (
         prevStatus === 'cfo_reviewed' ? (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 flex items-center gap-2">
+          <div className="rounded-lg border border-success/30 bg-success-soft/50 p-3 text-sm text-success-soft-foreground flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4" />
             Your {formatYearMonth(prevMonthStr)} misc report is submitted. Budget processing is unblocked.
           </div>
         ) : (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 flex items-center gap-2">
+          <div className="rounded-lg border border-info/30 bg-info-soft/50 p-3 text-sm text-info-soft-foreground flex items-center gap-2">
             <Clock className="h-4 w-4" />
             Report submitted and under CFO review.
           </div>
         )
       ) : prevStatus === null && prevDraws.length > 0 ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 flex items-center justify-between">
+        <div className="rounded-lg border border-danger/30 bg-danger-soft/50 p-3 text-sm text-danger-soft-foreground flex items-center justify-between">
           <span className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
             Your {formatYearMonth(prevMonthStr)} misc report is overdue. Budget submission and TL budget approvals are blocked.
           </span>
-          <Button variant="link" size="sm" className="text-rose-700" onClick={() => document.getElementById('report-section')?.scrollIntoView({ behavior: 'smooth' })}>
+          <Button variant="link" size="sm" className="text-danger-soft-foreground" onClick={() => document.getElementById('report-section')?.scrollIntoView({ behavior: 'smooth' })}>
             Submit Immediately &rarr;
           </Button>
         </div>
       ) : prevStatus === 'draft' ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 flex items-center justify-between">
+        <div className="rounded-lg border border-warning/30 bg-warning-soft/50 p-3 text-sm text-warning-soft-foreground flex items-center justify-between">
           <span className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             Your {formatYearMonth(prevMonthStr)} misc report has not been submitted. Submit before budget processing is blocked.
           </span>
-          <Button variant="link" size="sm" className="text-amber-700" onClick={() => document.getElementById('report-section')?.scrollIntoView({ behavior: 'smooth' })}>
+          <Button variant="link" size="sm" className="text-warning-soft-foreground" onClick={() => document.getElementById('report-section')?.scrollIntoView({ behavior: 'smooth' })}>
             Submit Now &rarr;
           </Button>
         </div>
@@ -787,7 +787,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                     </TableCell>
                     <TableCell className="font-medium text-sm max-w-[200px] truncate">{d.purpose}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white text-xs' : 'bg-amber-100 text-amber-800 text-xs'}>
+                      <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white text-xs' : 'bg-warning-soft text-warning-soft-foreground text-xs'}>
                         {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'}
                       </Badge>
                     </TableCell>
@@ -796,10 +796,10 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                     <TableCell className="text-center text-xs">{d.revision_count > 0 ? `#${d.revision_count}` : '—'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-1 justify-end">
-                        <Button size="sm" variant="outline" className="text-xs h-7 bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100" onClick={() => setApproveDrawId(d.id)}>
+                        <Button size="sm" variant="outline" className="text-xs h-7 bg-success-soft/50 text-success-soft-foreground border-success/30 hover:bg-success-soft" onClick={() => setApproveDrawId(d.id)}>
                           Approve
                         </Button>
-                        <Button size="sm" variant="outline" className="text-xs h-7 bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100" onClick={() => setDeclineDrawId(d.id)}>
+                        <Button size="sm" variant="outline" className="text-xs h-7 bg-danger-soft/50 text-danger-soft-foreground border-danger/30 hover:bg-danger-soft" onClick={() => setDeclineDrawId(d.id)}>
                           Decline
                         </Button>
                       </div>
@@ -860,7 +860,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                     <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                     <TableCell className="text-sm">{formatDate(d.created_at)}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white' : 'bg-amber-100 text-amber-800'}>
+                      <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white' : 'bg-warning-soft text-warning-soft-foreground'}>
                         {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'}
                       </Badge>
                     </TableCell>
@@ -875,11 +875,11 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={
-                        d.status === 'approved' ? 'bg-emerald-100 text-emerald-700'
-                          : d.status === 'accounted' ? 'bg-blue-100 text-blue-700'
-                            : d.status === 'flagged' ? 'bg-rose-100 text-rose-700'
+                        d.status === 'approved' ? 'bg-success-soft text-success-soft-foreground'
+                          : d.status === 'accounted' ? 'bg-info-soft text-info-soft-foreground'
+                            : d.status === 'flagged' ? 'bg-danger-soft text-danger-soft-foreground'
                               : d.status === MISC_DRAW_STATUS.PENDING_PM_APPROVAL ? 'bg-purple-100 text-purple-700'
-                                : d.status === 'declined' ? 'bg-rose-100 text-rose-700'
+                                : d.status === 'declined' ? 'bg-danger-soft text-danger-soft-foreground'
                                   : 'bg-muted text-foreground/80'
                       }>
                         {d.status === 'approved' ? 'Active' : d.status === 'accounted' ? 'Accounted' : d.status === 'flagged' ? 'Flagged' : d.status === MISC_DRAW_STATUS.PENDING_PM_APPROVAL ? 'Pending Approval' : d.status === 'declined' ? 'Declined' : d.status}
@@ -887,14 +887,14 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                     </TableCell>
                     <TableCell className="text-center">
                       {d.expense_id ? (
-                        <span className="text-emerald-600" title="Recorded">&#10003;</span>
+                        <span className="text-success" title="Recorded">&#10003;</span>
                       ) : (
-                        <span className="text-amber-500" title="Not yet recorded">&#9888;</span>
+                        <span className="text-warning" title="Not yet recorded">&#9888;</span>
                       )}
                     </TableCell>
                     <TableCell>
                       {d.status === 'approved' && !d.expense_id && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => { setDeleteDrawId(d.id); setDeleteReason(''); }} title="Delete draw">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-danger/60 hover:text-danger" onClick={() => { setDeleteDrawId(d.id); setDeleteReason(''); }} title="Delete draw">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       )}
@@ -915,7 +915,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
             <DialogDescription>Top-up requests are self-approved. Submitting records funds as drawn immediately.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+            <div className="rounded-lg border border-info/30 bg-info-soft/50 p-3 text-sm text-info-soft-foreground">
               Top-up requests are self-approved. Submitting records funds as drawn immediately.
             </div>
             <div className="space-y-1">
@@ -931,7 +931,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                 rows={3}
               />
               {topUpPurpose.length > 0 && topUpPurpose.length < 10 && (
-                <p className="text-xs text-rose-500">Minimum 10 characters required.</p>
+                <p className="text-xs text-danger">Minimum 10 characters required.</p>
               )}
             </div>
           </div>
@@ -958,12 +958,12 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                   <div><span className="text-muted-foreground">Period:</span> <strong>{formatYearMonth(prevMonthStr)}</strong></div>
                   <div><span className="text-muted-foreground">Total Drawn:</span> <strong>{formatCurrency(totalDrawnForReport, 'KES')}</strong></div>
                   <div><span className="text-muted-foreground">Total Itemised:</span> <strong>{formatCurrency(reportItemsTotal, 'KES')}</strong></div>
-                  <div><span className="text-muted-foreground">Variance:</span> <strong className={unaccounted > 0 ? 'text-amber-600' : 'text-emerald-600'}>{formatCurrency(unaccounted, 'KES')}</strong></div>
+                  <div><span className="text-muted-foreground">Variance:</span> <strong className={unaccounted > 0 ? 'text-warning-soft-foreground' : 'text-success'}>{formatCurrency(unaccounted, 'KES')}</strong></div>
                   <div>
                     <Badge variant="secondary" className={
-                      prevReport.status === 'submitted' ? 'bg-blue-100 text-blue-700'
-                        : prevReport.status === 'cfo_reviewed' ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-amber-100 text-amber-700'
+                      prevReport.status === 'submitted' ? 'bg-info-soft text-info-soft-foreground'
+                        : prevReport.status === 'cfo_reviewed' ? 'bg-success-soft text-success-soft-foreground'
+                          : 'bg-warning-soft text-warning-soft-foreground'
                     }>
                       {prevReport.status === 'cfo_reviewed' ? 'Reviewed' : prevReport.status}
                     </Badge>
@@ -1036,7 +1036,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                           {prevReport.status === 'draft' && (
                             <TableCell>
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeReportItem(idx)}>
-                                <Trash2 className="h-3 w-3 text-rose-500" />
+                                <Trash2 className="h-3 w-3 text-danger" />
                               </Button>
                             </TableCell>
                           )}
@@ -1091,10 +1091,10 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
             <div className="flex justify-between"><span>Total Drawn:</span><strong>{formatCurrency(totalDrawnForReport, 'KES')}</strong></div>
             <div className="flex justify-between"><span>Total Itemised:</span><strong>{formatCurrency(reportItemsTotal, 'KES')}</strong></div>
             <Separator />
-            <div className="flex justify-between"><span>Itemisation %:</span><strong className={itemisationPct < 80 ? 'text-rose-600' : 'text-emerald-600'}>{itemisationPct.toFixed(1)}%</strong></div>
+            <div className="flex justify-between"><span>Itemisation %:</span><strong className={itemisationPct < 80 ? 'text-danger-soft-foreground' : 'text-success'}>{itemisationPct.toFixed(1)}%</strong></div>
             {itemisationPct < 80 && (
               <div className="space-y-1">
-                <Label className="text-rose-600">Variance Explanation Required (below 80%)</Label>
+                <Label className="text-danger-soft-foreground">Variance Explanation Required (below 80%)</Label>
                 <Textarea
                   value={varianceExplanation}
                   onChange={(e) => setVarianceExplanation(e.target.value)}
@@ -1113,21 +1113,21 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
 
       {/* Flagged Items Panel */}
       {flaggedDraws.length > 0 && (
-        <Card className="border-rose-200">
+        <Card className="border-danger/30">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-rose-700 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-danger-soft-foreground flex items-center gap-2">
               <Flag className="h-4 w-4" /> Flagged Items ({flaggedDraws.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {flaggedDraws.map((d: /* // */ any) => (
-                <div key={d.id} className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm">
+                <div key={d.id} className="rounded-lg border border-danger/30 bg-danger-soft/50 p-3 text-sm">
                   <div className="flex justify-between mb-1">
                     <strong>{d.draw_type === 'standing' ? 'Standing' : 'Top-Up'} &mdash; {formatCurrency(Number(d.amount_approved), 'KES')}</strong>
                     <span className="text-muted-foreground">{formatDate(d.cfo_flagged_at)}</span>
                   </div>
-                  <p className="text-rose-700">{d.cfo_flag_reason}</p>
+                  <p className="text-danger-soft-foreground">{d.cfo_flag_reason}</p>
                 </div>
               ))}
             </div>
@@ -1146,7 +1146,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
             const draw = pendingApprovals.find((d: /* // */ any) => d.id === approveDrawId);
             return draw ? (
               <div className="space-y-3 text-sm">
-                <div className="rounded-lg border bg-emerald-50 p-3 space-y-1">
+                <div className="rounded-lg border bg-success-soft/50 p-3 space-y-1">
                   <div className="flex justify-between"><span className="text-muted-foreground">Purpose:</span><strong>{draw.purpose}</strong></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Amount:</span><strong>{formatCurrency(Number(draw.amount_requested), 'KES')}</strong></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Raised by:</span><strong>{(draw.users as /* // */ any)?.full_name || 'Accountant'}</strong></div>
@@ -1158,7 +1158,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
           })()}
           <DialogFooter>
             <Button variant="outline" onClick={() => setApproveDrawId(null)}>Cancel</Button>
-            <Button onClick={handlePmApproveDraw} disabled={actioning} className="bg-emerald-600 text-white hover:bg-emerald-700">
+            <Button onClick={handlePmApproveDraw} disabled={actioning} className="bg-success text-white hover:bg-success-soft">
               {actioning ? 'Approving...' : 'Approve Draw'}
             </Button>
           </DialogFooter>
@@ -1452,7 +1452,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
             {t.label}
             {t.count !== null && t.count > 0 && (
               <span className={`ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-bold ${
-                t.key === 'redflags' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
+                t.key === 'redflags' ? 'bg-danger-soft text-danger-soft-foreground' : 'bg-warning-soft text-warning-soft-foreground'
               }`}>{t.count}</span>
             )}
           </button>
@@ -1467,9 +1467,9 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
             <StatCard title="Total Misc Allocated" value={formatCurrency(totalAllocated, 'KES')} subtitle={`${projectsWithAlloc.length} projects`} icon={Wallet} />
             <StatCard title="Misc Drawn (MTD)" value={formatCurrency(totalDrawn, 'KES')} subtitle={`${allocPct}% of allocation`} icon={DollarSign} />
             <StatCard title="Top-Up Requests" value={String(topUpCountAll)} subtitle={formatCurrency(topUpTotalAll, 'KES')} icon={TrendingUp} />
-            <StatCard title="Reports Pending" value={String(pendingReportCount)} icon={FileText} className={pendingReportCount > 0 ? 'border-rose-200 bg-rose-50/30' : ''} />
-            <StatCard title="Overspend" value={overspendTotal > 0 ? formatCurrency(overspendTotal, 'KES') : 'None'} subtitle={`${overspendProjects.length} projects`} icon={AlertTriangle} className={overspendProjects.length > 0 ? 'border-rose-200 bg-rose-50/30' : ''} />
-            <StatCard title="Flagged / Unrecorded" value={`${flaggedCount} / ${unrecordedCount}`} icon={Flag} className={flaggedCount > 0 ? 'border-amber-200 bg-amber-50/30' : ''} />
+            <StatCard title="Reports Pending" value={String(pendingReportCount)} icon={FileText} className={pendingReportCount > 0 ? 'border-danger/30 bg-danger-soft/50' : ''} />
+            <StatCard title="Overspend" value={overspendTotal > 0 ? formatCurrency(overspendTotal, 'KES') : 'None'} subtitle={`${overspendProjects.length} projects`} icon={AlertTriangle} className={overspendProjects.length > 0 ? 'border-danger/30 bg-danger-soft/50' : ''} />
+            <StatCard title="Flagged / Unrecorded" value={`${flaggedCount} / ${unrecordedCount}`} icon={Flag} className={flaggedCount > 0 ? 'border-warning/30 bg-warning-soft/50' : ''} />
           </div>
 
           {/* Company-Wide Expense Summary */}
@@ -1579,19 +1579,19 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                   <Receipt className="h-4 w-4" />
                   Accountant Misc Requests — Quick View
                   {acctPending.length > 0 && (
-                    <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">{acctPending.length} pending</Badge>
+                    <Badge variant="secondary" className="bg-warning-soft text-warning-soft-foreground text-xs">{acctPending.length} pending</Badge>
                   )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div className="text-center p-3 rounded-lg bg-amber-50">
-                    <div className="text-xl font-bold text-amber-700">{acctPending.length}</div>
+                  <div className="text-center p-3 rounded-lg bg-warning-soft/50">
+                    <div className="text-xl font-bold text-warning-soft-foreground">{acctPending.length}</div>
                     <div className="text-muted-foreground">Pending Approval</div>
                     <div className="font-mono text-xs">{formatCurrency(acctPending.reduce((s: number, r: /* // */ any) => s + Number(r.amount_requested || 0), 0), 'KES')}</div>
                   </div>
-                  <div className="text-center p-3 rounded-lg bg-emerald-50">
-                    <div className="text-xl font-bold text-emerald-700">{acctApproved.length}</div>
+                  <div className="text-center p-3 rounded-lg bg-success-soft/50">
+                    <div className="text-xl font-bold text-success-soft-foreground">{acctApproved.length}</div>
                     <div className="text-muted-foreground">Approved</div>
                     <div className="font-mono text-xs">{formatCurrency(acctTotalApproved, 'KES')}</div>
                   </div>
@@ -1609,9 +1609,9 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
 
           {/* Red Flags Preview */}
           {allActiveFlags.length > 0 && (
-            <Card className="io-card border-rose-200">
+            <Card className="io-card border-danger/30">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2 text-rose-700">
+                <CardTitle className="text-sm font-medium flex items-center gap-2 text-danger-soft-foreground">
                   <AlertTriangle className="h-4 w-4" />
                   Active Red Flags ({allActiveFlags.length})
                 </CardTitle>
@@ -1619,18 +1619,18 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
               <CardContent>
                 <div className="space-y-2">
                   {allActiveFlags.slice(0, 5).map((f: /* // */ any) => (
-                    <div key={f.id} className="flex items-start gap-3 rounded-lg border border-rose-100 bg-rose-50/50 p-3 text-sm">
+                    <div key={f.id} className="flex items-start gap-3 rounded-lg border border-danger/30 bg-danger-soft/50 p-3 text-sm">
                       <AlertTriangle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
-                        f.severity === 'critical' ? 'text-rose-600' : f.severity === 'high' ? 'text-orange-500' : 'text-amber-500'
+                        f.severity === 'critical' ? 'text-danger-soft-foreground' : f.severity === 'high' ? 'text-orange-500' : 'text-warning'
                       }`} />
                       <div className="flex-1 min-w-0">
                         <div className="font-medium">{f.title}</div>
                         <p className="text-muted-foreground text-xs mt-0.5 line-clamp-2">{f.description}</p>
                       </div>
                       <Badge variant="secondary" className={
-                        f.severity === 'critical' ? 'bg-rose-100 text-rose-700'
+                        f.severity === 'critical' ? 'bg-danger-soft text-danger-soft-foreground'
                           : f.severity === 'high' ? 'bg-orange-100 text-orange-700'
-                            : 'bg-amber-100 text-amber-700'
+                            : 'bg-warning-soft text-warning-soft-foreground'
                       }>{f.severity}</Badge>
                     </div>
                   ))}
@@ -1688,32 +1688,32 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
 
                       const isOverspend = remaining < 0;
                       const isReportOverdue = !report && projDraws.length > 0;
-                      const rowClass = isOverspend || isReportOverdue ? 'bg-rose-50/50' : reportStatus === 'draft' ? 'bg-amber-50/50' : '';
+                      const rowClass = isOverspend || isReportOverdue ? 'bg-danger-soft/50' : reportStatus === 'draft' ? 'bg-warning-soft/50' : '';
 
                       return (
                         <TableRow key={p.id} className={rowClass}>
                           <TableCell className="font-medium">{p.name}</TableCell>
                           <TableCell className="text-right font-mono text-sm">{alloc > 0 ? formatCurrency(alloc, 'KES') : '—'}</TableCell>
                           <TableCell className="text-right font-mono text-sm">{formatCurrency(drawn, 'KES')}</TableCell>
-                          <TableCell className={`text-right font-mono text-sm ${remaining < 0 ? 'text-rose-600 font-bold' : ''}`}>
+                          <TableCell className={`text-right font-mono text-sm ${remaining < 0 ? 'text-danger-soft-foreground font-bold' : ''}`}>
                             {alloc > 0 ? formatCurrency(remaining, 'KES') : '—'}
                           </TableCell>
                           <TableCell className="text-center">{topUps}</TableCell>
                           <TableCell>
                             <Badge variant="secondary" className={
-                              reportStatus === 'submitted' ? 'bg-blue-100 text-blue-700'
-                                : reportStatus === 'cfo_reviewed' ? 'bg-emerald-100 text-emerald-700'
-                                  : reportStatus === 'draft' ? 'bg-amber-100 text-amber-700'
-                                    : 'bg-rose-100 text-rose-700'
+                              reportStatus === 'submitted' ? 'bg-info-soft text-info-soft-foreground'
+                                : reportStatus === 'cfo_reviewed' ? 'bg-success-soft text-success-soft-foreground'
+                                  : reportStatus === 'draft' ? 'bg-warning-soft text-warning-soft-foreground'
+                                    : 'bg-danger-soft text-danger-soft-foreground'
                             }>
                               {reportStatus === 'cfo_reviewed' ? 'Reviewed' : reportStatus === 'not_submitted' ? 'Not Submitted' : reportStatus}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-center">
-                            {projDraws.length === 0 ? '—' : allExpensed ? <span className="text-emerald-600">✓</span> : <span className="text-amber-500">⚠</span>}
+                            {projDraws.length === 0 ? '—' : allExpensed ? <span className="text-success">✓</span> : <span className="text-warning">⚠</span>}
                           </TableCell>
                           <TableCell className="text-center">
-                            {flagged > 0 ? <span className="text-rose-600 font-bold">{flagged}</span> : '0'}
+                            {flagged > 0 ? <span className="text-danger-soft-foreground font-bold">{flagged}</span> : '0'}
                           </TableCell>
                           <TableCell>
                             <Button variant="ghost" size="sm" className="text-xs" onClick={() => openProjectDetail(p)}>
@@ -1746,19 +1746,19 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                     const isOver = pct > 100;
                     const isUnder = pct < 30;
                     return (
-                      <div key={p.id} className={`rounded-lg border p-3 ${isOver ? 'border-rose-200 bg-rose-50/30' : isUnder ? 'border-blue-200 bg-blue-50/30' : 'border-border/70'}`}>
+                      <div key={p.id} className={`rounded-lg border p-3 ${isOver ? 'border-danger/30 bg-danger-soft/50' : isUnder ? 'border-info/30 bg-info-soft/50' : 'border-border/70'}`}>
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="font-medium text-sm">{p.name}</span>
                           <div className="flex items-center gap-3 text-xs">
                             <span className="text-muted-foreground">Alloc: {formatCurrency(alloc, 'KES')}</span>
-                            <span className={`font-mono font-bold ${isOver ? 'text-rose-600' : ''}`}>{formatCurrency(drawn, 'KES')}</span>
-                            {isOver && <Badge variant="secondary" className="bg-rose-100 text-rose-700 text-xs">OVER</Badge>}
-                            {isUnder && drawn === 0 && <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">NO DRAWS</Badge>}
+                            <span className={`font-mono font-bold ${isOver ? 'text-danger-soft-foreground' : ''}`}>{formatCurrency(drawn, 'KES')}</span>
+                            {isOver && <Badge variant="secondary" className="bg-danger-soft text-danger-soft-foreground text-xs">OVER</Badge>}
+                            {isUnder && drawn === 0 && <Badge variant="secondary" className="bg-info-soft text-info-soft-foreground text-xs">NO DRAWS</Badge>}
                           </div>
                         </div>
                         <div className="h-2 rounded-full bg-muted overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all ${isOver ? 'bg-rose-500' : pct > 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                            className={`h-full rounded-full transition-all ${isOver ? 'bg-danger' : pct > 70 ? 'bg-warning' : 'bg-success'}`}
                             style={{ width: `${Math.min(pct, 100)}%` }}
                           />
                         </div>
@@ -1776,15 +1776,15 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
 
           {/* Pending Reports Panel */}
           {pendingReportCount > 0 && (
-            <Card className="io-card border-amber-200">
+            <Card className="io-card border-warning/30">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2 text-amber-700">
+                <CardTitle className="text-sm font-medium flex items-center gap-2 text-warning-soft-foreground">
                   <AlertCircle className="h-4 w-4" />
                   Pending Misc Reports — {formatYearMonth(prevMonthStr)}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-amber-600 mb-3">These PMs have not submitted their misc report. Budget approval is BLOCKED until reports are in.</p>
+                <p className="text-xs text-warning-soft-foreground mb-3">These PMs have not submitted their misc report. Budget approval is BLOCKED until reports are in.</p>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1797,11 +1797,11 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                     {projectsWithAlloc.filter((p) => !reportMap.has(p.id) || reportMap.get(p.id)?.status === 'draft').map((p) => {
                       const drawn = allDraws.filter((d) => d.project_id === p.id).reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
                       return (
-                        <TableRow key={p.id} className="bg-amber-50/50">
+                        <TableRow key={p.id} className="bg-warning-soft/50">
                           <TableCell className="font-medium">{p.name}</TableCell>
                           <TableCell className="text-right font-mono text-sm">{formatCurrency(drawn, 'KES')}</TableCell>
                           <TableCell>
-                            <Badge variant="secondary" className="bg-rose-100 text-rose-700">
+                            <Badge variant="secondary" className="bg-danger-soft text-danger-soft-foreground">
                               {reportMap.get(p.id)?.status === 'draft' ? 'Draft' : 'Not Submitted'}
                             </Badge>
                           </TableCell>
@@ -1816,9 +1816,9 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
 
           {/* Submitted Reports to Review */}
           {reports.filter((r: /* // */ any) => r.status === 'submitted').length > 0 && (
-            <Card className="io-card border-blue-200">
+            <Card className="io-card border-info/30">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2 text-blue-700">
+                <CardTitle className="text-sm font-medium flex items-center gap-2 text-info-soft-foreground">
                   <FileText className="h-4 w-4" />
                   Reports Awaiting CFO Review
                 </CardTitle>
@@ -1842,7 +1842,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                         <TableCell className="text-sm text-muted-foreground">{r.period_month}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(r.total_allocated), 'KES')}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(r.total_claimed), 'KES')}</TableCell>
-                        <TableCell className={`text-right font-mono text-sm ${Number(r.variance) < 0 ? 'text-rose-600' : ''}`}>
+                        <TableCell className={`text-right font-mono text-sm ${Number(r.variance) < 0 ? 'text-danger-soft-foreground' : ''}`}>
                           {formatCurrency(Number(r.variance || (r.total_allocated - r.total_claimed)), 'KES')}
                         </TableCell>
                         <TableCell>
@@ -1862,7 +1862,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
       {activeTab === 'accountant' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <StatCard title="Pending Requests" value={String(acctPending.length)} subtitle={formatCurrency(acctPending.reduce((s: number, r: /* // */ any) => s + Number(r.amount_requested || 0), 0), 'KES')} icon={Clock} className={acctPending.length > 0 ? 'border-amber-200' : ''} />
+            <StatCard title="Pending Requests" value={String(acctPending.length)} subtitle={formatCurrency(acctPending.reduce((s: number, r: /* // */ any) => s + Number(r.amount_requested || 0), 0), 'KES')} icon={Clock} className={acctPending.length > 0 ? 'border-warning/30' : ''} />
             <StatCard title="Approved" value={String(acctApproved.length)} subtitle={formatCurrency(acctTotalApproved, 'KES')} icon={CheckCircle2} />
             <StatCard title="Declined" value={String(acctRequests.filter((r) => r.status === 'declined').length)} icon={AlertCircle} />
             <StatCard title="Total Requested (All)" value={formatCurrency(acctRequests.reduce((s: number, r: /* // */ any) => s + Number(r.amount_requested || 0), 0), 'KES')} icon={DollarSign} />
@@ -1892,7 +1892,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                     </TableRow>
                   ) : (
                     acctRequests.map((r: /* // */ any) => (
-                      <TableRow key={r.id} className={r.status === 'pending' ? 'bg-amber-50/50' : ''}>
+                      <TableRow key={r.id} className={r.status === 'pending' ? 'bg-warning-soft/50' : ''}>
                         <TableCell className="text-sm text-muted-foreground">{formatDate(r.created_at)}</TableCell>
                         <TableCell className="font-medium text-sm max-w-[200px] truncate">{r.purpose}</TableCell>
                         <TableCell className="text-sm">{(r.users as /* // */ any)?.full_name || '—'}</TableCell>
@@ -1900,10 +1900,10 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                         <TableCell className="text-right font-mono text-sm">{r.amount_approved ? formatCurrency(Number(r.amount_approved), 'KES') : '—'}</TableCell>
                         <TableCell>
                           <Badge variant="secondary" className={
-                            r.status === 'pending' ? 'bg-amber-100 text-amber-700'
-                              : r.status === 'approved' ? 'bg-emerald-100 text-emerald-700'
-                                : r.status === 'declined' ? 'bg-rose-100 text-rose-700'
-                                  : 'bg-blue-100 text-blue-700'
+                            r.status === 'pending' ? 'bg-warning-soft text-warning-soft-foreground'
+                              : r.status === 'approved' ? 'bg-success-soft text-success-soft-foreground'
+                                : r.status === 'declined' ? 'bg-danger-soft text-danger-soft-foreground'
+                                  : 'bg-info-soft text-info-soft-foreground'
                           }>{r.status}</Badge>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">
@@ -1923,7 +1923,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
       {activeTab === 'redflags' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <StatCard title="Active Red Flags" value={String(allActiveFlags.length)} icon={AlertTriangle} className={allActiveFlags.length > 0 ? 'border-rose-200 bg-rose-50/30' : ''} />
+            <StatCard title="Active Red Flags" value={String(allActiveFlags.length)} icon={AlertTriangle} className={allActiveFlags.length > 0 ? 'border-danger/30 bg-danger-soft/50' : ''} />
             <StatCard title="Critical / High" value={String(allActiveFlags.filter((f: /* // */ any) => f.severity === 'critical' || f.severity === 'high').length)} icon={AlertTriangle} className="border-orange-200" />
             <StatCard title="Medium" value={String(allActiveFlags.filter((f: /* // */ any) => f.severity === 'medium').length)} icon={AlertCircle} />
             <StatCard title="Misc/Expense Related" value={String(miscFlags.length)} icon={Flag} />
@@ -1932,8 +1932,8 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
           {allActiveFlags.length === 0 ? (
             <Card className="io-card">
               <CardContent className="py-12 text-center">
-                <CheckCircle2 className="h-12 w-12 text-emerald-400 mx-auto mb-3" />
-                <p className="text-lg font-medium text-emerald-700">All Clear</p>
+                <CheckCircle2 className="h-12 w-12 text-success mx-auto mb-3" />
+                <p className="text-lg font-medium text-success-soft-foreground">All Clear</p>
                 <p className="text-sm text-muted-foreground">No active red flags. Everything is in order.</p>
               </CardContent>
             </Card>
@@ -1956,14 +1956,14 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                   <TableBody>
                     {allActiveFlags.map((f: /* // */ any) => (
                       <TableRow key={f.id} className={
-                        f.severity === 'critical' ? 'bg-rose-50/50' : f.severity === 'high' ? 'bg-orange-50/30' : ''
+                        f.severity === 'critical' ? 'bg-danger-soft/50' : f.severity === 'high' ? 'bg-orange-50/30' : ''
                       }>
                         <TableCell>
                           <Badge variant="secondary" className={
-                            f.severity === 'critical' ? 'bg-rose-100 text-rose-700'
+                            f.severity === 'critical' ? 'bg-danger-soft text-danger-soft-foreground'
                               : f.severity === 'high' ? 'bg-orange-100 text-orange-700'
-                                : f.severity === 'medium' ? 'bg-amber-100 text-amber-700'
-                                  : 'bg-blue-100 text-blue-700'
+                                : f.severity === 'medium' ? 'bg-warning-soft text-warning-soft-foreground'
+                                  : 'bg-info-soft text-info-soft-foreground'
                           }>{f.severity}</Badge>
                         </TableCell>
                         <TableCell className="font-medium text-sm">{f.title}</TableCell>
@@ -1994,14 +1994,14 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
             ) : (
               <div className="space-y-2">
                 {paginatedFeed.map((d: /* // */ any) => (
-                  <div key={d.id} className={`flex items-center justify-between rounded-lg border p-3 text-sm ${d.cfo_flagged ? 'border-rose-200 bg-rose-50/30' : ''}`}>
+                  <div key={d.id} className={`flex items-center justify-between rounded-lg border p-3 text-sm ${d.cfo_flagged ? 'border-danger/30 bg-danger-soft/50' : ''}`}>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-muted-foreground text-xs">{timeAgo(d.created_at)}</span>
                         <strong>{(d.projects as /* // */ any)?.name || 'Unknown'}</strong>
                         <span>—</span>
                         <span className="font-mono">{formatCurrency(Number(d.amount_approved), 'KES')}</span>
-                        <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white text-xs' : 'bg-amber-100 text-amber-800 text-xs'}>
+                        <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white text-xs' : 'bg-warning-soft text-warning-soft-foreground text-xs'}>
                           {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'}
                         </Badge>
                         <span className="text-muted-foreground">— {(d.users as /* // */ any)?.full_name || 'Unknown'}</span>
@@ -2012,7 +2012,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                           <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px]">Pending PM</Badge>
                         )}
                         {d.status === 'declined' && (
-                          <Badge variant="secondary" className="bg-rose-100 text-rose-700 text-[10px]">Declined</Badge>
+                          <Badge variant="secondary" className="bg-danger-soft text-danger-soft-foreground text-[10px]">Declined</Badge>
                         )}
                         {d.status === 'deleted' && (
                           <Badge variant="secondary" className="bg-muted text-muted-foreground text-[10px]">Deleted</Badge>
@@ -2023,15 +2023,15 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                       </div>
                       {d.purpose && <p className="text-muted-foreground truncate max-w-lg">{d.purpose}</p>}
                       {d.cfo_flagged && d.cfo_flag_reason && (
-                        <p className="text-rose-600 text-xs mt-1">⚑ Flagged: {d.cfo_flag_reason}</p>
+                        <p className="text-danger-soft-foreground text-xs mt-1">⚑ Flagged: {d.cfo_flag_reason}</p>
                       )}
                     </div>
                     {!d.cfo_flagged ? (
-                      <Button variant="ghost" size="sm" className="text-xs text-amber-600" onClick={() => setFlagDraw(d)}>
+                      <Button variant="ghost" size="sm" className="text-xs text-warning-soft-foreground" onClick={() => setFlagDraw(d)}>
                         <Flag className="h-3 w-3 mr-1" /> Flag
                       </Button>
                     ) : (
-                      <Badge variant="secondary" className="bg-rose-100 text-rose-700 text-xs">Flagged</Badge>
+                      <Badge variant="secondary" className="bg-danger-soft text-danger-soft-foreground text-xs">Flagged</Badge>
                     )}
                   </div>
                 ))}
@@ -2073,10 +2073,10 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                 </TableHeader>
                 <TableBody>
                   {detailDraws.map((d: /* // */ any) => (
-                    <TableRow key={d.id} className={d.cfo_flagged ? 'bg-rose-50/50' : ''}>
+                    <TableRow key={d.id} className={d.cfo_flagged ? 'bg-danger-soft/50' : ''}>
                       <TableCell className="text-sm">{formatDate(d.created_at)}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white text-xs' : 'bg-amber-100 text-amber-800 text-xs'}>
+                        <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white text-xs' : 'bg-warning-soft text-warning-soft-foreground text-xs'}>
                           {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'}
                         </Badge>
                       </TableCell>
@@ -2084,12 +2084,12 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                       <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(d.amount_approved), 'KES')}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className={
-                          d.cfo_flagged ? 'bg-rose-100 text-rose-700' : d.status === 'accounted' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
+                          d.cfo_flagged ? 'bg-danger-soft text-danger-soft-foreground' : d.status === 'accounted' ? 'bg-info-soft text-info-soft-foreground' : 'bg-success-soft text-success-soft-foreground'
                         }>
                           {d.cfo_flagged ? 'Flagged' : d.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>{d.expense_id ? <span className="text-emerald-600">✓</span> : <span className="text-amber-500">⚠</span>}</TableCell>
+                      <TableCell>{d.expense_id ? <span className="text-success">✓</span> : <span className="text-warning">⚠</span>}</TableCell>
                     </TableRow>
                   ))}
                   <TableRow className="font-bold bg-muted/50">
@@ -2156,8 +2156,8 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
             </span>
           </div>
           {reviewReport?.variance_explanation && (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm mb-3">
-              <strong className="text-amber-700">Variance Explanation:</strong>
+            <div className="rounded-lg bg-warning-soft/50 border border-warning/30 p-3 text-sm mb-3">
+              <strong className="text-warning-soft-foreground">Variance Explanation:</strong>
               <p className="text-foreground/80 mt-1">{reviewReport.variance_explanation}</p>
             </div>
           )}
@@ -2481,7 +2481,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
           value={String(pendingDraws.length)}
           subtitle={formatCurrency(pendingTotal, 'KES')}
           icon={AlertCircle}
-          className={pendingDraws.length > 0 ? 'border-amber-200' : ''}
+          className={pendingDraws.length > 0 ? 'border-warning/30' : ''}
         />
         <StatCard
           title="Total Misc Expensed (MTD)"
@@ -2521,7 +2521,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-xs">Awaiting PM</Badge>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => handleAccountantDeleteDraw(d.id)} title="Withdraw request">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-danger/60 hover:text-danger" onClick={() => handleAccountantDeleteDraw(d.id)} title="Withdraw request">
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -2534,10 +2534,10 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
           {/* Returned (Declined) Requests */}
           {returnedDraws.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-rose-700 mb-2">Returned Requests ({returnedDraws.length})</p>
+              <p className="text-xs font-semibold text-danger-soft-foreground mb-2">Returned Requests ({returnedDraws.length})</p>
               <div className="space-y-2">
                 {returnedDraws.map((d: /* // */ any) => (
-                  <div key={d.id} className="rounded-lg border border-rose-200 bg-rose-50/50 p-3 text-sm">
+                  <div key={d.id} className="rounded-lg border border-danger/30 bg-danger-soft/50 p-3 text-sm">
                     <div className="flex items-center justify-between mb-1">
                       <strong>{(d.projects as /* // */ any)?.name}</strong>
                       <div className="flex gap-1">
@@ -2549,14 +2549,14 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                         }}>
                           Revise & Resubmit
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => handleAccountantDeleteDraw(d.id)} title="Withdraw">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-danger/60" onClick={() => handleAccountantDeleteDraw(d.id)} title="Withdraw">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
                     <p className="text-xs text-foreground/80">{d.purpose} &mdash; {formatCurrency(Number(d.amount_requested), 'KES')}</p>
                     {d.pm_decline_reason && (
-                      <p className="text-xs text-rose-600 mt-1">PM Decline Reason: {d.pm_decline_reason}</p>
+                      <p className="text-xs text-danger-soft-foreground mt-1">PM Decline Reason: {d.pm_decline_reason}</p>
                     )}
                     {d.revision_count > 0 && (
                       <p className="text-xs text-muted-foreground">Revision #{d.revision_count}</p>
@@ -2602,7 +2602,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
               <Label>Purpose *</Label>
               <Textarea value={raisePurpose} onChange={(e) => setRaisePurpose(e.target.value)} placeholder="Describe what these funds are needed for (min 10 chars)" rows={3} />
               {raisePurpose.length > 0 && raisePurpose.length < 10 && (
-                <p className="text-xs text-rose-500">Minimum 10 characters required.</p>
+                <p className="text-xs text-danger">Minimum 10 characters required.</p>
               )}
             </div>
             <div className="space-y-1">
@@ -2631,8 +2631,8 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
             return draw ? (
               <div className="space-y-4">
                 {draw.pm_decline_reason && (
-                  <div className="rounded-lg bg-rose-50 border border-rose-200 p-3 text-sm">
-                    <strong className="text-rose-700">PM Decline Reason:</strong>
+                  <div className="rounded-lg bg-danger-soft/50 border border-danger/30 p-3 text-sm">
+                    <strong className="text-danger-soft-foreground">PM Decline Reason:</strong>
                     <p className="text-foreground/80 mt-1">{draw.pm_decline_reason}</p>
                   </div>
                 )}
@@ -2661,10 +2661,10 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
       </Dialog>
 
       {/* Draws to Record Table */}
-      <Card className="io-card border-amber-200">
+      <Card className="io-card border-warning/30">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertCircle className="h-4 w-4 text-warning-soft-foreground" />
             Draws to Record ({pendingDraws.length})
           </CardTitle>
         </CardHeader>
@@ -2690,18 +2690,18 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                 pendingDraws.map((d: /* // */ any) => {
                   const daysPending = Math.floor((Date.now() - new Date(d.created_at).getTime()) / 86400000);
                   return (
-                    <TableRow key={d.id} className={daysPending > 2 ? 'bg-amber-50/50' : ''}>
+                    <TableRow key={d.id} className={daysPending > 2 ? 'bg-warning-soft/50' : ''}>
                       <TableCell className="font-medium">{(d.projects as /* // */ any)?.name || '—'}</TableCell>
                       <TableCell className="text-sm">{(d.users as /* // */ any)?.full_name || '—'}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white' : 'bg-amber-100 text-amber-800'}>
+                        <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white' : 'bg-warning-soft text-warning-soft-foreground'}>
                           {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(d.amount_approved), 'KES')}</TableCell>
                       <TableCell className="text-sm">{formatDate(d.created_at)}</TableCell>
                       <TableCell className="text-center">
-                        <span className={daysPending > 2 ? 'text-amber-600 font-bold' : ''}>{daysPending}d</span>
+                        <span className={daysPending > 2 ? 'text-warning-soft-foreground font-bold' : ''}>{daysPending}d</span>
                       </TableCell>
                       <TableCell>
                         <Button variant="outline" size="sm" className="text-xs" onClick={() => setRecordDraw(d)}>Record</Button>
@@ -2751,8 +2751,8 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                       <TableCell className="text-right font-mono text-sm">{formatCurrency(totalExpensed, 'KES')}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className={
-                          report?.status === 'submitted' ? 'bg-blue-100 text-blue-700'
-                            : report?.status === 'cfo_reviewed' ? 'bg-emerald-100 text-emerald-700'
+                          report?.status === 'submitted' ? 'bg-info-soft text-info-soft-foreground'
+                            : report?.status === 'cfo_reviewed' ? 'bg-success-soft text-success-soft-foreground'
                               : 'bg-muted text-foreground/80'
                         }>
                           {report ? (report.status === 'cfo_reviewed' ? 'Reviewed' : report.status) : 'No Report'}
@@ -2760,9 +2760,9 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                       </TableCell>
                       <TableCell>
                         {allRecorded ? (
-                          <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">All Recorded</Badge>
+                          <Badge variant="secondary" className="bg-success-soft text-success-soft-foreground">All Recorded</Badge>
                         ) : (
-                          <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+                          <Badge variant="secondary" className="bg-warning-soft text-warning-soft-foreground">
                             {projDraws.filter((d: /* // */ any) => !d.expense_id).length} Pending
                           </Badge>
                         )}

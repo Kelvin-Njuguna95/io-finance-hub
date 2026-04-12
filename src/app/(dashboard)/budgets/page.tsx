@@ -286,14 +286,14 @@ export default function BudgetsPage() {
                     const hasSibling = siblings.length > 1;
 
                     return (
-                      <TableRow key={b.id} className={hasSibling ? 'border-l-2 border-l-amber-300' : ''}>
+                      <TableRow key={b.id} className={hasSibling ? 'border-l-2 border-l-warning' : `status-row-${b.latest_status === 'under_review' || b.latest_status === 'pm_review' ? 'review' : b.latest_status}`}>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
                             <span className="truncate max-w-[220px]" title={b.project_name || b.department_name || '—'}>
                               {b.project_name || b.department_name || '—'}
                             </span>
                             {hasSibling && (
-                              <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-medium">
+                              <span className="text-[10px] bg-warning-soft text-warning-soft-foreground px-1.5 py-0.5 rounded-full font-medium">
                                 {siblings.length} versions
                               </span>
                             )}
@@ -305,12 +305,12 @@ export default function BudgetsPage() {
                             <Badge
                               variant="secondary"
                               className={b.submitted_by_role === 'accountant'
-                                ? 'bg-blue-100 text-blue-700 text-[10px] px-1.5'
+                                ? 'bg-info-soft text-info-soft-foreground text-[10px] px-1.5'
                                 : b.submitted_by_role === 'project_manager'
-                                  ? 'bg-teal-100 text-teal-700 text-[10px] px-1.5'
+                                  ? 'bg-teal-soft text-teal-soft-foreground text-[10px] px-1.5'
                                   : b.submitted_by_role === 'cfo'
-                                    ? 'bg-violet-100 text-violet-700 text-[10px] px-1.5'
-                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 text-[10px] px-1.5'
+                                    ? 'bg-violet-soft text-violet-soft-foreground text-[10px] px-1.5'
+                                    : 'bg-warning-soft text-warning-soft-foreground text-[10px] px-1.5'
                               }
                             >
                               {b.submitted_by_role === 'accountant'

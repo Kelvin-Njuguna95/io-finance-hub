@@ -83,6 +83,16 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
+  /* Electric Blue — primary action / chart accent */
+  --color-electric: var(--electric);
+  --color-electric-foreground: var(--electric-foreground);
+  --color-electric-soft: var(--electric-soft);
+  --color-electric-soft-foreground: var(--electric-soft-foreground);
+
+  /* Gold — navigation / badge accent */
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+
   /* Charts */
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -187,10 +197,20 @@
   --input: oklch(0.925 0.006 255);
   --ring: oklch(0.65 0.17 258);
 
-  /* Chart palette — six distinct hues, AA-legible on white */
-  --chart-1: oklch(0.57 0.21 262);  /* indigo / revenue */
-  --chart-2: oklch(0.68 0.16 158);  /* emerald / profit */
-  --chart-3: oklch(0.73 0.17 55);   /* amber / expenses */
+  /* Electric Blue (#00d4ff) */
+  --electric: oklch(0.78 0.18 210);
+  --electric-foreground: oklch(0.12 0.03 260);
+  --electric-soft: oklch(0.955 0.04 210);
+  --electric-soft-foreground: oklch(0.36 0.14 210);
+
+  /* Gold (#F5C518) */
+  --gold: oklch(0.84 0.18 88);
+  --gold-foreground: oklch(0.18 0.06 88);
+
+  /* Chart palette — Electric Blue primary, Gold secondary */
+  --chart-1: oklch(0.78 0.18 210);  /* electric blue / revenue */
+  --chart-2: oklch(0.84 0.18 88);   /* gold / profit */
+  --chart-3: oklch(0.68 0.16 158);  /* emerald / expenses */
   --chart-4: oklch(0.64 0.19 290);  /* violet / budgets */
   --chart-5: oklch(0.70 0.11 195);  /* teal / receivables */
   --chart-6: oklch(0.63 0.23 25);   /* red / variance */
@@ -292,9 +312,20 @@
   --input: oklch(1 0 0 / 0.14);
   --ring: oklch(0.72 0.17 258);
 
-  --chart-1: oklch(0.72 0.18 265);
-  --chart-2: oklch(0.78 0.16 158);
-  --chart-3: oklch(0.80 0.17 55);
+  /* Electric Blue — brighter in dark mode */
+  --electric: oklch(0.82 0.17 210);
+  --electric-foreground: oklch(0.10 0.02 260);
+  --electric-soft: oklch(0.28 0.08 210);
+  --electric-soft-foreground: oklch(0.90 0.14 210);
+
+  /* Gold */
+  --gold: oklch(0.86 0.18 88);
+  --gold-foreground: oklch(0.14 0.06 88);
+
+  /* Charts — Electric Blue primary, Gold secondary */
+  --chart-1: oklch(0.82 0.17 210);
+  --chart-2: oklch(0.86 0.18 88);
+  --chart-3: oklch(0.78 0.16 158);
   --chart-4: oklch(0.74 0.18 290);
   --chart-5: oklch(0.78 0.11 195);
   --chart-6: oklch(0.72 0.22 25);
@@ -378,7 +409,7 @@
   background: var(--card);
 }
 
-/* Hero surface: layered navy with gradient accent and inner highlight */
+/* Hero surface: #0a0f1e base with Electric Blue + Gold accent radials */
 .hero-surface {
   position: relative;
   overflow: hidden;
@@ -387,24 +418,24 @@
   background:
     radial-gradient(
       1000px 420px at 100% 0%,
-      oklch(0.85 0.17 88 / 0.18) 0%,
+      oklch(0.78 0.18 210 / 0.14) 0%,
       transparent 60%
     ),
     radial-gradient(
       600px 280px at 0% 100%,
-      oklch(0.62 0.21 262 / 0.22) 0%,
+      oklch(0.84 0.18 88 / 0.10) 0%,
       transparent 60%
     ),
-    linear-gradient(180deg, oklch(0.24 0.06 260) 0%, oklch(0.18 0.05 260) 100%);
+    linear-gradient(180deg, #0f1528 0%, #0a0f1e 100%);
   box-shadow: var(--shadow-elev-hero);
-  border: 1px solid oklch(1 0 0 / 0.08);
+  border: 1px solid oklch(1 0 0 / 0.06);
 }
 .hero-surface::before {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(180deg, oklch(1 0 0 / 0.08) 0%, transparent 40%);
+  background: linear-gradient(180deg, oklch(1 0 0 / 0.05) 0%, transparent 40%);
   border-radius: inherit;
 }
 
@@ -473,6 +504,53 @@
 .total-row td {
   font-weight: 700;
   color: var(--foreground);
+}
+
+/* Status row left-border color coding for tables */
+.status-row-approved  { border-left: 3px solid var(--success); }
+.status-row-confirmed { border-left: 3px solid var(--success); }
+.status-row-submitted { border-left: 3px solid var(--info); }
+.status-row-pending   { border-left: 3px solid var(--warning); }
+.status-row-rejected  { border-left: 3px solid var(--danger); }
+.status-row-draft     { border-left: 3px solid var(--muted-foreground); }
+.status-row-review    { border-left: 3px solid var(--warning); }
+.status-row-overdue   { border-left: 3px solid var(--danger); }
+
+/* Skeleton shimmer for loading states */
+@keyframes io-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 25%,
+    color-mix(in oklab, var(--muted) 60%, var(--background)) 50%,
+    var(--muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: io-shimmer 1.8s ease-in-out infinite;
+}
+
+/* Micro-interaction: subtle card lift on hover */
+.card-interactive {
+  transition: transform var(--dur-base) var(--ease-standard),
+              box-shadow var(--dur-base) var(--ease-standard),
+              border-color var(--dur-fast) var(--ease-standard);
+}
+.card-interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-elev-2);
+}
+
+/* Number formatting helpers */
+.num-positive { color: var(--success-soft-foreground); }
+.num-negative { color: var(--danger-soft-foreground); }
+.num-currency {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  text-align: right;
+  font-family: var(--font-mono);
 }
 
 /* ------------------------------------------------------------------ */

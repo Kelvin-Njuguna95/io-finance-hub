@@ -45,10 +45,10 @@ export default function WithdrawalsPage() {
     async function load() {
       const supabase = createClient();
 
-      // Load withdrawals
+      // Load withdrawals (join projects for company_operations rows)
       const { data: wData } = await supabase
         .from('withdrawals')
-        .select('*')
+        .select('*, projects(name)')
         .eq('year_month', selectedMonth)
         .order('withdrawal_date', { ascending: false });
       setWithdrawals((wData || []) as (Withdrawal & { projects?: { name: string } | null })[]);
@@ -332,7 +332,7 @@ export default function WithdrawalsPage() {
                         <TableCell>
                           {w.withdrawal_type === 'director_payout' ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
-                              💰 Director Payout
+                              Director Payout
                             </span>
                           ) : (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
@@ -349,7 +349,9 @@ export default function WithdrawalsPage() {
                               </p>
                             </div>
                           ) : (
-                            capitalize(w.director_tag || '')
+                            w.purpose === 'company_operations'
+                              ? w.projects?.name || 'Company Ops'
+                              : capitalize(w.director_tag || '')
                           )}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">

@@ -188,9 +188,9 @@ export interface Payment {
 
 export interface Withdrawal {
   id: string;
-  withdrawal_date: string;
-  withdrawal_type: WithdrawalType;
   purpose: 'director_payout' | 'company_operations';
+  withdrawal_type: WithdrawalType;
+  withdrawal_date: string;
   director_tag: DirectorEnum | null;
   director_user_id: string | null;
   director_name: string | null;
