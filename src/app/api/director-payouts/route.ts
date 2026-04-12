@@ -11,6 +11,18 @@ type CreateDirectorPayoutPayload = {
   notes?: string;
 };
 
+function normalizePeriodMonth(periodMonth: string) {
+  if (/^\d{4}-\d{2}$/.test(periodMonth)) {
+    return `${periodMonth}-01`;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(periodMonth)) {
+    return periodMonth;
+  }
+
+  return null;
+}
+
 export async function POST(request: Request) {
   try {
     const auth = await getAuthUserProfile(request);
@@ -24,15 +36,27 @@ export async function POST(request: Request) {
     }
 
     const body = (await request.json()) as CreateDirectorPayoutPayload;
+    const normalizedPeriodMonth = normalizePeriodMonth(body.period_month);
 
-    if (!body.director_name || !body.profit_share_record_id || !body.period_month || Number(body.amount_kes) <= 0) {
+    console.log('Director payout POST received:', {
+      body: {
+        director_name: body.director_name,
+        period_month: body.period_month,
+        amount_kes: body.amount_kes,
+        payment_method: body.payment_method,
+        profit_share_record_id: body.profit_share_record_id,
+      },
+      userId: user.id,
+      userRole: profile.role,
+    });
+
+    if (!body.director_name || !body.profit_share_record_id || !normalizedPeriodMonth || Number(body.amount_kes) <= 0) {
       return NextResponse.json({ error: 'director_name, profit_share_record_id, period_month and amount_kes are required.' }, { status: 422 });
     }
 
-    const expectedTag = body.director_name.toLowerCase();
     const { data: psRecord } = await admin
       .from('profit_share_records')
-      .select('id, director_tag, balance_remaining, distributable_amount')
+      .select('id, director_tag, director_name, balance_remaining, director_share_kes')
       .eq('id', body.profit_share_record_id)
       .single();
 
@@ -40,11 +64,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Profit share record not found.' }, { status: 404 });
     }
 
-    if (psRecord.director_tag !== expectedTag) {
+    const expectedTag = body.director_name.toLowerCase();
+    const matchesByName = typeof psRecord.director_name === 'string' && psRecord.director_name === body.director_name;
+    const matchesByTag = typeof psRecord.director_tag === 'string' && psRecord.director_tag === expectedTag;
+    if (!matchesByName && !matchesByTag) {
       return NextResponse.json({ error: 'Selected director does not match this profit share record.' }, { status: 422 });
     }
 
-    const remaining = Number(psRecord.balance_remaining ?? psRecord.distributable_amount ?? 0);
+    const remaining = Number(psRecord.balance_remaining ?? psRecord.director_share_kes ?? 0);
     if (Number(body.amount_kes) > remaining) {
       return NextResponse.json({ error: `Payout amount exceeds remaining balance (${remaining}).` }, { status: 422 });
     }
@@ -54,7 +81,7 @@ export async function POST(request: Request) {
       .insert({
         director_name: body.director_name,
         profit_share_record_id: body.profit_share_record_id,
-        period_month: `${body.period_month}-01`,
+        period_month: normalizedPeriodMonth,
         amount_kes: body.amount_kes,
         payment_method: body.payment_method ?? 'cash',
         notes: body.notes ?? null,
