@@ -3,6 +3,13 @@ import { getAuthUserProfile } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
 
 const DIRECTOR_NAMES = ['Kelvin', 'Evans', 'Dan', 'Gidraph', 'Victor'] as const;
+const DIRECTOR_TAG_MAP: Record<(typeof DIRECTOR_NAMES)[number], string> = {
+  Kelvin: 'kelvin',
+  Evans: 'evans',
+  Dan: 'dan',
+  Gidraph: 'gidraph',
+  Victor: 'victor',
+};
 
 type WithdrawUpdatePayload = {
   id?: string;
@@ -138,11 +145,14 @@ export async function PUT(request: Request) {
       editableData.profit_share_record_id = null;
       editableData.payout_type = null;
     } else {
+      const mappedDirectorTag = nextDirectorName
+        ? DIRECTOR_TAG_MAP[nextDirectorName as (typeof DIRECTOR_NAMES)[number]]
+        : null;
       editableData.director_name = nextDirectorName;
       editableData.profit_share_record_id = nextProfitShareRecordId || null;
       editableData.payout_type = nextPayoutType;
-      editableData.director_tag = null;
-      editableData.director_user_id = null;
+      editableData.director_tag = body.director_tag ?? existingRecord.director_tag ?? mappedDirectorTag;
+      editableData.director_user_id = body.director_user_id ?? existingRecord.director_user_id ?? existingRecord.recorded_by ?? user.id;
       editableData.project_id = null;
       editableData.budget_id = null;
     }
