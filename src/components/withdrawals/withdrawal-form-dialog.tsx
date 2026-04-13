@@ -123,7 +123,10 @@ export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }
   useEffect(() => {
     if (!open) return;
     if (editData) {
-      setWithdrawalType(editData.withdrawal_type);
+      setWithdrawalType(
+        editData.withdrawal_type
+        || (editData.purpose === 'company_operations' ? 'operations' : 'director_payout')
+      );
       setDirectorTag((editData.director_tag as DirectorEnum) || '');
       setWithdrawalDate(editData.withdrawal_date);
       setAmountUsd(Number(editData.amount_usd));
