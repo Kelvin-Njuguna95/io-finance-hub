@@ -125,7 +125,9 @@ export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }
     if (editData) {
       setWithdrawalType(
         editData.withdrawal_type
-        || (editData.purpose === 'director_payout' ? 'director_payout' : 'operations')
+        || (editData.profit_share_record_id
+          ? 'director_payout'
+          : (editData.purpose === 'director_payout' ? 'director_payout' : 'operations'))
       );
       setDirectorTag((editData.director_tag as DirectorEnum) || '');
       setWithdrawalDate(editData.withdrawal_date);

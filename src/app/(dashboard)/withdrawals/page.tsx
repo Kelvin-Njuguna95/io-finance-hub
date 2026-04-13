@@ -42,6 +42,8 @@ export default function WithdrawalsPage() {
   const [editingWithdrawal, setEditingWithdrawal] = useState<(Withdrawal & { projects?: { name: string } | null }) | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [bankBalance, setBankBalance] = useState(0);
+  const [legacyRecordCount, setLegacyRecordCount] = useState(0);
+  const [fixingLegacy, setFixingLegacy] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -54,6 +56,8 @@ export default function WithdrawalsPage() {
         .eq('year_month', selectedMonth)
         .order('withdrawal_date', { ascending: false });
       setWithdrawals((wData || []) as (Withdrawal & { projects?: { name: string } | null })[]);
+      const legacyCount = (wData || []).filter((w: any) => !w.withdrawal_type).length;
+      setLegacyRecordCount(legacyCount);
 
       // Load budgets
       const { data: bData } = await supabase
@@ -124,6 +128,30 @@ export default function WithdrawalsPage() {
     : 0;
 
   const canCreate = user?.role === 'cfo' || user?.role === 'accountant';
+
+  async function handleFixLegacy() {
+    setFixingLegacy(true);
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/withdrawals/fix-legacy', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+      const result = await res.json();
+      if (result.success) {
+        window.location.reload();
+      } else {
+        alert(`Failed to fix legacy records: ${result.error || 'Unknown error'}`);
+      }
+    } catch {
+      alert('Error fixing legacy records');
+    } finally {
+      setFixingLegacy(false);
+    }
+  }
 
   const statusColors: Record<string, string> = {
     draft: 'bg-muted text-foreground/90',
@@ -297,6 +325,31 @@ export default function WithdrawalsPage() {
             </Table>
           </CardContent>
         </Card>
+
+        {legacyRecordCount > 0 && user?.role === 'cfo' && (
+          <Card className="border-warning/30 bg-warning-soft/50">
+            <CardContent className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-5 w-5 text-warning-soft-foreground shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-warning-soft-foreground">Legacy Data Detected</p>
+                  <p className="text-sm text-warning-soft-foreground">
+                    {legacyRecordCount} withdrawal record{legacyRecordCount > 1 ? 's' : ''} missing type classification. Fix to enable accurate editing.
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-warning/50 text-warning-soft-foreground hover:bg-warning-soft"
+                onClick={handleFixLegacy}
+                disabled={fixingLegacy}
+              >
+                {fixingLegacy ? 'Fixing...' : 'Fix Now'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         <Separator />
 
