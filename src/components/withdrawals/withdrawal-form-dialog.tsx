@@ -17,7 +17,7 @@ import { formatKES } from '@/lib/utils/currency';
 import { DIRECTORS } from '@/types/database';
 import { Plus, Building2, UserCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import type { User, DirectorEnum, PayoutType, WithdrawalType } from '@/types/database';
+import type { User, DirectorEnum, PayoutType, WithdrawalType, Withdrawal } from '@/types/database';
 import { getUserErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 
@@ -27,6 +27,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  editData?: Withdrawal | null;
 }
 
 interface ProfitShareOption {
@@ -90,8 +91,9 @@ function getProfitSharePeriodOptions(records: ProfitShareOption[]): ProfitShareP
   return options.reverse();
 }
 
-export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
+export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }: Props) {
   const { user } = useUser();
+  const isEdit = !!editData;
   const [withdrawalType, setWithdrawalType] = useState<WithdrawalType | null>(null);
 
   const [directorUsers, setDirectorUsers] = useState<User[]>([]);
@@ -117,6 +119,50 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
   const [payoutRecords, setPayoutRecords] = useState<ProfitShareOption[]>([]);
 
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    if (editData) {
+      setWithdrawalType(editData.withdrawal_type);
+      setDirectorTag((editData.director_tag as DirectorEnum) || '');
+      setWithdrawalDate(editData.withdrawal_date);
+      setAmountUsd(Number(editData.amount_usd));
+      setExchangeRate(Number(editData.exchange_rate));
+      setAmountKes(Number(editData.amount_kes));
+      setForexBureau(editData.forex_bureau || '');
+      setReferenceId(editData.reference_id || '');
+      setReferenceRate(Number(editData.reference_rate || 0));
+      setNotes(editData.notes || '');
+      setShowAddForex(false);
+      setNewForexName('');
+      if (editData.withdrawal_type === 'director_payout') {
+        setPayoutDirector(editData.director_name || '');
+        setPayoutRecordId(editData.profit_share_record_id || '');
+        setPayoutType(editData.payout_type || 'full');
+      } else {
+        setPayoutDirector('');
+        setPayoutRecordId('');
+        setPayoutType('full');
+      }
+      return;
+    }
+
+    setWithdrawalType(null);
+    setDirectorTag('');
+    setWithdrawalDate(getNairobiDateISO());
+    setAmountUsd(0);
+    setExchangeRate(0);
+    setAmountKes(0);
+    setForexBureau('');
+    setReferenceId('');
+    setReferenceRate(0);
+    setNotes('');
+    setShowAddForex(false);
+    setNewForexName('');
+    setPayoutDirector('');
+    setPayoutRecordId('');
+    setPayoutType('full');
+  }, [open, editData]);
 
   useEffect(() => {
     if (!open) return;
@@ -206,6 +252,14 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
     () => payoutRecords.find((record) => record.id === payoutRecordId) ?? null,
     [payoutRecordId, payoutRecords],
   );
+  const payoutMaxAllowedKes = useMemo(() => {
+    if (withdrawalType !== 'director_payout') return 0;
+    const remaining = Number(selectedPayoutRecord?.balance_remaining || 0);
+    if (isEdit && editData?.withdrawal_type === 'director_payout') {
+      return remaining + Number(editData.amount_kes || 0);
+    }
+    return remaining;
+  }, [withdrawalType, selectedPayoutRecord, isEdit, editData]);
 
   useEffect(() => {
     if (withdrawalType !== 'director_payout' || !selectedPayoutRecord) return;
@@ -276,8 +330,8 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
         toast.error('Payout amount must be greater than zero');
         return;
       }
-      if (amountKes > selectedPayoutRecord.balance_remaining) {
-        toast.error(`Amount exceeds remaining balance. Maximum: ${formatKES(selectedPayoutRecord.balance_remaining)}`);
+      if (amountKes > payoutMaxAllowedKes) {
+        toast.error(`Amount exceeds remaining balance. Maximum: ${formatKES(payoutMaxAllowedKes)}`);
         return;
       }
     }
@@ -296,6 +350,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
 
       const payload = withdrawalType === 'operations'
         ? {
+          ...(isEdit ? { id: editData.id } : {}),
           withdrawal_type: 'operations',
           purpose: 'company_operations',
           withdrawal_date: withdrawalDate,
@@ -308,10 +363,11 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
           reference_id: referenceId || null,
           reference_rate: referenceRate || null,
           variance_kes: varianceKes !== 0 ? varianceKes : null,
-          year_month: getCurrentYearMonth(),
+          ...(!isEdit ? { year_month: getCurrentYearMonth() } : {}),
           notes: notes || null,
         }
         : {
+          ...(isEdit ? { id: editData.id } : {}),
           withdrawal_type: 'director_payout',
           purpose: 'director_payout',
           withdrawal_date: withdrawalDate,
@@ -328,8 +384,11 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
           notes: notes || null,
         };
 
-      const response = await fetch('/api/withdrawals/create', {
-        method: 'POST',
+      const url = isEdit ? '/api/withdrawals/update' : '/api/withdrawals/create';
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -343,7 +402,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
         return;
       }
 
-      toast.success('Withdrawal recorded');
+      toast.success(isEdit ? 'Withdrawal updated' : 'Withdrawal recorded');
       onSaved();
       onClose();
     } catch {
@@ -357,7 +416,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>New Withdrawal</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit Withdrawal' : 'New Withdrawal'}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -366,11 +425,13 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setWithdrawalType('operations')}
+                onClick={() => !isEdit && setWithdrawalType('operations')}
+                disabled={isEdit}
                 className={cn(
                   'flex flex-col items-start p-4 rounded-lg border-2 text-left transition-colors',
                   withdrawalType === 'operations' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700',
-                  'hover:border-slate-900',
+                  !isEdit && 'hover:border-slate-900',
+                  isEdit && 'cursor-not-allowed opacity-80',
                 )}
               >
                 <div className="flex items-center gap-2">
@@ -384,11 +445,13 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
 
               <button
                 type="button"
-                onClick={() => setWithdrawalType('director_payout')}
+                onClick={() => !isEdit && setWithdrawalType('director_payout')}
+                disabled={isEdit}
                 className={cn(
                   'flex flex-col items-start p-4 rounded-lg border-2 text-left transition-colors',
                   withdrawalType === 'director_payout' ? 'border-warning bg-warning text-warning-foreground' : 'border-border bg-card text-foreground',
-                  'hover:border-amber-500',
+                  !isEdit && 'hover:border-amber-500',
+                  isEdit && 'cursor-not-allowed opacity-80',
                 )}
               >
                 <div className="flex items-center gap-2">
@@ -519,11 +582,15 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>Director *</Label>
-                  <Select value={payoutDirector} onValueChange={(value) => {
+                  <Select
+                    value={payoutDirector}
+                    onValueChange={(value) => {
                     if (!value) return;
                     setPayoutDirector(value);
                     setPayoutRecordId('');
-                  }}>
+                  }}
+                    disabled={isEdit}
+                  >
                     <SelectTrigger><SelectValue placeholder="Select director" /></SelectTrigger>
                     <SelectContent>
                       {DIRECTOR_NAMES.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
@@ -539,7 +606,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
               {payoutDirector && (
                 <div className="space-y-1">
                   <Label>Profit Share Period *</Label>
-                  <Select value={payoutRecordId} onValueChange={(value) => setPayoutRecordId(value || '')}>
+                  <Select value={payoutRecordId} onValueChange={(value) => setPayoutRecordId(value || '')} disabled={isEdit}>
                     <SelectTrigger><SelectValue placeholder="Select approved profit share period" /></SelectTrigger>
                     <SelectContent>
                       {periodOptions.map((option) => {
@@ -632,7 +699,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
                 <Label>KES Amount *</Label>
                 <Input type="number" step="0.01" min={0} value={amountKes || ''} onChange={(e) => setAmountKes(parseFloat(e.target.value) || 0)} />
                 {selectedPayoutRecord && (
-                  <p className="text-xs text-slate-500">Maximum allowed: {formatKES(selectedPayoutRecord.balance_remaining)}</p>
+                  <p className="text-xs text-slate-500">Maximum allowed: {formatKES(payoutMaxAllowedKes)}</p>
                 )}
               </div>
 
@@ -704,7 +771,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved }: Props) {
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving || withdrawalType === null}>{saving ? 'Saving...' : 'Record Withdrawal'}</Button>
+          <Button onClick={handleSave} disabled={saving || withdrawalType === null}>{saving ? 'Saving...' : isEdit ? 'Update Withdrawal' : 'Record Withdrawal'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
