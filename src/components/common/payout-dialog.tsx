@@ -26,6 +26,8 @@ export type PayoutRecordOption = {
   balance_remaining: number;
 };
 
+const ALL_DIRECTORS = ['Kelvin', 'Evans', 'Dan', 'Gidraph', 'Victor'] as const;
+
 type PayoutDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -41,7 +43,7 @@ export function PayoutDialog({
   records,
   onCreated,
 }: PayoutDialogProps) {
-  const [selectedRecordId, setSelectedRecordId] = useState('');
+  const [selectedDirector, setSelectedDirector] = useState('');
   const [amount, setAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'withdrawal'>('cash');
   const [notes, setNotes] = useState('');
@@ -53,16 +55,16 @@ export function PayoutDialog({
       return;
     }
 
-    setSelectedRecordId(records[0]?.id ?? '');
+    setSelectedDirector('');
     setAmount('');
     setPaymentMethod('cash');
     setNotes('');
     setError(null);
-  }, [open, records]);
+  }, [open]);
 
   const selectedRecord = useMemo(
-    () => records.find((record) => record.id === selectedRecordId) ?? null,
-    [records, selectedRecordId],
+    () => records.find((record) => record.director_name === selectedDirector) ?? null,
+    [records, selectedDirector],
   );
 
   const maxAvailable = Number(selectedRecord?.balance_remaining ?? 0);
@@ -86,7 +88,7 @@ export function PayoutDialog({
   async function handleSubmit() {
     setError(null);
 
-    if (!selectedRecord) {
+    if (!selectedDirector) {
       setError('Please select a director.');
       return;
     }
@@ -97,7 +99,7 @@ export function PayoutDialog({
       return;
     }
 
-    if (parsedAmount > maxAvailable) {
+    if (selectedRecord && parsedAmount > maxAvailable) {
       setError(`Amount cannot exceed available balance (${formatKES(maxAvailable)}).`);
       return;
     }
@@ -109,8 +111,8 @@ export function PayoutDialog({
         method: 'POST',
         headers,
         body: JSON.stringify({
-          director_name: selectedRecord.director_name,
-          profit_share_record_id: selectedRecord.id,
+          director_name: selectedDirector,
+          profit_share_record_id: selectedRecord?.id ?? null,
           period_month: selectedMonth,
           amount_kes: parsedAmount,
           payment_method: paymentMethod,
@@ -148,20 +150,14 @@ export function PayoutDialog({
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="payout-director">Director</Label>
-            <Select value={selectedRecordId} onValueChange={(value) => setSelectedRecordId(value ?? '')}>
+            <Select value={selectedDirector} onValueChange={(value) => setSelectedDirector(value ?? '')}>
               <SelectTrigger id="payout-director">
-                {selectedRecord ? (
-                  <span>
-                    {selectedRecord.director_name} — Bal: {formatKES(selectedRecord.balance_remaining)}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">Select director</span>
-                )}
+                <SelectValue placeholder="Select director" />
               </SelectTrigger>
               <SelectContent>
-                {records.map((record) => (
-                  <SelectItem key={record.id} value={record.id}>
-                    {record.director_name} — Bal: {formatKES(record.balance_remaining)}
+                {ALL_DIRECTORS.map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -186,7 +182,11 @@ export function PayoutDialog({
               onChange={(event) => setAmount(event.target.value)}
               placeholder="0.00"
             />
-            <p className="text-xs text-muted-foreground">Available balance: {formatKES(maxAvailable)}</p>
+            {selectedRecord ? (
+              <p className="text-xs text-muted-foreground">Available balance: {formatKES(maxAvailable)}</p>
+            ) : selectedDirector ? (
+              <p className="text-xs text-muted-foreground">No profit share record linked for this period</p>
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -218,9 +218,11 @@ export function PayoutDialog({
             />
           </div>
 
-          {records.length === 0 && (
+          {selectedDirector && !selectedRecord && (
             <p className="text-sm text-warning-soft-foreground">
-              No profit share records available for {formatYearMonth(selectedMonth)}. Finalize profit share first.
+              No finalized profit share record found for {selectedDirector} in {formatYearMonth(selectedMonth)}.
+              {' '}
+              The payout will be recorded without a linked profit share period.
             </p>
           )}
 
@@ -231,7 +233,7 @@ export function PayoutDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || records.length === 0}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || !selectedDirector}>
             {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Create Payout
           </Button>

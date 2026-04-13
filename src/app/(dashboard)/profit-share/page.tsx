@@ -224,61 +224,7 @@ export default function ProfitSharePage() {
   }
 
   async function handleInitiatePayout() {
-    if (payoutRecords.length > 0) {
-      setPayoutDialogOpen(true);
-      return;
-    }
-
-    if (shares.length === 0) {
-      toast.error(`No profit share data for ${formatYearMonth(selectedMonth)}.`);
-      return;
-    }
-
-    const allLive = shares.every((share) => !share.record_id);
-    if (!allLive) {
-      toast.error('No outstanding payout balances for this period.');
-      return;
-    }
-
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast.error('Session expired');
-      return;
-    }
-
-    const inserts = shares
-      .filter((share) => share.distributable_profit > 0 && share.project_id)
-      .map((share) => ({
-        year_month: selectedMonth,
-        project_id: share.project_id!,
-        director_tag: share.director_tag,
-          distributable_profit_kes: share.distributable_profit,
-        director_share_kes: share.director_share,
-        company_share_kes: share.company_share,
-        status: 'pending_review',
-        balance_remaining: share.director_share,
-        total_paid_out: 0,
-        payout_status: 'unpaid',
-      }));
-
-    if (inserts.length === 0) {
-      toast.error('No distributable profit records are available to finalize.');
-      return;
-    }
-
-    const { error } = await supabase
-      .from('profit_share_records')
-      .insert(inserts);
-
-    if (error) {
-      toast.error(`Failed to finalize records: ${error.message}`);
-      return;
-    }
-
-    toast.success(`Profit share records created for ${formatYearMonth(selectedMonth)}.`);
-    setPendingDialogOpen(true);
-    await load();
+    setPayoutDialogOpen(true);
   }
 
   const userRole = user?.role ?? null;
