@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/table';
 import { WithdrawalFormDialog } from '@/components/withdrawals/withdrawal-form-dialog';
 import { formatCurrency, formatDate, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
-import { Plus, ArrowDownToLine, TrendingUp, AlertTriangle, Wallet, FileText, DollarSign, Receipt } from 'lucide-react';
+import { Plus, ArrowDownToLine, TrendingUp, AlertTriangle, Wallet, FileText, DollarSign, Receipt, Pencil } from 'lucide-react';
 import type { Withdrawal } from '@/types/database';
 
 interface BudgetSummaryRow {
@@ -39,6 +39,8 @@ export default function WithdrawalsPage() {
   const [invoiceSummary, setInvoiceSummary] = useState<InvoiceSummary>({ total_invoiced_usd: 0, total_paid_usd: 0, total_pending_usd: 0 });
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
   const [showDialog, setShowDialog] = useState(false);
+  const [editingWithdrawal, setEditingWithdrawal] = useState<(Withdrawal & { projects?: { name: string } | null }) | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [bankBalance, setBankBalance] = useState(0);
 
   useEffect(() => {
@@ -156,6 +158,19 @@ export default function WithdrawalsPage() {
         open={showDialog}
         onClose={() => setShowDialog(false)}
         onSaved={() => { setShowDialog(false); window.location.reload(); }}
+      />
+      <WithdrawalFormDialog
+        open={showEditDialog}
+        onClose={() => {
+          setShowEditDialog(false);
+          setEditingWithdrawal(null);
+        }}
+        onSaved={() => {
+          setShowEditDialog(false);
+          setEditingWithdrawal(null);
+          window.location.reload();
+        }}
+        editData={editingWithdrawal}
       />
 
       <div className="p-6 space-y-6">
@@ -304,12 +319,13 @@ export default function WithdrawalsPage() {
                   <TableHead>Bureau</TableHead>
                   <TableHead>Reference</TableHead>
                   <TableHead className="text-right">Variance (KES)</TableHead>
+                  {user?.role === 'cfo' && <TableHead className="w-[80px]">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {withdrawals.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={user?.role === 'cfo' ? 11 : 10} className="text-center py-8 text-muted-foreground">
                       No withdrawals for {formatYearMonth(selectedMonth)}
                     </TableCell>
                   </TableRow>
@@ -368,6 +384,22 @@ export default function WithdrawalsPage() {
                         <TableCell className="text-right font-mono text-sm">
                           {w.variance_kes ? formatCurrency(Number(w.variance_kes), 'KES') : '—'}
                         </TableCell>
+                        {user?.role === 'cfo' && (
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => {
+                                setEditingWithdrawal(w);
+                                setShowEditDialog(true);
+                              }}
+                            >
+                              <Pencil className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                     <TableRow className="font-semibold bg-muted/50">
@@ -377,6 +409,7 @@ export default function WithdrawalsPage() {
                       <TableCell className="text-right font-mono">{formatCurrency(totalReceivedKes, 'KES')}</TableCell>
                       <TableCell colSpan={2}></TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalVariance, 'KES')}</TableCell>
+                      {user?.role === 'cfo' && <TableCell />}
                     </TableRow>
                   </>
                 )}
