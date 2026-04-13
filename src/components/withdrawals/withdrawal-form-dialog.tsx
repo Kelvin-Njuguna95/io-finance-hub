@@ -430,13 +430,11 @@ export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => !isEdit && setWithdrawalType('operations')}
-                disabled={isEdit}
+                onClick={() => setWithdrawalType('operations')}
                 className={cn(
                   'flex flex-col items-start p-4 rounded-lg border-2 text-left transition-colors',
                   withdrawalType === 'operations' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700',
-                  !isEdit && 'hover:border-slate-900',
-                  isEdit && 'cursor-not-allowed opacity-80',
+                  'hover:border-slate-900',
                 )}
               >
                 <div className="flex items-center gap-2">
@@ -450,13 +448,11 @@ export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }
 
               <button
                 type="button"
-                onClick={() => !isEdit && setWithdrawalType('director_payout')}
-                disabled={isEdit}
+                onClick={() => setWithdrawalType('director_payout')}
                 className={cn(
                   'flex flex-col items-start p-4 rounded-lg border-2 text-left transition-colors',
                   withdrawalType === 'director_payout' ? 'border-warning bg-warning text-warning-foreground' : 'border-border bg-card text-foreground',
-                  !isEdit && 'hover:border-amber-500',
-                  isEdit && 'cursor-not-allowed opacity-80',
+                  'hover:border-amber-500',
                 )}
               >
                 <div className="flex items-center gap-2">
@@ -594,7 +590,6 @@ export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }
                     setPayoutDirector(value);
                     setPayoutRecordId('');
                   }}
-                    disabled={isEdit}
                   >
                     <SelectTrigger><SelectValue placeholder="Select director" /></SelectTrigger>
                     <SelectContent>
@@ -611,7 +606,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }
               {payoutDirector && (
                 <div className="space-y-1">
                   <Label>Profit Share Period *</Label>
-                  <Select value={payoutRecordId} onValueChange={(value) => setPayoutRecordId(value || '')} disabled={isEdit}>
+                  <Select value={payoutRecordId} onValueChange={(value) => setPayoutRecordId(value || '')}>
                     <SelectTrigger><SelectValue placeholder="Select approved profit share period" /></SelectTrigger>
                     <SelectContent>
                       {periodOptions.map((option) => {
