@@ -193,12 +193,11 @@ export default function VarianceDashboardPage() {
   }, []);
 
   // Aggregations
-  const byProject = aggregateBy(items, (i) => {
-    if (i.projects?.name) return i.projects.name;
-    if (i.departments?.name) return `${i.departments.name} (Shared)`;
-    return null;
-  });
-  const byDepartment = aggregateBy(items, (i) => i.departments?.name ?? null);
+  const projectItems = items.filter((i) => i.project_id !== null);
+  const sharedItems = items.filter((i) => i.project_id === null);
+
+  const byProject = aggregateBy(projectItems, (i) => i.projects?.name ?? null);
+  const byDepartment = aggregateBy(sharedItems, (i) => i.departments?.name ?? null);
   const byCategory = aggregateBy(items, (i) => i.category);
 
   // Company overview
@@ -206,8 +205,9 @@ export default function VarianceDashboardPage() {
   const totalActual = items.reduce((s, i) => s + Number(i.actual_amount_kes || 0), 0);
   const netVariance = totalActual - totalBudgeted;
   const overallPct = totalBudgeted === 0 ? 0 : (netVariance / totalBudgeted) * 100;
-  const avgAccuracy = byProject.length > 0
-    ? byProject.reduce((s, r) => s + r.accuracyScore, 0) / byProject.length
+  const allGrouped = [...byProject, ...byDepartment];
+  const avgAccuracy = allGrouped.length > 0
+    ? allGrouped.reduce((s, r) => s + r.accuracyScore, 0) / allGrouped.length
     : 0;
   const totalPending = items.filter((i) => i.status !== 'confirmed' && i.status !== 'voided').length;
   const totalVoided = items.filter((i) => i.status === 'voided').length;
