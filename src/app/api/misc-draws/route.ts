@@ -866,3 +866,130 @@ export async function POST(request: Request) {
     return apiErrorResponse(error, 'Failed to process misc action.', 'MISC_POST_ERROR');
   }
 }
+
+// =============================================================
+// DELETE — Delete a saved misc report line item
+// =============================================================
+export async function DELETE(request: Request) {
+  try {
+    const auth = await getAuthUserProfile(request);
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error.message }, { status: auth.error.status });
+    }
+
+    const { user, profile, admin } = auth;
+    const body = await request.json().catch(() => null);
+    const lineItemId = body?.id as string | undefined;
+
+    if (!lineItemId) {
+      return NextResponse.json({ error: 'id is required' }, { status: 400 });
+    }
+
+    const { data: lineItem, error: lineItemErr } = await admin
+      .from('misc_report_items')
+      .select(`
+        id,
+        description,
+        amount,
+        expense_date,
+        misc_report_id,
+        misc_draw_id,
+        misc_reports (
+          id,
+          project_id,
+          period_month,
+          status,
+          total_allocated
+        )
+      `)
+      .eq('id', lineItemId)
+      .maybeSingle();
+
+    if (lineItemErr) {
+      return NextResponse.json({ error: lineItemErr.message }, { status: 500 });
+    }
+    if (!lineItem) {
+      return NextResponse.json({ error: 'Line item not found' }, { status: 404 });
+    }
+
+    const report = Array.isArray(lineItem.misc_reports) ? lineItem.misc_reports[0] : lineItem.misc_reports;
+    if (!report?.project_id || !report?.period_month) {
+      return NextResponse.json({ error: 'Invalid line item report relationship' }, { status: 400 });
+    }
+
+    if (isProjectLeadRole(profile.role)) {
+      const { data: assignment } = await admin
+        .from('user_project_assignments')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('project_id', report.project_id)
+        .maybeSingle();
+
+      if (!assignment) {
+        return NextResponse.json({ error: 'Not authorized to delete line items for this project' }, { status: 403 });
+      }
+    } else if (!['cfo', 'accountant'].includes(profile.role)) {
+      return NextResponse.json({ error: 'Not authorized to delete line items' }, { status: 403 });
+    }
+
+    const monthErr = await assertMonthOpen(admin, report.period_month);
+    if (monthErr) {
+      return NextResponse.json({ error: 'Cannot delete items in a closed month' }, { status: 403 });
+    }
+
+    const { error: deleteErr } = await admin
+      .from('misc_report_items')
+      .delete()
+      .eq('id', lineItemId);
+
+    if (deleteErr) {
+      return NextResponse.json({ error: deleteErr.message }, { status: 500 });
+    }
+
+    const { data: remainingItems } = await admin
+      .from('misc_report_items')
+      .select('amount')
+      .eq('misc_report_id', report.id);
+
+    const updatedTotalClaimed = (remainingItems || []).reduce((sum: number, item: { amount: number }) => sum + Number(item.amount || 0), 0);
+    const updatedItemCount = (remainingItems || []).length;
+    const variance = Number(report.total_allocated || 0) - updatedTotalClaimed;
+
+    await admin
+      .from('misc_reports')
+      .update({
+        total_claimed: updatedTotalClaimed,
+        item_count: updatedItemCount,
+        variance,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', report.id);
+
+    await admin.from('audit_logs').insert({
+      user_id: user.id,
+      action: 'misc_line_item_deleted',
+      table_name: 'misc_report_items',
+      record_id: lineItemId,
+      old_values: {
+        description: lineItem.description,
+        amount_kes: lineItem.amount,
+        expense_date: lineItem.expense_date,
+        project_id: report.project_id,
+        misc_report_id: report.id,
+      },
+      new_values: {
+        deleted: true,
+        deleted_by_role: profile.role,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      warning: ['submitted', 'approved'].includes(report.status)
+        ? 'This item is part of a submitted/approved report and report totals were updated.'
+        : null,
+    });
+  } catch (error) {
+    return apiErrorResponse(error, 'Failed to delete misc line item.', 'MISC_DELETE_ERROR');
+  }
+}
