@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertRole, assertMonthOpen } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
+import { autoPopulateExpenses } from '@/lib/expense-lifecycle';
 
 const CFO_APPROVABLE_STATUSES = ['submitted', 'pm_review', 'pm_approved'] as const;
 
@@ -134,14 +135,13 @@ export async function POST(request: Request) {
         }
       }
 
-      try {
-        await fetch(new URL('/api/expense-lifecycle', request.url).toString(), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Cookie: request.headers.get('cookie') || '' },
-          body: JSON.stringify({ budget_id, action: 'auto_populate' }),
-        });
-      } catch (e) {
-        // no-op
+      const populateResult = await autoPopulateExpenses(
+        { budget_id, budget_version_id: currentVersion.id },
+        { id: user.id, role: profile.role },
+        admin,
+      );
+      if (!populateResult.success) {
+        console.error('Expense auto-populate failed after CFO approval:', populateResult.error);
       }
 
       const { data: tlUser } = await admin.from('users').select('id').eq('id', budget.created_by).single();
