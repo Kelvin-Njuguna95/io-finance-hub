@@ -599,24 +599,26 @@ export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }
                 </div>
               </div>
 
-              {payoutDirector && (
+              {(payoutDirector || isEdit) && (
                 <div className="space-y-1">
                   <Label>Profit Share Period {!isEdit ? '*' : '(optional)'}</Label>
                   <Select
-                    value={isEdit ? (payoutRecordId || '__none__') : payoutRecordId}
-                    onValueChange={(value) => setPayoutRecordId(value === '__none__' ? '' : (value || ''))}
+                    value={isEdit ? (payoutRecordId || 'none') : payoutRecordId}
+                    onValueChange={(value) => setPayoutRecordId(
+                      value === 'none' || value.startsWith('no-record-') ? '' : (value || '')
+                    )}
                   >
-                    <SelectTrigger><SelectValue placeholder="Select approved profit share period" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select profit share period" /></SelectTrigger>
                     <SelectContent>
                       {isEdit && (
-                        <SelectItem key="__none__" value="__none__">
+                        <SelectItem value="none">
                           None — Not linked to a profit share record
                         </SelectItem>
                       )}
                       {periodOptions.map((option) => {
                         if (!option.record) {
                           return (
-                            <SelectItem key={option.monthKey} value={`no-record-${option.monthKey}`} disabled>
+                            <SelectItem key={option.monthKey} value={`no-record-${option.monthKey}`} disabled={!isEdit}>
                               {`${option.label} — No approved record`}
                             </SelectItem>
                           );
