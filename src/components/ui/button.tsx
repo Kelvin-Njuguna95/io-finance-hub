@@ -8,16 +8,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-electric text-electric-foreground hover:bg-electric/85 focus-visible:ring-electric/40",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-primary/40",
         outline:
-          "border-electric/40 text-electric bg-background hover:bg-electric/10 hover:border-electric/60 hover:text-electric aria-expanded:bg-electric/10 dark:border-electric/30 dark:bg-input/30 dark:hover:bg-electric/15",
+          "border-border text-primary bg-card hover:bg-muted hover:text-primary aria-expanded:bg-muted dark:border-border dark:bg-input/30 dark:hover:bg-muted/50",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-card text-primary border border-border hover:bg-muted aria-expanded:bg-muted aria-expanded:text-primary",
         ghost:
-          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+          "text-muted-foreground hover:bg-[#F5F7FA] hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:
-          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
-        link: "text-electric underline-offset-4 hover:underline",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:border-destructive/60 focus-visible:ring-destructive/20 dark:bg-destructive dark:hover:bg-destructive/90 dark:focus-visible:ring-destructive/40",
+        link: "text-info underline-offset-4 hover:underline",
       },
       size: {
         default:

@@ -72,7 +72,7 @@ export function AppSidebar() {
         >
           <span
             aria-hidden
-            className="flex size-9 items-center justify-center rounded-lg bg-sidebar-primary text-[11px] font-bold text-sidebar-primary-foreground shadow-elev-1 ring-1 ring-white/10"
+            className="flex size-9 items-center justify-center rounded-lg bg-white/15 text-[11px] font-bold text-white ring-1 ring-white/10"
           >
             IO
           </span>
@@ -103,7 +103,7 @@ export function AppSidebar() {
         ) : (
           getNavigation(user.role).map((group, gi) => (
             <SidebarGroup key={group.title}>
-              <SidebarGroupLabel className="px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/50">
+              <SidebarGroupLabel className="px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">
                 {group.title}
               </SidebarGroupLabel>
               <SidebarGroupContent>
@@ -125,17 +125,17 @@ export function AppSidebar() {
                             />
                           }
                           className={cn(
-                            'h-9 rounded-lg px-2.5 text-[0.8125rem] font-medium',
-                            'text-white/75 transition-all duration-[var(--dur-base)] ease-[var(--ease-standard)]',
-                            'hover:bg-white/[0.06] hover:text-white',
-                            // IO gold active state
-                            'data-active:bg-gold/12',
-                            'data-active:text-gold',
+                            'h-9 rounded-lg px-2.5 text-[13px] font-normal',
+                            'text-white/60 transition-all duration-[var(--dur-base)] ease-[var(--ease-standard)]',
+                            'hover:bg-white/[0.08] hover:text-white',
+                            // Windward white active state
+                            'data-active:bg-white/[0.15]',
+                            'data-active:text-white',
                             'data-active:font-semibold',
                             'data-active:shadow-none',
-                            'data-active:ring-1 data-active:ring-inset data-active:ring-gold/25',
+                            'data-active:ring-0',
                             '[&_svg]:text-white/55 [&_svg]:transition-colors [&_svg]:duration-[var(--dur-fast)]',
-                            'data-active:[&_svg]:text-gold',
+                            'data-active:[&_svg]:text-white',
                           )}
                         >
                           <Icon strokeWidth={1.75} />

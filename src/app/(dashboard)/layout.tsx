@@ -66,7 +66,7 @@ function LoadingSplash() {
       <div className="flex flex-col items-center gap-4">
         <div
           aria-hidden
-          className="flex size-12 items-center justify-center rounded-xl bg-gold text-[14px] font-bold text-gold-foreground shadow-elev-2 ring-1 ring-white/10"
+          className="flex size-12 items-center justify-center rounded-xl bg-white/15 text-[14px] font-bold text-white ring-1 ring-white/10"
         >
           IO
         </div>
@@ -94,7 +94,7 @@ function SignedOutSplash() {
       <div className="w-full max-w-sm rounded-xl border border-white/10 bg-white/[0.04] p-6 text-center shadow-elev-2 backdrop-blur">
         <div
           aria-hidden
-          className="mx-auto flex size-12 items-center justify-center rounded-xl bg-gold text-[14px] font-bold text-gold-foreground shadow-elev-1 ring-1 ring-white/10"
+          className="mx-auto flex size-12 items-center justify-center rounded-xl bg-white/15 text-[14px] font-bold text-white ring-1 ring-white/10"
         >
           IO
         </div>
@@ -109,7 +109,7 @@ function SignedOutSplash() {
         </p>
         <Link
           href="/login"
-          className="mt-5 inline-flex h-9 items-center justify-center rounded-[8px] bg-electric px-4 text-sm font-medium text-electric-foreground transition-colors hover:bg-electric/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric/60 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+          className="mt-5 inline-flex h-9 items-center justify-center rounded-[8px] bg-white px-4 text-sm font-medium text-[#1E3A5F] transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
         >
           Go to login
         </Link>

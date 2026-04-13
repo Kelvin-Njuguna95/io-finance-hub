@@ -102,8 +102,8 @@
   --color-chart-6: var(--chart-6);
 
   /* Typography */
-  --font-sans: var(--font-inter, var(--font-sans));
-  --font-mono: var(--font-geist-mono);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
   --font-heading: var(--font-sans);
 
   /* Radii */
@@ -135,99 +135,95 @@
 :root {
   color-scheme: light;
 
-  /* Brand surfaces */
-  --background: oklch(0.985 0.005 250);
-  --foreground: oklch(0.20 0.04 260);
-  --surface-1: oklch(0.985 0.005 250);
-  --surface-2: oklch(1 0 0);
-  --surface-3: oklch(0.992 0.006 255);
-  --surface-sunken: oklch(0.965 0.006 250);
+  /* Brand surfaces — Windward palette */
+  --background: #F5F7FA;
+  --foreground: #000000;
+  --surface-1: #F5F7FA;
+  --surface-2: #FFFFFF;
+  --surface-3: #F8FAFC;
+  --surface-sunken: #EEF1F5;
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.20 0.04 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.20 0.04 260);
+  --card: #F8FAFC;
+  --card-foreground: #000000;
+  --popover: #FFFFFF;
+  --popover-foreground: #000000;
 
   /* Brand palette */
-  --primary: oklch(0.28 0.08 258);          /* IO navy */
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.965 0.006 255);
-  --secondary-foreground: oklch(0.25 0.05 260);
-  --muted: oklch(0.965 0.006 255);
-  --muted-foreground: oklch(0.52 0.015 260);
-  --accent: oklch(0.85 0.17 88);            /* IO gold */
-  --accent-foreground: oklch(0.22 0.08 260);
+  --primary: #1E3A5F;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F8FAFC;
+  --secondary-foreground: #1E3A5F;
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+  --accent: #F8FAFC;
+  --accent-foreground: #1E3A5F;
 
-  --destructive: oklch(0.63 0.23 25);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive: #E74C3C;
+  --destructive-foreground: #FFFFFF;
 
   /* Semantic states */
-  --success: oklch(0.68 0.16 158);
-  --success-foreground: oklch(0.985 0 0);
-  --success-soft: oklch(0.955 0.05 158);
-  --success-soft-foreground: oklch(0.38 0.13 158);
+  --success: #27AE60;
+  --success-foreground: #FFFFFF;
+  --success-soft: #ECFDF5;
+  --success-soft-foreground: #166534;
 
-  --warning: oklch(0.80 0.16 78);
-  --warning-foreground: oklch(0.24 0.08 78);
-  --warning-soft: oklch(0.975 0.055 85);
-  --warning-soft-foreground: oklch(0.46 0.14 72);
+  --warning: #F59E0B;
+  --warning-foreground: #1C1917;
+  --warning-soft: #FFFBEB;
+  --warning-soft-foreground: #92400E;
 
-  --danger: oklch(0.63 0.23 25);
-  --danger-foreground: oklch(0.985 0 0);
-  --danger-soft: oklch(0.965 0.04 22);
-  --danger-soft-foreground: oklch(0.44 0.18 25);
+  --danger: #E74C3C;
+  --danger-foreground: #FFFFFF;
+  --danger-soft: #FEF2F2;
+  --danger-soft-foreground: #991B1B;
 
-  --info: oklch(0.66 0.15 240);
-  --info-foreground: oklch(0.985 0 0);
-  --info-soft: oklch(0.965 0.035 240);
-  --info-soft-foreground: oklch(0.38 0.13 240);
+  --info: #3B82F6;
+  --info-foreground: #FFFFFF;
+  --info-soft: #EFF6FF;
+  --info-soft-foreground: #1E40AF;
 
-  --violet: oklch(0.64 0.19 290);
-  --violet-soft: oklch(0.965 0.035 290);
-  --violet-soft-foreground: oklch(0.40 0.15 290);
+  --violet: #8B5CF6;
+  --violet-soft: #F5F3FF;
+  --violet-soft-foreground: #5B21B6;
 
-  --teal: oklch(0.70 0.11 195);
-  --teal-soft: oklch(0.965 0.03 195);
-  --teal-soft-foreground: oklch(0.40 0.10 195);
+  --teal: #14B8A6;
+  --teal-soft: #F0FDFA;
+  --teal-soft-foreground: #115E59;
 
   /* Chrome */
-  --border: oklch(0.925 0.006 255);
-  --border-subtle: oklch(0.945 0.005 255);
-  --border-strong: oklch(0.87 0.008 255);
-  --input: oklch(0.925 0.006 255);
-  --ring: oklch(0.65 0.17 258);
+  --border: #E2E8F0;
+  --border-subtle: #F1F5F9;
+  --border-strong: #CBD5E1;
+  --input: #E2E8F0;
+  --ring: #3B82F6;
 
-  /* Electric Blue (#00d4ff) */
-  --electric: oklch(0.78 0.18 210);
-  --electric-foreground: oklch(0.12 0.03 260);
-  --electric-soft: oklch(0.955 0.04 210);
-  --electric-soft-foreground: oklch(0.36 0.14 210);
+  /* Electric Blue — maps to primary info blue */
+  --electric: #3B82F6;
+  --electric-foreground: #FFFFFF;
+  --electric-soft: #EFF6FF;
+  --electric-soft-foreground: #1E40AF;
 
   /* Gold (#F5C518) */
-  --gold: oklch(0.84 0.18 88);
-  --gold-foreground: oklch(0.18 0.06 88);
+  --gold: #F5C518;
+  --gold-foreground: #1C1917;
 
-  /* Chart palette — Electric Blue primary, Gold secondary */
-  --chart-1: oklch(0.78 0.18 210);  /* electric blue / revenue */
-  --chart-2: oklch(0.84 0.18 88);   /* gold / profit */
-  --chart-3: oklch(0.68 0.16 158);  /* emerald / expenses */
-  --chart-4: oklch(0.64 0.19 290);  /* violet / budgets */
-  --chart-5: oklch(0.70 0.11 195);  /* teal / receivables */
-  --chart-6: oklch(0.63 0.23 25);   /* red / variance */
+  /* Chart palette */
+  --chart-1: #3B82F6;  /* blue / revenue */
+  --chart-2: #F5C518;  /* gold / profit */
+  --chart-3: #27AE60;  /* green / expenses */
+  --chart-4: #8B5CF6;  /* violet / budgets */
+  --chart-5: #14B8A6;  /* teal / receivables */
+  --chart-6: #E74C3C;  /* red / variance */
 
   /* Radii */
   --radius: 0.625rem;
   --radius-hero: 1.25rem;
 
-  /* Elevation — tinted with the navy brand */
-  --shadow-elev-1: 0 1px 2px 0 oklch(0.20 0.05 260 / 0.06),
-                   0 1px 3px 0 oklch(0.20 0.05 260 / 0.04);
-  --shadow-elev-2: 0 4px 16px -6px oklch(0.20 0.05 260 / 0.14),
-                   0 2px 4px -2px oklch(0.20 0.05 260 / 0.06);
-  --shadow-elev-3: 0 24px 48px -18px oklch(0.22 0.08 260 / 0.22),
-                   0 8px 20px -8px oklch(0.20 0.05 260 / 0.10);
-  --shadow-elev-hero: 0 32px 64px -24px oklch(0.18 0.10 260 / 0.35),
-                      0 12px 24px -8px oklch(0.20 0.08 260 / 0.18);
+  /* Elevation — flat design, minimal shadows */
+  --shadow-elev-1: none;
+  --shadow-elev-2: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --shadow-elev-3: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-elev-hero: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
 
   /* Motion */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
@@ -237,15 +233,15 @@
   --dur-base: 200ms;
   --dur-slow: 320ms;
 
-  /* Sidebar (branded navy) */
-  --sidebar: oklch(0.20 0.05 260);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.85 0.17 88);
-  --sidebar-primary-foreground: oklch(0.22 0.08 260);
-  --sidebar-accent: oklch(0.28 0.06 260);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(1 0 0 / 0.08);
-  --sidebar-ring: oklch(0.65 0.17 258);
+  /* Sidebar — Windward deep navy */
+  --sidebar: #1E3A5F;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #FFFFFF;
+  --sidebar-primary-foreground: #1E3A5F;
+  --sidebar-accent: rgba(255, 255, 255, 0.15);
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #3B82F6;
 }
 
 /* ------------------------------------------------------------------ */
@@ -539,8 +535,7 @@
               border-color var(--dur-fast) var(--ease-standard);
 }
 .card-interactive:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-elev-2);
+  border-color: var(--border-strong);
 }
 
 /* Number formatting helpers */
