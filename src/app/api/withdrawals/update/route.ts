@@ -66,7 +66,9 @@ export async function PUT(request: Request) {
     }
 
     const nextProfitShareRecordId = submittedType === 'director_payout'
-      ? (body.profit_share_record_id ?? existingRecord.profit_share_record_id)
+      ? (body.profit_share_record_id === undefined
+        ? (existingRecord.profit_share_record_id || null)
+        : (body.profit_share_record_id || null))
       : null;
     const nextDirectorName = submittedType === 'director_payout'
       ? (body.director_name ?? existingRecord.director_name)
@@ -76,10 +78,6 @@ export async function PUT(request: Request) {
       : null;
 
     if (submittedType === 'director_payout') {
-      if (!nextProfitShareRecordId) {
-        return NextResponse.json({ error: 'A profit share record must be selected for director payout withdrawals.' }, { status: 422 });
-      }
-
       if (!nextDirectorName || !DIRECTOR_NAMES.includes(nextDirectorName as (typeof DIRECTOR_NAMES)[number])) {
         return NextResponse.json({ error: 'A valid director must be selected.' }, { status: 422 });
       }
@@ -92,28 +90,30 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: 'Exchange rate is required for director payout updates.' }, { status: 422 });
       }
 
-      const { data: psRecord } = await admin
-        .from('profit_share_records')
-        .select('id, status, balance_remaining, director_name')
-        .eq('id', nextProfitShareRecordId)
-        .in('status', ['cfo_reviewed', 'approved'])
-        .single();
+      if (nextProfitShareRecordId) {
+        const { data: psRecord } = await admin
+          .from('profit_share_records')
+          .select('id, status, balance_remaining, director_name')
+          .eq('id', nextProfitShareRecordId)
+          .in('status', ['cfo_reviewed', 'approved'])
+          .single();
 
-      if (!psRecord) {
-        return NextResponse.json({ error: 'Profit share record not found or is not approved.' }, { status: 422 });
-      }
+        if (!psRecord) {
+          return NextResponse.json({ error: 'Profit share record not found or is not approved.' }, { status: 422 });
+        }
 
-      if (psRecord.director_name !== nextDirectorName) {
-        return NextResponse.json({ error: 'The selected profit share record does not match the selected director.' }, { status: 422 });
-      }
+        if (psRecord.director_name !== nextDirectorName) {
+          return NextResponse.json({ error: 'The selected profit share record does not match the selected director.' }, { status: 422 });
+        }
 
-      const originalAmountKes = Number(existingRecord.amount_kes || 0);
-      const isSameRecord = existingRecord.withdrawal_type === 'director_payout'
-        && existingRecord.profit_share_record_id
-        && existingRecord.profit_share_record_id === nextProfitShareRecordId;
-      const availableKes = Number(psRecord.balance_remaining || 0) + (isSameRecord ? originalAmountKes : 0);
-      if (nextAmountKes > availableKes) {
-        return NextResponse.json({ error: `Payout amount exceeds remaining balance. Maximum: ${availableKes}` }, { status: 422 });
+        const originalAmountKes = Number(existingRecord.amount_kes || 0);
+        const isSameRecord = existingRecord.withdrawal_type === 'director_payout'
+          && existingRecord.profit_share_record_id
+          && existingRecord.profit_share_record_id === nextProfitShareRecordId;
+        const availableKes = Number(psRecord.balance_remaining || 0) + (isSameRecord ? originalAmountKes : 0);
+        if (nextAmountKes > availableKes) {
+          return NextResponse.json({ error: `Payout amount exceeds remaining balance. Maximum: ${availableKes}` }, { status: 422 });
+        }
       }
     }
 
@@ -139,7 +139,7 @@ export async function PUT(request: Request) {
       editableData.payout_type = null;
     } else {
       editableData.director_name = nextDirectorName;
-      editableData.profit_share_record_id = nextProfitShareRecordId;
+      editableData.profit_share_record_id = nextProfitShareRecordId || null;
       editableData.payout_type = nextPayoutType;
       editableData.director_tag = null;
       editableData.director_user_id = null;
