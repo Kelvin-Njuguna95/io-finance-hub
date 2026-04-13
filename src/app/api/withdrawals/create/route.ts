@@ -84,6 +84,10 @@ export async function POST(request: Request) {
           amount_usd: body.amount_usd,
           exchange_rate: body.exchange_rate,
           amount_kes: body.amount_kes,
+          forex_bureau: body.forex_bureau || null,
+          reference_id: body.reference_id || null,
+          reference_rate: body.reference_rate || null,
+          variance_kes: body.variance_kes || null,
           notes: body.notes || null,
           recorded_by: user.id,
           withdrawal_date: withdrawalDate,
@@ -93,6 +97,15 @@ export async function POST(request: Request) {
         .single();
 
       if (error) throw error;
+
+      if (body.exchange_rate > 0) {
+        await admin.from('forex_logs').insert({
+          withdrawal_id: withdrawal.id,
+          rate_date: withdrawalDate,
+          rate_usd_to_kes: body.exchange_rate,
+          source: body.forex_bureau || 'Manual entry',
+        });
+      }
 
       await admin.from('audit_logs').insert({
         user_id: user.id,
