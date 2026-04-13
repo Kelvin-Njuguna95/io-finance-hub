@@ -323,19 +323,15 @@ export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }
         toast.error('Select a valid director');
         return;
       }
-      if (!payoutRecordId) {
-        toast.error('Select an approved profit share period');
-        return;
-      }
-      if (!selectedPayoutRecord) {
-        toast.error('Selected profit share record was not found');
+      if (amountUsd <= 0 || exchangeRate <= 0) {
+        toast.error('USD amount and exchange rate are required');
         return;
       }
       if (amountKes <= 0) {
         toast.error('Payout amount must be greater than zero');
         return;
       }
-      if (amountKes > payoutMaxAllowedKes) {
+      if (payoutRecordId && selectedPayoutRecord && amountKes > payoutMaxAllowedKes) {
         toast.error(`Amount exceeds remaining balance. Maximum: ${formatKES(payoutMaxAllowedKes)}`);
         return;
       }
@@ -377,7 +373,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }
           purpose: 'director_payout',
           withdrawal_date: withdrawalDate,
           director_name: payoutDirector,
-          profit_share_record_id: payoutRecordId,
+          profit_share_record_id: payoutRecordId || null,
           payout_type: payoutType,
           amount_usd: amountUsd,
           exchange_rate: exchangeRate,
@@ -605,10 +601,18 @@ export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }
 
               {payoutDirector && (
                 <div className="space-y-1">
-                  <Label>Profit Share Period *</Label>
-                  <Select value={payoutRecordId} onValueChange={(value) => setPayoutRecordId(value || '')}>
+                  <Label>Profit Share Period {!isEdit ? '*' : '(optional)'}</Label>
+                  <Select
+                    value={isEdit ? (payoutRecordId || '__none__') : payoutRecordId}
+                    onValueChange={(value) => setPayoutRecordId(value === '__none__' ? '' : (value || ''))}
+                  >
                     <SelectTrigger><SelectValue placeholder="Select approved profit share period" /></SelectTrigger>
                     <SelectContent>
+                      {isEdit && (
+                        <SelectItem key="__none__" value="__none__">
+                          None — Not linked to a profit share record
+                        </SelectItem>
+                      )}
                       {periodOptions.map((option) => {
                         if (!option.record) {
                           return (
