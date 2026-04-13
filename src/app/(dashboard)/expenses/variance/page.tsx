@@ -92,7 +92,7 @@ function aggregateBy(
   }>();
 
   for (const item of items) {
-    const key = keyFn(item) || 'Uncategorized';
+    const key = keyFn(item) || 'Shared Expenses';
     const existing = map.get(key) || { budgeted: 0, actual: 0, confirmed: 0, pending: 0, voided: 0 };
     existing.budgeted += Number(item.budgeted_amount_kes);
     existing.actual += Number(item.actual_amount_kes || 0);
@@ -193,7 +193,11 @@ export default function VarianceDashboardPage() {
   }, []);
 
   // Aggregations
-  const byProject = aggregateBy(items, (i) => i.projects?.name ?? null);
+  const byProject = aggregateBy(items, (i) => {
+    if (i.projects?.name) return i.projects.name;
+    if (i.departments?.name) return `${i.departments.name} (Shared)`;
+    return null;
+  });
   const byDepartment = aggregateBy(items, (i) => i.departments?.name ?? null);
   const byCategory = aggregateBy(items, (i) => i.category);
 
@@ -384,7 +388,7 @@ export default function VarianceDashboardPage() {
           <ResponsiveContainer width="100%" height={350}>
             <BarChart data={data}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-15} textAnchor="end" height={60} />
               <YAxis tickFormatter={(v) => `${(Number(v) / 1000).toFixed(0)}k`} />
               <Tooltip formatter={(value) => [formatCurrency(Number(value), 'KES'), '']} />
               <Legend />
