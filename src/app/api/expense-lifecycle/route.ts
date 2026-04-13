@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient, assertMonthOpen } from '@/lib/supabase/admin';
+import { autoPopulateExpenses } from '@/lib/expense-lifecycle';
 
 async function getAuthUser(request: Request) {
   const authHeader = request.headers.get('Authorization');
@@ -36,71 +37,6 @@ async function notifyRole(
       link,
     });
   }
-}
-
-function isMiscBudgetItem(item: { category?: string | null; description?: string | null }) {
-  const category = (item.category || '').toLowerCase();
-  const description = (item.description || '').toLowerCase();
-  return category.includes('misc') || description.includes('misc');
-}
-
-async function autoLogBudgetMiscDraws(
-  admin: ReturnType<typeof createAdminClient>,
-  dbUser: /* // */ any,
-  budget: /* // */ any,
-  budgetItems: /* // */ /* // */ any[],
-) {
-  if (!budget?.project_id || !budget?.year_month || !budgetItems.length) return 0;
-
-  const miscItems = budgetItems
-    .filter((item: /* // */ any) => isMiscBudgetItem(item))
-    .filter((item: /* // */ any) => Number(item.pm_approved_amount != null ? item.pm_approved_amount : item.amount_kes) > 0);
-
-  if (!miscItems.length) return 0;
-
-  const { data: existingDraws } = await admin
-    .from('misc_draws')
-    .select('budget_item_id')
-    .in('budget_item_id', miscItems.map((item: /* // */ any) => item.id));
-  const existing = new Set((existingDraws || []).map((d: /* // */ any) => d.budget_item_id).filter(Boolean));
-
-  const { data: assignment } = await admin
-    .from('user_project_assignments')
-    .select('user_id')
-    .eq('project_id', budget.project_id)
-    .limit(1)
-    .maybeSingle();
-
-  const now = new Date().toISOString();
-  const rows = miscItems
-    .filter((item: /* // */ any) => !existing.has(item.id))
-    .map((item: /* // */ any) => {
-      const amount = Number(item.pm_approved_amount != null ? item.pm_approved_amount : item.amount_kes);
-      return {
-        project_id: budget.project_id,
-        period_month: `${budget.year_month}-01`,
-        draw_type: 'top_up',
-        amount_requested: amount,
-        amount_approved: amount,
-        purpose: `Budget-approved misc line: ${item.description}`,
-        status: 'approved',
-        budget_item_id: item.id,
-        requested_by: assignment?.user_id || dbUser.id,
-        pm_user_id: assignment?.user_id || null,
-        raised_by: dbUser.id,
-        raised_by_role: dbUser.role,
-        pm_approval_status: 'approved',
-        pm_approved_by: dbUser.id,
-        pm_actioned_at: now,
-        accountant_notes: 'Auto-created from approved budget miscellaneous line item.',
-      };
-    });
-
-  if (!rows.length) return 0;
-  const { data: inserted, error } = await admin.from('misc_draws').insert(rows).select('id');
-  if (error) throw error;
-
-  return inserted?.length || 0;
 }
 
 // =============================================================
@@ -147,6 +83,7 @@ export async function POST(request: Request) {
   const validActions = [
     'auto_populate',
     'backfill',
+    'backfill_approved',
     'confirm',
     'modify',
     'under_review',
@@ -175,110 +112,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Only CFO or accountant can auto-populate expenses' }, { status: 403 });
     }
 
-    const { budget_version_id, budget_id } = body;
-    if (!budget_version_id && !budget_id) {
-      return NextResponse.json({ success: false, error: 'budget_version_id or budget_id required' }, { status: 400 });
-    }
-
-    // Get budget version and its items
-    let budgetVersion: /* // */ any = null;
-    if (budget_version_id) {
-      const { data } = await admin
-        .from('budget_versions')
-        .select('*, budget_items(*)')
-        .eq('id', budget_version_id)
-        .single();
-      budgetVersion = data;
-    } else {
-      const { data } = await admin
-        .from('budget_versions')
-        .select('*, budget_items(*)')
-        .eq('budget_id', budget_id)
-        .order('version_number', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      budgetVersion = data;
-    }
-
-    if (!budgetVersion) {
-      return NextResponse.json({ success: false, error: 'Budget version not found' }, { status: 404 });
-    }
-
-    // Get budget to find project_id, department_id, year_month
-    const { data: budget } = await admin
-      .from('budgets')
-      .select('*')
-      .eq('id', budgetVersion.budget_id)
-      .single();
-
-    if (!budget) {
-      return NextResponse.json({ success: false, error: 'Budget not found' }, { status: 404 });
-    }
-
-    // Month lock enforcement
-    const monthErr = await assertMonthOpen(admin, budget.year_month);
-    if (monthErr) return NextResponse.json({ success: false, error: monthErr.message }, { status: monthErr.status });
-
-    // Filter items:
-    // - PM reviewed path: include PM-approved/adjusted items
-    // - Direct CFO approval path: include all items (no pm_status set)
-    const allItems = budgetVersion.budget_items || [];
-    const hasPmLineReview = allItems.some((item: /* // */ any) => ['approved', 'adjusted', 'removed'].includes(item.pm_status));
-    const eligibleItems = hasPmLineReview
-      ? allItems.filter((item: /* // */ any) => ['approved', 'adjusted'].includes(item.pm_status))
-      : allItems;
-
-    if (eligibleItems.length === 0) {
-      return NextResponse.json({ success: false, error: 'No eligible budget items found' }, { status: 400 });
-    }
-
-    // Check for duplicates — skip items already in pending_expenses
-    const existingItemIds = new Set<string>();
-    const { data: existingPE } = await admin
-      .from('pending_expenses')
-      .select('budget_item_id')
-      .eq('budget_id', budget.id);
-    (existingPE || []).forEach((pe: /* // */ any) => existingItemIds.add(pe.budget_item_id));
-
-    const newItems = eligibleItems.filter((item: /* // */ any) => !existingItemIds.has(item.id));
-    if (newItems.length === 0) {
-      return NextResponse.json({ success: true, data: [], message: 'All items already populated' });
-    }
-
-    const pendingRows = newItems.map((item: /* // */ any) => {
-      const budgetedAmountKes = item.pm_status === 'adjusted'
-        ? item.pm_approved_amount
-        : item.amount_kes;
-
-      return {
-        budget_id: budget.id,
-        budget_version_id: budgetVersion.id,
-        budget_item_id: item.id,
-        project_id: budget.project_id,
-        department_id: budget.department_id,
-        year_month: budget.year_month,
-        description: item.description,
-        category: item.category,
-        budgeted_amount_kes: budgetedAmountKes,
-        actual_amount_kes: null,
-        status: 'pending_auth',
-      };
-    });
-
-    const { data: inserted, error: insertErr } = await admin
-      .from('pending_expenses')
-      .insert(pendingRows)
-      .select();
-
-    if (insertErr) {
-      return NextResponse.json({ success: false, error: insertErr.message }, { status: 500 });
-    }
-
-    let miscLogged = 0;
-    try {
-      miscLogged = await autoLogBudgetMiscDraws(admin, dbUser, budget, newItems);
-    } catch (miscErr: /* // */ any) {
-      console.error('Failed to auto-log misc items from budget:', miscErr?.message || miscErr);
+    const result = await autoPopulateExpenses(
+      { budget_version_id: body.budget_version_id, budget_id: body.budget_id },
+      { id: dbUser.id, role: dbUser.role },
+      admin,
+    );
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: result.error }, { status: result.status });
     }
 
     // Audit log
@@ -286,22 +126,30 @@ export async function POST(request: Request) {
       user_id: dbUser.id,
       action: 'expense_auto_populate',
       table_name: 'pending_expenses',
-      record_id: budgetVersion.id,
+      record_id: body.budget_version_id || body.budget_id,
       old_values: null,
-      new_values: { count: inserted?.length, budget_id: budget.id, year_month: budget.year_month },
+      new_values: {
+        count: result.data?.length || 0,
+        budget_id: body.budget_id || null,
+      },
     });
 
     // Notify relevant users
-    await notifyRole(admin, 'cfo', 'Pending expenses auto-populated', `${inserted?.length} pending expense(s) created from budget for ${budget.year_month}.`, '/expenses/queue');
-    await notifyRole(admin, 'accountant', 'Pending expenses auto-populated', `${inserted?.length} pending expense(s) created from budget for ${budget.year_month}.`, '/expenses/queue');
+    await notifyRole(admin, 'cfo', 'Pending expenses auto-populated', `${result.data?.length || 0} pending expense(s) created from budget.`, '/expenses/queue');
+    await notifyRole(admin, 'accountant', 'Pending expenses auto-populated', `${result.data?.length || 0} pending expense(s) created from budget.`, '/expenses/queue');
 
-    return NextResponse.json({ success: true, data: inserted, misc_logged: miscLogged });
+    return NextResponse.json({
+      success: true,
+      data: result.data || [],
+      misc_logged: result.misc_logged || 0,
+      message: result.message,
+    });
   }
 
   // -----------------------------------------------------------
   // backfill — populate pending expenses for ALL already-approved budgets
   // -----------------------------------------------------------
-  if (action === 'backfill') {
+  if (action === 'backfill' || action === 'backfill_approved') {
     if (!isCfo) {
       return NextResponse.json({ success: false, error: 'Only CFO can backfill' }, { status: 403 });
     }
@@ -329,43 +177,12 @@ export async function POST(request: Request) {
       if (!budget) continue;
       if (yearMonth && budget.year_month !== yearMonth) continue;
 
-      const allItems = (bv as /* // */ any).budget_items || [];
-      const hasLineReview = allItems.some((item: /* // */ any) => ['approved', 'adjusted', 'removed'].includes(item.pm_status));
-      const eligibleItems = hasLineReview
-        ? allItems.filter((item: /* // */ any) => ['approved', 'adjusted'].includes(item.pm_status))
-        : allItems.filter((item: /* // */ any) => item.pm_status !== 'removed');
-
-      // Skip items already populated
-      const { data: existingPE } = await admin
-        .from('pending_expenses')
-        .select('budget_item_id')
-        .eq('budget_version_id', bv.id);
-      const existingIds = new Set((existingPE || []).map((pe: /* // */ any) => pe.budget_item_id));
-      const newItems = eligibleItems.filter((item: /* // */ any) => !existingIds.has(item.id));
-
-      if (newItems.length === 0) continue;
-
-      const rows = newItems.map((item: /* // */ any) => ({
-        budget_id: budget.id,
-        budget_version_id: bv.id,
-        budget_item_id: item.id,
-        project_id: budget.project_id,
-        department_id: budget.department_id,
-        year_month: budget.year_month,
-        description: item.description,
-        category: item.category,
-        budgeted_amount_kes: item.pm_approved_amount != null ? item.pm_approved_amount : 0,
-        status: 'pending_auth',
-      }));
-
-      const { error: insErr } = await admin.from('pending_expenses').insert(rows);
-      if (!insErr) totalCreated += rows.length;
-
-      try {
-        await autoLogBudgetMiscDraws(admin, dbUser, budget, newItems);
-      } catch (miscErr: /* // */ any) {
-        console.error('Backfill misc auto-log failed:', miscErr?.message || miscErr);
-      }
+      const populate = await autoPopulateExpenses(
+        { budget_version_id: bv.id },
+        { id: dbUser.id, role: dbUser.role },
+        admin,
+      );
+      if (populate.success) totalCreated += populate.data?.length || 0;
     }
 
     await admin.from('audit_logs').insert({

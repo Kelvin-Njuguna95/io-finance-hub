@@ -42,6 +42,7 @@ interface BudgetRow {
   created_by: string;
   created_by_name: string;
   submitted_by_role: string;
+  pending_expense_count: number;
 }
 
 const statusLabels: Record<string, string> = {
@@ -137,6 +138,22 @@ export default function BudgetsPage() {
     }
   }
 
+  async function handlePopulateExpenses(budgetId: string) {
+    const headers = await getAuthHeaders();
+    const res = await fetch('/api/expense-lifecycle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify({ action: 'auto_populate', budget_id: budgetId }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast.success('Expenses populated');
+      load();
+    } else {
+      toast.error(data.error || 'Failed to populate expenses');
+    }
+  }
+
   async function load() {
     const supabase = createClient();
     const { data } = await getBudgetsByMonth(supabase, selectedMonth);
@@ -163,10 +180,29 @@ export default function BudgetsPage() {
         created_by: b.created_by as string,
         created_by_name: nameMap.get(b.created_by as string) || '—',
         submitted_by_role: (b.submitted_by_role as string) || 'team_leader',
+        pending_expense_count: 0,
       };
     });
 
-    setBudgets(rows);
+    const budgetIds = rows.map((row) => row.id);
+    const pendingCountMap = new Map<string, number>();
+    if (budgetIds.length > 0) {
+      const { data: pending } = await supabase
+        .from('pending_expenses')
+        .select('budget_id')
+        .in('budget_id', budgetIds);
+      (pending || []).forEach((item: { budget_id: string | null }) => {
+        if (!item.budget_id) return;
+        pendingCountMap.set(item.budget_id, (pendingCountMap.get(item.budget_id) || 0) + 1);
+      });
+    }
+
+    const rowsWithCounts = rows.map((row) => ({
+      ...row,
+      pending_expense_count: pendingCountMap.get(row.id) || 0,
+    }));
+
+    setBudgets(rowsWithCounts);
     setLoading(false);
   }
 
@@ -289,7 +325,7 @@ export default function BudgetsPage() {
                   <TableHead>Version</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Amount (KES)</TableHead>
-                  <TableHead className="w-[160px]">Actions</TableHead>
+                  <TableHead className="w-[280px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -384,6 +420,16 @@ export default function BudgetsPage() {
                                 onClick={() => handleCfoApprove(b.id)}
                               >
                                 {b.latest_status === 'pm_approved' ? 'Approve' : 'Approve (Direct)'}
+                              </Button>
+                            )}
+                            {(user?.role === 'cfo' || user?.role === 'accountant') && b.latest_status === 'approved' && b.pending_expense_count === 0 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => handlePopulateExpenses(b.id)}
+                              >
+                                Populate Expenses
                               </Button>
                             )}
                           </div>
