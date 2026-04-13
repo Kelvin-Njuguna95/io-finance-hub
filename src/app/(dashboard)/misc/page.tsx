@@ -135,6 +135,8 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
   const [items, setItems] = useState</* // */ any[]>([]);
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<{ idx: number; item: /* // */ any } | null>(null);
+  const [deletingItem, setDeletingItem] = useState(false);
   const reportMonth = getPrevMonth(selectedMonth);
   const selectedMonthLabel = formatYearMonth(selectedMonth);
 
@@ -215,6 +217,49 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
 
   function removeItem(idx: number) {
     setItems((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function requestRemoveItem(idx: number) {
+    const item = items[idx];
+    if (!item) return;
+
+    // Unsaved item: local removal only
+    if (!item.id) {
+      removeItem(idx);
+      return;
+    }
+
+    setPendingDeleteItem({ idx, item });
+  }
+
+  async function confirmDeleteItem() {
+    if (!pendingDeleteItem?.item?.id) return;
+
+    setDeletingItem(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/misc-draws', {
+        method: 'DELETE',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: pendingDeleteItem.item.id }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to delete line item.');
+        return;
+      }
+
+      setItems((prev) => prev.filter((i) => i.id !== pendingDeleteItem.item.id));
+      if (data.warning) toast.warning(data.warning);
+      toast.success('Line item deleted');
+      setPendingDeleteItem(null);
+    } catch (error) {
+      console.error('Failed to delete line item:', error);
+      toast.error('An unexpected error occurred while deleting.');
+    } finally {
+      setDeletingItem(false);
+    }
   }
 
   async function ensureReport() {
@@ -447,7 +492,7 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
                     </div>
                     <div className="col-span-1 flex justify-end">
                       {canEdit && (
-                        <Button variant="ghost" size="icon" onClick={() => removeItem(idx)} title="Remove line item">
+                        <Button variant="ghost" size="icon" onClick={() => requestRemoveItem(idx)} title="Remove line item">
                           <Trash2 className="h-4 w-4 text-danger" />
                         </Button>
                       )}
@@ -474,6 +519,35 @@ function ProjectMiscLineItemsPanel({ user, selectedMonth }: { user: /* // */ any
           </>
         )}
       </CardContent>
+      <Dialog open={!!pendingDeleteItem} onOpenChange={(open) => { if (!open) setPendingDeleteItem(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this line item?</DialogTitle>
+            <DialogDescription>This action cannot be undone.</DialogDescription>
+          </DialogHeader>
+
+          {pendingDeleteItem?.item && (
+            <div className="rounded-md border bg-muted/20 p-3 text-sm space-y-1">
+              <p><strong>Date:</strong> {pendingDeleteItem.item.expense_date ? formatDate(pendingDeleteItem.item.expense_date) : '—'}</p>
+              <p><strong>Description:</strong> {pendingDeleteItem.item.description || '—'}</p>
+              <p><strong>Amount:</strong> {formatCurrency(Number(pendingDeleteItem.item.amount || 0), 'KES')}</p>
+            </div>
+          )}
+
+          {['submitted', 'approved'].includes(report?.status || '') && (
+            <p className="text-sm text-amber-600">
+              This item is part of an approved/submitted report. Deleting it will affect report totals. Continue?
+            </p>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingDeleteItem(null)} disabled={deletingItem}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDeleteItem} disabled={deletingItem}>
+              {deletingItem ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
