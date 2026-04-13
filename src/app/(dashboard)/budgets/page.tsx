@@ -55,6 +55,7 @@ const statusLabels: Record<string, string> = {
   approved: 'Approved',
   rejected: 'Rejected',
 };
+const cfoApprovableStatuses = [BUDGET_STATUS.SUBMITTED, BUDGET_STATUS.PM_REVIEW, BUDGET_STATUS.PM_APPROVED];
 
 export default function BudgetsPage() {
   const { user } = useUser();
@@ -120,6 +121,22 @@ export default function BudgetsPage() {
     }
   }
 
+  async function handleCfoApprove(budgetId: string) {
+    const headers = await getAuthHeaders();
+    const res = await fetch('/api/budgets/cfo-approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify({ budget_id: budgetId, action: 'approve' }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast.success('Budget approved');
+      load();
+    } else {
+      toast.error(data.error || 'Failed to approve budget');
+    }
+  }
+
   async function load() {
     const supabase = createClient();
     const { data } = await getBudgetsByMonth(supabase, selectedMonth);
@@ -157,7 +174,12 @@ export default function BudgetsPage() {
   const filteredBudgets = budgets.filter(b => {
     if (filterTab === 'all') return true;
     if (filterTab === 'mine') return b.created_by === user?.id;
-    if (filterTab === 'pending') return b.latest_status === BUDGET_STATUS.PM_REVIEW;
+    if (filterTab === 'pending') {
+      if (user?.role === 'cfo') {
+        return cfoApprovableStatuses.includes(b.latest_status as typeof cfoApprovableStatuses[number]);
+      }
+      return b.latest_status === BUDGET_STATUS.PM_REVIEW;
+    }
     if (filterTab === 'approved') return b.latest_status === BUDGET_STATUS.APPROVED;
     return true;
   });
@@ -352,6 +374,16 @@ export default function BudgetsPage() {
                             {canDeleteBudget(b) && (
                               <Button variant="ghost" size="icon" title="Delete Budget Record" onClick={() => setDeleteTarget(b)}>
                                 <Trash2 className="h-4 w-4 text-danger-soft-foreground" />
+                              </Button>
+                            )}
+                            {user?.role === 'cfo' && cfoApprovableStatuses.includes(b.latest_status as typeof cfoApprovableStatuses[number]) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => handleCfoApprove(b.id)}
+                              >
+                                {b.latest_status === 'pm_approved' ? 'Approve' : 'Approve (Direct)'}
                               </Button>
                             )}
                           </div>

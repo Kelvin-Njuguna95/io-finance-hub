@@ -219,9 +219,14 @@ export async function POST(request: Request) {
     const monthErr = await assertMonthOpen(admin, budget.year_month);
     if (monthErr) return NextResponse.json({ success: false, error: monthErr.message }, { status: monthErr.status });
 
-    // Filter items: include only PM-approved or adjusted items
+    // Filter items:
+    // - PM reviewed path: include PM-approved/adjusted items
+    // - Direct CFO approval path: include all items (no pm_status set)
     const allItems = budgetVersion.budget_items || [];
-    const eligibleItems = allItems.filter((item: /* // */ any) => ['approved', 'adjusted'].includes(item.pm_status));
+    const hasPmLineReview = allItems.some((item: /* // */ any) => ['approved', 'adjusted', 'removed'].includes(item.pm_status));
+    const eligibleItems = hasPmLineReview
+      ? allItems.filter((item: /* // */ any) => ['approved', 'adjusted'].includes(item.pm_status))
+      : allItems;
 
     if (eligibleItems.length === 0) {
       return NextResponse.json({ success: false, error: 'No eligible budget items found' }, { status: 400 });
