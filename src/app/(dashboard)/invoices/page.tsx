@@ -67,12 +67,15 @@ export default function InvoicesPage() {
 
   const viewRows = useMemo(() => {
     if (tab === 'all') return rows;
-    return rows.filter((row) => getInvoiceOutstandingTotal(row) > 0 && OUTSTANDING_INVOICE_STATUSES.includes(row.status as /* // */ any));
+    return rows.filter((row) => row.status !== 'paid' && getInvoiceOutstandingTotal(row) > 0 && OUTSTANDING_INVOICE_STATUSES.includes(row.status as /* // */ any));
   }, [rows, tab]);
 
   const totals = useMemo(() => {
     const totalInvoiced = rows.reduce((s, r) => s + Number(r.amount_usd || 0), 0);
-    const totalPaid = rows.reduce((s, r) => s + (r.payments || []).reduce((ps, p) => ps + Number(p.amount_usd || 0), 0), 0);
+    const totalPaid = rows.reduce((s, r) => {
+      const paymentSum = (r.payments || []).reduce((ps, p) => ps + Number(p.amount_usd || 0), 0);
+      return s + (r.status === 'paid' ? Math.max(Number(r.amount_usd || 0), paymentSum) : paymentSum);
+    }, 0);
     const totalOutstanding = Math.max(0, totalInvoiced - totalPaid);
     const overdueCount = rows.filter((r) => {
       const paid = (r.payments || []).reduce((s, p) => s + Number(p.amount_usd || 0), 0);
@@ -201,7 +204,8 @@ export default function InvoicesPage() {
                   </TableRow>
                 ) : (
                   viewRows.map((row) => {
-                    const paidAmount = (row.payments || []).reduce((s, p) => s + Number(p.amount_usd || 0), 0);
+                    const paymentSum = (row.payments || []).reduce((s, p) => s + Number(p.amount_usd || 0), 0);
+                    const paidAmount = row.status === 'paid' ? Math.max(Number(row.amount_usd || 0), paymentSum) : paymentSum;
                     const outstanding = Math.max(0, Number(row.amount_usd || 0) - paidAmount);
                     return (
                       <TableRow key={row.id}>

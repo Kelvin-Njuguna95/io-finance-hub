@@ -91,7 +91,8 @@ export default function WithdrawalsPage() {
 
       const totalInvoiced = (allInvoices || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_usd), 0);
       const totalPaid = (allInvoices || []).reduce((s: number, i: /* // */ any) => {
-        const paid = (i.payments || []).reduce((ps: number, p: /* // */ any) => ps + Number(p.amount_usd), 0);
+        const paymentTotal = (i.payments || []).reduce((ps: number, p: /* // */ any) => ps + Number(p.amount_usd), 0);
+        const paid = i.status === 'paid' ? Math.max(Number(i.amount_usd), paymentTotal) : paymentTotal;
         return s + paid;
       }, 0);
 
