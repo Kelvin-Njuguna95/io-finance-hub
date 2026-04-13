@@ -143,6 +143,8 @@ export default function WithdrawalsPage() {
       const result = await res.json();
       if (result.success) {
         window.location.reload();
+      } else if (result.manual_required) {
+        alert('The withdrawal_type column needs to be added manually in the Supabase dashboard. Run this SQL:\n\nALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS withdrawal_type text;\n\nThen click Fix Now again to backfill the data.');
       } else {
         alert(`Failed to fix legacy records: ${result.error || 'Unknown error'}`);
       }
