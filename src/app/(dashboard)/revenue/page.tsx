@@ -19,6 +19,7 @@ import { PaymentFormDialog } from '@/components/revenue/payment-form-dialog';
 import { formatCurrency, formatDate, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
 import { Plus, DollarSign, FileText, CreditCard, CalendarClock, ChevronDown, ChevronUp } from 'lucide-react';
 import { getAgingBucket, isBackdated } from '@/lib/backdated-utils';
+import { getTotalPaidUsd } from '@/lib/cash-balance';
 import { toast } from 'sonner';
 import { getUserErrorMessage } from '@/lib/errors';
 import type { Invoice, Payment } from '@/types/database';
@@ -158,10 +159,14 @@ export default function RevenuePage() {
     }
 
     const { data: balSetting } = await supabase.from('system_settings').select('value').eq('key', 'bank_balance_usd').single();
-    const standingBal = parseFloat(balSetting?.value || '0');
+    const seedBalance = parseFloat(balSetting?.value || '0');
     const { data: allWd } = await supabase.from('withdrawals').select('amount_usd');
     const totalWd = (allWd || []).reduce((s: number, w: /* // */ any) => s + Number(w.amount_usd), 0);
-    setBankBalance(standingBal - totalWd);
+    const { data: allInvoicesEver } = await supabase
+      .from('invoices')
+      .select('amount_usd, status, payments(amount_usd)');
+    const totalPaid = getTotalPaidUsd(allInvoicesEver || []);
+    setBankBalance(seedBalance + totalPaid - totalWd);
   }, []);
 
   useEffect(() => {

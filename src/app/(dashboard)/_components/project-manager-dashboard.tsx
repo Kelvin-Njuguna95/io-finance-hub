@@ -29,6 +29,7 @@ import {
 } from '@/lib/format';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
 import { getPmReviewQueueCount } from '@/lib/queries/budgets';
+import { getTotalPaidUsd } from '@/lib/cash-balance';
 
 interface ProjectData {
   name: string;
@@ -92,7 +93,7 @@ export function ProjectManagerDashboard({ userId }: Props) {
         .select('value')
         .eq('key', 'bank_balance_usd')
         .single();
-      const standingBal = parseFloat(balSetting?.value || '0');
+      const seedBalance = parseFloat(balSetting?.value || '0');
       const { data: allWd } = await supabase
         .from('withdrawals')
         .select('amount_usd');
@@ -100,7 +101,11 @@ export function ProjectManagerDashboard({ userId }: Props) {
         (s: number, w: { amount_usd: number }) => s + Number(w.amount_usd),
         0,
       );
-      setBankBalance(standingBal - totalWd);
+      const { data: allInvoicesEver } = await supabase
+        .from('invoices')
+        .select('amount_usd, status, payments(amount_usd)');
+      const totalPaid = getTotalPaidUsd(allInvoicesEver || []);
+      setBankBalance(seedBalance + totalPaid - totalWd);
 
       const { data: invoices } = await supabase
         .from('invoices')
