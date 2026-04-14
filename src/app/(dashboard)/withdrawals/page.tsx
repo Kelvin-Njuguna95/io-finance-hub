@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/table';
 import { WithdrawalFormDialog } from '@/components/withdrawals/withdrawal-form-dialog';
 import { formatCurrency, formatDate, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
+import { getTotalPaidUsd } from '@/lib/cash-balance';
 import { Plus, ArrowDownToLine, TrendingUp, AlertTriangle, Wallet, FileText, DollarSign, Receipt, Pencil } from 'lucide-react';
 import type { Withdrawal } from '@/types/database';
 
@@ -90,11 +91,7 @@ export default function WithdrawalsPage() {
         .lte('billing_period', selectedMonth);
 
       const totalInvoiced = (allInvoices || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_usd), 0);
-      const totalPaid = (allInvoices || []).reduce((s: number, i: /* // */ any) => {
-        const paymentTotal = (i.payments || []).reduce((ps: number, p: /* // */ any) => ps + Number(p.amount_usd), 0);
-        const paid = i.status === 'paid' ? Math.max(Number(i.amount_usd), paymentTotal) : paymentTotal;
-        return s + paid;
-      }, 0);
+      const totalPaid = getTotalPaidUsd(allInvoices || []);
 
       setInvoiceSummary({
         total_invoiced_usd: totalInvoiced,
@@ -102,12 +99,17 @@ export default function WithdrawalsPage() {
         total_pending_usd: totalInvoiced - totalPaid,
       });
 
-      // Bank balance (standing minus ALL withdrawals, not just this month)
+      // `bank_balance_usd` is a seed/starting balance from before this app tracked movements.
+      // Current balance = seed + all paid invoice cash-in - all withdrawals (all-time).
       const { data: balSetting } = await supabase.from('system_settings').select('value').eq('key', 'bank_balance_usd').single();
-      const standingBal = parseFloat(balSetting?.value || '0');
+      const seedBalance = parseFloat(balSetting?.value || '0');
       const { data: allWd } = await supabase.from('withdrawals').select('amount_usd');
       const totalAllTimeWd = (allWd || []).reduce((s: number, w: /* // */ any) => s + Number(w.amount_usd), 0);
-      setBankBalance(standingBal - totalAllTimeWd);
+      const { data: allInvoicesEver } = await supabase
+        .from('invoices')
+        .select('amount_usd, status, payments(amount_usd)');
+      const totalPaymentsReceived = getTotalPaidUsd(allInvoicesEver || []);
+      setBankBalance(seedBalance + totalPaymentsReceived - totalAllTimeWd);
     }
     load();
   }, [selectedMonth]);

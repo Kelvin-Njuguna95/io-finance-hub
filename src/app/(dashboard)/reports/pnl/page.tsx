@@ -16,6 +16,7 @@ import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 
 import { FileDown } from 'lucide-react';
 import { exportSimpleReportPdf } from '@/lib/pdf-export';
 import { EXPENSE_STATUS } from '@/lib/constants/status';
+import { getTotalPaidUsd } from '@/lib/cash-balance';
 
 function PnlLine({ label, kes, bold, negative }: {
   label: string; kes: number; bold?: boolean; negative?: boolean;
@@ -79,16 +80,16 @@ export default function PnLReportPage() {
       }
       setRevenueSourceMonth(revMonth);
 
-      // Fetch cash balance: standing balance - withdrawals + payments received
-      const [balRes, wdRes, payRes2] = await Promise.all([
+      // Fetch cash balance: seed + all-time invoice cash-in - all-time withdrawals.
+      const [balRes, wdRes, allInvoicesRes] = await Promise.all([
         supabase.from('system_settings').select('value').eq('key', 'bank_balance_usd').single(),
         supabase.from('withdrawals').select('amount_usd'),
-        supabase.from('payments').select('amount_usd'),
+        supabase.from('invoices').select('amount_usd, status, payments(amount_usd)'),
       ]);
-      const standingBal = parseFloat(balRes.data?.value || '0');
+      const seedBalance = parseFloat(balRes.data?.value || '0');
       const totalWithdrawn = (wdRes.data || []).reduce((s: number, w: /* // */ any) => s + Number(w.amount_usd), 0);
-      const totalPaid = (payRes2.data || []).reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd), 0);
-      setCashBalance(standingBal - totalWithdrawn + totalPaid);
+      const totalPaid = getTotalPaidUsd(allInvoicesRes.data || []);
+      setCashBalance(seedBalance + totalPaid - totalWithdrawn);
 
       if (snapshot && Number(snapshot.total_revenue_kes) > 0) {
         // Always get live agent counts — snapshots may have stale or missing agent data

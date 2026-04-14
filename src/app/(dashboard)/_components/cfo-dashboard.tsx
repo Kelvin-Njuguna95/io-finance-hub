@@ -42,6 +42,7 @@ import { EXPENSE_STATUS } from '@/lib/constants/status';
 import { CfoMiscApproval } from '@/components/misc/cfo-misc-approval';
 import { OutstandingReceivablesPanel } from '@/components/revenue/outstanding-receivables-panel';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
+import { getTotalPaidUsd } from '@/lib/cash-balance';
 import type {
   RedFlag,
   BudgetVersion,
@@ -240,7 +241,7 @@ export function CfoDashboard() {
         .select('value')
         .eq('key', 'bank_balance_usd')
         .single();
-      const standingBalance = parseFloat(balSetting?.value || '0');
+      const seedBalance = parseFloat(balSetting?.value || '0');
       const { data: allWithdrawals } = await supabase
         .from('withdrawals')
         .select('amount_usd');
@@ -248,7 +249,11 @@ export function CfoDashboard() {
         (s: number, w: { amount_usd: number }) => s + Number(w.amount_usd),
         0,
       );
-      setBankBalance(standingBalance - totalWithdrawn);
+      const { data: allInvoicesEver } = await supabase
+        .from('invoices')
+        .select('amount_usd, status, payments(amount_usd)');
+      const totalPaid = getTotalPaidUsd(allInvoicesEver || []);
+      setBankBalance(seedBalance + totalPaid - totalWithdrawn);
 
       setRedFlags((flagsRes.data || []) as RedFlag[]);
       setPendingBudgets((budgetsRes.data || []) as (BudgetVersion & { budget_name?: string })[]);
