@@ -24,6 +24,7 @@ import { Check, X, History } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Budget, BudgetVersion, BudgetItem, BudgetApproval } from '@/types/database';
 import { getUserErrorMessage } from '@/lib/errors';
+import { BUDGET_EDITABLE_STATUSES } from '@/lib/budgets/status';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-muted text-foreground/80',
@@ -231,9 +232,10 @@ export default function BudgetDetailPage() {
   const isTl = user?.role === 'team_leader';
   const isOwnBudget = budget?.created_by === user?.id;
   const budgetSubmittedByRole = (budget as /* // */ any)?.submitted_by_role || 'team_leader';
-  // TL can edit their own returned/draft budgets; Accountant can edit their own returned/draft budgets
-  const canTlEdit = (isTl && (activeVersion?.status === 'returned_to_tl' || activeVersion?.status === 'draft'))
-    || (isAccountant && isOwnBudget && budgetSubmittedByRole === 'accountant' && (activeVersion?.status === 'returned_to_tl' || activeVersion?.status === 'draft'));
+  const EDITABLE_STATUSES = BUDGET_EDITABLE_STATUSES;
+  const canTlEdit =
+    (isTl && EDITABLE_STATUSES.includes(activeVersion?.status || '')) ||
+    (isAccountant && isOwnBudget && budgetSubmittedByRole === 'accountant' && EDITABLE_STATUSES.includes(activeVersion?.status || ''));
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState(0);
   const [editDesc, setEditDesc] = useState('');
@@ -673,11 +675,11 @@ export default function BudgetDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Resubmit button (TL for own, Accountant for own) */}
-            {canTlEdit && activeVersion?.status === 'returned_to_tl' && (
+            {/* Submit / Resubmit button — available whenever the current user can edit this budget */}
+            {canTlEdit && EDITABLE_STATUSES.includes(activeVersion?.status || '') && (
               <div className="flex justify-end">
-                <Button onClick={handleResubmit} className="btn-gradient text-white gap-1">
-                  Resubmit for PM Review
+                <Button onClick={handleResubmit} className="btn-gradient text-white gap-1" disabled={processing || items.length === 0}>
+                  {activeVersion?.status === 'draft' ? 'Submit for PM Review' : 'Resubmit for PM Review'}
                 </Button>
               </div>
             )}

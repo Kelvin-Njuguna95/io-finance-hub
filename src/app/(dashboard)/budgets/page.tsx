@@ -28,6 +28,7 @@ import { DashboardAlert } from '@/components/common/dashboard-alert';
 import { getStatusBadgeClass } from '@/lib/status';
 import { getBudgetsByMonth } from '@/lib/queries/budgets';
 import { BUDGET_STATUS } from '@/lib/constants/status';
+import { BUDGET_EDITABLE_STATUSES } from '@/lib/budgets/status';
 
 interface BudgetRow {
   id: string;
@@ -251,11 +252,12 @@ export default function BudgetsPage() {
   }
 
   function canEdit(b: BudgetRow): boolean {
-    // TL can edit their own returned budgets
-    if (isTl && b.submitted_by_role === 'team_leader' && b.latest_status === 'returned_to_tl') return true;
-    // Accountant can edit their own returned/draft budgets
-    if (isAccountant && b.submitted_by_role === 'accountant' && b.created_by === user?.id &&
-        (b.latest_status === 'returned_to_tl' || b.latest_status === 'draft')) return true;
+    const isEditableStatus = BUDGET_EDITABLE_STATUSES.includes(b.latest_status as typeof BUDGET_EDITABLE_STATUSES[number]);
+    if (!isEditableStatus) return false;
+    // TL can edit editable budgets
+    if (isTl) return true;
+    // Accountant can edit their own editable budgets
+    if (isAccountant && b.submitted_by_role === 'accountant' && b.created_by === user?.id) return true;
     return false;
   }
 
