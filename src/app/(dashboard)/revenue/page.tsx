@@ -127,6 +127,11 @@ export default function RevenuePage() {
         supabase.from('payments').select('id, amount_usd, payment_date, payment_method, reference, notes, invoice_id, amount_kes, recorded_by, created_at, updated_at'),
       ]);
 
+      if (paymentsRes.error) {
+        console.error('Failed to load payments', paymentsRes.error);
+        toast.error(getUserErrorMessage(paymentsRes.error, 'Unable to load payments — outstanding totals may be inaccurate.'));
+      }
+
       const projectsById = new Map<string, string>();
       if (projectsRes.data) {
         for (const p of projectsRes.data as Array<{ id: string; name: string }>) {
@@ -156,6 +161,7 @@ export default function RevenuePage() {
           project_name: projectsById.get(i.project_id),
         };
       }));
+
     }
 
     const { data: balSetting } = await supabase.from('system_settings').select('value').eq('key', 'bank_balance_usd').single();
