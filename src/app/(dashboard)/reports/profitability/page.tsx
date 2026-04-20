@@ -104,6 +104,11 @@ export default function ProfitabilityPage() {
   const totalCosts = data.reduce((s, r) => s + r.direct_costs, 0);
   const totalProfit = data.reduce((s, r) => s + r.gross_profit, 0);
   const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue * 100) : 0;
+  const MIN_REVENUE_FOR_BEST_MARGIN_KES = 50_000;
+  const bestMarginProject = [...data]
+    .filter((r) => r.revenue >= MIN_REVENUE_FOR_BEST_MARGIN_KES)
+    .sort((a, b) => b.margin - a.margin)[0]
+    ?? [...data].sort((a, b) => b.margin - a.margin)[0];
 
   async function exportPdf() {
     await exportSimpleReportPdf(
@@ -140,10 +145,10 @@ export default function ProfitabilityPage() {
         ]} />
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <ExecutiveKpiCard label="Gross Profit" value={formatCompactCurrency(totalProfit, 'KES')} trend="↑ +6.1%" />
+          <ExecutiveKpiCard label="Gross Profit" value={formatCompactCurrency(totalProfit, 'KES')} />
           <ExecutiveKpiCard label="Gross Margin" value={formatExecutivePercent(totalMargin)} trend={totalMargin >= 40 ? '↑ Above target' : '↓ Below target'} positive={totalMargin >= 40} />
-          <ExecutiveKpiCard label="Active Projects" value={String(data.length)} trend="Stable" />
-          <ExecutiveKpiCard label="Best Margin Project" value={data[0] ? `${data[0].project_name} ${formatExecutivePercent(data[0].margin)}` : 'N/A'} trend="Top performer" />
+          <ExecutiveKpiCard label="Active Projects" value={String(data.length)} />
+          <ExecutiveKpiCard label="Best Margin Project" value={bestMarginProject ? `${bestMarginProject.project_name} ${formatExecutivePercent(bestMarginProject.margin)}` : 'N/A'} trend="Highest margin %" />
         </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
