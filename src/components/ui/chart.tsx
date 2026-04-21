@@ -70,7 +70,7 @@ function ChartTooltipContent({
     <div
       data-slot="chart-tooltip"
       className={cn(
-        'rounded-lg border border-border-subtle bg-popover px-3 py-2 text-xs text-popover-foreground shadow-elev-2',
+        'rounded-lg border border-border-subtle bg-popover px-3 py-2 text-xs text-popover-foreground shadow-[var(--shadow-overlay)]',
         'min-w-[9rem] tabular-nums',
         className,
       )}

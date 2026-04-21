@@ -19,7 +19,7 @@ function Table({ className, ...props }: React.ComponentProps<'table'>) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto rounded-[10px] border border-border -webkit-overflow-scrolling-touch"
+      className="relative w-full overflow-x-auto rounded-[var(--radius-lg)] border border-border -webkit-overflow-scrolling-touch"
     >
       <table
         data-slot="table"
@@ -52,7 +52,7 @@ function TableBody({ className, ...props }: React.ComponentProps<'tbody'>) {
       data-slot="table-body"
       className={cn(
         '[&_tr]:border-b [&_tr]:border-border',
-        '[&_tr:nth-child(even)]:bg-[#FAFBFC]',
+        '[&_tr:nth-child(even)]:bg-surface-3',
         '[&_tr:last-child]:border-0',
         className,
       )}
@@ -80,9 +80,9 @@ function TableRow({ className, ...props }: React.ComponentProps<'tr'>) {
       data-slot="table-row"
       className={cn(
         'transition-colors duration-[var(--dur-fast)]',
-        'hover:bg-[#F5F7FA]',
-        'has-aria-expanded:bg-[#F1F5F9]',
-        'data-[state=selected]:bg-[#EFF6FF]',
+        'hover:bg-muted',
+        'has-aria-expanded:bg-muted',
+        'data-[state=selected]:bg-primary-soft',
         className,
       )}
       {...props}
@@ -96,9 +96,9 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
       data-slot="table-head"
       className={cn(
         'h-10 px-3 text-left align-middle whitespace-nowrap',
-        'bg-[#F8FAFC] text-muted-foreground',
+        'bg-surface-2 text-muted-foreground',
         'text-[13px] font-semibold',
-        'first:rounded-tl-[10px] last:rounded-tr-[10px]',
+        'first:rounded-tl-[var(--radius-lg)] last:rounded-tr-[var(--radius-lg)]',
         'sticky top-0 z-10',
         '[&:has([role=checkbox])]:pr-0',
         className,
