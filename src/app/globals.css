@@ -379,10 +379,10 @@
   background: var(--card);
 }
 
-/* Hero surface — dark navy base with electric-blue + gold accent radials.
-   FLAG: electric-blue and gold are chart-only per .impeccable.md. This class
-   predates that rule and is consumed by dashboard pages that are out of
-   foundation-PR scope. Migration is owned by the dashboard polish PR. */
+/* Hero surface — dark navy base with navy-derivative accent radials.
+   All accents are hue 254 (brand navy) at varying lightnesses; no electric-
+   blue or gold here per the brand rules in .impeccable.md (chart-only
+   palette is not permitted on brand surfaces). */
 .hero-surface {
   position: relative;
   overflow: hidden;
@@ -391,12 +391,12 @@
   background:
     radial-gradient(
       1000px 420px at 100% 0%,
-      oklch(0.780 0.180 210 / 0.14) 0%,
+      oklch(0.700 0.080 254 / 0.18) 0%,
       transparent 60%
     ),
     radial-gradient(
       600px 280px at 0% 100%,
-      oklch(0.840 0.180 88 / 0.10) 0%,
+      oklch(0.500 0.060 254 / 0.12) 0%,
       transparent 60%
     ),
     linear-gradient(180deg, oklch(0.180 0.030 254) 0%, oklch(0.130 0.030 254) 100%);
