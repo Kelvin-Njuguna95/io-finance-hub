@@ -164,25 +164,25 @@ export default function ExpenseImportPage() {
               <Card className="io-card">
                 <CardContent className="p-4">
                   <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Total Rows</p>
-                  <p className="text-2xl font-bold">{parseResult.total_rows}</p>
+                  <p className="text-2xl font-semibold">{parseResult.total_rows}</p>
                 </CardContent>
               </Card>
               <Card className="io-card">
                 <CardContent className="p-4">
                   <p className="text-[11px] uppercase tracking-wider text-success-soft-foreground font-medium">Ready to Import</p>
-                  <p className="text-2xl font-bold text-success-soft-foreground">{parseResult.valid_count}</p>
+                  <p className="text-2xl font-semibold text-success-soft-foreground">{parseResult.valid_count}</p>
                 </CardContent>
               </Card>
               <Card className="io-card">
                 <CardContent className="p-4">
                   <p className="text-[11px] uppercase tracking-wider text-warning-soft-foreground font-medium">Needs Review</p>
-                  <p className="text-2xl font-bold text-warning-soft-foreground">{parseResult.review_count}</p>
+                  <p className="text-2xl font-semibold text-warning-soft-foreground">{parseResult.review_count}</p>
                 </CardContent>
               </Card>
               <Card className="io-card">
                 <CardContent className="p-4">
                   <p className="text-[11px] uppercase tracking-wider text-danger-soft-foreground font-medium">Reroute (Blocked)</p>
-                  <p className="text-2xl font-bold text-danger-soft-foreground">{parseResult.reroute_count}</p>
+                  <p className="text-2xl font-semibold text-danger-soft-foreground">{parseResult.reroute_count}</p>
                 </CardContent>
               </Card>
             </div>

@@ -48,7 +48,7 @@ function PnlSection({ label, bold, negative, amount }: { label: string; bold?: b
   return (
     <div className={`flex items-center justify-between py-1.5 ${bold ? 'font-semibold' : ''}`}>
       <span className="text-sm">{label}</span>
-      <span className={`text-sm font-mono ${negative && amount < 0 ? 'text-danger-soft-foreground' : ''} ${bold ? 'font-bold' : ''}`}>
+      <span className={`text-sm font-mono ${negative && amount < 0 ? 'text-danger-soft-foreground' : ''} ${bold ? 'font-semibold' : ''}`}>
         {amount < 0 ? `(${formatCurrency(Math.abs(amount), 'KES')})` : formatCurrency(amount, 'KES')}
       </span>
     </div>
@@ -456,7 +456,7 @@ export default function MonthlyPnlReport() {
 
               <div className="grid gap-4 xl:grid-cols-2">
                 <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Revenue Streams</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Revenue Streams</p>
                   <Separator className="my-2" />
                   {pnl.projectRevenues.map(p => (
                     <PnlSection key={p.name} label={p.estimated ? `≈ ${p.name}` : p.name} amount={p.revenue} />
@@ -466,7 +466,7 @@ export default function MonthlyPnlReport() {
                 </div>
 
                 <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Direct Costs</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Direct Costs</p>
                   <Separator className="my-2" />
                   {pnl.directCosts.map(c => (
                     <div key={c.category}>
@@ -488,7 +488,7 @@ export default function MonthlyPnlReport() {
                 </div>
 
                 <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Shared Overhead</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Shared Overhead</p>
                   <Separator className="my-2" />
                   {pnl.overheadGroups.map(c => (
                     <div key={c.category}>
@@ -510,7 +510,7 @@ export default function MonthlyPnlReport() {
                 </div>
 
                 <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Profitability</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Profitability</p>
                   <Separator className="my-2" />
                   <div className="space-y-3">
                     <div className="rounded-lg bg-muted/50 px-3 py-2">
@@ -541,7 +541,7 @@ export default function MonthlyPnlReport() {
               {/* DISTRIBUTABLE PROFIT - CFO only */}
               {userRole === 'cfo' && pnl.distributable.some(d => d.profit > 0) && (
                 <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Distributable Profit</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Distributable Profit</p>
                   <Separator className="my-2" />
                   {pnl.distributable.filter(d => d.profit > 0).map(d => (
                     <div key={d.project} className="flex flex-col gap-1 py-1 text-sm md:flex-row md:items-center md:justify-between">

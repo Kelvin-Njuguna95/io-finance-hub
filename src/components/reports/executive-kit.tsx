@@ -36,7 +36,7 @@ export function ExecutiveKpiCard({ label, value, trend, positive = true }: { lab
         <CardTitle className="text-xs uppercase tracking-wider text-primary-foreground">{label}</CardTitle>
       </CardHeader>
       <CardContent className="pt-4">
-        <p className="font-mono text-3xl font-bold tabular-nums text-foreground">{value}</p>
+        <p className="font-mono text-3xl font-semibold tabular-nums text-foreground">{value}</p>
         <Badge className={`mt-3 ${positive ? 'bg-success-soft text-success-soft-foreground' : 'bg-danger-soft text-danger-soft-foreground'}`}>{trend}</Badge>
       </CardContent>
     </Card>

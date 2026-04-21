@@ -72,7 +72,7 @@ export function AppSidebar() {
         >
           <span
             aria-hidden
-            className="flex size-9 items-center justify-center rounded-lg bg-white/15 text-[11px] font-bold text-white ring-1 ring-white/10"
+            className="flex size-9 items-center justify-center rounded-lg bg-white/15 text-[11px] font-semibold text-white ring-1 ring-white/10"
           >
             IO
           </span>

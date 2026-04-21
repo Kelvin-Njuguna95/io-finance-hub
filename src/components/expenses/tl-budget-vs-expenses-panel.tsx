@@ -98,19 +98,19 @@ export function TlBudgetVsExpensesPanel({ projectIds }: Props) {
         {/* Summary row */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-md bg-indigo-50 p-2.5 text-center">
-            <p className="text-lg font-bold text-indigo-700">{formatCurrency(totalBudgeted, 'KES')}</p>
+            <p className="text-lg font-semibold text-indigo-700">{formatCurrency(totalBudgeted, 'KES')}</p>
             <p className="text-[11px] text-indigo-600">Your Budget</p>
           </div>
           <div className="rounded-md bg-success-soft/50 p-2.5 text-center">
-            <p className="text-lg font-bold text-success-soft-foreground">{formatCurrency(totalActual, 'KES')}</p>
+            <p className="text-lg font-semibold text-success-soft-foreground">{formatCurrency(totalActual, 'KES')}</p>
             <p className="text-[11px] text-success-soft-foreground">Confirmed Spend</p>
           </div>
           <div className="rounded-md bg-warning-soft/50 p-2.5 text-center">
-            <p className="text-lg font-bold text-warning-soft-foreground">{pendingCount}</p>
+            <p className="text-lg font-semibold text-warning-soft-foreground">{pendingCount}</p>
             <p className="text-[11px] text-warning-soft-foreground">Awaiting Confirmation</p>
           </div>
           <div className={`rounded-md p-2.5 text-center ${confirmedCount > 0 ? (variance > 0 ? 'bg-danger-soft/50' : 'bg-success-soft/50') : 'bg-muted/50'}`}>
-            <p className={`text-lg font-bold ${confirmedCount > 0 ? (variance > 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground') : 'text-muted-foreground'}`}>
+            <p className={`text-lg font-semibold ${confirmedCount > 0 ? (variance > 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground') : 'text-muted-foreground'}`}>
               {confirmedCount > 0 ? `${variance >= 0 ? '+' : ''}${formatCurrency(variance, 'KES')}` : '—'}
             </p>
             <p className="text-[11px] text-muted-foreground">Variance</p>
