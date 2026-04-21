@@ -18,7 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
  *     value="KES 12.4M"
  *     subtitle="From Jun invoices"
  *     icon={DollarSign}
- *     tone="teal"
+ *     tone="brand"
  *     trend={{ value: "4.2%", direction: "up" }}
  *   />
  */
@@ -28,10 +28,7 @@ export type StatCardTone =
   | 'success'
   | 'warning'
   | 'danger'
-  | 'info'
-  | 'violet'
-  | 'teal'
-  | 'electric';
+  | 'info';
 
 type TrendDirection = 'up' | 'down' | 'flat';
 
@@ -80,9 +77,7 @@ function normalizeTrend(
 
 const TONE_TILE: Record<StatCardTone, string> = {
   brand:
-    'bg-primary/10 text-primary ring-1 ring-inset ring-primary/20 dark:bg-primary/15',
-  electric:
-    'bg-electric-soft text-electric-soft-foreground ring-1 ring-inset ring-electric/25',
+    'bg-primary/10 text-primary ring-1 ring-inset ring-primary/20',
   success:
     'bg-success-soft text-success-soft-foreground ring-1 ring-inset ring-success/25',
   warning:
@@ -91,21 +86,14 @@ const TONE_TILE: Record<StatCardTone, string> = {
     'bg-danger-soft text-danger-soft-foreground ring-1 ring-inset ring-danger/25',
   info:
     'bg-info-soft text-info-soft-foreground ring-1 ring-inset ring-info/25',
-  violet:
-    'bg-violet-soft text-violet-soft-foreground ring-1 ring-inset ring-violet/25',
-  teal:
-    'bg-teal-soft text-teal-soft-foreground ring-1 ring-inset ring-teal/25',
 };
 
 const TONE_ACCENT_RAIL: Record<StatCardTone, string> = {
   brand: 'before:bg-primary/60',
-  electric: 'before:bg-electric/70',
   success: 'before:bg-success/70',
   warning: 'before:bg-warning/70',
   danger: 'before:bg-danger/70',
   info: 'before:bg-info/70',
-  violet: 'before:bg-violet/70',
-  teal: 'before:bg-teal/70',
 };
 
 function Delta({ trend }: { trend: StatCardTrendFull }) {
@@ -144,7 +132,7 @@ export function StatCard({
     return (
       <div
         className={cn(
-          'relative overflow-hidden rounded-xl border border-border bg-card p-4 shadow-elev-1',
+          'relative overflow-hidden rounded-lg border border-border bg-card p-4',
           className,
         )}
       >
@@ -154,7 +142,7 @@ export function StatCard({
             <Skeleton className="h-7 w-32" />
             <Skeleton className="h-3 w-28" />
           </div>
-          <Skeleton className="size-10 rounded-xl" />
+          <Skeleton className="size-10 rounded-lg" />
         </div>
       </div>
     );
@@ -163,10 +151,10 @@ export function StatCard({
   return (
     <div
       className={cn(
-        // Surface
-        'group/stat relative overflow-hidden rounded-xl border border-border bg-card p-4 shadow-elev-1',
-        'transition-all duration-[var(--dur-base)] ease-[cubic-bezier(0.2,0,0,1)]',
-        'hover:-translate-y-px hover:shadow-elev-2 hover:border-border-strong',
+        // Surface — flat per .impeccable.md; no shadow, no hover lift.
+        'group/stat relative overflow-hidden rounded-lg border border-border bg-card p-4',
+        'transition-colors duration-[var(--dur-fast)] ease-[cubic-bezier(0.2,0,0,1)]',
+        'hover:border-border-strong hover:bg-muted/40',
         // Left accent rail
         'before:absolute before:inset-y-3 before:left-0 before:w-[3px] before:rounded-r-full before:opacity-80',
         TONE_ACCENT_RAIL[tone],
@@ -199,9 +187,7 @@ export function StatCard({
           <span
             aria-hidden
             className={cn(
-              'flex size-10 shrink-0 items-center justify-center rounded-xl',
-              'transition-transform duration-[var(--dur-base)] ease-[cubic-bezier(0.2,0,0,1)]',
-              'group-hover/stat:scale-[1.04]',
+              'flex size-10 shrink-0 items-center justify-center rounded-lg',
               TONE_TILE[tone],
             )}
           >

@@ -407,7 +407,7 @@ export function CfoDashboard() {
           title="Budget Approval Queue"
           description="Versions waiting on CFO review"
           icon={ClipboardList}
-          tone="violet"
+          tone="brand"
           action={
             <Link href="/budgets">
               <Button variant="ghost" size="sm" className="gap-1">

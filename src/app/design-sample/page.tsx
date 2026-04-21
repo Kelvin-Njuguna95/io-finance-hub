@@ -373,7 +373,7 @@ export default function DesignSamplePage() {
               value="7"
               subtitle="Waiting CFO review"
               icon={FileText}
-              tone="violet"
+              tone="info"
             />
             <StatCard
               title="Expense Queue"
@@ -395,7 +395,7 @@ export default function DesignSamplePage() {
               value="$48.2K"
               subtitle="0–30 days aging"
               icon={Coins}
-              tone="teal"
+              tone="brand"
             />
             <StatCard
               title="Scheduled Payouts"
@@ -467,7 +467,7 @@ export default function DesignSamplePage() {
             title="Budget Queue"
             description="Versions awaiting CFO review"
             icon={ClipboardList}
-            tone="violet"
+            tone="info"
             action={
               <Button variant="ghost" size="sm" className="gap-1">
                 View all
@@ -579,7 +579,7 @@ export default function DesignSamplePage() {
           title="Tabs primitive"
           description="Navy-pill default variant; line variant available via variant='line'"
           icon={PieChart}
-          tone="teal"
+          tone="brand"
         >
           <Tabs defaultValue="revenue" className="gap-4">
             <TabsList>
