@@ -48,9 +48,8 @@ After both land, remove `--radius-xl` from `globals.css`.
 
 **Consumers:**
 - `src/app/(dashboard)/loading.tsx:7` (`rounded-[var(--radius-hero)]`)
-- `src/app/globals.css:389` (`.hero-surface` self-reference)
 
-**Retirement plan:** Dashboard polish PR migrates `loading.tsx`. `.hero-surface` self-reference can be replaced with `--radius-lg` in the same globals.css cleanup commit that drops the shim.
+**Retirement plan:** Dashboard polish PR migrates `loading.tsx`; after that lands, drop the shim from `globals.css` in the same PR.
 
 ---
 
@@ -89,13 +88,6 @@ Functionally a no-op alias (`none`). Consumers render flat already; retiring the
 
 ---
 
-### `--shadow-elev-hero` → `--shadow-overlay`
-
-**Consumers:**
-- `src/app/globals.css:403` (`.hero-surface` self-reference)
-
-**Retirement plan:** Drop in the same cleanup commit that retires `.hero-surface`'s radius-hero shim. No other consumers.
-
 ---
 
 ## Summary
@@ -104,10 +96,9 @@ Functionally a no-op alias (`none`). Consumers render flat already; retiring the
 |---|---|---|
 | `--radius-md` | 60 (via `rounded-md` utility) | shadcn primitive polish PR |
 | `--radius-xl` | 21 direct + utility uses | Dashboard polish PR + Layout/primitive polish PR |
-| `--radius-hero` | 2 | Dashboard polish PR |
+| `--radius-hero` | 1 | Dashboard polish PR |
 | `--shadow-elev-1` | 5 | Dashboard polish PR + Layout polish PR |
 | `--shadow-elev-2` | 3 (incl. 2 banned hover-shadow sites) | Layout polish PR |
 | `--shadow-elev-3` | 1 | Layout polish PR |
-| `--shadow-elev-hero` | 1 | Foundation cleanup |
 
 Update this doc whenever a consumer migrates; delete the row when the shim itself is removed.
