@@ -5,16 +5,14 @@ import Link from 'next/link';
 import {
   ArrowRight,
   BarChart3,
-  Briefcase,
-  DollarSign,
-  Landmark,
+  Flag,
+  Gauge,
   PieChart,
   TrendingUp,
-  Wallet,
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
-import { HeroCard } from '@/components/layout/hero-card';
+import { HeroCard, type HeroStatTone } from '@/components/layout/hero-card';
 import { SectionCard } from '@/components/layout/section-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,6 +28,46 @@ import {
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
 import { getPmReviewQueueCount } from '@/lib/queries/budgets';
 import { getTotalPaidUsd } from '@/lib/cash-balance';
+import {
+  PM_AGGREGATE_MARGIN_DANGER_BELOW_PCT,
+  PM_AGGREGATE_MARGIN_WARNING_BELOW_PCT,
+  PM_AVG_BUDGET_UTIL_DANGER_PCT,
+  PM_AVG_BUDGET_UTIL_WARNING_PCT,
+  PM_FLAGGED_PROJECT_BUDGET_UTIL_PCT,
+  PM_FLAGGED_PROJECT_MARGIN_THRESHOLD_PCT,
+} from '@/lib/dashboard-thresholds';
+
+/**
+ * Threshold-driven tone for a count-based hero stat (higher = worse).
+ * Normal is silent (brand). Abnormal tints via -soft tokens.
+ */
+function countTone(value: number, warning: number, danger: number): HeroStatTone {
+  if (value >= danger) return 'danger';
+  if (value >= warning) return 'warning';
+  return 'brand';
+}
+
+/**
+ * Threshold-driven tone for a "lower is worse" percentage stat (margin).
+ */
+function marginTone(
+  pct: number,
+  warningBelow: number,
+  dangerBelow: number,
+): HeroStatTone {
+  if (pct < dangerBelow) return 'danger';
+  if (pct < warningBelow) return 'warning';
+  return 'brand';
+}
+
+/**
+ * Threshold-driven tone for a "higher is worse" percentage stat (utilisation).
+ */
+function utilTone(pct: number, warningAbove: number, dangerAbove: number): HeroStatTone {
+  if (pct >= dangerAbove) return 'danger';
+  if (pct >= warningAbove) return 'warning';
+  return 'brand';
+}
 
 interface ProjectData {
   name: string;
@@ -40,6 +78,8 @@ interface ProjectData {
   agents: number;
   budgetStatus: string;
   budgetAmount: number;
+  /** expenses / budgetAmount * 100; 0 if budgetAmount is 0 (no budget set) */
+  budgetUtilPct: number;
 }
 
 interface Props {
@@ -185,6 +225,9 @@ export function ProjectManagerDashboard({ userId }: Props) {
           const margin = rev > 0 ? (profit / rev) * 100 : 0;
           const ag = agentMap.get(p.id) || 0;
           const bud = budgetMap.get(p.id);
+          const budgetAmount = bud?.amount || 0;
+          const budgetUtilPct =
+            budgetAmount > 0 ? (exp / budgetAmount) * 100 : 0;
           return {
             name: p.name,
             revenue: rev,
@@ -193,7 +236,8 @@ export function ProjectManagerDashboard({ userId }: Props) {
             margin,
             agents: ag,
             budgetStatus: bud?.status || 'none',
-            budgetAmount: bud?.amount || 0,
+            budgetAmount,
+            budgetUtilPct,
           };
         })
         .filter(
@@ -213,38 +257,66 @@ export function ProjectManagerDashboard({ userId }: Props) {
 
   const totalProfit = totalRevenue - totalExpenses;
 
+  // PM-scoped aggregates derived from existing query data (no new queries).
+  const aggregateMarginPct =
+    totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+  const flaggedCount = projects.filter(
+    (p) =>
+      p.margin < PM_FLAGGED_PROJECT_MARGIN_THRESHOLD_PCT ||
+      p.budgetUtilPct > PM_FLAGGED_PROJECT_BUDGET_UTIL_PCT,
+  ).length;
+  const projectsWithBudget = projects.filter((p) => p.budgetAmount > 0);
+  const avgBudgetUtilPct =
+    projectsWithBudget.length > 0
+      ? projectsWithBudget.reduce((s, p) => s + p.budgetUtilPct, 0) /
+        projectsWithBudget.length
+      : 0;
+
   return (
     <div className="p-6 space-y-6">
+      {/*
+        Hero — 3 PM-scoped stats.
+        Per .impeccable.md Q7: "normal is silent; abnormal tints."
+        All three stats are scoped to the PM's own assigned projects;
+        no company-wide stats (bank balance / company revenue / etc.)
+        per the /shape Q4 decision.
+      */}
       <HeroCard
         stats={[
           {
-            label: 'Bank Balance',
-            value: formatCurrency(bankBalance, 'USD'),
-            subtitle: 'Available after withdrawals',
-            icon: Landmark,
-            tone: 'brand',
+            label: 'Aggregate Margin',
+            value: formatPercent(aggregateMarginPct),
+            subtitle: `${projects.length} project${projects.length === 1 ? '' : 's'} · ${formatYearMonth(currentMonth)}`,
+            icon: TrendingUp,
+            tone: marginTone(
+              aggregateMarginPct,
+              PM_AGGREGATE_MARGIN_WARNING_BELOW_PCT,
+              PM_AGGREGATE_MARGIN_DANGER_BELOW_PCT,
+            ),
           },
           {
-            label: 'Revenue (Lagged)',
-            value: formatCurrency(totalRevenue, 'KES'),
-            subtitle: `From ${formatYearMonth(revenueSourceMonth)} invoice`,
-            icon: DollarSign,
-            tone: 'brand',
-          },
-          {
-            label: 'Operating Profit',
-            value: formatCurrency(totalProfit, 'KES'),
-            subtitle: formatYearMonth(currentMonth),
-            icon: Wallet,
-            tone: totalProfit < 0 ? 'danger' : 'success',
-          },
-          {
-            label: 'Pending Reviews',
-            value: String(pendingBudgets),
+            label: 'Flagged Projects',
+            value: String(flaggedCount),
             subtitle:
-              pendingBudgets > 0 ? 'Budgets awaiting review' : 'All clear',
-            icon: Briefcase,
-            tone: pendingBudgets > 0 ? 'warning' : 'brand',
+              flaggedCount === 1
+                ? 'Margin or budget utilisation outside target'
+                : 'Margin or budget utilisation outside target',
+            icon: Flag,
+            tone: countTone(flaggedCount, 1, 3),
+          },
+          {
+            label: 'Avg Budget Utilisation',
+            value: formatPercent(avgBudgetUtilPct),
+            subtitle:
+              projectsWithBudget.length > 0
+                ? `Across ${projectsWithBudget.length} budgeted project${projectsWithBudget.length === 1 ? '' : 's'}`
+                : 'No budgeted projects this month',
+            icon: Gauge,
+            tone: utilTone(
+              avgBudgetUtilPct,
+              PM_AVG_BUDGET_UTIL_WARNING_PCT,
+              PM_AVG_BUDGET_UTIL_DANGER_PCT,
+            ),
           },
         ]}
       />
