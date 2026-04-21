@@ -130,219 +130,171 @@
 }
 
 /* ------------------------------------------------------------------ */
-/*  Light theme tokens                                                 */
+/*  Light-only tokens — oklch source of truth (see .impeccable.md)     */
+/*  Dark mode has been deprecated and removed. A future revisit would  */
+/*  be a multi-quarter design project, not a token swap.               */
 /* ------------------------------------------------------------------ */
 :root {
   color-scheme: light;
 
-  /* Brand surfaces — Windward palette */
-  --background: #F5F7FA;
-  --foreground: #000000;
-  --surface-1: #F5F7FA;
-  --surface-2: #FFFFFF;
-  --surface-3: #F8FAFC;
-  --surface-sunken: #EEF1F5;
+  /* ----- Neutral ramp (10 stops) --------------------------------- */
+  /* Tinted toward brand hue 254 at chroma 0.005. Perceptually even   */
+  /* lightness stepping. Adjust a specific stop only if it fails      */
+  /* WCAG contrast against an adjacent one.                           */
+  --neutral-50:  oklch(0.985 0.005 254);
+  --neutral-100: oklch(0.955 0.005 254);
+  --neutral-200: oklch(0.915 0.005 254);
+  --neutral-300: oklch(0.865 0.005 254);
+  --neutral-400: oklch(0.805 0.005 254);
+  --neutral-500: oklch(0.720 0.005 254);
+  --neutral-600: oklch(0.580 0.005 254);
+  --neutral-700: oklch(0.430 0.005 254);
+  --neutral-800: oklch(0.290 0.005 254);
+  --neutral-900: oklch(0.170 0.005 254);
 
-  --card: #F8FAFC;
-  --card-foreground: #000000;
-  --popover: #FFFFFF;
-  --popover-foreground: #000000;
+  /* ----- Surfaces ------------------------------------------------ */
+  --background:     var(--neutral-100);
+  --foreground:     var(--neutral-900);
+  --surface-1:      var(--neutral-100);
+  --surface-2:      var(--neutral-50);
+  --surface-3:      color-mix(in oklab, var(--neutral-50) 50%, var(--neutral-100));
+  --surface-sunken: var(--neutral-200);
 
-  /* Brand palette */
-  --primary: #1E3A5F;
-  --primary-foreground: #FFFFFF;
-  --secondary: #F8FAFC;
-  --secondary-foreground: #1E3A5F;
-  --muted: #F1F5F9;
-  --muted-foreground: #64748B;
-  --accent: #F8FAFC;
-  --accent-foreground: #1E3A5F;
+  --card:               var(--neutral-50);
+  --card-foreground:    var(--neutral-900);
+  --popover:            var(--neutral-50);
+  --popover-foreground: var(--neutral-900);
 
-  --destructive: #E74C3C;
-  --destructive-foreground: #FFFFFF;
+  /* ----- Brand anchor (navy) ------------------------------------- */
+  /* Previous hex anchor #1E3A5F — now oklch source of truth. */
+  --primary:              oklch(0.295 0.065 254);
+  --primary-foreground:   var(--neutral-50);
+  --primary-soft:         color-mix(in oklab, var(--primary) 12%, white);
+  --primary-soft-foreground: var(--neutral-800);
+  --primary-hover:        color-mix(in oklab, var(--primary) 93%, white);
+  --primary-active:       color-mix(in oklab, var(--primary) 93%, black);
 
-  /* Semantic states */
-  --success: #27AE60;
-  --success-foreground: #FFFFFF;
-  --success-soft: #ECFDF5;
-  --success-soft-foreground: #166534;
+  /* ----- Secondary / Accent (neutral surfaces, NOT brand) -------- */
+  /* No second brand colour exists. These are neutral aliases to     */
+  /* preserve shadcn primitive API (bg-secondary, bg-accent).        */
+  --secondary:            var(--surface-2);
+  --secondary-foreground: var(--primary);
+  --accent:               var(--surface-2);
+  --accent-foreground:    var(--primary);
 
-  --warning: #F59E0B;
-  --warning-foreground: #1C1917;
-  --warning-soft: #FFFBEB;
-  --warning-soft-foreground: #92400E;
+  /* ----- Muted (standalone, not anchor-derived) ------------------ */
+  /* Per .impeccable.md suffix discipline: --muted is its own        */
+  /* neutral surface, never derived from an anchor.                  */
+  --muted:            var(--neutral-100);
+  --muted-foreground: var(--neutral-600);
 
-  --danger: #E74C3C;
-  --danger-foreground: #FFFFFF;
-  --danger-soft: #FEF2F2;
-  --danger-soft-foreground: #991B1B;
+  /* ----- Semantic anchors ---------------------------------------- */
+  /* All anchors derive -soft, -soft-foreground, -foreground, -hover, */
+  /* -active via the recipe book in .impeccable.md.                  */
 
-  --info: #3B82F6;
-  --info-foreground: #FFFFFF;
-  --info-soft: #EFF6FF;
-  --info-soft-foreground: #1E40AF;
+  /* Success — confident green */
+  --success:              oklch(0.520 0.140 150);
+  --success-foreground:   var(--neutral-50);
+  --success-soft:         color-mix(in oklab, var(--success) 12%, white);
+  --success-soft-foreground: oklch(0.320 0.100 150);
+  --success-hover:        color-mix(in oklab, var(--success) 93%, white);
+  --success-active:       color-mix(in oklab, var(--success) 93%, black);
 
-  --violet: #8B5CF6;
-  --violet-soft: #F5F3FF;
-  --violet-soft-foreground: #5B21B6;
+  /* Warning — amber */
+  --warning:              oklch(0.700 0.175 70);
+  --warning-foreground:   var(--neutral-900);
+  --warning-soft:         color-mix(in oklab, var(--warning) 12%, white);
+  --warning-soft-foreground: oklch(0.340 0.120 70);
+  --warning-hover:        color-mix(in oklab, var(--warning) 93%, white);
+  --warning-active:       color-mix(in oklab, var(--warning) 93%, black);
 
-  --teal: #14B8A6;
-  --teal-soft: #F0FDFA;
-  --teal-soft-foreground: #115E59;
+  /* Danger — red (also aliased as destructive) */
+  --danger:               oklch(0.545 0.185 25);
+  --danger-foreground:    var(--neutral-50);
+  --danger-soft:          color-mix(in oklab, var(--danger) 12%, white);
+  --danger-soft-foreground: oklch(0.330 0.150 25);
+  --danger-hover:         color-mix(in oklab, var(--danger) 93%, white);
+  --danger-active:        color-mix(in oklab, var(--danger) 93%, black);
 
-  /* Chrome */
-  --border: #E2E8F0;
-  --border-subtle: #F1F5F9;
-  --border-strong: #CBD5E1;
-  --input: #E2E8F0;
-  --ring: #3B82F6;
+  --destructive:             var(--danger);
+  --destructive-foreground:  var(--danger-foreground);
 
-  /* Electric Blue — maps to primary info blue */
-  --electric: #3B82F6;
-  --electric-foreground: #FFFFFF;
-  --electric-soft: #EFF6FF;
-  --electric-soft-foreground: #1E40AF;
+  /* Info — blue (status-only; not a brand accent) */
+  --info:                 oklch(0.500 0.160 258);
+  --info-foreground:      var(--neutral-50);
+  --info-soft:            color-mix(in oklab, var(--info) 12%, white);
+  --info-soft-foreground: oklch(0.310 0.130 258);
+  --info-hover:           color-mix(in oklab, var(--info) 93%, white);
+  --info-active:          color-mix(in oklab, var(--info) 93%, black);
 
-  /* Gold (#F5C518) */
-  --gold: #F5C518;
-  --gold-foreground: #1C1917;
+  /* ----- Chrome -------------------------------------------------- */
+  --border:        var(--neutral-200);
+  --border-subtle: var(--neutral-100);
+  --border-strong: var(--neutral-300);
+  --input:         var(--neutral-200);
+  /* --ring is defined in the radius/shadow/ring section below */
 
-  /* Chart palette */
-  --chart-1: #3B82F6;  /* blue / revenue */
-  --chart-2: #F5C518;  /* gold / profit */
-  --chart-3: #27AE60;  /* green / expenses */
-  --chart-4: #8B5CF6;  /* violet / budgets */
-  --chart-5: #14B8A6;  /* teal / receivables */
-  --chart-6: #E74C3C;  /* red / variance */
+  /* ----- Legacy tokens (chart-only per brand rules) -------------- */
+  /* Electric blue, gold, violet, teal are CHART-ONLY colours.       */
+  /* Any UI occurrence outside /components/charts/* is a bug. These  */
+  /* tokens remain for legacy chip/alert classes that will be        */
+  /* migrated in a follow-up polish PR.                              */
+  --electric:                oklch(0.620 0.175 258);
+  --electric-foreground:     var(--neutral-50);
+  --electric-soft:           color-mix(in oklab, var(--electric) 12%, white);
+  --electric-soft-foreground: oklch(0.310 0.130 258);
 
-  /* Radii */
-  --radius: 0.625rem;
+  --gold:            oklch(0.820 0.165 88);
+  --gold-foreground: var(--neutral-900);
+
+  --violet:                oklch(0.580 0.210 290);
+  --violet-soft:           color-mix(in oklab, var(--violet) 12%, white);
+  --violet-soft-foreground: oklch(0.330 0.150 290);
+
+  --teal:                oklch(0.620 0.110 195);
+  --teal-soft:           color-mix(in oklab, var(--teal) 12%, white);
+  --teal-soft-foreground: oklch(0.320 0.085 195);
+
+  /* ----- Chart palette (provisional; full palette in follow-up) -- */
+  /* Per .impeccable.md: --primary (navy) does NOT appear in charts. */
+  --chart-1: var(--electric); /* categorical #1 */
+  --chart-2: var(--gold);     /* categorical #2 */
+  --chart-3: var(--success);  /* categorical #3 */
+  --chart-4: var(--violet);   /* categorical #4 */
+  --chart-5: var(--teal);     /* categorical #5 */
+  --chart-6: var(--danger);   /* categorical #6 */
+
+  /* ----- Radii (replaced by 4-stop system in the next commit) ---- */
+  --radius:      0.625rem;
   --radius-hero: 1.25rem;
 
-  /* Elevation — flat design, minimal shadows */
-  --shadow-elev-1: none;
-  --shadow-elev-2: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
-  --shadow-elev-3: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-  --shadow-elev-hero: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  /* ----- Elevation (replaced by single --shadow-overlay next commit) */
+  --shadow-elev-1:    none;
+  --shadow-elev-2:    0 1px 3px 0 oklch(0 0 0 / 0.06), 0 1px 2px -1px oklch(0 0 0 / 0.06);
+  --shadow-elev-3:    0 4px 6px -1px oklch(0 0 0 / 0.07), 0 2px 4px -2px oklch(0 0 0 / 0.05);
+  --shadow-elev-hero: 0 10px 15px -3px oklch(0 0 0 / 0.08), 0 4px 6px -4px oklch(0 0 0 / 0.05);
 
-  /* Motion */
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
-  --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+  /* ----- Focus ring (replaced with dedicated --ring next commit) -- */
+  --ring: oklch(0.627 0.179 254);
+
+  /* ----- Motion -------------------------------------------------- */
+  --ease-standard:    cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized:  cubic-bezier(0.3, 0, 0, 1);
+  --ease-decelerate:  cubic-bezier(0, 0, 0.2, 1);
   --dur-fast: 120ms;
   --dur-base: 200ms;
   --dur-slow: 320ms;
 
-  /* Sidebar — Windward deep navy */
-  --sidebar: #1E3A5F;
-  --sidebar-foreground: #FFFFFF;
-  --sidebar-primary: #FFFFFF;
-  --sidebar-primary-foreground: #1E3A5F;
-  --sidebar-accent: rgba(255, 255, 255, 0.15);
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #3B82F6;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Dark theme tokens                                                  */
-/* ------------------------------------------------------------------ */
-.dark {
-  color-scheme: dark;
-
-  --background: oklch(0.14 0.025 260);
-  --foreground: oklch(0.97 0.005 255);
-  --surface-1: oklch(0.14 0.025 260);
-  --surface-2: oklch(0.18 0.035 260);
-  --surface-3: oklch(0.22 0.04 260);
-  --surface-sunken: oklch(0.12 0.025 260);
-
-  --card: oklch(0.185 0.035 260);
-  --card-foreground: oklch(0.97 0.005 255);
-  --popover: oklch(0.195 0.035 260);
-  --popover-foreground: oklch(0.97 0.005 255);
-
-  --primary: oklch(0.72 0.17 258);
-  --primary-foreground: oklch(0.14 0.03 260);
-  --secondary: oklch(0.26 0.04 260);
-  --secondary-foreground: oklch(0.97 0.005 255);
-  --muted: oklch(0.24 0.04 260);
-  --muted-foreground: oklch(0.72 0.018 260);
-  --accent: oklch(0.82 0.16 88);
-  --accent-foreground: oklch(0.18 0.08 260);
-
-  --destructive: oklch(0.70 0.19 25);
-  --destructive-foreground: oklch(0.98 0 0);
-
-  --success: oklch(0.72 0.16 158);
-  --success-foreground: oklch(0.12 0.03 260);
-  --success-soft: oklch(0.30 0.08 158);
-  --success-soft-foreground: oklch(0.90 0.13 158);
-
-  --warning: oklch(0.82 0.16 80);
-  --warning-foreground: oklch(0.18 0.06 80);
-  --warning-soft: oklch(0.32 0.08 75);
-  --warning-soft-foreground: oklch(0.92 0.14 80);
-
-  --danger: oklch(0.72 0.19 25);
-  --danger-foreground: oklch(0.98 0 0);
-  --danger-soft: oklch(0.31 0.10 25);
-  --danger-soft-foreground: oklch(0.90 0.15 25);
-
-  --info: oklch(0.72 0.14 240);
-  --info-foreground: oklch(0.12 0.04 260);
-  --info-soft: oklch(0.28 0.08 240);
-  --info-soft-foreground: oklch(0.88 0.12 240);
-
-  --violet: oklch(0.72 0.18 290);
-  --violet-soft: oklch(0.30 0.09 290);
-  --violet-soft-foreground: oklch(0.90 0.15 290);
-
-  --teal: oklch(0.75 0.11 195);
-  --teal-soft: oklch(0.28 0.06 195);
-  --teal-soft-foreground: oklch(0.90 0.11 195);
-
-  --border: oklch(1 0 0 / 0.10);
-  --border-subtle: oklch(1 0 0 / 0.06);
-  --border-strong: oklch(1 0 0 / 0.18);
-  --input: oklch(1 0 0 / 0.14);
-  --ring: oklch(0.72 0.17 258);
-
-  /* Electric Blue — brighter in dark mode */
-  --electric: oklch(0.82 0.17 210);
-  --electric-foreground: oklch(0.10 0.02 260);
-  --electric-soft: oklch(0.28 0.08 210);
-  --electric-soft-foreground: oklch(0.90 0.14 210);
-
-  /* Gold */
-  --gold: oklch(0.86 0.18 88);
-  --gold-foreground: oklch(0.14 0.06 88);
-
-  /* Charts — Electric Blue primary, Gold secondary */
-  --chart-1: oklch(0.82 0.17 210);
-  --chart-2: oklch(0.86 0.18 88);
-  --chart-3: oklch(0.78 0.16 158);
-  --chart-4: oklch(0.74 0.18 290);
-  --chart-5: oklch(0.78 0.11 195);
-  --chart-6: oklch(0.72 0.22 25);
-
-  --shadow-elev-1: 0 1px 2px 0 oklch(0 0 0 / 0.40),
-                   0 1px 3px 0 oklch(0 0 0 / 0.28);
-  --shadow-elev-2: 0 4px 16px -6px oklch(0 0 0 / 0.48),
-                   0 2px 4px -2px oklch(0 0 0 / 0.28);
-  --shadow-elev-3: 0 24px 48px -18px oklch(0 0 0 / 0.58),
-                   0 8px 20px -8px oklch(0 0 0 / 0.32);
-  --shadow-elev-hero: 0 32px 64px -24px oklch(0 0 0 / 0.65),
-                      0 12px 24px -8px oklch(0 0 0 / 0.40);
-
-  --sidebar: oklch(0.12 0.03 260);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.84 0.17 88);
-  --sidebar-primary-foreground: oklch(0.18 0.08 260);
-  --sidebar-accent: oklch(0.22 0.05 260);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(1 0 0 / 0.08);
-  --sidebar-ring: oklch(0.72 0.17 258);
+  /* ----- Sidebar ------------------------------------------------- */
+  /* Sidebar surface is the brand anchor (navy). Foreground white.   */
+  --sidebar:                      var(--primary);
+  --sidebar-foreground:           var(--neutral-50);
+  --sidebar-primary:              var(--neutral-50);
+  --sidebar-primary-foreground:   var(--primary);
+  --sidebar-accent:               color-mix(in oklab, white 15%, transparent);
+  --sidebar-accent-foreground:    var(--neutral-50);
+  --sidebar-border:               color-mix(in oklab, white 8%, transparent);
+  --sidebar-ring:                 oklch(0.627 0.179 254);
 }
 
 /* ------------------------------------------------------------------ */
@@ -404,24 +356,27 @@
   background: var(--card);
 }
 
-/* Hero surface: #0a0f1e base with Electric Blue + Gold accent radials */
+/* Hero surface — dark navy base with electric-blue + gold accent radials.
+   FLAG: electric-blue and gold are chart-only per .impeccable.md. This class
+   predates that rule and is consumed by dashboard pages that are out of
+   foundation-PR scope. Migration is owned by the dashboard polish PR. */
 .hero-surface {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-hero);
-  color: oklch(0.98 0 0);
+  color: oklch(0.980 0 0);
   background:
     radial-gradient(
       1000px 420px at 100% 0%,
-      oklch(0.78 0.18 210 / 0.14) 0%,
+      oklch(0.780 0.180 210 / 0.14) 0%,
       transparent 60%
     ),
     radial-gradient(
       600px 280px at 0% 100%,
-      oklch(0.84 0.18 88 / 0.10) 0%,
+      oklch(0.840 0.180 88 / 0.10) 0%,
       transparent 60%
     ),
-    linear-gradient(180deg, #0f1528 0%, #0a0f1e 100%);
+    linear-gradient(180deg, oklch(0.180 0.030 254) 0%, oklch(0.130 0.030 254) 100%);
   box-shadow: var(--shadow-elev-hero);
   border: 1px solid oklch(1 0 0 / 0.06);
 }
