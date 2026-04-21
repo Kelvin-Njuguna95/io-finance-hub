@@ -25,10 +25,7 @@ Pure Tailwind-utility shim. No direct `var(--radius-md)` consumers after the fou
 
 ### `--radius-xl` → `--radius-lg` (10px)
 
-**Consumers:**
-- `src/app/(dashboard)/_components/cfo-dashboard.tsx:481`
-- `src/app/(dashboard)/layout.tsx:69, 94, 97`
-- `src/app/(dashboard)/loading.tsx:15, 30, 38, 45, 48`
+**Consumers remaining:**
 - `src/app/(dashboard)/reports/monthly/page.tsx:60, 458, 468, 490, 512, 543`
 - `src/components/ui/empty-state.tsx:66`
 - `src/components/ui/command.tsx:28, 58` (uses `rounded-xl!` with important)
@@ -36,20 +33,18 @@ Pure Tailwind-utility shim. No direct `var(--radius-md)` consumers after the fou
 - `src/components/layout/section-card.tsx:89`
 - `src/components/layout/stat-card.tsx:147, 167`
 
-**Retirement plan:** Migrated in two passes:
-- **Dashboard polish PR** — migrates `(dashboard)/**` consumers (~13 occurrences)
-- **Layout + primitive polish PR** — migrates `components/**` consumers (~8 occurrences)
+**Retired in dashboard polish PR:**
+- ~~`src/app/(dashboard)/_components/cfo-dashboard.tsx:481`~~
+- ~~`src/app/(dashboard)/layout.tsx:69, 94, 97`~~
+- ~~`src/app/(dashboard)/loading.tsx:15, 30, 38, 45, 48`~~
 
-After both land, remove `--radius-xl` from `globals.css`.
+**Retirement plan:** Layout/primitive consumers retire in this same PR (chunk 2). Reports/monthly + shadcn-primitive consumers retire in per-page polish / shadcn primitive polish PRs. After all retire, remove `--radius-xl` from `globals.css`.
 
 ---
 
-### `--radius-hero` → `--radius-lg` (10px)
+### `--radius-hero` → `--radius-lg` (10px) — **SHIM REMOVED**
 
-**Consumers:**
-- `src/app/(dashboard)/loading.tsx:7` (`rounded-[var(--radius-hero)]`)
-
-**Retirement plan:** Dashboard polish PR migrates `loading.tsx`; after that lands, drop the shim from `globals.css` in the same PR.
+Zero remaining consumers after dashboard polish PR migrated `loading.tsx:7`. Shim deleted from `globals.css` in the same commit that retired the last consumer.
 
 ---
 
@@ -59,23 +54,27 @@ After both land, remove `--radius-xl` from `globals.css`.
 
 Functionally a no-op alias (`none`). Consumers render flat already; retiring the class-name reference is cosmetic but removes a dead utility surface.
 
-**Consumers:**
-- `src/app/(dashboard)/loading.tsx:30, 45`
+**Consumers remaining:**
 - `src/components/layout/section-card.tsx:89`
 - `src/components/layout/stat-card.tsx:147, 167`
 
-**Retirement plan:** Dashboard polish PR (loading) + layout polish PR (section-card, stat-card). Post-migration, simply remove `shadow-elev-1` class references from consumers; the `--shadow-elev-1` token then has no referrers and the shim drops.
+**Retired in dashboard polish PR:**
+- ~~`src/app/(dashboard)/loading.tsx:30, 45`~~
+
+**Retirement plan:** Chunk 2 of the dashboard polish PR migrates the shared-primitive consumers. Once done, all consumers gone, shim drops.
 
 ---
 
 ### `--shadow-elev-2` → `--shadow-overlay`
 
-**Consumers:**
-- `src/app/(dashboard)/layout.tsx:94`
+**Consumers remaining:**
 - `src/components/layout/section-card.tsx:91` (**hover** — banned by `.impeccable.md` Motion section: "hover states never use shadows")
 - `src/components/layout/stat-card.tsx:169` (**hover** — same violation)
 
-**Retirement plan:** Layout polish PR. Hover-shadow usages must be replaced with background-tint hover per `.impeccable.md`, not migrated to `--shadow-overlay`. Non-hover uses in `(dashboard)/layout.tsx` are on overlay-like surfaces and can migrate to `shadow-[var(--shadow-overlay)]` directly.
+**Retired in dashboard polish PR:**
+- ~~`src/app/(dashboard)/layout.tsx:94`~~ — migrated to `shadow-[var(--shadow-overlay)]`
+
+**Retirement plan:** Chunk 2 of this PR replaces the two hover-shadow sites with background-tint hover per `.impeccable.md`, not a migration to `--shadow-overlay`. Once done, all consumers gone, shim drops.
 
 ---
 
@@ -92,13 +91,12 @@ Functionally a no-op alias (`none`). Consumers render flat already; retiring the
 
 ## Summary
 
-| Token | Consumers | Retirement PR |
+| Token | Consumers remaining | Retirement PR |
 |---|---|---|
 | `--radius-md` | 60 (via `rounded-md` utility) | shadcn primitive polish PR |
-| `--radius-xl` | 21 direct + utility uses | Dashboard polish PR + Layout/primitive polish PR |
-| `--radius-hero` | 1 | Dashboard polish PR |
-| `--shadow-elev-1` | 5 | Dashboard polish PR + Layout polish PR |
-| `--shadow-elev-2` | 3 (incl. 2 banned hover-shadow sites) | Layout polish PR |
+| `--radius-xl` | 12 | Dashboard polish PR chunk 2 (layout/primitive consumers) + reports/monthly + shadcn primitive polish PR |
+| `--shadow-elev-1` | 3 | Dashboard polish PR chunk 2 |
+| `--shadow-elev-2` | 2 (both banned hover-shadow sites) | Dashboard polish PR chunk 2 |
 | `--shadow-elev-3` | 1 | Layout polish PR |
 
 Update this doc whenever a consumer migrates; delete the row when the shim itself is removed.

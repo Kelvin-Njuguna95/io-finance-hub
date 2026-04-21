@@ -5,26 +5,16 @@ import { CfoDashboard } from './_components/cfo-dashboard';
 import { AccountantDashboard } from './_components/accountant-dashboard';
 import { TeamLeaderDashboard } from './_components/team-leader-dashboard';
 import { ProjectManagerDashboard } from './_components/project-manager-dashboard';
-import { Skeleton } from '@/components/ui/skeleton';
+import DashboardLoading from './loading';
 
 export default function DashboardPage() {
   const { user, loading } = useUser();
 
   if (loading) {
-    return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-lg" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Skeleton className="h-64 w-full rounded-lg" />
-          <Skeleton className="h-64 w-full rounded-lg" />
-        </div>
-      </div>
-    );
+    // Reuse the route-level loading skeleton so the pre-hydration
+    // fallback and the post-hydration useUser() loading state render
+    // identically. Avoids the two-flash on slow networks.
+    return <DashboardLoading />;
   }
 
   if (!user) {
