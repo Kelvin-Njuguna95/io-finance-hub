@@ -440,7 +440,7 @@ export default function ProfitSharePage() {
                           </TableRow>
                       ) : null
                     ))}
-                    <TableRow className="font-bold bg-muted/50">
+                    <TableRow className="font-semibold bg-muted/50">
                       <TableCell colSpan={4} className="text-right">Total</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalDistributable, 'KES')}</TableCell>
                       <TableCell className="text-right font-mono text-success-soft-foreground">{formatCurrency(totalDirectorShare, 'KES')}</TableCell>

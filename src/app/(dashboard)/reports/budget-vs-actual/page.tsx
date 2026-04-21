@@ -223,7 +223,7 @@ export default function BudgetVsActualPage() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    <TableRow className="font-bold bg-muted/50">
+                    <TableRow className="font-semibold bg-muted/50">
                       <TableCell colSpan={2} className="text-right">Total</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalBudget, 'KES')}</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(totalActual, 'KES')}</TableCell>
@@ -255,7 +255,7 @@ export default function BudgetVsActualPage() {
               <span className="font-mono">-{formatCurrency(totalActual, 'KES')}</span>
             </div>
             <Separator />
-            <div className="flex justify-between text-sm font-bold">
+            <div className="flex justify-between text-sm font-semibold">
               <span>Gross Profit</span>
               <span className={`font-mono ${grossProfit < 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>{formatCurrency(grossProfit, 'KES')}</span>
             </div>

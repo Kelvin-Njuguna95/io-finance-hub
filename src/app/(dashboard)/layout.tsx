@@ -66,7 +66,7 @@ function LoadingSplash() {
       <div className="flex flex-col items-center gap-4">
         <div
           aria-hidden
-          className="flex size-12 items-center justify-center rounded-xl bg-white/15 text-[14px] font-bold text-white ring-1 ring-white/10"
+          className="flex size-12 items-center justify-center rounded-xl bg-white/15 text-[14px] font-semibold text-white ring-1 ring-white/10"
         >
           IO
         </div>
@@ -94,7 +94,7 @@ function SignedOutSplash() {
       <div className="w-full max-w-sm rounded-xl border border-white/10 bg-white/[0.04] p-6 text-center shadow-elev-2 backdrop-blur">
         <div
           aria-hidden
-          className="mx-auto flex size-12 items-center justify-center rounded-xl bg-white/15 text-[14px] font-bold text-white ring-1 ring-white/10"
+          className="mx-auto flex size-12 items-center justify-center rounded-xl bg-white/15 text-[14px] font-semibold text-white ring-1 ring-white/10"
         >
           IO
         </div>

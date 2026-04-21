@@ -180,7 +180,7 @@ export function StatCard({
           </p>
           <p
             data-slot="stat-card-value"
-            className="font-mono text-[2rem] font-bold leading-none tracking-tight text-foreground tabular-nums"
+            className="font-mono text-[2rem] font-semibold leading-none tracking-tight text-foreground tabular-nums"
           >
             {value}
           </p>

@@ -100,7 +100,7 @@ export function HeroCard({
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/65">
             {eyebrow}
           </p>
-          <h1 className="mt-1 text-[20px] font-bold tracking-tight text-white md:text-[22px]">
+          <h1 className="mt-1 text-[20px] font-semibold tracking-tight text-white md:text-[22px]">
             {title}
           </h1>
           <p className="mt-1.5 text-[13px] text-white/65">{today}</p>
@@ -131,7 +131,7 @@ export function HeroCard({
                     <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/65">
                       {stat.label}
                     </p>
-                    <p className="text-[1.5rem] font-bold leading-none tracking-tight text-white tabular-nums md:text-[1.625rem]">
+                    <p className="text-[1.5rem] font-semibold leading-none tracking-tight text-white tabular-nums md:text-[1.625rem]">
                       {stat.value}
                     </p>
                     {stat.subtitle && (

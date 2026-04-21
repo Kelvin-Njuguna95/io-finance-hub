@@ -138,7 +138,7 @@ export function OutstandingReceivablesPanel() {
               />
             </div>
             <div>
-              <p className="text-2xl font-bold tabular-nums text-foreground">
+              <p className="text-2xl font-semibold tabular-nums text-foreground">
                 {formatCurrency(totalOutstanding, 'USD')}
               </p>
               <p className="text-xs text-muted-foreground">Total outstanding</p>

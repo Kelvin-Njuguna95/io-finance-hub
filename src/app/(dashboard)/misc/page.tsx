@@ -1230,7 +1230,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
                           )}
                         </TableRow>
                       ))}
-                      <TableRow className="font-bold bg-muted/50">
+                      <TableRow className="font-semibold bg-muted/50">
                         <TableCell colSpan={3} className="text-right">Total</TableCell>
                         <TableCell className="text-right font-mono">{formatCurrency(reportItemsTotal, 'KES')}</TableCell>
                         <TableCell colSpan={prevReport.status === 'draft' ? 2 : 1} />
@@ -1639,7 +1639,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
           >
             {t.label}
             {t.count !== null && t.count > 0 && (
-              <span className={`ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-bold ${
+              <span className={`ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-semibold ${
                 t.key === 'redflags' ? 'bg-danger-soft text-danger-soft-foreground' : 'bg-warning-soft text-warning-soft-foreground'
               }`}>{t.count}</span>
             )}
@@ -1670,7 +1670,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="text-2xl font-bold">{formatCurrency(totalAllExpenseKes, 'KES')}</div>
+                <div className="text-2xl font-semibold">{formatCurrency(totalAllExpenseKes, 'KES')}</div>
                 <Separator />
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -1774,17 +1774,17 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
               <CardContent className="space-y-2">
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div className="text-center p-3 rounded-lg bg-warning-soft/50">
-                    <div className="text-xl font-bold text-warning-soft-foreground">{acctPending.length}</div>
+                    <div className="text-xl font-semibold text-warning-soft-foreground">{acctPending.length}</div>
                     <div className="text-muted-foreground">Pending Approval</div>
                     <div className="font-mono text-xs">{formatCurrency(acctPending.reduce((s: number, r: /* // */ any) => s + Number(r.amount_requested || 0), 0), 'KES')}</div>
                   </div>
                   <div className="text-center p-3 rounded-lg bg-success-soft/50">
-                    <div className="text-xl font-bold text-success-soft-foreground">{acctApproved.length}</div>
+                    <div className="text-xl font-semibold text-success-soft-foreground">{acctApproved.length}</div>
                     <div className="text-muted-foreground">Approved</div>
                     <div className="font-mono text-xs">{formatCurrency(acctTotalApproved, 'KES')}</div>
                   </div>
                   <div className="text-center p-3 rounded-lg bg-muted/50">
-                    <div className="text-xl font-bold">{acctRequests.filter((r) => r.status === 'declined').length}</div>
+                    <div className="text-xl font-semibold">{acctRequests.filter((r) => r.status === 'declined').length}</div>
                     <div className="text-muted-foreground">Declined</div>
                   </div>
                 </div>
@@ -1883,7 +1883,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                           <TableCell className="font-medium">{p.name}</TableCell>
                           <TableCell className="text-right font-mono text-sm">{alloc > 0 ? formatCurrency(alloc, 'KES') : '—'}</TableCell>
                           <TableCell className="text-right font-mono text-sm">{formatCurrency(drawn, 'KES')}</TableCell>
-                          <TableCell className={`text-right font-mono text-sm ${remaining < 0 ? 'text-danger-soft-foreground font-bold' : ''}`}>
+                          <TableCell className={`text-right font-mono text-sm ${remaining < 0 ? 'text-danger-soft-foreground font-semibold' : ''}`}>
                             {alloc > 0 ? formatCurrency(remaining, 'KES') : '—'}
                           </TableCell>
                           <TableCell className="text-center">{topUps}</TableCell>
@@ -1901,7 +1901,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                             {projDraws.length === 0 ? '—' : allExpensed ? <span className="text-success">✓</span> : <span className="text-warning">⚠</span>}
                           </TableCell>
                           <TableCell className="text-center">
-                            {flagged > 0 ? <span className="text-danger-soft-foreground font-bold">{flagged}</span> : '0'}
+                            {flagged > 0 ? <span className="text-danger-soft-foreground font-semibold">{flagged}</span> : '0'}
                           </TableCell>
                           <TableCell>
                             <Button variant="ghost" size="sm" className="text-xs" onClick={() => openProjectDetail(p)}>
@@ -1939,7 +1939,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                           <span className="font-medium text-sm">{p.name}</span>
                           <div className="flex items-center gap-3 text-xs">
                             <span className="text-muted-foreground">Alloc: {formatCurrency(alloc, 'KES')}</span>
-                            <span className={`font-mono font-bold ${isOver ? 'text-danger-soft-foreground' : ''}`}>{formatCurrency(drawn, 'KES')}</span>
+                            <span className={`font-mono font-semibold ${isOver ? 'text-danger-soft-foreground' : ''}`}>{formatCurrency(drawn, 'KES')}</span>
                             {isOver && <Badge variant="secondary" className="bg-danger-soft text-danger-soft-foreground text-xs">OVER</Badge>}
                             {isUnder && drawn === 0 && <Badge variant="secondary" className="bg-info-soft text-info-soft-foreground text-xs">NO DRAWS</Badge>}
                           </div>
@@ -2280,7 +2280,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                       <TableCell>{d.expense_id ? <span className="text-success">✓</span> : <span className="text-warning">⚠</span>}</TableCell>
                     </TableRow>
                   ))}
-                  <TableRow className="font-bold bg-muted/50">
+                  <TableRow className="font-semibold bg-muted/50">
                     <TableCell colSpan={3} className="text-right">Total</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(detailDraws.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0), 'KES')}</TableCell>
                     <TableCell colSpan={2}></TableCell>
@@ -2314,7 +2314,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                       <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(item.amount), 'KES')}</TableCell>
                     </TableRow>
                   ))}
-                  <TableRow className="font-bold bg-muted/50">
+                  <TableRow className="font-semibold bg-muted/50">
                     <TableCell colSpan={3} className="text-right">Total Claimed</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(detailReportItems.reduce((s: number, i: /* // */ any) => s + Number(i.amount || 0), 0), 'KES')}</TableCell>
                   </TableRow>
@@ -2366,7 +2366,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                 </TableRow>
               ))}
               {reviewItems.length > 0 && (
-                <TableRow className="font-bold bg-muted/50">
+                <TableRow className="font-semibold bg-muted/50">
                   <TableCell colSpan={2} className="text-right">Total</TableCell>
                   <TableCell className="text-right font-mono">{formatCurrency(reviewItems.reduce((s: number, i: /* // */ any) => s + Number(i.amount || 0), 0), 'KES')}</TableCell>
                 </TableRow>
@@ -2889,7 +2889,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                       <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(d.amount_approved), 'KES')}</TableCell>
                       <TableCell className="text-sm">{formatDate(d.created_at)}</TableCell>
                       <TableCell className="text-center">
-                        <span className={daysPending > 2 ? 'text-warning-soft-foreground font-bold' : ''}>{daysPending}d</span>
+                        <span className={daysPending > 2 ? 'text-warning-soft-foreground font-semibold' : ''}>{daysPending}d</span>
                       </TableCell>
                       <TableCell>
                         <Button variant="outline" size="sm" className="text-xs" onClick={() => setRecordDraw(d)}>Record</Button>

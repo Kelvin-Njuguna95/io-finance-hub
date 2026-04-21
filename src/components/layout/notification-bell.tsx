@@ -139,7 +139,7 @@ export function NotificationBell({ tone = 'dark' }: NotificationBellProps = {}) 
         {unreadCount > 0 && (
           <span
             aria-hidden
-            className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-danger-foreground ring-2 ring-background"
+            className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-danger px-1 text-[9px] font-semibold text-danger-foreground ring-2 ring-background"
           >
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>

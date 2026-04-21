@@ -113,19 +113,19 @@ export function ExpenseQueuePanel({ projectId, compact }: Props) {
         {/* Summary stats */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-md bg-warning-soft/50 p-2.5 text-center">
-            <p className="text-xl font-bold text-warning-soft-foreground">{pending.length}</p>
+            <p className="text-xl font-semibold text-warning-soft-foreground">{pending.length}</p>
             <p className="text-[11px] text-warning-soft-foreground">Pending Auth</p>
           </div>
           <div className="rounded-md bg-success-soft/50 p-2.5 text-center">
-            <p className="text-xl font-bold text-success-soft-foreground">{confirmed.length}</p>
+            <p className="text-xl font-semibold text-success-soft-foreground">{confirmed.length}</p>
             <p className="text-[11px] text-success-soft-foreground">Confirmed</p>
           </div>
           <div className="rounded-md bg-indigo-50 p-2.5 text-center">
-            <p className="text-xl font-bold text-indigo-700">{formatCurrency(totalBudgeted, 'KES')}</p>
+            <p className="text-xl font-semibold text-indigo-700">{formatCurrency(totalBudgeted, 'KES')}</p>
             <p className="text-[11px] text-indigo-600">Budgeted Total</p>
           </div>
           <div className="rounded-md bg-muted/50 p-2.5 text-center">
-            <p className={`text-xl font-bold ${totalActualAll > totalBudgeted ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>
+            <p className={`text-xl font-semibold ${totalActualAll > totalBudgeted ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>
               {formatCurrency(totalActualAll, 'KES')}
             </p>
             <p className="text-[11px] text-muted-foreground">Confirmed Spend</p>

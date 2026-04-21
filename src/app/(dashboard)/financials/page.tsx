@@ -107,7 +107,7 @@ export default function FinancialsPage() {
               <div className="flex items-center gap-4">
                 <span className="text-3xl">{healthEmoji}</span>
                 <div>
-                  <p className="text-2xl font-bold">{d.health.score} <span className="text-sm font-normal text-muted-foreground">/ 100</span></p>
+                  <p className="text-2xl font-semibold">{d.health.score} <span className="text-sm font-normal text-muted-foreground">/ 100</span></p>
                   <p className="text-sm font-medium capitalize">{d.health.score_band.replace('_', ' ')}</p>
                 </div>
               </div>
