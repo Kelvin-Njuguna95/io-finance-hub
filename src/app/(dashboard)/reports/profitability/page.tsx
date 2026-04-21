@@ -165,8 +165,8 @@ export default function ProfitabilityPage() {
                   <div className="h-full bg-primary" style={{ width: `${Math.min(100, (r.revenue <= 0 ? 0 : (r.gross_profit / r.revenue) * 100))}%` }} />
                 </div>
                 <div className="flex items-center justify-between text-sm text-foreground/80">
-                  <span>Revenue {formatCompactCurrency(r.revenue, 'KES')}</span>
-                  <span>Costs {formatCompactCurrency(r.direct_costs, 'KES')}</span>
+                  <span>Revenue <span className="font-mono tabular-nums">{formatCompactCurrency(r.revenue, 'KES')}</span></span>
+                  <span>Costs <span className="font-mono tabular-nums">{formatCompactCurrency(r.direct_costs, 'KES')}</span></span>
                 </div>
                 <p className="text-sm font-medium">Margin: {formatExecutivePercent(r.margin)} <span className="text-muted-foreground">| Target: 40%</span></p>
               </CardContent>
