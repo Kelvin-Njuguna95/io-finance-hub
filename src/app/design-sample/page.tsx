@@ -51,7 +51,6 @@ import { HeroCard } from '@/components/layout/hero-card';
 import { StatCard } from '@/components/layout/stat-card';
 import { SectionCard } from '@/components/layout/section-card';
 import { PageHeader } from '@/components/layout/page-header';
-import { ThemeToggle } from '@/components/layout/theme-toggle';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -749,7 +748,6 @@ function SampleTopbar({ onOpenDialog }: { onOpenDialog: () => void }) {
         >
           <Eye className="size-4" aria-hidden />
         </Button>
-        <ThemeToggle />
         <Link
           href="/login"
           className="rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"

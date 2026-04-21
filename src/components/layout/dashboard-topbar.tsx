@@ -8,14 +8,13 @@ import { ChevronRight } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { NotificationBell } from '@/components/layout/notification-bell';
-import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { cn } from '@/lib/utils';
 
 /**
  * Sticky top bar that sits above the dashboard content.
  *
  * - Left: sidebar trigger + breadcrumb derived from the current path.
- * - Right: theme toggle + notifications.
+ * - Right: notifications.
  *
  * No data fetching. Breadcrumb labels are a simple kebab→Title mapping.
  * Keep this purely presentational so it adds no meaningful hydration cost.
@@ -75,7 +74,6 @@ export function DashboardTopbar({ className }: { className?: string }) {
       </nav>
 
       <div className="ml-auto flex items-center gap-1.5">
-        <ThemeToggle />
         <NotificationBell tone="dark" />
       </div>
     </header>

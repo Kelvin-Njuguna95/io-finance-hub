@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Commissioner, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "@/components/layout/theme-provider";
 
 const commissioner = Commissioner({
   subsets: ["latin"],
@@ -30,11 +29,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      suppressHydrationWarning
       className={`h-full antialiased ${commissioner.variable} ${jetbrainsMono.variable}`}
     >
       <body className="min-h-full flex flex-col font-sans">
-        <ThemeProvider>{children}</ThemeProvider>
+        {children}
       </body>
     </html>
   );
