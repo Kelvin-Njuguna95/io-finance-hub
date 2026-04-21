@@ -478,7 +478,7 @@ export function CfoDashboard() {
                     <span
                       aria-hidden
                       className={cn(
-                        'flex size-9 shrink-0 items-center justify-center rounded-xl',
+                        'flex size-9 shrink-0 items-center justify-center rounded-lg',
                         band.tileClass,
                       )}
                     >

@@ -66,7 +66,7 @@ function LoadingSplash() {
       <div className="flex flex-col items-center gap-4">
         <div
           aria-hidden
-          className="flex size-12 items-center justify-center rounded-xl bg-white/15 text-[14px] font-semibold text-white ring-1 ring-white/10"
+          className="flex size-12 items-center justify-center rounded-lg bg-white/15 text-[14px] font-semibold text-white ring-1 ring-white/10"
         >
           IO
         </div>
@@ -78,11 +78,13 @@ function LoadingSplash() {
             Finance Hub
           </p>
         </div>
-        <div className="mt-2 flex gap-1">
-          <span className="size-1.5 rounded-full bg-electric animate-pulse" />
-          <span className="size-1.5 rounded-full bg-electric/60 animate-pulse [animation-delay:150ms]" />
-          <span className="size-1.5 rounded-full bg-electric/30 animate-pulse [animation-delay:300ms]" />
-        </div>
+        {/* Quiet neutral loading indicator — single static dot, no motion
+            per .impeccable.md sparse-motion policy. Replaces 3 animated
+            electric-blue dots (brand + motion violation). */}
+        <span
+          aria-hidden
+          className="mt-2 size-1.5 rounded-full bg-white/30"
+        />
       </div>
     </div>
   );
@@ -91,10 +93,10 @@ function LoadingSplash() {
 function SignedOutSplash() {
   return (
     <div className="flex h-screen items-center justify-center bg-sidebar px-6">
-      <div className="w-full max-w-sm rounded-xl border border-white/10 bg-white/[0.04] p-6 text-center shadow-elev-2 backdrop-blur">
+      <div className="w-full max-w-sm rounded-lg border border-white/10 bg-white/[0.04] p-6 text-center shadow-[var(--shadow-overlay)] backdrop-blur">
         <div
           aria-hidden
-          className="mx-auto flex size-12 items-center justify-center rounded-xl bg-white/15 text-[14px] font-semibold text-white ring-1 ring-white/10"
+          className="mx-auto flex size-12 items-center justify-center rounded-lg bg-white/15 text-[14px] font-semibold text-white ring-1 ring-white/10"
         >
           IO
         </div>
@@ -109,7 +111,7 @@ function SignedOutSplash() {
         </p>
         <Link
           href="/login"
-          className="mt-5 inline-flex h-9 items-center justify-center rounded-[8px] bg-white px-4 text-sm font-medium text-[#1E3A5F] transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+          className="mt-5 inline-flex h-9 items-center justify-center rounded-[var(--radius)] bg-white px-4 text-sm font-medium text-primary transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
         >
           Go to login
         </Link>

@@ -125,8 +125,6 @@
   --radius-lg:   var(--radius-lg);
   /* DEPRECATED: alias for --radius-lg. Remove after all consumers migrated — target: per-page polish PRs */
   --radius-xl:   var(--radius-lg);
-  /* DEPRECATED: alias for --radius-lg. Remove after all consumers migrated — target: per-page polish PRs */
-  --radius-hero: var(--radius-lg);
   --radius-full: var(--radius-full);
 
   /* Elevation — single overlay token per .impeccable.md. See docs/TOKEN_MIGRATION.md. */
