@@ -8,19 +8,15 @@ import {
   ArrowRight,
   CheckCircle2,
   ClipboardList,
-  DollarSign,
   Eye,
   FileText,
   Flag,
   Inbox,
-  Landmark,
   ShieldAlert,
-  Users,
-  Wallet,
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
-import { HeroCard } from '@/components/layout/hero-card';
+import { HeroCard, type HeroStatTone } from '@/components/layout/hero-card';
 import { SectionCard } from '@/components/layout/section-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,11 +39,29 @@ import { CfoMiscApproval } from '@/components/misc/cfo-misc-approval';
 import { OutstandingReceivablesPanel } from '@/components/revenue/outstanding-receivables-panel';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
 import { getTotalPaidUsd } from '@/lib/cash-balance';
+import {
+  CFO_APPROVAL_BACKLOG_DANGER,
+  CFO_APPROVAL_BACKLOG_WARNING,
+  CFO_PENDING_WITHDRAWALS_DANGER,
+  CFO_PENDING_WITHDRAWALS_WARNING,
+  CFO_RED_FLAGS_DANGER,
+  CFO_RED_FLAGS_WARNING,
+} from '@/lib/dashboard-thresholds';
 import type {
   RedFlag,
   BudgetVersion,
   MonthlyFinancialSnapshot,
 } from '@/types/database';
+
+/**
+ * Threshold-driven tone for a count-based hero stat.
+ * Normal is silent (brand). Abnormal tints via -soft tokens in the hero.
+ */
+function countTone(value: number, warning: number, danger: number): HeroStatTone {
+  if (value >= danger) return 'danger';
+  if (value >= warning) return 'warning';
+  return 'brand';
+}
 
 type EodLogRow = {
   id: string;
@@ -130,6 +144,7 @@ export function CfoDashboard() {
   const [pendingBudgets, setPendingBudgets] = useState<
     (BudgetVersion & { budget_name?: string })[]
   >([]);
+  const [pendingPayoutsCount, setPendingPayoutsCount] = useState(0);
   const [eodLogs, setEodLogs] = useState<EodLogRow[]>([]);
   const [healthScores, setHealthScores] = useState<HealthScoreRow[]>([]);
   const [bankBalance, setBankBalance] = useState(0);
@@ -161,6 +176,7 @@ export function CfoDashboard() {
         expenseRes,
         rateRes,
         agentCountRes,
+        pendingPayoutsRes,
       ] = await Promise.all([
         supabase
           .from('monthly_financial_snapshots')
@@ -201,6 +217,10 @@ export function CfoDashboard() {
           .eq('key', 'standard_exchange_rate')
           .single(),
         supabase.from('agent_counts').select('agent_count').eq('year_month', currentMonth),
+        supabase
+          .from('director_payouts')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending'),
       ]);
 
       const stdRate = parseFloat(rateRes.data?.value || '129.5');
@@ -257,6 +277,7 @@ export function CfoDashboard() {
 
       setRedFlags((flagsRes.data || []) as RedFlag[]);
       setPendingBudgets((budgetsRes.data || []) as (BudgetVersion & { budget_name?: string })[]);
+      setPendingPayoutsCount(pendingPayoutsRes.count || 0);
       setEodLogs(
         ((eodRes.data || []) as Array<Record<string, unknown>>).map((r) => ({
           ...(r as EodLogRow),
@@ -290,50 +311,57 @@ export function CfoDashboard() {
     prevDate.getMonth() + 1,
   ).padStart(2, '0')}`;
 
+  const approvalBacklogCount = pendingBudgets.length;
+  const redFlagCount = redFlags.length;
+
   return (
     <div className="p-6 space-y-6">
-      {/* Hero */}
+      {/*
+        Hero — 3-number action fold.
+        Per .impeccable.md Q7: "normal is silent; abnormal tints."
+        All three stats share the same semantic: "what demands CFO sign-off
+        today?" Thresholds are placeholders (see docs/THRESHOLDS_PLACEHOLDER.md).
+      */}
       <HeroCard
         stats={[
           {
-            label: 'Bank Balance',
-            value: formatCurrency(bankBalance, 'USD'),
-            subtitle: 'Available after withdrawals',
-            icon: Landmark,
-            tone: 'brand',
+            label: 'Approval Backlog',
+            value: String(approvalBacklogCount),
+            subtitle:
+              approvalBacklogCount === 1
+                ? 'Budget version awaiting review'
+                : 'Budget versions awaiting review',
+            icon: ClipboardList,
+            tone: countTone(
+              approvalBacklogCount,
+              CFO_APPROVAL_BACKLOG_WARNING,
+              CFO_APPROVAL_BACKLOG_DANGER,
+            ),
           },
           {
-            label: 'Revenue (Lagged)',
-            value: snapshot
-              ? `${revenueEstimated ? '≈ ' : ''}${formatCurrency(snapshot.total_revenue_kes, 'KES')}`
-              : '—',
-            subtitle: `From ${formatYearMonth(revenueSourceMonth)} invoice`,
-            icon: DollarSign,
-            tone: 'brand',
-          },
-          {
-            label: 'Operating Profit',
-            value: snapshot
-              ? formatCurrency(snapshot.operating_profit_kes, 'KES')
-              : '—',
-            subtitle: formatYearMonth(currentMonth),
-            icon: Wallet,
-            tone: 'success',
-          },
-          {
-            label: 'Total Agents',
-            value: snapshot ? String(snapshot.total_agents || 0) : '—',
-            subtitle: formatYearMonth(currentMonth),
-            icon: Users,
-            tone: 'info',
+            label: 'Pending Withdrawals',
+            value: String(pendingPayoutsCount),
+            subtitle:
+              pendingPayoutsCount === 1
+                ? 'Director payout awaiting approval'
+                : 'Director payouts awaiting approval',
+            icon: ArrowDownToLine,
+            tone: countTone(
+              pendingPayoutsCount,
+              CFO_PENDING_WITHDRAWALS_WARNING,
+              CFO_PENDING_WITHDRAWALS_DANGER,
+            ),
           },
           {
             label: 'Red Flags',
-            value: String(redFlags.length),
-            subtitle:
-              redFlags.length > 0 ? 'Requires attention' : 'All clear',
+            value: String(redFlagCount),
+            subtitle: 'Outstanding risk signals',
             icon: Flag,
-            tone: redFlags.length > 0 ? 'danger' : 'brand',
+            tone: countTone(
+              redFlagCount,
+              CFO_RED_FLAGS_WARNING,
+              CFO_RED_FLAGS_DANGER,
+            ),
           },
         ]}
       />
