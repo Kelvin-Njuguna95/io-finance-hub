@@ -66,17 +66,14 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
         "group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start",
         // Hover
         "hover:text-foreground hover:bg-[color-mix(in_oklab,var(--primary)_6%,transparent)]",
-        // Focus
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
         // Disabled
         "disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50",
         // Icon sizing
         "has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        // IO brand: navy active pill (default variant)
+        // IO brand: navy active pill (default variant). No shadow — flat per .impeccable.md.
         "group-data-[variant=default]/tabs-list:data-active:bg-primary",
         "group-data-[variant=default]/tabs-list:data-active:text-primary-foreground",
-        "group-data-[variant=default]/tabs-list:data-active:shadow-elev-1",
         // Line variant: underline instead of pill
         "group-data-[variant=line]/tabs-list:bg-transparent",
         "group-data-[variant=line]/tabs-list:data-active:bg-transparent",
