@@ -137,8 +137,6 @@
   --shadow-elev-2:    var(--shadow-overlay);
   /* DEPRECATED: alias for --shadow-overlay. Remove after all consumers migrated — target: per-page polish PRs */
   --shadow-elev-3:    var(--shadow-overlay);
-  /* DEPRECATED: alias for --shadow-overlay. Remove after all consumers migrated — target: per-page polish PRs */
-  --shadow-elev-hero: var(--shadow-overlay);
 
   /* Motion */
   --ease-standard: var(--ease-standard);
@@ -388,7 +386,7 @@
 .hero-surface {
   position: relative;
   overflow: hidden;
-  border-radius: var(--radius-hero);
+  border-radius: var(--radius-lg);
   color: oklch(0.980 0 0);
   background:
     radial-gradient(
@@ -402,7 +400,7 @@
       transparent 60%
     ),
     linear-gradient(180deg, oklch(0.180 0.030 254) 0%, oklch(0.130 0.030 254) 100%);
-  box-shadow: var(--shadow-elev-hero);
+  box-shadow: var(--shadow-overlay);
   border: 1px solid oklch(1 0 0 / 0.06);
 }
 .hero-surface::before {
