@@ -115,7 +115,7 @@ export function OutstandingReceivablesPanel() {
       title="Outstanding Receivables"
       description="Aged invoice exposure across sent, partially paid, and overdue"
       icon={DollarSign}
-      tone="teal"
+      tone="brand"
       action={
         <Link href="/reports/outstanding">
           <Button variant="ghost" size="sm" className="gap-1">

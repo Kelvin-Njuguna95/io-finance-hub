@@ -20,9 +20,6 @@ export type SectionTone =
   | 'warning'
   | 'danger'
   | 'info'
-  | 'violet'
-  | 'teal'
-  | 'electric'
   | 'neutral';
 
 type SectionCardProps = {
@@ -47,9 +44,7 @@ type SectionCardProps = {
 
 const TONE_TILE: Record<SectionTone, string> = {
   brand:
-    'bg-primary/10 text-primary ring-1 ring-inset ring-primary/20 dark:bg-primary/15',
-  electric:
-    'bg-electric-soft text-electric-soft-foreground ring-1 ring-inset ring-electric/25',
+    'bg-primary/10 text-primary ring-1 ring-inset ring-primary/20',
   success:
     'bg-success-soft text-success-soft-foreground ring-1 ring-inset ring-success/25',
   warning:
@@ -58,10 +53,6 @@ const TONE_TILE: Record<SectionTone, string> = {
     'bg-danger-soft text-danger-soft-foreground ring-1 ring-inset ring-danger/25',
   info:
     'bg-info-soft text-info-soft-foreground ring-1 ring-inset ring-info/25',
-  violet:
-    'bg-violet-soft text-violet-soft-foreground ring-1 ring-inset ring-violet/25',
-  teal:
-    'bg-teal-soft text-teal-soft-foreground ring-1 ring-inset ring-teal/25',
   neutral:
     'bg-muted text-muted-foreground ring-1 ring-inset ring-border',
 };
@@ -86,9 +77,9 @@ export function SectionCard({
       role={role}
       aria-labelledby={labelId}
       className={cn(
-        'rounded-xl border border-border bg-card shadow-elev-1',
-        'transition-all duration-[var(--dur-base)] ease-[var(--ease-standard)]',
-        'hover:shadow-elev-2 hover:border-border-strong',
+        'rounded-lg border border-border bg-card',
+        'transition-colors duration-[var(--dur-fast)] ease-[var(--ease-standard)]',
+        'hover:border-border-strong',
         className,
       )}
     >
@@ -103,7 +94,7 @@ export function SectionCard({
             <span
               aria-hidden
               className={cn(
-                'mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl',
+                'mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg',
                 TONE_TILE[tone],
               )}
             >

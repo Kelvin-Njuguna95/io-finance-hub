@@ -69,7 +69,7 @@ export function TeamLeaderDashboard({ userId }: Props) {
         eyebrow="Team Lead"
         description={formatYearMonth(currentMonth)}
         icon={Briefcase}
-        tone="violet"
+        tone="brand"
       >
         <Link href="/budgets/new">
           <Button size="sm" className="gap-1">
@@ -85,7 +85,7 @@ export function TeamLeaderDashboard({ userId }: Props) {
             title="Assigned Projects"
             value={String(projects.length)}
             icon={Briefcase}
-            tone="violet"
+            tone="brand"
             loading={loading}
           />
           <StatCard

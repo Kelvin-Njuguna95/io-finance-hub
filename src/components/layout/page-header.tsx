@@ -15,10 +15,7 @@ type PageHeaderProps = {
     | 'success'
     | 'warning'
     | 'danger'
-    | 'info'
-    | 'violet'
-    | 'teal'
-    | 'electric';
+    | 'info';
   /** Pills rendered below the title — month chips, status, counts. */
   meta?: React.ReactNode;
   /** Right-aligned actions (buttons, selects). */
@@ -28,9 +25,7 @@ type PageHeaderProps = {
 
 const TONE_STYLES: Record<NonNullable<PageHeaderProps['tone']>, string> = {
   brand:
-    'bg-primary/10 text-primary ring-1 ring-inset ring-primary/15 dark:bg-primary/15',
-  electric:
-    'bg-electric-soft text-electric-soft-foreground ring-1 ring-inset ring-electric/20',
+    'bg-primary/10 text-primary ring-1 ring-inset ring-primary/15',
   success:
     'bg-success-soft text-success-soft-foreground ring-1 ring-inset ring-success/20',
   warning:
@@ -39,10 +34,6 @@ const TONE_STYLES: Record<NonNullable<PageHeaderProps['tone']>, string> = {
     'bg-danger-soft text-danger-soft-foreground ring-1 ring-inset ring-danger/20',
   info:
     'bg-info-soft text-info-soft-foreground ring-1 ring-inset ring-info/20',
-  violet:
-    'bg-violet-soft text-violet-soft-foreground ring-1 ring-inset ring-violet/20',
-  teal:
-    'bg-teal-soft text-teal-soft-foreground ring-1 ring-inset ring-teal/20',
 };
 
 export function PageHeader({
@@ -68,7 +59,7 @@ export function PageHeader({
           <span
             aria-hidden
             className={cn(
-              'mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl',
+              'mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg',
               TONE_STYLES[tone],
             )}
           >

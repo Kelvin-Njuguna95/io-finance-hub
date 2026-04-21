@@ -86,7 +86,7 @@ export function AccountantDashboard() {
         eyebrow="Finance Operations"
         description={formatYearMonth(currentMonth)}
         icon={Receipt}
-        tone="teal"
+        tone="brand"
       />
 
       <div className="p-6 space-y-6">
@@ -95,7 +95,7 @@ export function AccountantDashboard() {
             title="Budgets Pending Review"
             value={String(stats.pendingReviewCount)}
             icon={FileText}
-            tone="violet"
+            tone="brand"
             loading={loading}
           />
           <StatCard
@@ -109,7 +109,7 @@ export function AccountantDashboard() {
             title="Withdrawals (USD)"
             value={formatCurrency(stats.withdrawalTotal, 'USD')}
             icon={ArrowDownToLine}
-            tone="teal"
+            tone="brand"
             loading={loading}
           />
           <StatCard

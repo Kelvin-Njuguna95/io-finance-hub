@@ -254,7 +254,7 @@ export function ProjectManagerDashboard({ userId }: Props) {
           title="Company P&L Summary"
           description={`Revenue from ${formatYearMonth(revenueSourceMonth)}, costs from ${formatYearMonth(currentMonth)}`}
           icon={TrendingUp}
-          tone="teal"
+          tone="brand"
           action={
             <Link href="/reports/pnl">
               <Button variant="ghost" size="sm" className="gap-1">
@@ -301,7 +301,7 @@ export function ProjectManagerDashboard({ userId }: Props) {
         title="Project Performance"
         description="Lagged revenue vs. current-month direct costs"
         icon={BarChart3}
-        tone="violet"
+        tone="brand"
         action={
           <Link href="/reports/profitability">
             <Button variant="ghost" size="sm" className="gap-1">
