@@ -293,14 +293,14 @@ export default function DesignSamplePage() {
               value: '$284,120',
               subtitle: 'Available after withdrawals',
               icon: Landmark,
-              tone: 'accent',
+              tone: 'brand',
             },
             {
               label: 'Revenue (Lagged)',
               value: 'KES 24.6M',
               subtitle: 'From Feb 2026 invoice',
               icon: DollarSign,
-              tone: 'teal',
+              tone: 'brand',
             },
             {
               label: 'Operating Profit',

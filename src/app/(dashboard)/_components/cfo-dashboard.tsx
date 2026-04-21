@@ -300,7 +300,7 @@ export function CfoDashboard() {
             value: formatCurrency(bankBalance, 'USD'),
             subtitle: 'Available after withdrawals',
             icon: Landmark,
-            tone: 'accent',
+            tone: 'brand',
           },
           {
             label: 'Revenue (Lagged)',
@@ -309,7 +309,7 @@ export function CfoDashboard() {
               : '—',
             subtitle: `From ${formatYearMonth(revenueSourceMonth)} invoice`,
             icon: DollarSign,
-            tone: 'teal',
+            tone: 'brand',
           },
           {
             label: 'Operating Profit',

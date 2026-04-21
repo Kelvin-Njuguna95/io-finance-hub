@@ -4,12 +4,16 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
- * Executive-grade hero panel for dashboards. Layered navy surface with a
- * gradient accent, a branded eyebrow, five (or fewer) stat tiles with
- * tinted icon tiles, and an optional right-side actions slot.
+ * Executive-grade hero panel for dashboards. Navy surface with a subtle
+ * navy-tint radial accent (see .hero-surface in globals.css), branded
+ * eyebrow, up to five stat tiles, and an optional right-side actions
+ * slot.
  *
- * All color comes from `hero-surface` in globals.css + inline tokens so
- * dark mode just works.
+ * Palette: 5 tones. Brand is the neutral default ("normal is silent"
+ * per .impeccable.md). Success/warning/danger/info are semantic
+ * anchors reserved for legitimate state signals — not aesthetic variety.
+ * Gold (accent), electric-blue, violet, and teal were removed per the
+ * chart-only rule; any non-chart UI occurrence was a brand violation.
  */
 
 export type HeroStatTone =
@@ -17,11 +21,7 @@ export type HeroStatTone =
   | 'success'
   | 'warning'
   | 'danger'
-  | 'info'
-  | 'violet'
-  | 'teal'
-  | 'accent'
-  | 'electric';
+  | 'info';
 
 export type HeroStat = {
   label: string;
@@ -47,10 +47,6 @@ type HeroCardProps = {
 const TILE_TONES: Record<HeroStatTone, string> = {
   brand:
     'bg-white/10 text-white ring-1 ring-inset ring-white/15',
-  accent:
-    'bg-[oklch(0.84_0.18_88_/_0.20)] text-[oklch(0.95_0.14_88)] ring-1 ring-inset ring-[oklch(0.84_0.18_88_/_0.30)]',
-  electric:
-    'bg-[oklch(0.78_0.18_210_/_0.22)] text-[oklch(0.92_0.14_210)] ring-1 ring-inset ring-[oklch(0.78_0.18_210_/_0.32)]',
   success:
     'bg-[oklch(0.70_0.16_158_/_0.18)] text-[oklch(0.90_0.14_158)] ring-1 ring-inset ring-[oklch(0.70_0.16_158_/_0.28)]',
   warning:
@@ -59,10 +55,6 @@ const TILE_TONES: Record<HeroStatTone, string> = {
     'bg-[oklch(0.70_0.19_25_/_0.20)] text-[oklch(0.92_0.16_25)] ring-1 ring-inset ring-[oklch(0.70_0.19_25_/_0.30)]',
   info:
     'bg-[oklch(0.72_0.14_240_/_0.20)] text-[oklch(0.92_0.12_240)] ring-1 ring-inset ring-[oklch(0.72_0.14_240_/_0.30)]',
-  violet:
-    'bg-[oklch(0.72_0.18_290_/_0.20)] text-[oklch(0.92_0.15_290)] ring-1 ring-inset ring-[oklch(0.72_0.18_290_/_0.30)]',
-  teal:
-    'bg-[oklch(0.75_0.11_195_/_0.20)] text-[oklch(0.92_0.11_195)] ring-1 ring-inset ring-[oklch(0.75_0.11_195_/_0.30)]',
 };
 
 export function HeroCard({
