@@ -1,19 +1,25 @@
 import type { Metadata } from "next";
-import { Commissioner, JetBrains_Mono } from "next/font/google";
+import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const commissioner = Commissioner({
+const fraunces = Fraunces({
   subsets: ["latin"],
-  weight: ["400", "600"],
+  axes: ["opsz"],
+  style: ["normal", "italic"],
   display: "swap",
-  variable: "--font-commissioner",
+  variable: "--font-fraunces",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const geist = Geist({
   subsets: ["latin"],
-  weight: ["400"],
   display: "swap",
-  variable: "--font-jetbrains-mono",
+  variable: "--font-geist",
+});
+
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-geist-mono",
 });
 
 export const metadata: Metadata = {
@@ -29,7 +35,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`h-full antialiased ${commissioner.variable} ${jetbrainsMono.variable}`}
+      className={`h-full antialiased ${fraunces.variable} ${geist.variable} ${geistMono.variable}`}
     >
       <body className="min-h-full flex flex-col font-sans">
         {children}

@@ -15,6 +15,7 @@ import { getLaggedMonth, getUnifiedServicePeriodLabel } from '@/lib/report-utils
 import { FileDown } from 'lucide-react';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, PieChart, Pie } from 'recharts';
 import { EXPENSE_STATUS } from '@/lib/constants/status';
+import { useResolvedTokens } from '@/lib/charts/tokens';
 
 interface ProjectRevenue {
   name: string;
@@ -73,6 +74,9 @@ export default function MonthlyPnlReport() {
 
   const [revenueSourceMonth, setRevenueSourceMonth] = useState(getLaggedMonth(selectedMonth));
   const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
+
+  // Chart/PDF colours resolved from :root tokens post-mount. See src/lib/charts/tokens.ts.
+  const chartColors = useResolvedTokens({ ink: '#111210', gold: '#C8A24B' });
 
   useEffect(() => {
     async function load() {
@@ -224,11 +228,9 @@ export default function MonthlyPnlReport() {
     if (!pnl) return;
     const { default: jsPDF } = await import('jspdf');
     const doc = new jsPDF();
-    const navy = '#0b1220';
-    const gold = '#eab308';
 
     // Header
-    doc.setFillColor(navy);
+    doc.setFillColor(chartColors.ink);
     doc.rect(0, 0, 210, 28, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
@@ -240,7 +242,7 @@ export default function MonthlyPnlReport() {
     doc.text(`Revenue: ${formatYearMonth(revenueSourceMonth)} invoices | Expenses paid: ${formatYearMonth(selectedMonth)}`, 196, 22, { align: 'right' });
 
     // Gold accent line
-    doc.setDrawColor(gold);
+    doc.setDrawColor(chartColors.gold);
     doc.setLineWidth(1);
     doc.line(0, 28, 210, 28);
 
@@ -259,7 +261,7 @@ export default function MonthlyPnlReport() {
 
     function addSection(title: string) {
       doc.setFontSize(10);
-      doc.setTextColor(navy);
+      doc.setTextColor(chartColors.ink);
       doc.text(title, leftX, y);
       y += 2;
       doc.setDrawColor(200, 200, 200);
@@ -310,7 +312,7 @@ export default function MonthlyPnlReport() {
     doc.text(`Impact Outsourcing Limited | Generated: ${new Intl.DateTimeFormat('en-KE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Nairobi' }).format(new Date())}`, 105, 290, { align: 'center' });
 
     doc.save(`IO_PnL_${selectedMonth}.pdf`);
-  }, [pnl, selectedMonth, revenueSourceMonth, userRole, servicePeriodLabel]);
+  }, [pnl, selectedMonth, revenueSourceMonth, userRole, servicePeriodLabel, chartColors]);
 
   return (
     <div>

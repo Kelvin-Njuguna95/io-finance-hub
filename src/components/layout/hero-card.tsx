@@ -4,16 +4,13 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
- * Executive-grade hero panel for dashboards. Navy surface with a subtle
- * navy-tint radial accent (see .hero-surface in globals.css), branded
- * eyebrow, up to five stat tiles, and an optional right-side actions
- * slot.
+ * Executive-grade hero panel for dashboards. Hero surface is ink with
+ * gold-tinted radial accents — see globals.css .hero-surface and
+ * _design-system/ui_kits/finance-hub/kit.css:117-125.
  *
- * Palette: 5 tones. Brand is the neutral default ("normal is silent"
- * per .impeccable.md). Success/warning/danger/info are semantic
- * anchors reserved for legitimate state signals — not aesthetic variety.
- * Gold (accent), electric-blue, violet, and teal were removed per the
- * chart-only rule; any non-chart UI occurrence was a brand violation.
+ * Palette: 5 tones. Brand tile uses gold-soft + gold-lo per kit.css:110.
+ * Success/warning/danger/info tiles follow the bg-*-soft +
+ * text-*-soft-foreground + ring pattern used in stat-card.tsx.
  */
 
 export type HeroStatTone =
@@ -46,15 +43,15 @@ type HeroCardProps = {
 
 const TILE_TONES: Record<HeroStatTone, string> = {
   brand:
-    'bg-white/10 text-white ring-1 ring-inset ring-white/15',
+    'bg-gold-soft text-gold-lo ring-1 ring-inset ring-gold/30',
   success:
-    'bg-[oklch(0.70_0.16_158_/_0.18)] text-[oklch(0.90_0.14_158)] ring-1 ring-inset ring-[oklch(0.70_0.16_158_/_0.28)]',
+    'bg-success-soft text-success-soft-foreground ring-1 ring-inset ring-success/25',
   warning:
-    'bg-[oklch(0.82_0.16_78_/_0.18)] text-[oklch(0.95_0.14_80)] ring-1 ring-inset ring-[oklch(0.82_0.16_78_/_0.28)]',
+    'bg-warning-soft text-warning-soft-foreground ring-1 ring-inset ring-warning/35',
   danger:
-    'bg-[oklch(0.70_0.19_25_/_0.20)] text-[oklch(0.92_0.16_25)] ring-1 ring-inset ring-[oklch(0.70_0.19_25_/_0.30)]',
+    'bg-danger-soft text-danger-soft-foreground ring-1 ring-inset ring-danger/25',
   info:
-    'bg-[oklch(0.72_0.14_240_/_0.20)] text-[oklch(0.92_0.12_240)] ring-1 ring-inset ring-[oklch(0.72_0.14_240_/_0.30)]',
+    'bg-info-soft text-info-soft-foreground ring-1 ring-inset ring-info/25',
 };
 
 export function HeroCard({
@@ -89,13 +86,13 @@ export function HeroCard({
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/65">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-paper/65">
             {eyebrow}
           </p>
-          <h1 className="mt-1 text-[20px] font-semibold tracking-tight text-white md:text-[22px]">
+          <h1 className="mt-1 text-[20px] font-semibold tracking-tight text-paper md:text-[22px]">
             {title}
           </h1>
-          <p className="mt-1.5 text-[13px] text-white/65">{today}</p>
+          <p className="mt-1.5 text-[13px] text-paper/65">{today}</p>
         </div>
         {actions && (
           <div className="flex items-center gap-2">{actions}</div>
@@ -112,22 +109,22 @@ export function HeroCard({
               <div
                 key={i}
                 className={cn(
-                  'group/hero-stat relative overflow-hidden rounded-xl p-4',
-                  'bg-white/[0.04] ring-1 ring-inset ring-white/10 backdrop-blur-[2px]',
+                  'group/hero-stat relative overflow-hidden rounded-[var(--radius-lg)] p-4',
+                  'bg-paper/[0.04] ring-1 ring-inset ring-paper/10 backdrop-blur-[2px]',
                   'transition-all duration-[var(--dur-base)] ease-[cubic-bezier(0.2,0,0,1)]',
-                  'hover:bg-white/[0.07] hover:ring-white/15',
+                  'hover:bg-paper/[0.07] hover:ring-paper/15',
                 )}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 space-y-1.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/65">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-paper/65">
                       {stat.label}
                     </p>
-                    <p className="text-[1.5rem] font-semibold leading-none tracking-tight text-white tabular-nums md:text-[1.625rem]">
+                    <p className="text-[1.5rem] font-semibold leading-none tracking-tight text-paper tabular-nums md:text-[1.625rem]">
                       {stat.value}
                     </p>
                     {stat.subtitle && (
-                      <p className="text-[11px] text-white/60">
+                      <p className="text-[11px] text-paper/60">
                         {stat.subtitle}
                       </p>
                     )}
@@ -136,7 +133,7 @@ export function HeroCard({
                     <span
                       aria-hidden
                       className={cn(
-                        'flex size-9 shrink-0 items-center justify-center rounded-xl',
+                        'flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-lg)]',
                         TILE_TONES[tone],
                       )}
                     >

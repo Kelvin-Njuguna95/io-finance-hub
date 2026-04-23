@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { FileDown } from 'lucide-react';
 import { exportSimpleReportPdf } from '@/lib/pdf-export';
+import { useResolvedTokens } from '@/lib/charts/tokens';
 
 interface MonthData {
   month: string;
@@ -135,6 +136,13 @@ export default function TrendsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const months = useMemo(() => getMonthRange(rangeMonths), [rangeMonths]);
+
+  // Resolved chart chrome colours — see src/lib/charts/tokens.ts for the hook pattern.
+  const chartColors = useResolvedTokens({
+    border: '#DFDACB',
+    'muted-foreground': '#6E6B62',
+    'border-strong': '#8A877D',
+  });
 
   useEffect(() => {
     async function load() {
@@ -485,12 +493,12 @@ export default function TrendsPage() {
             {loading ? <ChartSkeleton /> : (
               <ResponsiveContainer width="100%" height={360}>
                 <ComposedChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} />
                   <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                   <YAxis tickFormatter={formatKesShort} tick={{ fontSize: 11 }} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
-                  <ReferenceLine y={0} stroke="#94a3b8" strokeWidth={1.5} />
+                  <ReferenceLine y={0} stroke={chartColors['muted-foreground']} strokeWidth={1.5} />
                   <Bar dataKey="revenue" name="Revenue" fill={CHART_COLORS.navy} radius={[4, 4, 0, 0]} />
                   <Bar dataKey="directExpenses" name="Direct Expenses (paid next month)" fill={CHART_COLORS.red} radius={[4, 4, 0, 0]} />
                   <Bar dataKey="overhead" name="Overhead" fill={CHART_COLORS.amber} radius={[4, 4, 0, 0]} />
@@ -508,12 +516,12 @@ export default function TrendsPage() {
             {loading ? <ChartSkeleton /> : (
               <ResponsiveContainer width="100%" height={360}>
                 <ComposedChart data={projectTrends}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} />
                   <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                   <YAxis tickFormatter={formatKesShort} tick={{ fontSize: 11 }} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
-                  <ReferenceLine y={0} stroke="#94a3b8" strokeWidth={1.5} />
+                  <ReferenceLine y={0} stroke={chartColors['muted-foreground']} strokeWidth={1.5} />
                   {projectNames.map(name => (
                     <Line key={name} type="monotone" dataKey={name} stroke={getProjectColor(name)} strokeWidth={2} dot={{ r: 4 }} />
                   ))}
@@ -530,7 +538,7 @@ export default function TrendsPage() {
             {loading ? <ChartSkeleton /> : (
               <ResponsiveContainer width="100%" height={360}>
                 <BarChart data={expenseComp}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} />
                   <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                   <YAxis tickFormatter={formatKesShort} tick={{ fontSize: 11 }} />
                   <Tooltip content={<CustomTooltip />} />
@@ -551,12 +559,12 @@ export default function TrendsPage() {
             {loading ? <ChartSkeleton /> : (
               <ResponsiveContainer width="100%" height={360}>
                 <ComposedChart data={indexData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} />
                   <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip />
                   <Legend />
-                  <ReferenceLine y={100} stroke="#94a3b8" strokeDasharray="6 3" label="Baseline" />
+                  <ReferenceLine y={100} stroke={chartColors['muted-foreground']} strokeDasharray="6 3" label="Baseline" />
                   <Area type="monotone" dataKey="revenueIndex" name="Revenue Index" fill={CHART_COLORS.lightGreen} stroke={CHART_COLORS.navy} strokeWidth={2} />
                   <Area type="monotone" dataKey="expenseIndex" name="Expense Index" fill={CHART_COLORS.lightRed} stroke={CHART_COLORS.red} strokeWidth={2} />
                 </ComposedChart>
@@ -572,7 +580,7 @@ export default function TrendsPage() {
             {loading ? <ChartSkeleton /> : (
               <ResponsiveContainer width="100%" height={360}>
                 <BarChart data={cashFlow}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} />
                   <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                   <YAxis tickFormatter={formatKesShort} tick={{ fontSize: 11 }} />
                   <Tooltip content={<CustomTooltip />} />
@@ -598,13 +606,13 @@ export default function TrendsPage() {
             ) : (
               <ResponsiveContainer width="100%" height={360}>
                 <ComposedChart data={agentEff}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} />
                   <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                   <YAxis yAxisId="left" tickFormatter={formatKesShort} tick={{ fontSize: 11 }} />
                   <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
-                  <Bar yAxisId="right" dataKey="agentCount" name="Agent Count" fill="#e5e7eb" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="right" dataKey="agentCount" name="Agent Count" fill={chartColors.border} radius={[4, 4, 0, 0]} />
                   <Line yAxisId="left" type="monotone" dataKey="revenuePerAgent" name="Revenue/Agent" stroke={CHART_COLORS.gold} strokeWidth={2} dot={{ r: 4 }} />
                   <Line yAxisId="left" type="monotone" dataKey="costPerAgent" name="Cost/Agent" stroke={CHART_COLORS.red} strokeWidth={2} dot={{ r: 4 }} />
                 </ComposedChart>
@@ -621,15 +629,15 @@ export default function TrendsPage() {
               {loading ? <ChartSkeleton /> : (
                 <ResponsiveContainer width="100%" height={360}>
                   <BarChart data={profitShare}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} />
                     <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                     <YAxis tickFormatter={formatKesShort} tick={{ fontSize: 11 }} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend />
                     {directors.map(d => (
-                      <Bar key={d} dataKey={d} stackId="shares" fill={dirColors[d] || '#6b7280'} />
+                      <Bar key={d} dataKey={d} stackId="shares" fill={dirColors[d] || chartColors['border-strong']} />
                     ))}
-                    <Bar dataKey="Company 30%" stackId="shares" fill="#6b7280" />
+                    <Bar dataKey="Company 30%" stackId="shares" fill={chartColors['border-strong']} />
                   </BarChart>
                 </ResponsiveContainer>
               )}

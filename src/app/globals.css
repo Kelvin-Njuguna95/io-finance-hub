@@ -38,6 +38,7 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
 
@@ -101,9 +102,16 @@
   --color-electric-soft: var(--electric-soft);
   --color-electric-soft-foreground: var(--electric-soft-foreground);
 
-  /* Gold — navigation / badge accent */
+  /* Gold — brand accent (signature saturated) */
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
+  --color-gold-hi: var(--gold-hi);
+  --color-gold-lo: var(--gold-lo);
+  --color-gold-soft: var(--gold-soft);
+
+  /* Brand literals — paper + ink for explicit surface/text class access */
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
 
   /* Charts */
   --color-chart-1: var(--chart-1);
@@ -113,10 +121,11 @@
   --color-chart-5: var(--chart-5);
   --color-chart-6: var(--chart-6);
 
-  /* Typography — Commissioner (body/display), JetBrains Mono (numeric). Loaded via next/font/google in src/app/layout.tsx. Weights: Commissioner 400/600, JetBrains Mono 400. */
-  --font-sans: var(--font-commissioner), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: var(--font-jetbrains-mono), "SF Mono", "Fira Code", Menlo, Consolas, monospace;
-  --font-heading: var(--font-commissioner), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Typography — Fraunces (display/heading, opsz 9..144 axis), Geist (body/UI), Geist Mono (numeric). Loaded via next/font/google in src/app/layout.tsx. */
+  --font-sans:    var(--font-geist), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:    var(--font-geist-mono), "SF Mono", "Fira Code", Menlo, Consolas, monospace;
+  --font-heading: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
 
   /* Radii — 4-stop system per .impeccable.md. See docs/TOKEN_MIGRATION.md. */
   --radius-sm:   var(--radius-sm);
@@ -144,27 +153,45 @@
 }
 
 /* ------------------------------------------------------------------ */
-/*  Light-only tokens — oklch source of truth (see .impeccable.md)     */
-/*  Dark mode has been deprecated and removed. A future revisit would  */
-/*  be a multi-quarter design project, not a token swap.               */
+/*  Light-only tokens — hex for brand literals (paper / ink / gold),   */
+/*  oklch for derived semantic ramps (success / warning / danger /     */
+/*  info). Dark mode has been deprecated and removed.                  */
 /* ------------------------------------------------------------------ */
 :root {
   color-scheme: light;
 
-  /* ----- Neutral ramp (10 stops) --------------------------------- */
-  /* Tinted toward brand hue 254 at chroma 0.005. Perceptually even   */
-  /* lightness stepping. Adjust a specific stop only if it fails      */
-  /* WCAG contrast against an adjacent one.                           */
-  --neutral-50:  oklch(0.985 0.005 254);
-  --neutral-100: oklch(0.955 0.005 254);
-  --neutral-200: oklch(0.915 0.005 254);
-  --neutral-300: oklch(0.865 0.005 254);
-  --neutral-400: oklch(0.805 0.005 254);
-  --neutral-500: oklch(0.720 0.005 254);
-  --neutral-600: oklch(0.580 0.005 254);
-  --neutral-700: oklch(0.430 0.005 254);
-  --neutral-800: oklch(0.290 0.005 254);
-  --neutral-900: oklch(0.170 0.005 254);
+  /* Brand literals — hex source of truth per _design-system/colors_and_type.css */
+  --gold:            #C8A24B;
+  --gold-hi:         #D7B368;
+  --gold-lo:         #A8863A;
+  --gold-soft:       #F3E7C6;
+  --gold-foreground: #111210;
+
+  --paper:   #FAFAF7;
+  --paper-2: #F4F2EC;
+  --paper-3: #ECE8DE;
+  --paper-4: #DFDACB;
+
+  --ink:   #111210;
+  --ink-2: #1C1D1A;
+  --ink-3: #2A2B27;
+  --ink-4: #3B3C37;
+
+  --warm-grey:   #8A877D;
+  --warm-grey-2: #6E6B62;
+  --warm-grey-3: #4E4C45;
+
+  /* Neutral ramp aliases onto paper → ink so shadcn primitives inherit the warm palette */
+  --neutral-50:  var(--paper);
+  --neutral-100: var(--paper-2);
+  --neutral-200: var(--paper-3);
+  --neutral-300: var(--paper-4);
+  --neutral-400: var(--warm-grey);
+  --neutral-500: var(--warm-grey-2);
+  --neutral-600: var(--warm-grey-3);
+  --neutral-700: var(--ink-4);
+  --neutral-800: var(--ink-3);
+  --neutral-900: var(--ink);
 
   /* ----- Surfaces ------------------------------------------------ */
   --background:     var(--neutral-100);
@@ -179,22 +206,24 @@
   --popover:            var(--neutral-50);
   --popover-foreground: var(--neutral-900);
 
-  /* ----- Brand anchor (navy) ------------------------------------- */
-  /* Previous hex anchor #1E3A5F — now oklch source of truth. */
-  --primary:              oklch(0.295 0.065 254);
-  --primary-foreground:   var(--neutral-50);
+  /* ----- Brand anchor (ink) -------------------------------------- */
+  /* Primary = ink, the deep warm-black anchor for type and solids.  */
+  /* -soft / -hover / -active derive from --primary via color-mix.   */
+  --primary:              var(--ink);
+  --primary-foreground:   var(--paper);
   --primary-soft:         color-mix(in oklab, var(--primary) 12%, white);
   --primary-soft-foreground: var(--neutral-800);
   --primary-hover:        color-mix(in oklab, var(--primary) 93%, white);
   --primary-active:       color-mix(in oklab, var(--primary) 93%, black);
 
-  /* ----- Secondary / Accent (neutral surfaces, NOT brand) -------- */
-  /* No second brand colour exists. These are neutral aliases to     */
-  /* preserve shadcn primitive API (bg-secondary, bg-accent).        */
+  /* ----- Secondary / Accent -------------------------------------- */
+  /* Secondary stays a neutral surface (shadcn API). Accent IS the    */
+  /* brand gold; --accent-soft added for soft-gold tints.             */
   --secondary:            var(--surface-2);
   --secondary-foreground: var(--primary);
-  --accent:               var(--surface-2);
-  --accent-foreground:    var(--primary);
+  --accent:               var(--gold);
+  --accent-foreground:    var(--ink);
+  --accent-soft:          var(--gold-soft);
 
   /* ----- Muted (standalone, not anchor-derived) ------------------ */
   /* Per .impeccable.md suffix discipline: --muted is its own        */
@@ -248,18 +277,13 @@
   --input:         var(--neutral-200);
   /* --ring is defined in the radius/shadow/ring section below */
 
-  /* ----- Legacy tokens (chart-only per brand rules) -------------- */
-  /* Electric blue, gold, violet, teal are CHART-ONLY colours.       */
-  /* Any UI occurrence outside /components/charts/* is a bug. These  */
-  /* tokens remain for legacy chip/alert classes that will be        */
-  /* migrated in a follow-up polish PR.                              */
+  /* ----- Chart-reserved secondary palette ----------------------- */
+  /* Electric, violet, teal are chart-only. Gold is the brand        */
+  /* accent (defined above as a literal) and may appear on UI.       */
   --electric:                oklch(0.620 0.175 258);
   --electric-foreground:     var(--neutral-50);
   --electric-soft:           color-mix(in oklab, var(--electric) 12%, white);
   --electric-soft-foreground: oklch(0.310 0.130 258);
-
-  --gold:            oklch(0.820 0.165 88);
-  --gold-foreground: var(--neutral-900);
 
   --violet:                oklch(0.580 0.210 290);
   --violet-soft:           color-mix(in oklab, var(--violet) 12%, white);
@@ -269,10 +293,11 @@
   --teal-soft:           color-mix(in oklab, var(--teal) 12%, white);
   --teal-soft-foreground: oklch(0.320 0.085 195);
 
-  /* ----- Chart palette (provisional; full palette in follow-up) -- */
-  /* Per .impeccable.md: --primary (navy) does NOT appear in charts. */
-  --chart-1: var(--electric); /* categorical #1 */
-  --chart-2: var(--gold);     /* categorical #2 */
+  /* ----- Chart palette ------------------------------------------ */
+  /* Gold + ink lead, semantic anchors fill the categorical range.  */
+  /* Mirrors _design-system/colors_and_type.css:141-146.            */
+  --chart-1: var(--gold);     /* categorical #1 */
+  --chart-2: var(--ink);      /* categorical #2 */
   --chart-3: var(--success);  /* categorical #3 */
   --chart-4: var(--violet);   /* categorical #4 */
   --chart-5: var(--teal);     /* categorical #5 */
@@ -293,9 +318,8 @@
     0 1px 3px -1px oklch(0 0 0 / 0.06);
 
   /* ----- Focus ring --------------------------------------------- */
-  /* Lighter saturated navy — visible against light surfaces,       */
-  /* same brand hue without competing with solid primary surfaces.  */
-  --ring: oklch(0.627 0.179 254);
+  /* Gold on paper — one unified treatment, :focus-visible only.    */
+  --ring: var(--gold);
 
   /* ----- Motion -------------------------------------------------- */
   --ease-standard:    cubic-bezier(0.2, 0, 0, 1);
@@ -306,15 +330,15 @@
   --dur-slow: 320ms;
 
   /* ----- Sidebar ------------------------------------------------- */
-  /* Sidebar surface is the brand anchor (navy). Foreground white.   */
-  --sidebar:                      var(--primary);
-  --sidebar-foreground:           var(--neutral-50);
-  --sidebar-primary:              var(--neutral-50);
-  --sidebar-primary-foreground:   var(--primary);
-  --sidebar-accent:               color-mix(in oklab, white 15%, transparent);
-  --sidebar-accent-foreground:    var(--neutral-50);
-  --sidebar-border:               color-mix(in oklab, white 8%, transparent);
-  --sidebar-ring:                 oklch(0.627 0.179 254);
+  /* Paper-2 surface with ink text and a gold active rail.           */
+  --sidebar:                    var(--paper-2);
+  --sidebar-foreground:         var(--ink);
+  --sidebar-primary:            var(--gold);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent:             var(--gold-soft);
+  --sidebar-accent-foreground:  var(--ink);
+  --sidebar-border:             var(--paper-4);
+  --sidebar-ring:               var(--gold);
 }
 
 /* ------------------------------------------------------------------ */
@@ -377,29 +401,21 @@
   background: var(--card);
 }
 
-/* Hero surface — dark navy base with navy-derivative accent radials.
-   All accents are hue 254 (brand navy) at varying lightnesses; no electric-
-   blue or gold here per the brand rules in .impeccable.md (chart-only
-   palette is not permitted on brand surfaces). */
+/* Hero surface — ink editorial panel with gold-tinted radials. Gold
+   is permitted here (and only here) on brand surfaces: this is the
+   single non-flat panel in the product. Recipe from
+   _design-system/ui_kits/finance-hub/kit.css:117-125. */
 .hero-surface {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-lg);
-  color: oklch(0.980 0 0);
+  color: var(--paper);
   background:
-    radial-gradient(
-      1000px 420px at 100% 0%,
-      oklch(0.700 0.080 254 / 0.18) 0%,
-      transparent 60%
-    ),
-    radial-gradient(
-      600px 280px at 0% 100%,
-      oklch(0.500 0.060 254 / 0.12) 0%,
-      transparent 60%
-    ),
-    linear-gradient(180deg, oklch(0.180 0.030 254) 0%, oklch(0.130 0.030 254) 100%);
+    radial-gradient(1000px 420px at 100% 0%, color-mix(in oklab, var(--gold) 14%, transparent) 0%, transparent 60%),
+    radial-gradient(600px 280px at 0% 100%, color-mix(in oklab, var(--gold) 6%, transparent) 0%, transparent 60%),
+    linear-gradient(180deg, var(--ink-2) 0%, var(--ink) 100%);
   box-shadow: var(--shadow-overlay);
-  border: 1px solid oklch(1 0 0 / 0.06);
+  border: 1px solid oklch(1 0 0 / 0.04);
 }
 .hero-surface::before {
   content: "";

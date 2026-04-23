@@ -54,33 +54,30 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-sidebar px-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-ink px-4">
+      {/* Login stage radials — gold-tinted on ink per kit.css:157-160 */}
       <div
         aria-hidden
-        className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-electric to-transparent"
+        className="pointer-events-none absolute inset-0 [background:radial-gradient(900px_520px_at_70%_20%,color-mix(in_oklab,var(--gold)_16%,transparent)_0%,transparent_60%),radial-gradient(700px_500px_at_10%_90%,color-mix(in_oklab,var(--gold)_8%,transparent)_0%,transparent_60%)]"
       />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 [background:radial-gradient(800px_400px_at_50%_-10%,var(--electric)_/_0.12_0%,transparent_60%),radial-gradient(600px_300px_at_80%_100%,var(--gold)_/_0.06_0%,transparent_60%)]"
-      />
-      <Card className="relative w-full max-w-sm border border-white/10 bg-white/[0.04] shadow-elev-3 backdrop-blur">
+      <Card className="relative w-full max-w-sm border border-paper/10 bg-paper/[0.04] shadow-overlay backdrop-blur">
         <CardHeader className="items-center text-center">
           <div
             aria-hidden
-            className="mx-auto flex size-12 items-center justify-center rounded-xl bg-gold text-[14px] font-bold text-gold-foreground shadow-elev-2 ring-1 ring-white/10"
+            className="mx-auto flex size-12 items-center justify-center rounded-[var(--radius-lg)] bg-gold font-mono text-[18px] font-medium text-gold-foreground shadow-overlay ring-1 ring-inset ring-paper/10"
           >
             IO
           </div>
-          <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/60">
+          <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-paper/60">
             Impact Outsourcing
           </p>
-          <CardTitle className="mt-1 text-xl text-white">Finance Hub</CardTitle>
-          <CardDescription className="text-white/65">Sign in to continue</CardDescription>
+          <CardTitle className="mt-1 text-xl text-paper">Finance Hub</CardTitle>
+          <CardDescription className="text-paper/65">Sign in to continue</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4" noValidate>
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-white/80">Email</Label>
+              <Label htmlFor="email" className="text-paper/80">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -89,11 +86,11 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="border-white/10 bg-white/[0.06] text-white placeholder:text-white/40 focus-visible:border-electric/50 focus-visible:ring-electric/20"
+                className="border-paper/10 bg-paper/[0.06] text-paper placeholder:text-paper/40 focus-visible:border-gold/50 focus-visible:ring-gold/20"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pin" className="text-white/80">PIN</Label>
+              <Label htmlFor="pin" className="text-paper/80">PIN</Label>
               <Input
                 id="pin"
                 type="password"
@@ -110,16 +107,17 @@ export default function LoginPage() {
                 required
                 aria-describedby={error ? 'login-error' : undefined}
                 aria-invalid={Boolean(error) || undefined}
-                className="text-center font-mono text-lg tracking-[0.5em] border-white/10 bg-white/[0.06] text-white placeholder:text-white/40 focus-visible:border-electric/50 focus-visible:ring-electric/20"
+                className="text-center font-mono text-lg tracking-[0.5em] border-paper/10 bg-paper/[0.06] text-paper placeholder:text-paper/40 focus-visible:border-gold/50 focus-visible:ring-gold/20"
               />
             </div>
             {error && (
-              <p id="login-error" role="alert" className="text-sm text-[oklch(0.72_0.19_25)]">
+              <p id="login-error" role="alert" className="text-sm text-danger-soft-foreground">
                 {error}
               </p>
             )}
             <Button
               type="submit"
+              variant="gold"
               className="w-full"
               disabled={loading}
             >
@@ -127,13 +125,13 @@ export default function LoginPage() {
             </Button>
             <div className="text-center">
               {resetSent ? (
-                <p className="text-sm text-[oklch(0.72_0.16_158)]">
+                <p className="text-sm text-success-soft-foreground">
                   Reset link sent! Check your email.
                 </p>
               ) : (
                 <button
                   type="button"
-                  className="text-sm text-white/55 underline transition-colors hover:text-white/80"
+                  className="text-sm text-paper/55 underline transition-colors hover:text-paper/80"
                   disabled={resetLoading}
                   onClick={async () => {
                     if (!email) {

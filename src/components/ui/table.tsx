@@ -82,7 +82,7 @@ function TableRow({ className, ...props }: React.ComponentProps<'tr'>) {
         'transition-colors duration-[var(--dur-fast)]',
         'hover:bg-muted',
         'has-aria-expanded:bg-muted',
-        'data-[state=selected]:bg-primary-soft',
+        'data-[state=selected]:bg-accent-soft',
         className,
       )}
       {...props}
