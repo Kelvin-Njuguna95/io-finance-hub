@@ -1,22 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import {
   AlertTriangle,
   ArrowDownToLine,
-  ArrowRight,
   CheckCircle2,
   ClipboardList,
   Eye,
   FileText,
-  Flag,
-  Inbox,
   ShieldAlert,
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
-import { HeroCard, type HeroStatTone } from '@/components/layout/hero-card';
 import { SectionCard } from '@/components/layout/section-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,39 +24,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import {
-  formatCurrency,
-  getCurrentYearMonth,
-  formatYearMonth,
-} from '@/lib/format';
+import { getCurrentYearMonth } from '@/lib/format';
 import { EXPENSE_STATUS } from '@/lib/constants/status';
 import { CfoMiscApproval } from '@/components/misc/cfo-misc-approval';
 import { OutstandingReceivablesPanel } from '@/components/revenue/outstanding-receivables-panel';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
-import { getTotalPaidUsd } from '@/lib/cash-balance';
-import {
-  CFO_APPROVAL_BACKLOG_DANGER,
-  CFO_APPROVAL_BACKLOG_WARNING,
-  CFO_PENDING_WITHDRAWALS_DANGER,
-  CFO_PENDING_WITHDRAWALS_WARNING,
-  CFO_RED_FLAGS_DANGER,
-  CFO_RED_FLAGS_WARNING,
-} from '@/lib/dashboard-thresholds';
-import type {
-  RedFlag,
-  BudgetVersion,
-  MonthlyFinancialSnapshot,
-} from '@/types/database';
-
-/**
- * Threshold-driven tone for a count-based hero stat.
- * Normal is silent (brand). Abnormal tints via -soft tokens in the hero.
- */
-function countTone(value: number, warning: number, danger: number): HeroStatTone {
-  if (value >= danger) return 'danger';
-  if (value >= warning) return 'warning';
-  return 'brand';
-}
+import type { MonthlyFinancialSnapshot } from '@/types/database';
+import { HomeKpiStrip } from './home-kpi-strip';
 
 type EodLogRow = {
   id: string;
@@ -87,25 +56,6 @@ type HealthScoreRow = {
   score: number;
   score_band: 'healthy' | 'watch' | 'at_risk' | string;
   biggest_drag: string | null;
-};
-
-const SEVERITY_STYLE: Record<
-  RedFlag['severity'],
-  { badge: string; icon: typeof Flag }
-> = {
-  low: { badge: 'bg-info-soft text-info-soft-foreground', icon: Flag },
-  medium: {
-    badge: 'bg-warning-soft text-warning-soft-foreground',
-    icon: AlertTriangle,
-  },
-  high: {
-    badge: 'bg-warning-soft text-warning-soft-foreground',
-    icon: AlertTriangle,
-  },
-  critical: {
-    badge: 'bg-danger-soft text-danger-soft-foreground',
-    icon: ShieldAlert,
-  },
 };
 
 const HEALTH_BAND: Record<
@@ -140,14 +90,8 @@ export function CfoDashboard() {
   const [snapshot, setSnapshot] = useState<MonthlyFinancialSnapshot | null>(
     null,
   );
-  const [redFlags, setRedFlags] = useState<RedFlag[]>([]);
-  const [pendingBudgets, setPendingBudgets] = useState<
-    (BudgetVersion & { budget_name?: string })[]
-  >([]);
-  const [pendingPayoutsCount, setPendingPayoutsCount] = useState(0);
   const [eodLogs, setEodLogs] = useState<EodLogRow[]>([]);
   const [healthScores, setHealthScores] = useState<HealthScoreRow[]>([]);
-  const [bankBalance, setBankBalance] = useState(0);
   const [revenueEstimated, setRevenueEstimated] = useState(false);
   const currentMonth = getCurrentYearMonth();
 
@@ -156,45 +100,21 @@ export function CfoDashboard() {
       const supabase = createClient();
 
       const periodMonth = currentMonth + '-01';
-      const prevDate = new Date(
-        parseInt(currentMonth.split('-')[0]),
-        parseInt(currentMonth.split('-')[1]) - 2,
-        1,
-      );
-      const prevMonth =
-        prevDate.getFullYear() +
-        '-' +
-        String(prevDate.getMonth() + 1).padStart(2, '0');
 
       const [
         snapshotRes,
-        flagsRes,
-        budgetsRes,
         eodRes,
         healthRes,
         laggedInvRes,
         expenseRes,
         rateRes,
         agentCountRes,
-        pendingPayoutsRes,
       ] = await Promise.all([
         supabase
           .from('monthly_financial_snapshots')
           .select('*')
           .eq('year_month', currentMonth)
           .single(),
-        supabase
-          .from('red_flags')
-          .select('*')
-          .eq('is_resolved', false)
-          .order('created_at', { ascending: false })
-          .limit(10),
-        supabase
-          .from('budget_versions')
-          .select('*, budgets(project_id, department_id, year_month)')
-          .in('status', ['submitted', 'under_review', 'pm_approved'])
-          .order('created_at', { ascending: false })
-          .limit(10),
         supabase
           .from('eod_reports')
           .select('*, users(full_name)')
@@ -217,10 +137,6 @@ export function CfoDashboard() {
           .eq('key', 'standard_exchange_rate')
           .single(),
         supabase.from('agent_counts').select('agent_count').eq('year_month', currentMonth),
-        supabase
-          .from('director_payouts')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'pending'),
       ]);
 
       const stdRate = parseFloat(rateRes.data?.value || '129.5');
@@ -256,28 +172,6 @@ export function CfoDashboard() {
 
       setSnapshot(liveSnapshot);
 
-      const { data: balSetting } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'bank_balance_usd')
-        .single();
-      const seedBalance = parseFloat(balSetting?.value || '0');
-      const { data: allWithdrawals } = await supabase
-        .from('withdrawals')
-        .select('amount_usd');
-      const totalWithdrawn = (allWithdrawals || []).reduce(
-        (s: number, w: { amount_usd: number }) => s + Number(w.amount_usd),
-        0,
-      );
-      const { data: allInvoicesEver } = await supabase
-        .from('invoices')
-        .select('amount_usd, status, payments(amount_usd)');
-      const totalPaid = getTotalPaidUsd(allInvoicesEver || []);
-      setBankBalance(seedBalance + totalPaid - totalWithdrawn);
-
-      setRedFlags((flagsRes.data || []) as RedFlag[]);
-      setPendingBudgets((budgetsRes.data || []) as (BudgetVersion & { budget_name?: string })[]);
-      setPendingPayoutsCount(pendingPayoutsRes.count || 0);
       setEodLogs(
         ((eodRes.data || []) as Array<Record<string, unknown>>).map((r) => ({
           ...(r as EodLogRow),
@@ -302,187 +196,10 @@ export function CfoDashboard() {
 
   const [viewingEod, setViewingEod] = useState<EodLogRow | null>(null);
 
-  const prevDate = new Date(
-    parseInt(currentMonth.split('-')[0]),
-    parseInt(currentMonth.split('-')[1]) - 2,
-    1,
-  );
-  const revenueSourceMonth = `${prevDate.getFullYear()}-${String(
-    prevDate.getMonth() + 1,
-  ).padStart(2, '0')}`;
-
-  const approvalBacklogCount = pendingBudgets.length;
-  const redFlagCount = redFlags.length;
-
   return (
     <div className="p-6 space-y-6">
-      {/*
-        Hero — 3-number action fold.
-        Per .impeccable.md Q7: "normal is silent; abnormal tints."
-        All three stats share the same semantic: "what demands CFO sign-off
-        today?" Thresholds are placeholders (see docs/THRESHOLDS_PLACEHOLDER.md).
-      */}
-      <HeroCard
-        stats={[
-          {
-            label: 'Approval Backlog',
-            value: String(approvalBacklogCount),
-            subtitle:
-              approvalBacklogCount === 1
-                ? 'Budget version awaiting review'
-                : 'Budget versions awaiting review',
-            icon: ClipboardList,
-            tone: countTone(
-              approvalBacklogCount,
-              CFO_APPROVAL_BACKLOG_WARNING,
-              CFO_APPROVAL_BACKLOG_DANGER,
-            ),
-          },
-          {
-            label: 'Pending Withdrawals',
-            value: String(pendingPayoutsCount),
-            subtitle:
-              pendingPayoutsCount === 1
-                ? 'Director payout awaiting approval'
-                : 'Director payouts awaiting approval',
-            icon: ArrowDownToLine,
-            tone: countTone(
-              pendingPayoutsCount,
-              CFO_PENDING_WITHDRAWALS_WARNING,
-              CFO_PENDING_WITHDRAWALS_DANGER,
-            ),
-          },
-          {
-            label: 'Red Flags',
-            value: String(redFlagCount),
-            subtitle: 'Outstanding risk signals',
-            icon: Flag,
-            tone: countTone(
-              redFlagCount,
-              CFO_RED_FLAGS_WARNING,
-              CFO_RED_FLAGS_DANGER,
-            ),
-          },
-        ]}
-      />
-
-      {/* Row 1 — Red flags + budget queue */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <SectionCard
-          title="Red Flags"
-          description="Outstanding risk signals across projects and budgets"
-          icon={Flag}
-          tone="danger"
-          action={
-            <Link href="/red-flags">
-              <Button variant="ghost" size="sm" className="gap-1">
-                View all
-                <ArrowRight className="size-3.5" aria-hidden />
-              </Button>
-            </Link>
-          }
-        >
-          {redFlags.length === 0 ? (
-            <EmptyState
-              icon={CheckCircle2}
-              tone="success"
-              title="No active red flags"
-              description="All monitored signals are within tolerance."
-            />
-          ) : (
-            <ul className="space-y-2">
-              {redFlags.map((flag) => {
-                const sev = SEVERITY_STYLE[flag.severity];
-                const SeverityIcon = sev.icon;
-                return (
-                  <li
-                    key={flag.id}
-                    className="flex items-start gap-3 rounded-lg border border-border/70 bg-muted/30 p-3"
-                  >
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg',
-                        sev.badge,
-                      )}
-                    >
-                      <SeverityIcon className="size-3.5" strokeWidth={2} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {flag.title}
-                      </p>
-                      {flag.description && (
-                        <p className="truncate text-xs text-muted-foreground">
-                          {flag.description}
-                        </p>
-                      )}
-                    </div>
-                    <Badge
-                      variant="secondary"
-                      className={cn('shrink-0 capitalize', sev.badge)}
-                    >
-                      {flag.severity}
-                    </Badge>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </SectionCard>
-
-        <SectionCard
-          title="Budget Approval Queue"
-          description="Versions waiting on CFO review"
-          icon={ClipboardList}
-          tone="brand"
-          action={
-            <Link href="/budgets">
-              <Button variant="ghost" size="sm" className="gap-1">
-                View all
-                <ArrowRight className="size-3.5" aria-hidden />
-              </Button>
-            </Link>
-          }
-        >
-          {pendingBudgets.length === 0 ? (
-            <EmptyState
-              icon={Inbox}
-              tone="neutral"
-              title="No pending budgets"
-              description="Nothing waiting on CFO approval right now."
-            />
-          ) : (
-            <ul className="space-y-2">
-              {pendingBudgets.map((bv) => (
-                <li
-                  key={bv.id}
-                  className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/30 p-3"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      Version {bv.version_number}
-                    </p>
-                    <p className="text-xs text-muted-foreground tabular-nums">
-                      {formatCurrency(bv.total_amount_kes, 'KES')}
-                    </p>
-                  </div>
-                  <Badge
-                    variant="secondary"
-                    className={
-                      bv.status === 'submitted'
-                        ? 'bg-info-soft text-info-soft-foreground'
-                        : 'bg-warning-soft text-warning-soft-foreground'
-                    }
-                  >
-                    {bv.status.replace('_', ' ')}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-        </SectionCard>
-      </div>
+      {/* Primary KPI strip — Bank Balance, Approved Budget, Withdrawn */}
+      <HomeKpiStrip />
 
       {/* Project Health */}
       {healthScores.length > 0 && (

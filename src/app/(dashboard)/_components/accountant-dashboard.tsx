@@ -1,22 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import {
-  ArrowDownToLine,
-  CheckSquare,
-  FileText,
-  Receipt,
-} from 'lucide-react';
+import { CheckSquare, Receipt } from 'lucide-react';
 
-import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
-import { StatCard } from '@/components/layout/stat-card';
 import { SectionCard } from '@/components/layout/section-card';
-import {
-  formatCurrency,
-  getCurrentYearMonth,
-  formatYearMonth,
-} from '@/lib/format';
+import { getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { EodPanel } from '@/components/eod/eod-panel';
 import { AccountantMiscRequests } from '@/components/misc/accountant-misc-requests';
 import { AccountantMiscReport } from '@/components/misc/accountant-misc-report';
@@ -26,6 +14,7 @@ import {
   daysUntilNextClose,
   isWithinCloseWindow,
 } from '@/lib/dashboard-thresholds';
+import { HomeKpiStrip } from './home-kpi-strip';
 
 /**
  * Month-end close reference list. Static, presentation-only.
@@ -43,53 +32,12 @@ const CHECKLIST = [
 ];
 
 export function AccountantDashboard() {
-  const [stats, setStats] = useState({
-    pendingReviewCount: 0,
-    expenseCount: 0,
-    withdrawalTotal: 0,
-  });
-  const [loading, setLoading] = useState(true);
   const currentMonth = getCurrentYearMonth();
 
   // Compute once per render; close-window is a date-only signal.
   const now = new Date();
   const inCloseWindow = isWithinCloseWindow(now);
   const daysUntilClose = daysUntilNextClose(now);
-
-  useEffect(() => {
-    async function loadData() {
-      const supabase = createClient();
-
-      const [reviewRes, expenseRes, withdrawalRes] = await Promise.all([
-        supabase
-          .from('budget_versions')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'submitted'),
-        supabase
-          .from('expenses')
-          .select('id', { count: 'exact', head: true })
-          .eq('year_month', currentMonth),
-        supabase
-          .from('withdrawals')
-          .select('amount_usd')
-          .eq('year_month', currentMonth),
-      ]);
-
-      const totalWithdrawals = (withdrawalRes.data || []).reduce(
-        (sum: number, w: { amount_usd: number }) => sum + Number(w.amount_usd),
-        0,
-      );
-
-      setStats({
-        pendingReviewCount: reviewRes.count || 0,
-        expenseCount: expenseRes.count || 0,
-        withdrawalTotal: totalWithdrawals,
-      });
-      setLoading(false);
-    }
-
-    loadData();
-  }, [currentMonth]);
 
   return (
     <div>
@@ -161,29 +109,8 @@ export function AccountantDashboard() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatCard
-            title="Budgets Pending Review"
-            value={String(stats.pendingReviewCount)}
-            icon={FileText}
-            tone="brand"
-            loading={loading}
-          />
-          <StatCard
-            title="Expenses This Month"
-            value={String(stats.expenseCount)}
-            icon={Receipt}
-            tone="brand"
-            loading={loading}
-          />
-          <StatCard
-            title="Withdrawals (USD)"
-            value={formatCurrency(stats.withdrawalTotal, 'USD')}
-            icon={ArrowDownToLine}
-            tone="brand"
-            loading={loading}
-          />
-        </div>
+        {/* Primary KPI strip — Bank Balance, Approved Budget, Withdrawn */}
+        <HomeKpiStrip />
 
         {/* Expense Queue */}
         <ExpenseQueuePanel />

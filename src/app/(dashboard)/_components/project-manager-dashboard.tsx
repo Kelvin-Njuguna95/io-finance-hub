@@ -27,7 +27,7 @@ import {
 } from '@/lib/format';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
 import { getPmReviewQueueCount } from '@/lib/queries/budgets';
-import { getTotalPaidUsd } from '@/lib/cash-balance';
+import { HomeKpiStrip } from './home-kpi-strip';
 import {
   PM_AGGREGATE_MARGIN_DANGER_BELOW_PCT,
   PM_AGGREGATE_MARGIN_WARNING_BELOW_PCT,
@@ -91,7 +91,6 @@ export function ProjectManagerDashboard({ userId }: Props) {
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [pendingBudgets, setPendingBudgets] = useState(0);
-  const [bankBalance, setBankBalance] = useState(0);
   const currentMonth = getCurrentYearMonth();
 
   const prevDate = new Date(
@@ -128,24 +127,6 @@ export function ProjectManagerDashboard({ userId }: Props) {
         .eq('key', 'standard_exchange_rate')
         .single();
       const stdRate = parseFloat(rateSetting?.value || '129.5');
-      const { data: balSetting } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'bank_balance_usd')
-        .single();
-      const seedBalance = parseFloat(balSetting?.value || '0');
-      const { data: allWd } = await supabase
-        .from('withdrawals')
-        .select('amount_usd');
-      const totalWd = (allWd || []).reduce(
-        (s: number, w: { amount_usd: number }) => s + Number(w.amount_usd),
-        0,
-      );
-      const { data: allInvoicesEver } = await supabase
-        .from('invoices')
-        .select('amount_usd, status, payments(amount_usd)');
-      const totalPaid = getTotalPaidUsd(allInvoicesEver || []);
-      setBankBalance(seedBalance + totalPaid - totalWd);
 
       const { data: invoices } = await supabase
         .from('invoices')
@@ -320,6 +301,9 @@ export function ProjectManagerDashboard({ userId }: Props) {
           },
         ]}
       />
+
+      {/* Primary KPI strip — Bank Balance, Approved Budget, Withdrawn */}
+      <HomeKpiStrip />
 
       {totalRevenue > 0 && (
         <SectionCard
