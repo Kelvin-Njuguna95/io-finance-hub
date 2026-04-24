@@ -41,30 +41,43 @@ export async function GET(request: Request) {
   // Get project
   const { data: project } = await admin.from('projects').select('name').eq('id', projectId).single();
 
-  // Revenue — LAGGED: use previous month's invoice
-  const prevDate = new Date(parseInt(yearMonth.split('-')[0]), parseInt(yearMonth.split('-')[1]) - 2, 1);
-  const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+  // Headline revenue: canonical KES from the lagged view (matches every other page in the app).
+  // F-04: previously this route queried invoices directly with billing_period = prevMonth,
+  // bypassing the lagged_revenue_by_project_month view. The view applies the system-wide
+  // USD->KES fallback (128.5) consistently with cfo-dashboard, pnl, and reports/projects.
+  const { data: laggedView } = await admin
+    .from('lagged_revenue_by_project_month')
+    .select('lagged_revenue_kes, lagged_revenue_usd, revenue_source_month, has_lagged_invoice, revenue_kes_estimated')
+    .eq('project_id', projectId)
+    .eq('expense_month', yearMonth)
+    .maybeSingle();
 
-  const { data: laggedInvoices } = await admin.from('invoices')
-    .select('*, payments(*)')
-    .eq('project_id', projectId).eq('billing_period', prevMonth);
+  const fallbackPrevDate = new Date(parseInt(yearMonth.split('-')[0]), parseInt(yearMonth.split('-')[1]) - 2, 1);
+  const fallbackPrevMonth = `${fallbackPrevDate.getFullYear()}-${String(fallbackPrevDate.getMonth() + 1).padStart(2, '0')}`;
+  const prevMonth = laggedView?.revenue_source_month ?? fallbackPrevMonth;
+
+  // Per-invoice metadata: status, dates, joined payments — kept for UI badges and outstanding calc.
+  // Headline KES revenue no longer comes from this query; it comes from the view above.
+  const { data: laggedInvoices } = await admin
+    .from('invoices')
+    .select('invoice_date, billing_period, status, amount_usd, payments(amount_usd)')
+    .eq('project_id', projectId)
+    .eq('billing_period', prevMonth);
 
   const laggedInvoice = (laggedInvoices || [])[0];
-  // Get standard exchange rate
-  const { data: rateSetting } = await admin.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single();
-  const stdRate = parseFloat(rateSetting?.value || '129.5');
-  // Convert USD invoice to KES using standard rate
-  const invoiceAmountKes = laggedInvoice ? Number(laggedInvoice.amount_kes) : 0;
-  const invoiceAmountUsd = laggedInvoice ? Number(laggedInvoice.amount_usd) : 0;
-  const invoiceAmount = invoiceAmountKes > 0 ? invoiceAmountKes : Math.round(invoiceAmountUsd * stdRate * 100) / 100;
-  const totalPaid = laggedInvoice ? (laggedInvoice.payments || []).reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd || 0), 0) : 0;
+  const invoiceAmount = Number(laggedView?.lagged_revenue_kes ?? 0);    // headline KES from view
+  const invoiceAmountUsd = Number(laggedView?.lagged_revenue_usd ?? 0); // headline USD from view
+  const totalPaid = laggedInvoice
+    ? (laggedInvoice.payments || []).reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd || 0), 0)
+    : 0;
   const outstanding = invoiceAmountUsd - totalPaid;
   const revenueSourceMonth = prevMonth;
 
-  // Expenses — project expenses only
+  // Expenses — confirmed project expenses only (F-04: lifecycle filter was missing)
   const { data: expenses } = await admin.from('expenses')
     .select('*, expense_categories(name)')
     .eq('project_id', projectId).eq('year_month', yearMonth).eq('expense_type', 'project_expense')
+    .eq('lifecycle_status', 'confirmed')
     .order('expense_date');
 
   const totalExpenses = (expenses || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
@@ -106,22 +119,31 @@ export async function GET(request: Request) {
     .select('agent_count').eq('project_id', projectId).eq('year_month', yearMonth).single();
   const agentCount = agentData?.agent_count || 0;
 
-  // Previous month data for trends
+  // Previous 6 months for trends — F-04: now reads from the lagged view, which already
+  // applies the USD->KES fallback (so all-USD invoices yield real KES) and the
+  // lifecycle='confirmed' filter on expenses (no need to re-add it here).
   const prevMonths: /* // */ /* // */ any[] = [];
   for (let i = 1; i <= 6; i++) {
     const d = new Date(parseInt(yearMonth.split('-')[0]), parseInt(yearMonth.split('-')[1]) - 1 - i, 1);
     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const revSrcDate = new Date(d.getFullYear(), d.getMonth() - 1, 1);
-    const revenueYm = `${revSrcDate.getFullYear()}-${String(revSrcDate.getMonth() + 1).padStart(2, '0')}`;
 
-    const [invRes, expRes, agRes] = await Promise.all([
-      admin.from('invoices').select('amount_kes').eq('project_id', projectId).eq('billing_period', revenueYm),
-      admin.from('expenses').select('amount_kes').eq('project_id', projectId).eq('year_month', ym).eq('expense_type', 'project_expense'),
-      admin.from('agent_counts').select('agent_count').eq('project_id', projectId).eq('year_month', ym).single(),
+    const [viewRes, agRes] = await Promise.all([
+      admin
+        .from('lagged_revenue_by_project_month')
+        .select('lagged_revenue_kes, current_expenses_kes')
+        .eq('project_id', projectId)
+        .eq('expense_month', ym)
+        .maybeSingle(),
+      admin
+        .from('agent_counts')
+        .select('agent_count')
+        .eq('project_id', projectId)
+        .eq('year_month', ym)
+        .single(),
     ]);
 
-    const rev = (invRes.data || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_kes), 0);
-    const exp = (expRes.data || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
+    const rev = Number(viewRes.data?.lagged_revenue_kes || 0);
+    const exp = Number(viewRes.data?.current_expenses_kes || 0);
     const agents = agRes.data?.agent_count || 0;
 
     if (rev > 0 || exp > 0) {
