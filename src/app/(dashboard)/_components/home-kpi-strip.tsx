@@ -1,17 +1,20 @@
 'use client';
 
-import { ArrowDownToLine, FileText, Wallet } from 'lucide-react';
+import { ArrowDownToLine, FileText, TrendingUp, Wallet } from 'lucide-react';
 
 import { StatCard } from '@/components/layout/stat-card';
-import { formatCurrency, formatMonth } from '@/lib/format';
+import { formatCurrency, formatMonth, formatYearMonth, getCurrentYearMonth } from '@/lib/format';
+import { getLaggedMonth } from '@/lib/report-utils';
 import { useBankBalance } from '@/hooks/use-bank-balance';
 import { useMonthlyApprovedBudget } from '@/hooks/use-monthly-approved-budget';
+import { useMonthlyInvoiceRevenue } from '@/hooks/use-monthly-invoice-revenue';
 import { useMonthlyWithdrawn } from '@/hooks/use-monthly-withdrawn';
 
 /**
- * Three-card KPI strip rendered at the top of CFO, Accountant, and PM
+ * Four-card KPI strip rendered at the top of CFO, Accountant, and PM
  * Home dashboards: Bank Balance (USD, all-time) · Approved Budget (KES,
- * current month) · Withdrawn (USD, current month).
+ * current month) · Withdrawn (USD, current month) · Invoice Revenue
+ * (KES, lagged month per the P&L convention).
  *
  * TL dashboard does not render this strip per the home restructure spec —
  * financial totals would be a data-leak for the team-leader role.
@@ -23,11 +26,13 @@ export function HomeKpiStrip() {
   const bank = useBankBalance();
   const budget = useMonthlyApprovedBudget();
   const withdrawn = useMonthlyWithdrawn();
+  const invoiceRevenue = useMonthlyInvoiceRevenue();
 
   const currentMonthLabel = formatMonth(new Date());
+  const laggedMonthLabel = formatYearMonth(getLaggedMonth(getCurrentYearMonth()));
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
       <StatCard
         title="Bank Balance"
         value={bank.error ? '—' : formatCurrency(bank.totalUSD, 'USD')}
@@ -51,6 +56,14 @@ export function HomeKpiStrip() {
         icon={ArrowDownToLine}
         tone="brand"
         loading={withdrawn.loading}
+      />
+      <StatCard
+        title={`Invoice Revenue — ${laggedMonthLabel}`}
+        value={invoiceRevenue.error ? '—' : formatCurrency(invoiceRevenue.total, 'KES')}
+        subtitle={invoiceRevenue.error ? 'Unable to load' : undefined}
+        icon={TrendingUp}
+        tone="brand"
+        loading={invoiceRevenue.loading}
       />
     </div>
   );
