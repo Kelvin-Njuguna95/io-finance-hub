@@ -28,8 +28,16 @@ export function formatYearMonth(ym: string): string {
 }
 
 export function getCurrentYearMonth(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  // Use Africa/Nairobi timezone — server-local (UTC on Vercel) shifts the
+  // month by up to 3 hours near month boundaries. en-CA locale returns
+  // ISO-shaped YYYY-MM-DD, from which we take the first 7 chars.
+  const isoDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: NAIROBI_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  return isoDate.slice(0, 7);
 }
 
 export function formatDate(date: Date | string): string {

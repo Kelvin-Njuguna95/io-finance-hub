@@ -54,6 +54,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'director_name, period_month and amount_kes are required.' }, { status: 422 });
     }
 
+    if (!body.profit_share_record_id) {
+      return NextResponse.json({ error: 'profit_share_record_id is required.' }, { status: 422 });
+    }
+
     if (body.profit_share_record_id) {
       const { data: psRecord } = await admin
         .from('profit_share_records')
@@ -82,7 +86,7 @@ export async function POST(request: Request) {
       .from('director_payouts')
       .insert({
         director_name: body.director_name,
-        profit_share_record_id: body.profit_share_record_id ?? null,
+        profit_share_record_id: body.profit_share_record_id,
         period_month: normalizedPeriodMonth,
         amount_kes: body.amount_kes,
         payment_method: body.payment_method ?? 'cash',

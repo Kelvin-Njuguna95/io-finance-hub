@@ -213,14 +213,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No active misc allocation for this project' }, { status: 404 });
     }
 
-    // Check no existing standing draw (insert will fail on unique index too, but check first)
-    const { data: existing } = await admin.from('misc_draws')
-      .select('id').eq('project_id', project_id).eq('period_month', periodDate).eq('draw_type', 'standing').single();
-    if (existing) {
-      return NextResponse.json({ error: 'Standing draw already exists for this period' }, { status: 409 });
-    }
-
-    // Insert standing draw
+    // Insert standing draw — rely on idx_misc_draws_one_standing_per_month
+    // unique index for enforcement; surface 23505 violations as 409. (F-20)
     const { data: draw, error: drawErr } = await admin.from('misc_draws').insert({
       project_id,
       period_month: periodDate,
@@ -231,7 +225,12 @@ export async function POST(request: Request) {
       requested_by: authUser.id,
     }).select().single();
 
-    if (drawErr) return NextResponse.json({ error: drawErr.message }, { status: 500 });
+    if (drawErr) {
+      if (drawErr.code === '23505') {
+        return NextResponse.json({ error: 'Standing draw already exists for this period' }, { status: 409 });
+      }
+      return NextResponse.json({ error: drawErr.message }, { status: 500 });
+    }
 
     // Notify PM(s) assigned to this project and Accountants
     const [pmRes, acctRes] = await Promise.all([
