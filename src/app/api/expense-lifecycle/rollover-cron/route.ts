@@ -1,16 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-
-function getPrevYearMonth(): string {
-  const now = new Date();
-  const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function getCurrentYearMonth(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
+import { getCurrentYearMonth, getPrevYearMonth } from '@/lib/format';
 
 // Cron endpoint: ensure carry-forward rows from previous month were rolled into current month queue.
 export async function GET(request: Request) {

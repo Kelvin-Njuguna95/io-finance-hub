@@ -40,6 +40,12 @@ export function getCurrentYearMonth(): string {
   return isoDate.slice(0, 7);
 }
 
+export function getPrevYearMonth(): string {
+  const [y, m] = getCurrentYearMonth().split('-').map(Number);
+  if (m === 1) return `${y - 1}-12`;
+  return `${y}-${String(m - 1).padStart(2, '0')}`;
+}
+
 export function formatDate(date: Date | string): string {
   return new Intl.DateTimeFormat(KENYA_LOCALE, {
     timeZone: NAIROBI_TIMEZONE,

@@ -114,6 +114,13 @@ export default function PnLReportPage() {
         return;
       }
 
+      // F-15: bound the payments query to the selected month at the DB
+      // level instead of fetching the entire table and filtering in JS.
+      const monthStart = `${selectedMonth}-01`;
+      const [y, m] = selectedMonth.split('-').map(Number);
+      const nextMonth = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+      const monthEnd = `${nextMonth}-01`;
+
       // 2. Compute live from invoices + expenses
       const [laggedRevenueRes, invRes, projExpRes, sharedExpRes, agentRes, rateRes, payRes] = await Promise.all([
         // Accrual mode source of truth
@@ -132,8 +139,8 @@ export default function PnLReportPage() {
         supabase.from('agent_counts').select('agent_count').eq('year_month', selectedMonth),
         // Exchange rate
         supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single(),
-        // Cash mode: payments received this month
-        supabase.from('payments').select('amount_usd, payment_date'),
+        // Cash mode: payments received this month (date range bounded at DB)
+        supabase.from('payments').select('amount_usd, payment_date').gte('payment_date', monthStart).lt('payment_date', monthEnd),
       ]);
 
       const stdRate = parseFloat(rateRes.data?.value || '129.5');
@@ -146,9 +153,11 @@ export default function PnLReportPage() {
         revenue = lagged > 0 ? lagged : 0;
         revenueUsd = Number(laggedRevenueRes.data?.total_revenue_usd || 0) || (invRes.data || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_usd), 0);
       } else {
-        // Cash mode: payments received in this month
-        const monthPayments = (payRes.data || []).filter((p: /* // */ any) => p.payment_date?.startsWith(selectedMonth));
-        revenueUsd = monthPayments.reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd), 0);
+        // Cash mode: payments received in this month — already filtered at DB
+        if (payRes.error) {
+          console.error('[reports/pnl] cash-mode payments query failed:', payRes.error, { selectedMonth });
+        }
+        revenueUsd = (payRes.data || []).reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd), 0);
         revenue = Math.round(revenueUsd * stdRate * 100) / 100;
       }
 

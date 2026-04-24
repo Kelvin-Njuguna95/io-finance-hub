@@ -110,6 +110,7 @@ export function CfoDashboard() {
         expenseRes,
         rateRes,
         agentCountRes,
+        monthClosureRes,
       ] = await Promise.all([
         supabase
           .from('monthly_financial_snapshots')
@@ -138,6 +139,10 @@ export function CfoDashboard() {
           .eq('key', 'standard_exchange_rate')
           .single(),
         supabase.from('agent_counts').select('agent_count').eq('year_month', currentMonth),
+        // F-19: only treat the snapshot as authoritative when the month is
+        // closed/locked. Otherwise, blend live values over it so late-arriving
+        // invoices and expenses surface even if a snapshot already exists.
+        supabase.from('month_closures').select('status').eq('year_month', currentMonth).maybeSingle(),
       ]);
 
       const stdRate = parseFloat(rateRes.data?.value || '129.5');
@@ -154,8 +159,12 @@ export function CfoDashboard() {
         0,
       );
 
+      const monthIsClosed =
+        monthClosureRes.data?.status === 'closed' ||
+        monthClosureRes.data?.status === 'locked';
+
       const liveSnapshot =
-        snapshotRes.data && Number(snapshotRes.data.total_revenue_kes) > 0
+        snapshotRes.data && monthIsClosed
           ? {
               ...snapshotRes.data,
               total_agents: snapshotRes.data.total_agents || totalAgents,

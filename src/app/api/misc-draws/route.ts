@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient, getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
+import { formatKES } from '@/lib/utils/currency';
 
 /** Legacy helper kept for the GET handler which only needs the auth user */
 async function getAuthUser(request: Request) {
@@ -248,7 +249,7 @@ export async function POST(request: Request) {
       await admin.from('notifications').insert({
         user_id: uid,
         title: 'Standing misc draw created',
-        message: `Standing misc allocation of ${allocation.monthly_amount.toLocaleString()} drawn for ${project?.name} (${period_month}).`,
+        message: `Standing misc allocation of ${formatKES(allocation.monthly_amount)} drawn for ${project?.name} (${period_month}).`,
         link: `/misc?project_id=${project_id}&period=${period_month}`,
       });
     }
@@ -336,7 +337,7 @@ export async function POST(request: Request) {
       await admin.from('notifications').insert({
         user_id: cfo.id,
         title: 'Misc top-up submitted',
-        message: `${profile.full_name} submitted a misc top-up of ${amount.toLocaleString()} for ${project?.name} (${period_month}). Purpose: ${purpose}`,
+        message: `${profile.full_name} submitted a misc top-up of ${formatKES(amount)} for ${project?.name} (${period_month}). Purpose: ${purpose}`,
         link: `/misc?project_id=${project_id}&period=${period_month}`,
       });
     }
@@ -347,7 +348,7 @@ export async function POST(request: Request) {
       await admin.from('notifications').insert({
         user_id: acct.id,
         title: 'Misc top-up recorded',
-        message: `Top-up of ${amount.toLocaleString()} for ${project?.name} (${period_month}) by ${profile.full_name}.`,
+        message: `Top-up of ${formatKES(amount)} for ${project?.name} (${period_month}) by ${profile.full_name}.`,
         link: `/misc?project_id=${project_id}&period=${period_month}`,
       });
     }
@@ -549,7 +550,7 @@ export async function POST(request: Request) {
     await admin.from('notifications').insert({
       user_id: pmAssignment.user_id,
       title: 'Misc request needs your approval',
-      message: `${profile.full_name} (Accountant) raised a misc draw of ${amount.toLocaleString()} for ${project?.name} (${period_month}). Purpose: ${purpose}. Please review and approve/decline.`,
+      message: `${profile.full_name} (Accountant) raised a misc draw of ${formatKES(amount)} for ${project?.name} (${period_month}). Purpose: ${purpose}. Please review and approve/decline.`,
       link: `/misc`,
     });
 
@@ -608,7 +609,7 @@ export async function POST(request: Request) {
       await admin.from('notifications').insert({
         user_id: draw.raised_by,
         title: 'Misc request approved by PM',
-        message: `${profile.full_name} approved your misc draw of ${finalAmount.toLocaleString()} for ${project?.name} (${period_month}).`,
+        message: `${profile.full_name} approved your misc draw of ${formatKES(finalAmount)} for ${project?.name} (${period_month}).`,
         link: `/misc`,
       });
     }
@@ -619,7 +620,7 @@ export async function POST(request: Request) {
       await admin.from('notifications').insert({
         user_id: cfo.id,
         title: 'Delegated misc draw approved',
-        message: `${profile.full_name} (PM) approved an accountant-raised misc draw of ${finalAmount.toLocaleString()} for ${project?.name}.`,
+        message: `${profile.full_name} (PM) approved an accountant-raised misc draw of ${formatKES(finalAmount)} for ${project?.name}.`,
         link: `/misc`,
       });
     }
@@ -677,7 +678,7 @@ export async function POST(request: Request) {
       await admin.from('notifications').insert({
         user_id: draw.raised_by,
         title: 'Misc request declined by PM',
-        message: `${profile.full_name} declined your misc draw of ${Number(draw.amount_requested).toLocaleString()} for ${project?.name}. Reason: ${decline_reason}`,
+        message: `${profile.full_name} declined your misc draw of ${formatKES(Number(draw.amount_requested))} for ${project?.name}. Reason: ${decline_reason}`,
         link: `/misc`,
       });
     }
@@ -799,7 +800,7 @@ export async function POST(request: Request) {
       await admin.from('notifications').insert({
         user_id: acct.id,
         title: 'Misc draw deleted by PM',
-        message: `${profile.full_name} deleted a misc draw of ${Number(draw.amount_approved).toLocaleString()} for ${project?.name}. Reason: ${deletion_reason}`,
+        message: `${profile.full_name} deleted a misc draw of ${formatKES(Number(draw.amount_approved))} for ${project?.name}. Reason: ${deletion_reason}`,
         link: `/misc`,
       });
     }
