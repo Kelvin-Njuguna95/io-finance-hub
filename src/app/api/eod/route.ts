@@ -311,12 +311,15 @@ export async function POST(request: Request) {
     // Notify CFO about failure
     const { data: cfos } = await admin.from('users').select('id').eq('role', 'cfo');
     for (const cfo of cfos || []) {
-      await admin.from('notifications').insert({
+      const { error: cfoNotifError } = await admin.from('notifications').insert({
         user_id: cfo.id,
         title: 'EOD Report delivery failed',
         message: errorMessage || 'Slack delivery failed. Check webhook configuration.',
         link: '/red-flags',
       });
+      if (cfoNotifError) {
+        console.error('[eod] CFO notification insert failed:', cfoNotifError, { cfoId: cfo.id });
+      }
     }
   }
 
@@ -324,11 +327,14 @@ export async function POST(request: Request) {
   if (slackStatus === 'success') {
     const { data: accountants } = await admin.from('users').select('id').eq('role', 'accountant');
     for (const acc of accountants || []) {
-      await admin.from('notifications').insert({
+      const { error: accNotifError } = await admin.from('notifications').insert({
         user_id: acc.id,
         title: 'EOD Report sent successfully',
         message: `EOD report for ${dateFormatted} sent to Slack.`,
       });
+      if (accNotifError) {
+        console.error('[eod] accountant notification insert failed:', accNotifError, { accountantId: acc.id });
+      }
     }
   }
 

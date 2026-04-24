@@ -9,14 +9,10 @@ type InvoiceLike = {
 };
 
 export function getInvoicePaidUsd(invoice: InvoiceLike): number {
-  const paymentTotal = (invoice.payments || []).reduce(
+  return (invoice.payments || []).reduce(
     (sum, payment) => sum + Number(payment.amount_usd || 0),
     0,
   );
-  const invoiceAmount = Number(invoice.amount_usd || 0);
-  return invoice.status === 'paid'
-    ? Math.max(invoiceAmount, paymentTotal)
-    : paymentTotal;
 }
 
 export function getTotalPaidUsd(invoices: InvoiceLike[]): number {

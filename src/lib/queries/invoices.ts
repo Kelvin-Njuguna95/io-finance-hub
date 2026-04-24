@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { InvoiceWithPayments } from '@/types/query-results';
+import { OUTSTANDING_INVOICE_STATUSES } from '@/lib/constants/status';
 
 const INVOICE_WITH_PAYMENTS_SELECT = 'id, invoice_number, project_id, invoice_date, due_date, billing_period, amount_usd, amount_kes, status, description, projects(name), payments(id, amount_usd, payment_date, payment_method, reference)';
 
@@ -22,8 +23,7 @@ export async function getOutstandingInvoices(supabase: SupabaseClient) {
   return supabase
     .from('invoices')
     .select(INVOICE_WITH_PAYMENTS_SELECT)
-    .eq('status', 'sent')
-    .or('payment_status.is.null,payment_status.neq.paid')
+    .in('status', OUTSTANDING_INVOICE_STATUSES)
     .order('invoice_date', { ascending: true });
 }
 

@@ -30,12 +30,15 @@ async function notifyRole(
 ) {
   const { data: users } = await admin.from('users').select('id').eq('role', role);
   for (const u of users || []) {
-    await admin.from('notifications').insert({
+    const { error: notifError } = await admin.from('notifications').insert({
       user_id: u.id,
       title,
       message,
       link,
     });
+    if (notifError) {
+      console.error('[expense-lifecycle] notification insert failed:', notifError, { userId: u.id, role });
+    }
   }
 }
 
