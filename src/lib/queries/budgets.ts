@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export async function getBudgetsByMonth(supabase: SupabaseClient, yearMonth: string) {
   return supabase
     .from('budgets')
-    .select('id, year_month, current_version, project_id, department_id, created_by, submitted_by_role, projects(name), departments(name), budget_versions(status, total_amount_usd, total_amount_kes, version_number)')
+    .select('id, year_month, current_version, project_id, department_id, created_by, submitted_by_role, projects(name), departments(name), budget_versions(status, total_amount_usd, total_amount_kes, version_number, submitted_at)')
     .eq('year_month', yearMonth)
     .order('created_at', { ascending: false });
 }

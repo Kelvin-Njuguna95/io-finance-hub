@@ -20,7 +20,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
-import { formatCurrency, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
+import { formatCurrency, formatDate, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
 import { Plus, Eye, Undo2, Trash2, Info } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -43,6 +43,7 @@ interface BudgetRow {
   created_by: string;
   created_by_name: string;
   submitted_by_role: string;
+  submitted_at: string | null;
   pending_expense_count: number;
 }
 
@@ -181,6 +182,7 @@ export default function BudgetsPage() {
         created_by: b.created_by as string,
         created_by_name: nameMap.get(b.created_by as string) || '—',
         submitted_by_role: (b.submitted_by_role as string) || 'team_leader',
+        submitted_at: (latest?.submitted_at as string | null) ?? null,
         pending_expense_count: 0,
       };
     });
@@ -202,6 +204,13 @@ export default function BudgetsPage() {
       ...row,
       pending_expense_count: pendingCountMap.get(row.id) || 0,
     }));
+
+    rowsWithCounts.sort((a, b) => {
+      if (!a.submitted_at && !b.submitted_at) return 0;
+      if (!a.submitted_at) return 1;
+      if (!b.submitted_at) return -1;
+      return b.submitted_at.localeCompare(a.submitted_at);
+    });
 
     setBudgets(rowsWithCounts);
     setLoading(false);
@@ -324,7 +333,7 @@ export default function BudgetsPage() {
                 <TableRow>
                   <TableHead>Scope</TableHead>
                   <TableHead>Submitted By</TableHead>
-                  <TableHead>Version</TableHead>
+                  <TableHead>Date Submitted</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Amount (KES)</TableHead>
                   <TableHead className="w-[280px]">Actions</TableHead>
@@ -383,7 +392,7 @@ export default function BudgetsPage() {
                             </Badge>
                           </div>
                         </TableCell>
-                        <TableCell>v{b.current_version}</TableCell>
+                        <TableCell className="text-sm">{b.submitted_at ? formatDate(b.submitted_at) : '—'}</TableCell>
                         <TableCell>
                           <Badge variant="secondary" className={getStatusBadgeClass(b.latest_status)}>
                             {statusLabels[b.latest_status] || capitalize(b.latest_status)}
