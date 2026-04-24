@@ -176,11 +176,11 @@ export default function ExpensesPage() {
 
         <Card>
           <CardContent className="p-0">
-            <Table>
+            <Table containerClassName="max-h-[calc(100dvh-18rem)] overflow-y-auto">
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
+                  <TableHead className="w-[22rem]">Description</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Scope</TableHead>
                   <TableHead className="text-right">KES</TableHead>
@@ -198,7 +198,7 @@ export default function ExpensesPage() {
                   expenses.map((e) => (
                     <TableRow key={e.id}>
                       <TableCell className="text-sm">{formatDate(e.expense_date)}</TableCell>
-                      <TableCell className="font-medium">{e.description}</TableCell>
+                      <TableCell className="font-medium max-w-[22rem] whitespace-normal break-words leading-snug">{e.description}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">
                           {capitalize(e.expense_type)}

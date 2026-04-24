@@ -15,11 +15,18 @@ import { cn } from '@/lib/utils';
  * its styling.
  */
 
-function Table({ className, ...props }: React.ComponentProps<'table'>) {
+function Table({
+  className,
+  containerClassName,
+  ...props
+}: React.ComponentProps<'table'> & { containerClassName?: string }) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto rounded-[var(--radius-lg)] border border-border -webkit-overflow-scrolling-touch"
+      className={cn(
+        'relative w-full overflow-x-auto rounded-[var(--radius-lg)] border border-border -webkit-overflow-scrolling-touch',
+        containerClassName,
+      )}
     >
       <table
         data-slot="table"

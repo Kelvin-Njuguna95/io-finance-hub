@@ -568,7 +568,7 @@ export default function ExpenseQueuePage() {
                   : 'No pending expenses this month — all budgets are up to date'}
               </div>
             ) : (
-              <Table>
+              <Table containerClassName="max-h-[calc(100dvh-18rem)] overflow-y-auto">
                 <TableHeader>
                   <TableRow>
                     {canAct && (
@@ -579,7 +579,7 @@ export default function ExpenseQueuePage() {
                         />
                       </TableHead>
                     )}
-                    <TableHead>Description</TableHead>
+                    <TableHead className="w-[22rem]">Description</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Project / Dept</TableHead>
                     <TableHead className="text-right">Budgeted (KES)</TableHead>
@@ -605,7 +605,7 @@ export default function ExpenseQueuePage() {
                             />
                           </TableCell>
                         )}
-                        <TableCell className="font-medium">{item.description}</TableCell>
+                        <TableCell className="font-medium max-w-[22rem] whitespace-normal break-words leading-snug">{item.description}</TableCell>
                         <TableCell className="text-muted-foreground">{item.category || '-'}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {item.projects?.name || item.departments?.name || '-'}
