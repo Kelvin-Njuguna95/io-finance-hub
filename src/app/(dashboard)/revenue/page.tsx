@@ -185,9 +185,9 @@ export default function RevenuePage() {
       : invoices.filter((i) => i.billing_period === selectedMonth)
   ), [invoices, selectedMonth]);
 
-  const totalInvoicedUsd = useMemo(() => scopedInvoices
+  const totalInvoicedUsd = useMemo(() => invoices
     .filter((i: RevenueInvoice) => !isBackdated(i.description))
-    .reduce((s, i) => s + Number(i.amount_usd), 0), [scopedInvoices]);
+    .reduce((s, i) => s + Number(i.amount_usd), 0), [invoices]);
 
   const allPayments = useMemo(() => (
     invoices
@@ -209,7 +209,7 @@ export default function RevenuePage() {
     .flatMap((inv) => inv.payments ?? [])
     .reduce((sum, payment) => sum + Number(payment.amount_usd || 0), 0), [invoices]);
 
-  const outstandingTotals = useMemo(() => scopedInvoices.reduce((acc, inv) => {
+  const outstandingTotals = useMemo(() => invoices.reduce((acc, inv) => {
     const paidUsd = (inv.payments ?? []).reduce((sum, payment) => sum + Number(payment.amount_usd || 0), 0);
     const invoiceOutstandingUsd = Math.max(0, Number(inv.amount_usd ?? 0) - paidUsd);
     if (invoiceOutstandingUsd > 0) {
@@ -223,7 +223,7 @@ export default function RevenuePage() {
       acc.kes += Math.max(0, proportionalOutstandingKes);
     }
     return acc;
-  }, { usd: 0, kes: 0 }), [scopedInvoices]);
+  }, { usd: 0, kes: 0 }), [invoices]);
 
   const paymentContext = useMemo(() => {
     if (!paymentInvoice) return null;
