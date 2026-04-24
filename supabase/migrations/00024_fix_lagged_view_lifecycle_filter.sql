@@ -20,6 +20,13 @@
 -- in fix 2a-bis.
 -- =========================================================
 
+-- NOTE: Initial version of this migration (commit 8929e57) had columns
+-- `revenue_kes_estimated` and `has_lagged_invoice` in reverse order and
+-- was rejected by Postgres when applied — the live view had them in the
+-- opposite order. This file has been corrected to match production
+-- (has_lagged_invoice at position 8, revenue_kes_estimated at position 9).
+-- The corrected SQL was applied manually via the Supabase dashboard.
+
 CREATE OR REPLACE VIEW public.lagged_revenue_by_project_month AS
 SELECT
   pm.project_id,
@@ -29,14 +36,14 @@ SELECT
   COALESCE(inv.total_invoice_usd, 0::numeric) AS lagged_revenue_usd,
   COALESCE(exp.total_expenses_kes, 0::numeric) AS current_expenses_kes,
   COALESCE(NULLIF(inv.total_invoice_kes, 0), inv.total_invoice_usd * 128.5, 0::numeric) - COALESCE(exp.total_expenses_kes, 0::numeric) AS gross_profit_kes,
-  (
-    (COALESCE(inv.total_invoice_usd, 0::numeric) > 0)
-    AND (inv.total_invoice_kes IS NULL OR inv.total_invoice_kes = 0)
-  ) AS revenue_kes_estimated,
   CASE
     WHEN inv.total_invoice_kes IS NOT NULL OR inv.total_invoice_usd IS NOT NULL THEN true
     ELSE false
-  END AS has_lagged_invoice
+  END AS has_lagged_invoice,
+  (
+    (COALESCE(inv.total_invoice_usd, 0::numeric) > 0)
+    AND (inv.total_invoice_kes IS NULL OR inv.total_invoice_kes = 0)
+  ) AS revenue_kes_estimated
 FROM (
   SELECT DISTINCT expenses.project_id, expenses.year_month
   FROM expenses
