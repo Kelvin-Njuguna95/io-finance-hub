@@ -15,6 +15,7 @@ import {
   isWithinCloseWindow,
 } from '@/lib/dashboard-thresholds';
 import { HomeKpiStrip } from './home-kpi-strip';
+import { HomePerformanceStrip } from './home-performance-strip';
 
 /**
  * Month-end close reference list. Static, presentation-only.
@@ -111,6 +112,9 @@ export function AccountantDashboard() {
 
         {/* Primary KPI strip — Bank Balance, Approved Budget, Withdrawn */}
         <HomeKpiStrip />
+
+        {/* Company-wide P&L performance — lagged service period */}
+        <HomePerformanceStrip />
 
         {/* Expense Queue */}
         <ExpenseQueuePanel />

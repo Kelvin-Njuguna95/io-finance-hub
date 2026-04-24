@@ -31,6 +31,7 @@ import { OutstandingReceivablesPanel } from '@/components/revenue/outstanding-re
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
 import type { MonthlyFinancialSnapshot } from '@/types/database';
 import { HomeKpiStrip } from './home-kpi-strip';
+import { HomePerformanceStrip } from './home-performance-strip';
 
 type EodLogRow = {
   id: string;
@@ -200,6 +201,9 @@ export function CfoDashboard() {
     <div className="p-6 space-y-6">
       {/* Primary KPI strip — Bank Balance, Approved Budget, Withdrawn */}
       <HomeKpiStrip />
+
+      {/* Company-wide P&L performance — lagged service period */}
+      <HomePerformanceStrip />
 
       {/* Project Health */}
       {healthScores.length > 0 && (

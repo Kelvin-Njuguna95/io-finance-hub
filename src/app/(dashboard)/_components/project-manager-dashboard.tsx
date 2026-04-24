@@ -28,6 +28,7 @@ import {
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
 import { getPmReviewQueueCount } from '@/lib/queries/budgets';
 import { HomeKpiStrip } from './home-kpi-strip';
+import { HomePerformanceStrip } from './home-performance-strip';
 import {
   PM_AGGREGATE_MARGIN_DANGER_BELOW_PCT,
   PM_AGGREGATE_MARGIN_WARNING_BELOW_PCT,
@@ -304,6 +305,9 @@ export function ProjectManagerDashboard({ userId }: Props) {
 
       {/* Primary KPI strip — Bank Balance, Approved Budget, Withdrawn */}
       <HomeKpiStrip />
+
+      {/* Company-wide P&L performance — lagged service period */}
+      <HomePerformanceStrip />
 
       {totalRevenue > 0 && (
         <SectionCard
