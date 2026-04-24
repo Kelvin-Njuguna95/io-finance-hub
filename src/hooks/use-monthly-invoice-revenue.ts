@@ -3,19 +3,16 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { getCurrentYearMonth } from '@/lib/format';
-import { getLaggedMonth } from '@/lib/report-utils';
+import { getNextMonth } from '@/lib/report-utils';
 import { getUserErrorMessage } from '@/lib/errors';
 import { toast } from 'sonner';
 
 /**
- * Total KES across invoices with status = 'paid' (strictly fully-paid,
- * not 'partially_paid') whose billing_period is the lagged month — i.e.
- * current calendar month minus one (Africa/Nairobi). This is the P&L
- * revenue convention: April reports March revenue.
- *
- * Direct query against the invoices table because the existing
- * lagged_revenue_by_project_month view does not filter by status and
- * therefore includes draft / sent / partially_paid / overdue rows.
+ * Sum of KES payments received in the current calendar month
+ * (Africa/Nairobi). Queries the payments table directly by
+ * payment_date; includes partial payments; does not filter by
+ * invoice status. This is a cash-flow metric — "money that
+ * arrived this month" — not accrual revenue.
  */
 export function useMonthlyInvoiceRevenue() {
   const [total, setTotal] = useState(0);
@@ -25,13 +22,15 @@ export function useMonthlyInvoiceRevenue() {
   useEffect(() => {
     async function load() {
       const supabase = createClient();
-      const laggedMonth = getLaggedMonth(getCurrentYearMonth());
+      const ym = getCurrentYearMonth();
+      const start = `${ym}-01`;
+      const end = `${getNextMonth(ym)}-01`;
 
       const { data, error: queryError } = await supabase
-        .from('invoices')
+        .from('payments')
         .select('amount_kes')
-        .eq('status', 'paid')
-        .eq('billing_period', laggedMonth);
+        .gte('payment_date', start)
+        .lt('payment_date', end);
 
       if (queryError) {
         toast.error(

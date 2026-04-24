@@ -3,8 +3,7 @@
 import { ArrowDownToLine, FileText, TrendingUp, Wallet } from 'lucide-react';
 
 import { StatCard } from '@/components/layout/stat-card';
-import { formatCurrency, formatMonth, formatYearMonth, getCurrentYearMonth } from '@/lib/format';
-import { getLaggedMonth } from '@/lib/report-utils';
+import { formatCurrency, formatMonth } from '@/lib/format';
 import { useBankBalance } from '@/hooks/use-bank-balance';
 import { useMonthlyApprovedBudget } from '@/hooks/use-monthly-approved-budget';
 import { useMonthlyInvoiceRevenue } from '@/hooks/use-monthly-invoice-revenue';
@@ -29,7 +28,6 @@ export function HomeKpiStrip() {
   const invoiceRevenue = useMonthlyInvoiceRevenue();
 
   const currentMonthLabel = formatMonth(new Date());
-  const laggedMonthLabel = formatYearMonth(getLaggedMonth(getCurrentYearMonth()));
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -58,7 +56,7 @@ export function HomeKpiStrip() {
         loading={withdrawn.loading}
       />
       <StatCard
-        title={`Invoice Revenue — ${laggedMonthLabel}`}
+        title={`Invoice Revenue — ${currentMonthLabel}`}
         value={invoiceRevenue.error ? '—' : formatCurrency(invoiceRevenue.total, 'KES')}
         subtitle={invoiceRevenue.error ? 'Unable to load' : undefined}
         icon={TrendingUp}
