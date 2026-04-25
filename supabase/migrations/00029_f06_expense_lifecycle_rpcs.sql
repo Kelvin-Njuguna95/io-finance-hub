@@ -56,6 +56,14 @@
 --   * F-32-style cleanup of any drift columns on expenses (source_note,
 --     expense_notes, auto_generated, budget_approval_revoked) — drift but
 --     not blocking F-06 closure
+--
+-- 2026-04-26 REVISION: original ALTER COLUMN failed because two views
+-- (lagged_revenue_by_project_month, variance_summary_by_project) had column-
+-- type dependencies on lifecycle_status. Postgres correctly refused the cast.
+-- This revision DROPs both views before the ALTER and RECREATEs them after.
+-- View bodies copied byte-for-byte from live pg_get_viewdef captured 2026-04-26
+-- (post-F-32 migration 00028 lagged view definition); only the enum cast in
+-- WHERE filters changed ('confirmed'::text → 'confirmed'::expense_lifecycle_status).
 -- ===========================================================================
 
 
@@ -78,7 +86,20 @@ END $$;
 
 
 -- ---------------------------------------------------------------------------
--- 2. Promote expenses.lifecycle_status from text to enum
+-- 2. Drop dependent views before ALTER COLUMN
+-- ---------------------------------------------------------------------------
+-- Both views filter expenses.lifecycle_status = 'confirmed'::text in WHERE
+-- clauses. Neither exposes the column in their SELECT lists. Dropping is
+-- safe — they're recreated in step 4 below with the enum-typed cast.
+-- Order: drop variance first then lagged (no inter-view dependency, but kept
+-- consistent for log readability).
+
+DROP VIEW IF EXISTS public.variance_summary_by_project;
+DROP VIEW IF EXISTS public.lagged_revenue_by_project_month;
+
+
+-- ---------------------------------------------------------------------------
+-- 3. Promote expenses.lifecycle_status from text to enum
 -- ---------------------------------------------------------------------------
 -- Pre-migration: text, default 'confirmed'::text, nullable, 42/42 rows = 'confirmed'.
 -- Post-migration: expense_lifecycle_status enum, default 'confirmed'::enum, NOT NULL.
@@ -93,7 +114,93 @@ ALTER TABLE public.expenses
 
 
 -- ---------------------------------------------------------------------------
--- 3. New columns on expenses
+-- 4. Recreate dependent views with enum-typed cast in WHERE filters
+-- ---------------------------------------------------------------------------
+-- Bodies copied byte-for-byte from live pg_get_viewdef on 2026-04-26 (the
+-- lagged view body matches post-F-32 migration 00028 — fn_currency_get_rate()
+-- in the COALESCE expressions, no hardcoded 128.5 rate).
+-- The ONLY mutation: lifecycle_status filters change from
+--   expenses.lifecycle_status = 'confirmed'::text
+-- to
+--   expenses.lifecycle_status = 'confirmed'::expense_lifecycle_status
+-- (one site in lagged_revenue_by_project_month, two sites in
+-- variance_summary_by_project).
+--
+-- Recreation order: lagged_revenue_by_project_month first (no inter-view
+-- dependency; downstream lagged_revenue_company_month is unaffected — it
+-- aggregates over the by_project_month view but uses no per-row column types
+-- that changed).
+
+CREATE OR REPLACE VIEW public.lagged_revenue_by_project_month AS
+ SELECT pm.project_id,
+    pm.year_month AS expense_month,
+    to_char(to_date(pm.year_month, 'YYYY-MM'::text) - '1 mon'::interval, 'YYYY-MM'::text) AS revenue_source_month,
+    COALESCE(NULLIF(inv.total_invoice_kes, 0::numeric), inv.total_invoice_usd * fn_currency_get_rate(), 0::numeric) AS lagged_revenue_kes,
+    COALESCE(inv.total_invoice_usd, 0::numeric) AS lagged_revenue_usd,
+    COALESCE(exp.total_expenses_kes, 0::numeric) AS current_expenses_kes,
+    COALESCE(NULLIF(inv.total_invoice_kes, 0::numeric), inv.total_invoice_usd * fn_currency_get_rate(), 0::numeric) - COALESCE(exp.total_expenses_kes, 0::numeric) AS gross_profit_kes,
+    CASE
+        WHEN inv.total_invoice_kes IS NOT NULL OR inv.total_invoice_usd IS NOT NULL THEN true
+        ELSE false
+    END AS has_lagged_invoice,
+    COALESCE(inv.total_invoice_usd, 0::numeric) > 0::numeric AND (inv.total_invoice_kes IS NULL OR inv.total_invoice_kes = 0::numeric) AS revenue_kes_estimated
+   FROM ( SELECT DISTINCT expenses.project_id,
+            expenses.year_month
+           FROM expenses
+          WHERE expenses.project_id IS NOT NULL AND expenses.expense_type = 'project_expense'::expense_type
+        UNION
+         SELECT DISTINCT invoices.project_id,
+            invoices.billing_period AS year_month
+           FROM invoices) pm
+     LEFT JOIN ( SELECT invoices.project_id,
+            invoices.billing_period AS invoice_month,
+            sum(invoices.amount_kes) AS total_invoice_kes,
+            sum(invoices.amount_usd) AS total_invoice_usd
+           FROM invoices
+          GROUP BY invoices.project_id, invoices.billing_period) inv ON inv.project_id = pm.project_id AND inv.invoice_month = to_char(to_date(pm.year_month, 'YYYY-MM'::text) - '1 mon'::interval, 'YYYY-MM'::text)
+     LEFT JOIN ( SELECT expenses.project_id,
+            expenses.year_month,
+            sum(expenses.amount_kes) AS total_expenses_kes
+           FROM expenses
+          WHERE expenses.project_id IS NOT NULL AND expenses.expense_type = 'project_expense'::expense_type AND expenses.lifecycle_status = 'confirmed'::expense_lifecycle_status
+          GROUP BY expenses.project_id, expenses.year_month) exp ON exp.project_id = pm.project_id AND exp.year_month = pm.year_month
+  WHERE pm.year_month >= to_char(CURRENT_DATE - '6 mons'::interval, 'YYYY-MM'::text);
+
+CREATE OR REPLACE VIEW public.variance_summary_by_project AS
+ SELECT pm.project_id,
+    p.name AS project_name,
+    pm.year_month,
+    COALESCE(budget_agg.total_budget_kes, 0::numeric) AS budget_kes,
+    COALESCE(exp_agg.total_actual_kes, 0::numeric) AS actual_kes,
+    COALESCE(budget_agg.total_budget_kes, 0::numeric) - COALESCE(exp_agg.total_actual_kes, 0::numeric) AS variance_kes
+   FROM ( SELECT DISTINCT budgets.project_id,
+            budgets.year_month
+           FROM budgets
+          WHERE budgets.project_id IS NOT NULL
+        UNION
+         SELECT DISTINCT expenses.project_id,
+            expenses.year_month
+           FROM expenses
+          WHERE expenses.expense_type = 'project_expense'::expense_type AND expenses.lifecycle_status = 'confirmed'::expense_lifecycle_status AND expenses.project_id IS NOT NULL) pm
+     LEFT JOIN projects p ON p.id = pm.project_id
+     LEFT JOIN ( SELECT b.project_id,
+            b.year_month,
+            sum(bv.total_amount_kes) AS total_budget_kes
+           FROM budgets b
+             JOIN budget_versions bv ON bv.budget_id = b.id AND bv.status = 'approved'::budget_status
+          WHERE b.project_id IS NOT NULL
+          GROUP BY b.project_id, b.year_month) budget_agg ON budget_agg.project_id = pm.project_id AND budget_agg.year_month = pm.year_month
+     LEFT JOIN ( SELECT e.project_id,
+            e.year_month,
+            sum(e.amount_kes) AS total_actual_kes
+           FROM expenses e
+          WHERE e.expense_type = 'project_expense'::expense_type AND e.lifecycle_status = 'confirmed'::expense_lifecycle_status AND e.project_id IS NOT NULL
+          GROUP BY e.project_id, e.year_month) exp_agg ON exp_agg.project_id = pm.project_id AND exp_agg.year_month = pm.year_month
+  WHERE pm.project_id IS NOT NULL;
+
+
+-- ---------------------------------------------------------------------------
+-- 5. New columns on expenses
 -- ---------------------------------------------------------------------------
 -- voided_at/voided_by: V-F confirmed both absent on expenses (already on
 -- pending_expenses cols 19-20).
@@ -106,7 +213,7 @@ ALTER TABLE public.expenses
 
 
 -- ---------------------------------------------------------------------------
--- 4. Partial index on previous_version_id (covers modify-history walks only)
+-- 6. Partial index on previous_version_id (covers modify-history walks only)
 -- ---------------------------------------------------------------------------
 
 CREATE INDEX IF NOT EXISTS idx_expenses_previous_version
@@ -115,7 +222,7 @@ CREATE INDEX IF NOT EXISTS idx_expenses_previous_version
 
 
 -- ---------------------------------------------------------------------------
--- 5. UNIQUE constraint on pending_expenses(budget_item_id, year_month)
+-- 7. UNIQUE constraint on pending_expenses(budget_item_id, year_month)
 -- ---------------------------------------------------------------------------
 -- Q-8 verified zero duplicates today. Constraint prevents future regression
 -- of auto_populate / rollover-cron races (AUDIT_3 §7.1).
@@ -132,7 +239,7 @@ END $$;
 
 
 -- ---------------------------------------------------------------------------
--- 6. Triggers on pending_expenses (closes the V-H gap)
+-- 8. Triggers on pending_expenses (closes the V-H gap)
 -- ---------------------------------------------------------------------------
 -- audit_pending_expenses was declared in 00004:32-33 but missing in production.
 -- set_updated_at_pending_expenses never declared anywhere.
@@ -150,7 +257,7 @@ CREATE TRIGGER audit_pending_expenses
 
 
 -- ---------------------------------------------------------------------------
--- 7. RPCs
+-- 9. RPCs
 -- ---------------------------------------------------------------------------
 -- All SECURITY DEFINER (V-D mandates this — expenses RLS would otherwise
 -- block accountant/PM callers). Each starts with a role check using the
@@ -161,7 +268,7 @@ CREATE TRIGGER audit_pending_expenses
 -- structured DETAIL/HINT for the API route to translate.
 
 
--- 7a. fn_expense_confirm
+-- 9a. fn_expense_confirm
 --     Source state: pending_expenses.status = 'pending_auth'
 --     Effect: INSERT expenses (lifecycle_status='confirmed' default),
 --             UPDATE pending_expenses (status='confirmed', expense_id=new).
@@ -265,7 +372,7 @@ END;
 $$;
 
 
--- 7b. fn_expense_modify
+-- 9b. fn_expense_modify
 --     Source state: expenses.lifecycle_status = 'confirmed'
 --     Effect: INSERT new expenses row (lifecycle_status='confirmed',
 --             previous_version_id = old.id), UPDATE old row to 'modified',
@@ -358,7 +465,7 @@ END;
 $$;
 
 
--- 7c. fn_expense_under_review
+-- 9c. fn_expense_under_review
 --     Source state: expenses.lifecycle_status IN ('confirmed', 'modified')
 --     Effect: UPDATE expenses.lifecycle_status='under_review'.
 --             Excluded from 'WHERE lifecycle_status = confirmed' aggregates.
@@ -427,7 +534,7 @@ END;
 $$;
 
 
--- 7d. fn_expense_void
+-- 9d. fn_expense_void
 --     Source state: expenses.lifecycle_status IN ('confirmed', 'modified', 'under_review')
 --     Effect: UPDATE expenses.lifecycle_status='voided', voided_at, voided_by.
 --             CASCADE: any linked pending_expenses → status='voided' (closes F-13).
@@ -507,7 +614,7 @@ END;
 $$;
 
 
--- 7e. fn_expense_carry_forward
+-- 9e. fn_expense_carry_forward
 --     Source state: pending_expenses.status = 'pending_auth'
 --     Effect: UPDATE source PE → status='carried_forward';
 --             INSERT target-month PE → status='pending_auth', carry_from_month.
@@ -601,7 +708,7 @@ END;
 $$;
 
 
--- 7f. fn_expense_bulk_confirm
+-- 9f. fn_expense_bulk_confirm
 --     Best-effort: each item runs in its own savepoint via BEGIN/EXCEPTION.
 --     Returns a JSON envelope { confirmed: [...], errors: [...] } so the
 --     caller can render per-item outcomes without transaction-aborting the
