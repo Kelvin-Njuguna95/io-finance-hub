@@ -57,13 +57,19 @@
 --     expense_notes, auto_generated, budget_approval_revoked) — drift but
 --     not blocking F-06 closure
 --
--- 2026-04-26 REVISION: original ALTER COLUMN failed because two views
+-- 2026-04-26 REVISION (v2): original ALTER COLUMN failed because two views
 -- (lagged_revenue_by_project_month, variance_summary_by_project) had column-
--- type dependencies on lifecycle_status. Postgres correctly refused the cast.
--- This revision DROPs both views before the ALTER and RECREATEs them after.
+-- type dependencies on lifecycle_status. v2 added DROP/RECREATE for both.
 -- View bodies copied byte-for-byte from live pg_get_viewdef captured 2026-04-26
 -- (post-F-32 migration 00028 lagged view definition); only the enum cast in
 -- WHERE filters changed ('confirmed'::text → 'confirmed'::expense_lifecycle_status).
+--
+-- 2026-04-26 REVISION (v3): v2 still failed because two transitive views
+-- (lagged_revenue_company_month and variance_summary_company) depended on
+-- the depth-1 views and blocked their DROP. v3 extends the DROP/RECREATE to
+-- all four views in dependency order. Verbatim definitions of the depth-2
+-- views captured from live pg_get_viewdef on 2026-04-26; recreated unchanged
+-- (neither references lifecycle_status directly).
 -- ===========================================================================
 
 
@@ -86,14 +92,19 @@ END $$;
 
 
 -- ---------------------------------------------------------------------------
--- 2. Drop dependent views before ALTER COLUMN
+-- 2. Drop dependent views before ALTER COLUMN (deepest-first)
 -- ---------------------------------------------------------------------------
--- Both views filter expenses.lifecycle_status = 'confirmed'::text in WHERE
--- clauses. Neither exposes the column in their SELECT lists. Dropping is
--- safe — they're recreated in step 4 below with the enum-typed cast.
--- Order: drop variance first then lagged (no inter-view dependency, but kept
--- consistent for log readability).
+-- Two depth-1 views directly filter expenses.lifecycle_status = 'confirmed'::text:
+--   * lagged_revenue_by_project_month
+--   * variance_summary_by_project
+-- Two depth-2 views aggregate over the depth-1 views (no direct lifecycle_status
+-- reference, but Postgres blocks DROP of the depth-1 views while these depend):
+--   * lagged_revenue_company_month   → reads lagged_revenue_by_project_month
+--   * variance_summary_company       → reads variance_summary_by_project
+-- Order matters: drop depth-2 first, then depth-1.
 
+DROP VIEW IF EXISTS public.variance_summary_company;
+DROP VIEW IF EXISTS public.lagged_revenue_company_month;
 DROP VIEW IF EXISTS public.variance_summary_by_project;
 DROP VIEW IF EXISTS public.lagged_revenue_by_project_month;
 
@@ -114,7 +125,7 @@ ALTER TABLE public.expenses
 
 
 -- ---------------------------------------------------------------------------
--- 4. Recreate dependent views with enum-typed cast in WHERE filters
+-- 4. Recreate dependent views (shallowest-first dependency order)
 -- ---------------------------------------------------------------------------
 -- Bodies copied byte-for-byte from live pg_get_viewdef on 2026-04-26 (the
 -- lagged view body matches post-F-32 migration 00028 — fn_currency_get_rate()
@@ -124,12 +135,13 @@ ALTER TABLE public.expenses
 -- to
 --   expenses.lifecycle_status = 'confirmed'::expense_lifecycle_status
 -- (one site in lagged_revenue_by_project_month, two sites in
--- variance_summary_by_project).
+-- variance_summary_by_project; depth-2 views unchanged).
 --
--- Recreation order: lagged_revenue_by_project_month first (no inter-view
--- dependency; downstream lagged_revenue_company_month is unaffected — it
--- aggregates over the by_project_month view but uses no per-row column types
--- that changed).
+-- Recreation order — depth-1 first so depth-2 can resolve their FROM clauses:
+--   1. lagged_revenue_by_project_month   (depth-1, enum cast added)
+--   2. variance_summary_by_project       (depth-1, enum cast added × 2)
+--   3. lagged_revenue_company_month      (depth-2, body unchanged)
+--   4. variance_summary_company          (depth-2, body unchanged)
 
 CREATE OR REPLACE VIEW public.lagged_revenue_by_project_month AS
  SELECT pm.project_id,
@@ -197,6 +209,30 @@ CREATE OR REPLACE VIEW public.variance_summary_by_project AS
           WHERE e.expense_type = 'project_expense'::expense_type AND e.lifecycle_status = 'confirmed'::expense_lifecycle_status AND e.project_id IS NOT NULL
           GROUP BY e.project_id, e.year_month) exp_agg ON exp_agg.project_id = pm.project_id AND exp_agg.year_month = pm.year_month
   WHERE pm.project_id IS NOT NULL;
+
+-- 4c. lagged_revenue_company_month (depth-2 — pure aggregate, body unchanged)
+CREATE OR REPLACE VIEW public.lagged_revenue_company_month AS
+ SELECT expense_month,
+    revenue_source_month,
+    sum(lagged_revenue_kes) AS total_revenue_kes,
+    sum(lagged_revenue_usd) AS total_revenue_usd,
+    sum(current_expenses_kes) AS total_expenses_kes,
+    sum(gross_profit_kes) AS gross_profit_kes,
+    count(DISTINCT project_id) AS active_projects,
+    bool_and(has_lagged_invoice) AS all_projects_invoiced,
+    bool_or(revenue_kes_estimated) AS revenue_kes_estimated
+   FROM public.lagged_revenue_by_project_month
+  GROUP BY expense_month, revenue_source_month
+  ORDER BY expense_month;
+
+-- 4d. variance_summary_company (depth-2 — pure aggregate, body unchanged)
+CREATE OR REPLACE VIEW public.variance_summary_company AS
+ SELECT year_month,
+    sum(budget_kes) AS total_budget_kes,
+    sum(actual_kes) AS total_actual_kes,
+    sum(variance_kes) AS total_variance_kes
+   FROM public.variance_summary_by_project
+  GROUP BY year_month;
 
 
 -- ---------------------------------------------------------------------------
