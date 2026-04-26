@@ -13,13 +13,14 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { PayoutDialog, type PayoutRecordOption } from '@/components/common/payout-dialog';
 import { formatCurrency, getCurrentYearMonth, formatYearMonth, capitalize, formatDate } from '@/lib/format';
 import { formatKES } from '@/lib/utils/currency';
 import { cn } from '@/lib/utils';
+import { getUserErrorMessage } from '@/lib/errors';
 import { Check, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -79,6 +80,9 @@ export default function ProfitSharePage() {
   const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [payoutHistory, setPayoutHistory] = useState<Record<string, PayoutWithdrawal[]>>({});
+  const [monthClosureStatus, setMonthClosureStatus] = useState<string>('open');
+  const [recomputing, setRecomputing] = useState(false);
+  const [showRecomputeConfirm, setShowRecomputeConfirm] = useState(false);
 
   const prevDate = new Date(parseInt(selectedMonth.split('-')[0]), parseInt(selectedMonth.split('-')[1]) - 2, 1);
   const revenueSourceMonth = prevDate.getFullYear() + '-' + String(prevDate.getMonth() + 1).padStart(2, '0');
@@ -108,9 +112,22 @@ export default function ProfitSharePage() {
     }
   }
 
+  async function getAuthHeaders(): Promise<Record<string, string>> {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    return session ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+  }
+
   async function load() {
     setLoading(true);
     const supabase = createClient();
+
+    const { data: mc } = await supabase
+      .from('month_closures')
+      .select('status')
+      .eq('year_month', selectedMonth)
+      .maybeSingle();
+    setMonthClosureStatus(mc?.status ?? 'open');
 
     const { data: existingRecords } = await supabase
       .from('profit_share_records')
@@ -223,6 +240,40 @@ export default function ProfitSharePage() {
     load();
   }
 
+  async function handleRecompute() {
+    setRecomputing(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/profit-share/recompute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ year_month: selectedMonth }),
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        toast.error(getUserErrorMessage(payload?.error));
+        return;
+      }
+      const verb = recordsExist ? 'Recomputed' : 'Generated';
+      const rows = Number(payload.rows_created ?? 0);
+      toast.success(
+        `${verb} ${rows} profit share row${rows === 1 ? '' : 's'} for ${formatYearMonth(selectedMonth)}`,
+      );
+      const losses = Number(payload.loss_making_projects ?? 0);
+      if (losses > 0) {
+        toast.warning(
+          `${losses} project${losses === 1 ? ' was' : 's were'} loss-making this month — director shares are signed negative`,
+        );
+      }
+      setShowRecomputeConfirm(false);
+      await load();
+    } catch (err) {
+      toast.error(getUserErrorMessage(err));
+    } finally {
+      setRecomputing(false);
+    }
+  }
+
   async function handleInitiatePayout() {
     setPayoutDialogOpen(true);
   }
@@ -233,6 +284,9 @@ export default function ProfitSharePage() {
   const totalCompanyShare = shares.reduce((s, r) => s + r.company_share, 0);
   const totalDistributable = shares.reduce((s, r) => s + (r.distributable_profit > 0 ? r.distributable_profit : 0), 0);
   const isLiveData = shares.length > 0 && shares[0].source === 'live';
+  const recordsExist = !isLiveData && shares.length > 0;
+  const canRecomputeForMonth = monthClosureStatus !== 'closed' && monthClosureStatus !== 'locked';
+  const recomputeLabel = recordsExist ? 'Recompute' : 'Generate';
   const payoutRecords: PayoutRecordOption[] = (() => {
     const directorMap = new Map<string, { id: string; director_name: string; balance_remaining: number }>();
 
@@ -286,6 +340,16 @@ export default function ProfitSharePage() {
               </Button>
             </Link>
           </div>
+        )}
+        {isCfo && (
+          <Button
+            variant="outline"
+            onClick={() => setShowRecomputeConfirm(true)}
+            disabled={recomputing || !canRecomputeForMonth}
+            title={!canRecomputeForMonth ? 'Month is closed or locked. Reopen it first.' : undefined}
+          >
+            {recomputing ? (recordsExist ? 'Recomputing…' : 'Generating…') : recomputeLabel}
+          </Button>
         )}
         <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
           <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
@@ -472,6 +536,27 @@ export default function ProfitSharePage() {
               <Button variant="outline" onClick={() => setDisputeTarget(null)}>Cancel</Button>
               <Button variant="destructive" onClick={handleDispute} disabled={!disputeReason.trim()}>
                 Submit Dispute
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showRecomputeConfirm} onOpenChange={setShowRecomputeConfirm}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{recordsExist ? 'Recompute' : 'Generate'} profit share</DialogTitle>
+              <DialogDescription>
+                {recordsExist
+                  ? `This will replace ${shares.length} existing record${shares.length === 1 ? '' : 's'} for ${formatYearMonth(selectedMonth)}. Calculations use lagged revenue and confirmed expenses.`
+                  : `This will create profit share records for ${formatYearMonth(selectedMonth)} from the current calculation. Calculations use lagged revenue and confirmed expenses.`}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowRecomputeConfirm(false)} disabled={recomputing}>
+                Cancel
+              </Button>
+              <Button onClick={handleRecompute} disabled={recomputing}>
+                {recomputing ? 'Working…' : (recordsExist ? 'Recompute' : 'Generate')}
               </Button>
             </DialogFooter>
           </DialogContent>
