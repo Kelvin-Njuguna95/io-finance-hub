@@ -16,7 +16,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: auth.error.message, code: 'AUTH_ERROR' }, { status: auth.error.status });
     }
 
-    const { profile, admin } = auth;
+    const { user, profile, admin } = auth;
     if (profile.role !== 'cfo') {
       return NextResponse.json({ error: 'Only CFO can close or reopen months.' }, { status: 403 });
     }
@@ -29,6 +29,7 @@ export async function POST(request: Request) {
     if (body.action === 'close') {
       const { error } = await admin.rpc('fn_close_month', {
         p_year_month: body.year_month,
+        p_caller_id: user.id,
         p_warnings_acknowledged: body.warnings_acknowledged ?? [],
       });
       if (error) throw error;
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
 
     const { error } = await admin.rpc('fn_reopen_month', {
       p_year_month: body.year_month,
+      p_caller_id: user.id,
       p_reason: body.reason,
     });
     if (error) throw error;

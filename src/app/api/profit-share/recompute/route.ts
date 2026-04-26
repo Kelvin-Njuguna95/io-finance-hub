@@ -44,6 +44,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await admin.rpc('fn_recompute_profit_share', {
       p_year_month: yearMonth,
+      p_caller_id: user.id,
     });
 
     if (error) {
