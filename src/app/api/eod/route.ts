@@ -262,54 +262,30 @@ export async function POST(request: Request) {
 
   const payload = { expenses, withdrawals, cash_receipts: cashReceipts, budget_actions: budgetActions, message: msg };
 
-  let report: /* // */ any;
-  let dbError: /* // */ any;
+  // Atomic DB write: eod_reports upsert + conditional red_flag insert in one transaction.
+  // Slack delivery already happened above; slack_status / errorMessage carry the result.
+  // Audit log is inserted internally by the RPC with full p_sent_by attribution
+  // (NULL accepted on the auto-send cron path — system-generated reports legitimately
+  // have no user attribution).
+  const { data: report, error: rpcErr } = await admin.rpc('fn_eod_report_send', {
+    p_report_date: today,
+    p_sent_by: authUser?.id || null,
+    p_trigger_type: triggerType,
+    p_slack_status: slackStatus,
+    p_error_message: errorMessage,
+    p_payload: payload,
+    p_expense_count: expenses.length,
+    p_withdrawal_count: withdrawals.length,
+    p_cash_received_count: cashReceipts.length,
+    p_budget_action_count: budgetActions.length,
+  });
 
-  if (existing) {
-    // Resend: update the existing record with fresh data
-    const { data, error } = await admin.from('eod_reports').update({
-      sent_by: authUser?.id || null,
-      trigger_type: triggerType,
-      slack_status: slackStatus,
-      payload,
-      expense_count: expenses.length,
-      withdrawal_count: withdrawals.length,
-      cash_received_count: cashReceipts.length,
-      budget_action_count: budgetActions.length,
-      error_message: errorMessage,
-    }).eq('id', existing.id).select().single();
-    report = data;
-    dbError = error;
-  } else {
-    const { data, error } = await admin.from('eod_reports').insert({
-      report_date: today,
-      sent_by: authUser?.id || null,
-      trigger_type: triggerType,
-      slack_status: slackStatus,
-      payload,
-      expense_count: expenses.length,
-      withdrawal_count: withdrawals.length,
-      cash_received_count: cashReceipts.length,
-      budget_action_count: budgetActions.length,
-      error_message: errorMessage,
-    }).select().single();
-    report = data;
-    dbError = error;
+  if (rpcErr) {
+    return NextResponse.json({ error: rpcErr.message, code: 'EOD_REPORT_SEND_FAILED' }, { status: 500 });
   }
 
-  if (dbError) {
-    return NextResponse.json({ error: dbError.message }, { status: 500 });
-  }
-
+  // Notifications post-RPC (mirrors 00042's notifications-post-RPC pattern).
   if (slackStatus === 'failed') {
-    await admin.from('red_flags').insert({
-      flag_type: 'report_delivery_failed',
-      severity: 'high',
-      title: 'EOD Report Slack delivery failed',
-      description: errorMessage,
-      year_month: today.substring(0, 7),
-    });
-    // Notify CFO about failure
     const { data: cfos } = await admin.from('users').select('id').eq('role', 'cfo');
     for (const cfo of cfos || []) {
       await createNotification(admin, {
@@ -319,10 +295,7 @@ export async function POST(request: Request) {
         link: '/red-flags',
       });
     }
-  }
-
-  // Notify accountants on success
-  if (slackStatus === 'success') {
+  } else if (slackStatus === 'success') {
     const { data: accountants } = await admin.from('users').select('id').eq('role', 'accountant');
     for (const acc of accountants || []) {
       await createNotification(admin, {
@@ -333,18 +306,9 @@ export async function POST(request: Request) {
     }
   }
 
-  // Audit log
-  await admin.from('audit_logs').insert({
-    user_id: authUser?.id || null,
-    action: 'eod_report_sent',
-    table_name: 'eod_reports',
-    record_id: report?.id || null,
-    new_values: { slack_status: slackStatus, expenses: expenses.length, withdrawals: withdrawals.length, cash_received: cashReceipts.length },
-  });
-
   return NextResponse.json({
     success: true,
-    report_id: report.id,
+    report_id: (report as { id: string }).id,
     slack_status: slackStatus,
     error_message: errorMessage,
     resent: !!existing,
