@@ -302,7 +302,7 @@ export async function POST(request: Request) {
 
   if (slackStatus === 'failed') {
     await admin.from('red_flags').insert({
-      flag_type: 'missing_expense_classification',
+      flag_type: 'report_delivery_failed',
       severity: 'high',
       title: 'EOD Report Slack delivery failed',
       description: errorMessage,
