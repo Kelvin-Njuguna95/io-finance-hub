@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertRole, assertMonthOpen } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
 import { autoPopulateExpenses } from '@/lib/expense-lifecycle';
+import { createNotification } from '@/lib/notifications';
 
 const CFO_APPROVABLE_STATUSES = ['submitted', 'pm_review', 'pm_approved'] as const;
 
@@ -146,8 +147,8 @@ export async function POST(request: Request) {
 
       const { data: tlUser } = await admin.from('users').select('id').eq('id', budget.created_by).single();
       if (tlUser) {
-        await admin.from('notifications').insert({
-          user_id: tlUser.id,
+        await createNotification(admin, {
+          userId: tlUser.id,
           title: 'Budget approved by CFO',
           message: 'Your budget for ' + (project?.name || 'project') + ' has been approved.',
           link: '/budgets/' + budget_id,
@@ -192,8 +193,8 @@ export async function POST(request: Request) {
 
       const { data: tlUser } = await admin.from('users').select('id').eq('id', budget.created_by).single();
       if (tlUser) {
-        await admin.from('notifications').insert({
-          user_id: tlUser.id,
+        await createNotification(admin, {
+          userId: tlUser.id,
           title: 'Budget rejected by CFO',
           message: 'Your budget for ' + (project?.name || 'project') + ' was rejected. Reason: ' + reason,
           link: '/budgets/' + budget_id,

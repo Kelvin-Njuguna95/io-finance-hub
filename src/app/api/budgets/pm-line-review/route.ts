@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
+import { createNotification } from '@/lib/notifications';
 
 const PM_ROLES = ['project_manager', 'cfo'] as const;
 
@@ -172,8 +173,8 @@ export async function POST(request: Request) {
     const { data: project } = await admin.from('projects').select('name').eq('id', budget.project_id).single();
     const { data: cfos } = await admin.from('users').select('id').eq('role', 'cfo');
     for (const cfo of cfos || []) {
-      await admin.from('notifications').insert({
-        user_id: cfo.id,
+      await createNotification(admin, {
+        userId: cfo.id,
         title: 'Budget ready for approval',
         message: `${profile?.full_name} reviewed the budget for ${project?.name}. Original: KES ` + originalTotal.toLocaleString() + `, Approved: KES ` + approvedTotal.toLocaleString() + ` (${summary.adjusted_count} adjusted, ${summary.removed_count} removed).`,
         link: '/budgets/' + budget_id,

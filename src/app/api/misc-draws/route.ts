@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient, getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
 import { formatKES } from '@/lib/utils/currency';
+import { createNotification } from '@/lib/notifications';
 
 /** Legacy helper kept for the GET handler which only needs the auth user */
 async function getAuthUser(request: Request) {
@@ -246,8 +247,8 @@ export async function POST(request: Request) {
     ];
 
     for (const uid of notifyUsers) {
-      await admin.from('notifications').insert({
-        user_id: uid,
+      await createNotification(admin, {
+        userId: uid,
         title: 'Standing misc draw created',
         message: `Standing misc allocation of ${formatKES(allocation.monthly_amount)} drawn for ${project?.name} (${period_month}).`,
         link: `/misc?project_id=${project_id}&period=${period_month}`,
@@ -334,8 +335,8 @@ export async function POST(request: Request) {
     // Notify CFO retrospectively
     const { data: cfos } = await admin.from('users').select('id').eq('role', 'cfo');
     for (const cfo of cfos || []) {
-      await admin.from('notifications').insert({
-        user_id: cfo.id,
+      await createNotification(admin, {
+        userId: cfo.id,
         title: 'Misc top-up submitted',
         message: `${profile.full_name} submitted a misc top-up of ${formatKES(amount)} for ${project?.name} (${period_month}). Purpose: ${purpose}`,
         link: `/misc?project_id=${project_id}&period=${period_month}`,
@@ -345,8 +346,8 @@ export async function POST(request: Request) {
     // Notify Accountant
     const { data: accountants } = await admin.from('users').select('id').eq('role', 'accountant');
     for (const acct of accountants || []) {
-      await admin.from('notifications').insert({
-        user_id: acct.id,
+      await createNotification(admin, {
+        userId: acct.id,
         title: 'Misc top-up recorded',
         message: `Top-up of ${formatKES(amount)} for ${project?.name} (${period_month}) by ${profile.full_name}.`,
         link: `/misc?project_id=${project_id}&period=${period_month}`,
@@ -411,8 +412,8 @@ export async function POST(request: Request) {
       .select('user_id').eq('project_id', project_id);
 
     for (const pm of pmAssignments || []) {
-      await admin.from('notifications').insert({
-        user_id: pm.user_id,
+      await createNotification(admin, {
+        userId: pm.user_id,
         title: 'Misc draw flagged by CFO',
         message: `A misc draw for ${project?.name} (${period_month}) has been flagged: ${flag_reason}`,
         link: `/misc?project_id=${project_id}&period=${period_month}`,
@@ -456,8 +457,8 @@ export async function POST(request: Request) {
       .select('user_id').eq('project_id', project_id);
 
     for (const pm of pmAssignments || []) {
-      await admin.from('notifications').insert({
-        user_id: pm.user_id,
+      await createNotification(admin, {
+        userId: pm.user_id,
         title: 'Misc top-ups frozen',
         message: `The CFO has frozen misc top-ups for ${project?.name} (${period_month}). No further top-ups can be submitted.`,
         link: `/misc?project_id=${project_id}&period=${period_month}`,
@@ -494,8 +495,8 @@ export async function POST(request: Request) {
       .select('user_id').eq('project_id', project_id);
 
     for (const pm of pmAssignments || []) {
-      await admin.from('notifications').insert({
-        user_id: pm.user_id,
+      await createNotification(admin, {
+        userId: pm.user_id,
         title: 'Misc top-ups unfrozen',
         message: `The CFO has unfrozen misc top-ups for ${project?.name} (${period_month}). You can submit top-ups again.`,
         link: `/misc?project_id=${project_id}&period=${period_month}`,
@@ -547,8 +548,8 @@ export async function POST(request: Request) {
     if (drawErr) return NextResponse.json({ error: drawErr.message }, { status: 500 });
 
     // Notify the PM
-    await admin.from('notifications').insert({
-      user_id: pmAssignment.user_id,
+    await createNotification(admin, {
+      userId: pmAssignment.user_id,
       title: 'Misc request needs your approval',
       message: `${profile.full_name} (Accountant) raised a misc draw of ${formatKES(amount)} for ${project?.name} (${period_month}). Purpose: ${purpose}. Please review and approve/decline.`,
       link: `/misc`,
@@ -606,8 +607,8 @@ export async function POST(request: Request) {
 
     // Notify the accountant who raised it
     if (draw.raised_by) {
-      await admin.from('notifications').insert({
-        user_id: draw.raised_by,
+      await createNotification(admin, {
+        userId: draw.raised_by,
         title: 'Misc request approved by PM',
         message: `${profile.full_name} approved your misc draw of ${formatKES(finalAmount)} for ${project?.name} (${period_month}).`,
         link: `/misc`,
@@ -617,8 +618,8 @@ export async function POST(request: Request) {
     // Notify CFO
     const { data: cfos } = await admin.from('users').select('id').eq('role', 'cfo');
     for (const cfo of cfos || []) {
-      await admin.from('notifications').insert({
-        user_id: cfo.id,
+      await createNotification(admin, {
+        userId: cfo.id,
         title: 'Delegated misc draw approved',
         message: `${profile.full_name} (PM) approved an accountant-raised misc draw of ${formatKES(finalAmount)} for ${project?.name}.`,
         link: `/misc`,
@@ -675,8 +676,8 @@ export async function POST(request: Request) {
 
     // Notify the accountant
     if (draw.raised_by) {
-      await admin.from('notifications').insert({
-        user_id: draw.raised_by,
+      await createNotification(admin, {
+        userId: draw.raised_by,
         title: 'Misc request declined by PM',
         message: `${profile.full_name} declined your misc draw of ${formatKES(Number(draw.amount_requested))} for ${project?.name}. Reason: ${decline_reason}`,
         link: `/misc`,
@@ -739,8 +740,8 @@ export async function POST(request: Request) {
 
     // Re-notify the PM
     if (draw.requested_by) {
-      await admin.from('notifications').insert({
-        user_id: draw.requested_by,
+      await createNotification(admin, {
+        userId: draw.requested_by,
         title: 'Revised misc request needs approval',
         message: `${profile.full_name} revised a previously declined misc draw for ${project?.name}. Revision #${(draw.revision_count || 0) + 1}. Please review.`,
         link: `/misc`,
@@ -797,8 +798,8 @@ export async function POST(request: Request) {
     // Notify accountant(s)
     const { data: accountants } = await admin.from('users').select('id').eq('role', 'accountant');
     for (const acct of accountants || []) {
-      await admin.from('notifications').insert({
-        user_id: acct.id,
+      await createNotification(admin, {
+        userId: acct.id,
         title: 'Misc draw deleted by PM',
         message: `${profile.full_name} deleted a misc draw of ${formatKES(Number(draw.amount_approved))} for ${project?.name}. Reason: ${deletion_reason}`,
         link: `/misc`,
@@ -807,8 +808,8 @@ export async function POST(request: Request) {
 
     // If raised by accountant, also notify them specifically
     if (draw.raised_by && draw.raised_by_role === 'accountant') {
-      await admin.from('notifications').insert({
-        user_id: draw.raised_by,
+      await createNotification(admin, {
+        userId: draw.raised_by,
         title: 'Your misc request was deleted',
         message: `${profile.full_name} deleted the misc draw you raised for ${project?.name}. Reason: ${deletion_reason}`,
         link: `/misc`,

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
+import { createNotification } from '@/lib/notifications';
 
 const PM_ROLES = ['project_manager', 'cfo'] as const;
 
@@ -115,8 +116,8 @@ export async function POST(request: Request) {
       notifTitle = 'Budget rejected by PM';
       notifMsg = `Your budget for ${project?.name} was rejected by ${profile?.full_name}. ${isAccountantBudget ? 'Create a new budget.' : 'Create a new budget.'}`;
     }
-    await admin.from('notifications').insert({
-      user_id: submitterId,
+    await createNotification(admin, {
+      userId: submitterId,
       title: notifTitle,
       message: notifMsg,
       link: '/budgets/' + budget_id,
@@ -127,8 +128,8 @@ export async function POST(request: Request) {
   if (action === 'approve') {
     const { data: cfos } = await admin.from('users').select('id').eq('role', 'cfo');
     for (const cfo of cfos || []) {
-      await admin.from('notifications').insert({
-        user_id: cfo.id,
+      await createNotification(admin, {
+        userId: cfo.id,
         title: 'Budget ready for approval',
         message: `The budget for ${project?.name} has been PM-approved and is ready for your review.`,
         link: '/budgets/' + budget_id,

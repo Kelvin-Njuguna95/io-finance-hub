@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient, assertMonthOpen } from '@/lib/supabase/admin';
 import { autoPopulateExpenses } from '@/lib/expense-lifecycle';
+import { notifyRole } from '@/lib/notifications';
 
 async function getAuthUser(request: Request) {
   const authHeader = request.headers.get('Authorization');
@@ -18,28 +19,6 @@ function nextMonth(yearMonth: string): string {
   const [y, m] = yearMonth.split('-').map(Number);
   const d = new Date(y, m, 1); // m is already 1-based, so this gives next month
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-}
-
-/** Notify all users with a given role */
-async function notifyRole(
-  admin: ReturnType<typeof createAdminClient>,
-  role: string,
-  title: string,
-  message: string,
-  link?: string,
-) {
-  const { data: users } = await admin.from('users').select('id').eq('role', role);
-  for (const u of users || []) {
-    const { error: notifError } = await admin.from('notifications').insert({
-      user_id: u.id,
-      title,
-      message,
-      link,
-    });
-    if (notifError) {
-      console.error('[expense-lifecycle] notification insert failed:', notifError, { userId: u.id, role });
-    }
-  }
 }
 
 // =============================================================
@@ -138,8 +117,8 @@ export async function POST(request: Request) {
     });
 
     // Notify relevant users
-    await notifyRole(admin, 'cfo', 'Pending expenses auto-populated', `${result.data?.length || 0} pending expense(s) created from budget.`, '/expenses/queue');
-    await notifyRole(admin, 'accountant', 'Pending expenses auto-populated', `${result.data?.length || 0} pending expense(s) created from budget.`, '/expenses/queue');
+    await notifyRole(admin, 'cfo', { title: 'Pending expenses auto-populated', message: `${result.data?.length || 0} pending expense(s) created from budget.`, link: '/expenses/queue' });
+    await notifyRole(admin, 'accountant', { title: 'Pending expenses auto-populated', message: `${result.data?.length || 0} pending expense(s) created from budget.`, link: '/expenses/queue' });
 
     return NextResponse.json({
       success: true,
@@ -304,7 +283,7 @@ export async function POST(request: Request) {
     });
 
     // Notify
-    await notifyRole(admin, 'cfo', 'Expense confirmed', `Pending expense "${pending.description}" confirmed at KES ` + actual_amount_kes.toLocaleString() + ` for ${pending.year_month}.`, '/expenses');
+    await notifyRole(admin, 'cfo', { title: 'Expense confirmed', message: `Pending expense "${pending.description}" confirmed at KES ` + actual_amount_kes.toLocaleString() + ` for ${pending.year_month}.`, link: '/expenses' });
     await recomputeExpenseVariancesForMonth(admin, pending.year_month);
 
     return NextResponse.json({ success: true, data: updated });
@@ -400,7 +379,7 @@ export async function POST(request: Request) {
       new_values: { status: 'confirmed', actual_amount_kes, modified_reason, expense_id: expense?.id },
     });
 
-    await notifyRole(admin, 'cfo', 'Expense modified', `Pending expense "${pending.description}" modified to KES ` + actual_amount_kes.toLocaleString() + `. Reason: ${modified_reason}`, '/expenses');
+    await notifyRole(admin, 'cfo', { title: 'Expense modified', message: `Pending expense "${pending.description}" modified to KES ` + actual_amount_kes.toLocaleString() + `. Reason: ${modified_reason}`, link: '/expenses' });
     await recomputeExpenseVariancesForMonth(admin, pending.year_month);
 
     return NextResponse.json({ success: true, data: updated });
@@ -449,7 +428,7 @@ export async function POST(request: Request) {
       new_values: { status: 'under_review', review_notes },
     });
 
-    await notifyRole(admin, 'accountant', 'Expense flagged for review', `Expense "${pending.description}" flagged for review. ${review_notes ? 'Notes: ' + review_notes : ''}`, '/expenses');
+    await notifyRole(admin, 'accountant', { title: 'Expense flagged for review', message: `Expense "${pending.description}" flagged for review. ${review_notes ? 'Notes: ' + review_notes : ''}`, link: '/expenses' });
     await recomputeExpenseVariancesForMonth(admin, pending.year_month);
 
     return NextResponse.json({ success: true, data: updated });
@@ -500,7 +479,7 @@ export async function POST(request: Request) {
       new_values: { status: 'voided', void_reason },
     });
 
-    await notifyRole(admin, 'accountant', 'Expense voided', `CFO voided expense "${pending.description}" for ${pending.year_month}. Reason: ${void_reason}`, '/expenses');
+    await notifyRole(admin, 'accountant', { title: 'Expense voided', message: `CFO voided expense "${pending.description}" for ${pending.year_month}. Reason: ${void_reason}`, link: '/expenses' });
     await recomputeExpenseVariancesForMonth(admin, pending.year_month);
 
     return NextResponse.json({ success: true, data: updated });
@@ -573,7 +552,7 @@ export async function POST(request: Request) {
       new_values: { status: 'carried_forward', new_id: newPending?.id, new_year_month: newYearMonth },
     });
 
-    await notifyRole(admin, 'cfo', 'Expense carried forward', `Pending expense "${pending.description}" carried forward from ${pending.year_month} to ${newYearMonth}.`, '/expenses');
+    await notifyRole(admin, 'cfo', { title: 'Expense carried forward', message: `Pending expense "${pending.description}" carried forward from ${pending.year_month} to ${newYearMonth}.`, link: '/expenses' });
     await recomputeExpenseVariancesForMonth(admin, pending.year_month);
 
     return NextResponse.json({ success: true, data: { original_id: id, new_pending: newPending } });
@@ -688,7 +667,7 @@ export async function POST(request: Request) {
     }
 
     // Single notification for the batch
-    await notifyRole(admin, 'cfo', 'Bulk expense confirmation', `${results.length} expense(s) confirmed in bulk by ${dbUser.full_name}.`, '/expenses');
+    await notifyRole(admin, 'cfo', { title: 'Bulk expense confirmation', message: `${results.length} expense(s) confirmed in bulk by ${dbUser.full_name}.`, link: '/expenses' });
     if (results.length > 0) await recomputeExpenseVariancesForMonth(admin, (results[0] as /* // */ any).year_month);
 
     return NextResponse.json({
@@ -835,7 +814,7 @@ export async function POST(request: Request) {
       new_values: { year_month, groups: upsertRows.length, red_flags: newRedFlags.length },
     });
 
-    await notifyRole(admin, 'cfo', 'Expense variances recomputed', `Variances recomputed for ${year_month}: ${upsertRows.length} group(s), ${newRedFlags.length} red flag(s).`, '/reports/budget-vs-actual');
+    await notifyRole(admin, 'cfo', { title: 'Expense variances recomputed', message: `Variances recomputed for ${year_month}: ${upsertRows.length} group(s), ${newRedFlags.length} red flag(s).`, link: '/reports/budget-vs-actual' });
 
     return NextResponse.json({
       success: true,

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
+import { createNotification } from '@/lib/notifications';
 
 export async function POST(request: Request) {
   try {
@@ -94,8 +95,8 @@ export async function POST(request: Request) {
         : '';
 
       for (const pmId of pmUserIds) {
-        await admin.from('notifications').insert({
-          user_id: pmId,
+        await createNotification(admin, {
+          userId: pmId,
           title: 'Budget Submitted by Accountant',
           message: `${profile.full_name} submitted a ${resolvedScopeType} budget for ${resolvedScopeName} ${year_month}. ${pendingLabel}`,
           link: '/budgets',
@@ -111,8 +112,8 @@ export async function POST(request: Request) {
       .eq('is_active', true);
     for (const decisionMaker of decisionMakers || []) {
       if (decisionMaker.id === user.id) continue; // Don't notify self
-      await admin.from('notifications').insert({
-        user_id: decisionMaker.id,
+      await createNotification(admin, {
+        userId: decisionMaker.id,
         title: 'Accountant Budget Submission',
         message: `${profile.full_name} submitted a ${resolvedScopeType} budget for ${resolvedScopeName} ${year_month}.`,
         link: '/budgets',

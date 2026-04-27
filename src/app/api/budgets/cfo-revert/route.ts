@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertRole, assertMonthOpen } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
+import { createNotification } from '@/lib/notifications';
 
 export async function POST(request: Request) {
   try {
@@ -51,8 +52,8 @@ export async function POST(request: Request) {
     // Notify TL
     const { data: tlUser } = await admin.from('users').select('id').eq('id', budget.created_by).single();
     if (tlUser) {
-      await admin.from('notifications').insert({
-        user_id: tlUser.id,
+      await createNotification(admin, {
+        userId: tlUser.id,
         title: 'Budget sent back by CFO',
         message: `Your approved budget for ${project?.name} has been sent back by the CFO. Review their comments and resubmit.`,
         link: '/budgets/' + budget_id,
@@ -136,8 +137,8 @@ export async function POST(request: Request) {
     // Notify TL
     const { data: tlUser } = await admin.from('users').select('id').eq('id', budget.created_by).single();
     if (tlUser) {
-      await admin.from('notifications').insert({
-        user_id: tlUser.id,
+      await createNotification(admin, {
+        userId: tlUser.id,
         title: 'Budget deleted by CFO',
         message: `Your budget for ${project?.name} has been deleted by the CFO. Create a new budget.`,
       });

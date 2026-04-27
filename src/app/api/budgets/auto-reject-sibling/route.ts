@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
+import { createNotification } from '@/lib/notifications';
 
 export async function POST(request: Request) {
   try {
@@ -42,8 +43,8 @@ export async function POST(request: Request) {
 
     // Notify the submitter
     const { data: submitterProfile } = await admin.from('users').select('full_name').eq('id', sibling.created_by).single();
-    await admin.from('notifications').insert({
-      user_id: sibling.created_by,
+    await createNotification(admin, {
+      userId: sibling.created_by,
       title: 'Budget Closed',
       message: `Your ${sibling.year_month} budget was closed. The CFO approved a different version for this period.`,
       link: `/budgets/${siblingId}`,
