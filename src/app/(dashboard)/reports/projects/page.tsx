@@ -51,6 +51,7 @@ export default function ProjectComparisonPage() {
 
   const [revenueSourceMonth, setRevenueSourceMonth] = useState(getLaggedMonth(selectedMonth));
   const [isHistorical, setIsHistorical] = useState(false);
+  const [overheadAvailable, setOverheadAvailable] = useState(true);
   const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
 
   useEffect(() => {
@@ -81,11 +82,11 @@ export default function ProjectComparisonPage() {
       const revMonth = historical ? selectedMonth : getLaggedMonth(selectedMonth);
       setRevenueSourceMonth(revMonth);
 
-      const [projRes, laggedRes, projExpRes, sharedExpRes, agentRes, budRes] = await Promise.all([
+      const [projRes, laggedRes, projExpRes, profRes, agentRes, budRes] = await Promise.all([
         supabase.from('projects').select('id, name, director_tag').eq('is_active', true),
         supabase.from('lagged_revenue_by_project_month').select('project_id, lagged_revenue_kes, revenue_kes_estimated').eq('expense_month', selectedMonth),
         supabase.from('expenses').select('project_id, amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense').eq('lifecycle_status', 'confirmed'),
-        supabase.from('expenses').select('amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'shared_expense').eq('lifecycle_status', 'confirmed'),
+        supabase.from('project_profitability').select('project_id, allocated_overhead_kes').eq('year_month', selectedMonth),
         supabase.from('agent_counts').select('project_id, agent_count').eq('year_month', selectedMonth),
         supabase.from('budgets').select('id, project_id, budget_versions(total_amount_kes, status)').eq('year_month', selectedMonth),
       ]);
@@ -93,9 +94,15 @@ export default function ProjectComparisonPage() {
       const projects = projRes.data || [];
       const laggedRows = laggedRes.data || [];
       const projExpenses = projExpRes.data || [];
-      const totalOverhead = (sharedExpRes.data || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
+      const profitabilityRows = profRes.data || [];
       const agents = agentRes.data || [];
       const budgets = budRes.data || [];
+
+      const overheadMap = new Map<string, number>();
+      profitabilityRows.forEach((p: { project_id: string; allocated_overhead_kes: number | null }) => {
+        overheadMap.set(p.project_id, Number(p.allocated_overhead_kes || 0));
+      });
+      setOverheadAvailable(profitabilityRows.length > 0);
 
       const directorLabels: Record<string, string> = { kelvin: 'Kelvin', evans: 'Evans', dan: 'Dan', gidraph: 'Gidraph', victor: 'Victor' };
 
@@ -128,8 +135,6 @@ export default function ProjectComparisonPage() {
         budgetMap.set(b.project_id, (budgetMap.get(b.project_id) || 0) + amt);
       });
 
-      const totalRevenue = Array.from(revMap.values()).reduce((s, v) => s + v.amount, 0);
-
       const rows: ProjectComparison[] = projects
         .filter(p => revMap.has(p.id) || expMap.has(p.id) || agentMap.has(p.id))
         .map(p => {
@@ -137,7 +142,7 @@ export default function ProjectComparisonPage() {
           const directExpenses = expMap.get(p.id) || 0;
           const grossProfit = revenue - directExpenses;
           const grossMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
-          const overheadAllocated = totalRevenue > 0 ? (revenue / totalRevenue) * totalOverhead : 0;
+          const overheadAllocated = overheadMap.get(p.id) || 0;
           const distributableProfit = grossProfit - overheadAllocated;
           const netMargin = revenue > 0 ? (distributableProfit / revenue) * 100 : 0;
           const agentCount = agentMap.get(p.id) || 0;
@@ -191,7 +196,7 @@ export default function ProjectComparisonPage() {
     await exportSimpleReportPdf(
       'Project Comparison',
       isHistorical ? `Historical month ${selectedMonth}` : servicePeriodLabel,
-      data.slice(0, 120).map((r) => `${r.name} | revenue ${r.revenue.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | direct ${r.directExpenses.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | distributable ${r.distributableProfit.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
+      data.slice(0, 120).map((r) => `${r.name} | revenue ${r.revenue.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | direct ${r.directExpenses.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | overhead ${r.overheadAllocated.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | distributable ${r.distributableProfit.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
       `IO_Project_Comparison_${selectedMonth}.pdf`,
     );
   }
@@ -251,6 +256,11 @@ export default function ProjectComparisonPage() {
         {/* Comparison table */}
         <Card className="io-card">
           <CardContent className="p-0 overflow-x-auto">
+            {!loading && !overheadAvailable && (
+              <p className="px-4 pt-4 text-xs text-muted-foreground">
+                Allocated overhead shown as KES 0.00 — recompute required for {formatYearMonth(selectedMonth)} to populate.
+              </p>
+            )}
             <div className="p-3 border-b flex justify-end">
               <Button size="sm" variant="outline" onClick={() => setShowMoreColumns((v) => !v)}>
                 {showMoreColumns ? 'Show less' : 'Show more'}

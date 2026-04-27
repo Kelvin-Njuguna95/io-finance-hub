@@ -17,6 +17,7 @@ interface ProjectRow {
   project_name: string;
   revenue: number;
   direct_costs: number;
+  overhead: number;
   gross_profit: number;
   margin: number;
   revenueEstimated: boolean;
@@ -28,6 +29,7 @@ export default function ProfitabilityPage() {
   const [loading, setLoading] = useState(true);
   const [revenueSourceMonth, setRevenueSourceMonth] = useState('');
   const [isHistorical, setIsHistorical] = useState(false);
+  const [overheadAvailable, setOverheadAvailable] = useState(true);
   const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
 
   useEffect(() => {
@@ -67,6 +69,12 @@ export default function ProfitabilityPage() {
       // Get direct expenses (current month) for all projects
       const { data: expenses } = await supabase.from('expenses').select('project_id, amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense').eq('lifecycle_status', 'confirmed');
 
+      // Get allocated overhead from project_profitability (populated by the recompute pipeline)
+      const { data: profRows } = await supabase
+        .from('project_profitability')
+        .select('project_id, allocated_overhead_kes')
+        .eq('year_month', selectedMonth);
+
       // Build per-project map
       const invMap = new Map<string, { amount: number; estimated: boolean }>();
       (laggedRows || []).forEach((row: { project_id: string; lagged_revenue_kes: number | null; revenue_kes_estimated: boolean | null }) => {
@@ -82,14 +90,21 @@ export default function ProfitabilityPage() {
         expMap.set(e.project_id, (expMap.get(e.project_id) || 0) + Number(e.amount_kes));
       });
 
+      const overheadMap = new Map<string, number>();
+      (profRows || []).forEach((p: { project_id: string; allocated_overhead_kes: number | null }) => {
+        overheadMap.set(p.project_id, Number(p.allocated_overhead_kes || 0));
+      });
+      setOverheadAvailable((profRows || []).length > 0);
+
       // Build rows — only include projects that have revenue or expenses
       const rows: ProjectRow[] = (projects || [])
         .map((p: /* // */ any) => {
           const revenue = invMap.get(p.id)?.amount || 0;
           const directCosts = expMap.get(p.id) || 0;
+          const overhead = overheadMap.get(p.id) || 0;
           const grossProfit = revenue - directCosts;
           const margin = revenue > 0 ? (grossProfit / revenue * 100) : 0;
-          return { project_name: p.name, revenue, direct_costs: directCosts, gross_profit: grossProfit, margin, revenueEstimated: invMap.get(p.id)?.estimated || false };
+          return { project_name: p.name, revenue, direct_costs: directCosts, overhead, gross_profit: grossProfit, margin, revenueEstimated: invMap.get(p.id)?.estimated || false };
         })
         .filter(r => r.revenue > 0 || r.direct_costs > 0)
         .sort((a, b) => b.gross_profit - a.gross_profit);
@@ -114,7 +129,7 @@ export default function ProfitabilityPage() {
     await exportSimpleReportPdf(
       'Project Profitability',
       isHistorical ? `Historical month ${selectedMonth}` : servicePeriodLabel,
-      data.slice(0, 120).map((r) => `${r.project_name} | revenue ${r.revenue.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | costs ${r.direct_costs.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | margin ${r.margin.toFixed(1)}%`),
+      data.slice(0, 120).map((r) => `${r.project_name} | revenue ${r.revenue.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | costs ${r.direct_costs.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | overhead ${r.overhead.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | margin ${r.margin.toFixed(1)}%`),
       `IO_Project_Profitability_${selectedMonth}.pdf`,
     );
   }
@@ -151,6 +166,12 @@ export default function ProfitabilityPage() {
           <ExecutiveKpiCard label="Best Margin Project" value={bestMarginProject ? `${bestMarginProject.project_name} ${formatExecutivePercent(bestMarginProject.margin)}` : 'N/A'} trend="Highest margin %" />
         </div>
 
+        {!loading && !overheadAvailable && (
+          <p className="text-xs text-muted-foreground">
+            Allocated overhead shown as KES 0.00 — recompute required for {formatYearMonth(selectedMonth)} to populate.
+          </p>
+        )}
+
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {(loading ? [] : data).map((r) => (
             <Card key={r.project_name} className="border-border">
@@ -168,6 +189,7 @@ export default function ProfitabilityPage() {
                   <span>Revenue <span className="font-mono tabular-nums">{formatCompactCurrency(r.revenue, 'KES')}</span></span>
                   <span>Costs <span className="font-mono tabular-nums">{formatCompactCurrency(r.direct_costs, 'KES')}</span></span>
                 </div>
+                <p className="text-sm text-foreground/80">Allocated Overhead <span className="font-mono tabular-nums">{formatCompactCurrency(r.overhead, 'KES')}</span></p>
                 <p className="text-sm font-medium">Margin: {formatExecutivePercent(r.margin)} <span className="text-muted-foreground">| Target: 40%</span></p>
               </CardContent>
             </Card>
