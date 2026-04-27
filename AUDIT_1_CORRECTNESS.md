@@ -15,9 +15,9 @@ The second biggest issue is **multiple sources of truth for the same number**, w
 
 Counts (at write time): **6 Critical, 9 High, 5 Medium, 5 Low (25 total — capped, see notes at the end).**
 
-**Status as of 2026-04-27 (post-sweep + F-18 + F-16 + F-33 + F-10 + F-07/F-30 close):** 28 closed, 1 partially closed (F-12 — resubmit slice landed via F-07; withdrawals/create + eod remain), 1 open, 1 deferred, 1 informational. Closed: F-01, F-02, F-03, F-04, F-05, F-06, F-07, F-08, F-09, F-10, F-13, F-15, F-16, F-17, F-18, F-19, F-20, F-21, F-22, F-23, F-24, F-25, F-26 (tracked externally — addressed by migration 00025; no in-doc section), F-27, F-29, F-30, F-32, F-33. Partially closed: F-12 (expense-lifecycle RPCs landed via 00029; `budgets/resubmit` slice landed via 00042's RPC suite; `withdrawals/create`, `eod` remain non-transactional). Open: F-12 remainder. Deferred: F-14 (taxonomy decision needed before code fix). Informational: F-31.
+**Status as of 2026-04-28 (AUDIT 1 COMPLETE — F-12 + F-12.1 close):** 29 closed, 0 open, 1 deferred (F-14), 1 informational (F-31). Closed: F-01, F-02, F-03, F-04, F-05, F-06, F-07, F-08, F-09, F-10, F-12 (full closure — expense-lifecycle via 00029, budgets via 00042, withdrawals + eod via 00043), F-13, F-15, F-16, F-17, F-18, F-19, F-20, F-21, F-22, F-23, F-24, F-25, F-26 (tracked externally — addressed by migration 00025; no in-doc section), F-27, F-29, F-30, F-32, F-33. Deferred: F-14 (taxonomy decision needed before code fix). Informational: F-31. Logged as deferred follow-up: F-12.2 (withdrawals/fix-legacy admin utility — same pattern, lower priority).
 
-**Recommended fix order (revised post-F-07):** F-12 remainder (High — two multi-write flows: withdrawals/create and eod need RPC wrapping; pattern from 00029 + 00042). This is the only Critical/High/Medium item left; everything else is closed, deferred (F-14), or informational (F-31).
+**Recommended fix order:** none. Every Critical, High, and Medium finding is closed. Every Low except F-31 (informational) is closed. F-14 awaits product decision; F-31 is a watch-for-divergence advisory, not an actionable bug. The audited surface has no remaining correctness work.
 
 ---
 
@@ -25,9 +25,13 @@ Counts (at write time): **6 Critical, 9 High, 5 Medium, 5 Low (25 total — capp
 
 **Correctness & Data Integrity: 42 / 100** *(at write time)*
 
-**Updated 2026-04-27 (post-sweep + F-18 + F-16 + F-33 + F-10 + F-07/F-30 close): estimated 88 / 100.** Every Critical is closed (F-01, F-02, F-03, F-04, F-05, F-06, F-07, F-27, F-29, F-32). Every High except the F-12 remainder is closed (F-08, F-09, F-10, F-13, F-15). Every Medium is closed (F-16, F-18, F-19, F-20, F-33). Every Low is closed (F-21, F-22, F-23, F-24, F-25, F-30). Only F-31 (informational) remains besides F-12 remainder. The benchmark called out at write time — "with F-01–F-07 fixed, this score should rise into the 70s without major refactoring" — is achieved and substantially surpassed. Remaining gap to 90+ is anchored by exactly one item: the F-12 remainder (withdrawals/create + eod still write non-atomically; budgets/resubmit slice closed via the F-07 RPC suite).
+**Updated 2026-04-28 (AUDIT 1 COMPLETE — F-12 + F-12.1 close): estimated 92 / 100.** Every Critical, High, and Medium finding is closed. Every Low is closed except F-31 (informational). The benchmark called out at write time — "with F-01–F-07 fixed, this score should rise into the 70s without major refactoring" — is achieved and substantially surpassed. The score progression across the marathon: 42 → 78 → 84 → 88 → 92.
+
+Score gap from 92 to 100 is structural: F-14 (deferred) requires a product decision on the `withdrawals.purpose` vs `withdrawals.withdrawal_type` taxonomy — not a code fix. F-31 (informational) is a watch-for-divergence advisory between `variance_summary_by_project` and `fn_generate_red_flags` — would require a data-integrity guard, not a correctness patch. Neither is an actionable bug in the audited surface. F-12.2 (withdrawals/fix-legacy admin utility) is logged as deferred follow-up.
 
 Note on F-07 closure: scope expanded materially during Phase 1. The audit framed F-07 as "single route — budgets/resubmit"; verification surfaced that all 6 budget status-change routes (resubmit, pm-review, pm-line-review submit, cfo-approve, cfo-revert send_back, withdraw) used the same in-place mutation pattern. The PR closed the systemic pattern via 6 SECURITY DEFINER RPCs in 00042 (architecture mirrors 00029's F-06 expense-lifecycle RPCs). Migration 00041 codified the four production-only `budget_status` enum values; 00042's preamble codified ~17 drift columns across budgets / budget_versions / budget_items / budget_approvals / expenses; §3 / §4 fixed F-30 ahead of the regression-on-fix it would otherwise surface. Single PR, full scope, per Phase 2 Option A.
+
+Note on F-12 closure: F-12 was originally framed as three routes (withdrawals/create + eod + budgets/resubmit). The budgets/resubmit slice landed inside the F-07 PR (commit a8c902a + migration 00042). Phase 1 of the F-12 remainder surfaced a scope expansion to F-12.1 (withdrawals/update has the same multi-write non-atomicity, plus a paired PSR credit/debit pattern that adds its own atomicity risk). 00043 closed both — three RPCs covering create, update, and eod. No drift columns surfaced in F-12 Phase 1, the first migration in the F-XX run with no codification preamble; the schema/code drift family that anchored F-02 / F-10 / F-33 / F-07 has converged.
 
 Note on F-33 closure: production verification confirmed scenario (b), meaning two categories of operational alerts (expense-variance overspend, misc top-up limit-reached) had been silently disabled since the routes were written — every red flag of those types that should have fired has produced zero rows in production to date. Migration 00039 restores forward-going alerts; past events are not recoverable. The score impact reflects the migration alone; the operational visibility cost is sunk.
 
@@ -269,8 +273,8 @@ Add `if (!body.profit_share_record_id) return 422` at line 53. Drop the `?? null
 
 ### F-12 — Multi-write API flows have no transaction boundaries
 
-**STATUS: PARTIALLY CLOSED — Expense lifecycle multi-writes wrapped in RPCs (00029). Other call sites (`withdrawals/create`, `eod`, `budgets/resubmit`) still non-transactional.**
-**Last reviewed: 2026-04-27**
+**STATUS: CLOSED — Expense lifecycle wrapped via 00029 (F-06); budgets/resubmit slice wrapped via 00042 (F-07); withdrawals/create + withdrawals/update + eod wrapped via Migration 00043 (F-12 remainder + F-12.1 scope expansion) + commit 893a938 (3-route RPC integration) + commit 9a05923 (migration audit record). Every multi-write financial flow in the audited surface is now atomic.**
+**Closed: 2026-04-28 (F-12.2 — withdrawals/fix-legacy admin utility — deferred to follow-up; same pattern, lower priority)**
 
 **Severity:** High
 **Category:** Write path
