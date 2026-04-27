@@ -55,13 +55,6 @@ interface ImportBatch {
   status: string | null;
 }
 
-interface SeedSnapshot {
-  year_month: string;
-  data_source: string | null;
-  total_agents: number | null;
-  created_at: string;
-}
-
 const SECTIONS: {
   id: string;
   title: string;
@@ -164,8 +157,6 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState('thresholds');
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreference[]>([]);
   const [importBatches, setImportBatches] = useState<ImportBatch[]>([]);
-  const [seedSnapshots, setSeedSnapshots] = useState<SeedSnapshot[]>([]);
-  const [removingSeed, setRemovingSeed] = useState(false);
   const canEdit = canEditSettings(user?.role);
   const canView = canViewSettings(user?.role);
 
@@ -185,11 +176,6 @@ export default function SettingsPage() {
       // Load import batches for Data section
       const { data: batches } = await supabase.from('expense_import_batches').select('*').order('created_at', { ascending: false }).limit(20);
       setImportBatches(batches || []);
-
-      // Load seed snapshots
-      const { data: snaps } = await supabase.from('monthly_financial_snapshots').select('year_month, data_source, total_agents, created_at').not('data_source', 'is', null).order('year_month');
-      const typedSnapshots = (snaps || []) as SeedSnapshot[];
-      setSeedSnapshots(typedSnapshots.filter((s) => s.data_source?.startsWith('historical_seed')));
     }
     load();
   }, []);
@@ -273,48 +259,6 @@ export default function SettingsPage() {
     }).eq('id', id);
     setNotifPrefs((prev) => prev.map((p) => p.id === id ? { ...p, enabled } : p));
     toast.success('Preference updated');
-  }
-
-  async function handleRemoveHistoricalSeed() {
-    if (!canEdit) return;
-    setRemovingSeed(true);
-    try {
-      const supabase = createClient();
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) {
-        toast.error('Unable to verify your session. Please sign in again.');
-        return;
-      }
-
-      const res = await fetch('/api/historical-seed', {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const payload = await res.json();
-      if (!res.ok) {
-        const message = typeof payload?.error === 'string' ? payload.error : 'Failed to remove historical seed data';
-        toast.error(message);
-        return;
-      }
-
-      toast.success(payload?.message || 'Historical seed data removed');
-
-      const { data: snaps } = await supabase
-        .from('monthly_financial_snapshots')
-        .select('year_month, data_source, total_agents, created_at')
-        .not('data_source', 'is', null)
-        .order('year_month');
-      const typedSnapshots = (snaps || []) as SeedSnapshot[];
-      setSeedSnapshots(typedSnapshots.filter((s) => s.data_source?.startsWith('historical_seed')));
-    } catch {
-      toast.error('Unexpected error while removing seed data');
-    } finally {
-      setRemovingSeed(false);
-    }
   }
 
   const currentSection = SECTIONS.find((s) => s.id === activeSection);
@@ -537,54 +481,7 @@ export default function SettingsPage() {
           {canEdit && activeSection === 'data' && (
             <div>
               <h2 className="text-lg font-semibold text-foreground mb-1">Data & Import</h2>
-              <p className="text-sm text-muted-foreground mb-6">Historical data and import activity</p>
-
-              {/* Seeded data */}
-              <h3 className="text-sm font-semibold text-foreground/90 mb-2">Seeded Historical Data</h3>
-              {seedSnapshots.length === 0 ? (
-                <p className="text-sm text-muted-foreground mb-6">No historical seeds found.</p>
-              ) : (
-                <Card className="io-card mb-6">
-                  <CardContent className="p-0 overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Source</TableHead>
-                          <TableHead>Month</TableHead>
-                          <TableHead>Agents</TableHead>
-                          <TableHead>Date</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {seedSnapshots.map((s) => (
-                          <TableRow key={s.year_month}>
-                            <TableCell className="text-sm">{s.data_source}</TableCell>
-                            <TableCell className="text-sm font-mono">{s.year_month}</TableCell>
-                            <TableCell className="text-sm">{s.total_agents}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground">{formatDate(s.created_at)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              )}
-              {seedSnapshots.length > 0 && (
-                <div className="mb-6 rounded-lg border border-warning/30 bg-warning-soft/50 p-4">
-                  <p className="text-sm font-medium text-warning-soft-foreground">Historical Seed Cleanup</p>
-                  <p className="mt-1 text-xs text-warning-soft-foreground">
-                    Use this action only when you need to permanently remove previously-seeded historical records.
-                  </p>
-                  <Button
-                    variant="destructive"
-                    className="mt-3"
-                    disabled={removingSeed}
-                    onClick={handleRemoveHistoricalSeed}
-                  >
-                    {removingSeed ? 'Removing Historical Seed Data...' : 'Remove Historical Seed Data'}
-                  </Button>
-                </div>
-              )}
+              <p className="text-sm text-muted-foreground mb-6">Import activity</p>
 
               {/* Import history */}
               <h3 className="text-sm font-semibold text-foreground/90 mb-2">Import History</h3>
