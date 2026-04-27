@@ -136,6 +136,24 @@ export default function ProfitSharePage() {
       .order('director_tag');
 
     if (existingRecords && existingRecords.length > 0) {
+      const projectIds = existingRecords
+        .map((r: { project_id?: string | null }) => r.project_id)
+        .filter((id): id is string => Boolean(id));
+
+      const { data: profRows } = await supabase
+        .from('project_profitability')
+        .select('project_id, revenue_kes, direct_expenses_kes, allocated_overhead_kes')
+        .eq('year_month', selectedMonth)
+        .in('project_id', projectIds);
+
+      const profMap = new Map<string, { revenue: number; total_expenses: number }>();
+      (profRows || []).forEach((p: { project_id: string; revenue_kes: number | null; direct_expenses_kes: number | null; allocated_overhead_kes: number | null }) => {
+        profMap.set(p.project_id, {
+          revenue: Number(p.revenue_kes || 0),
+          total_expenses: Number(p.direct_expenses_kes || 0) + Number(p.allocated_overhead_kes || 0),
+        });
+      });
+
       setShares(existingRecords.map((r: {
         projects?: { name?: string } | null;
         project_id?: string | null;
@@ -152,8 +170,8 @@ export default function ProfitSharePage() {
         project_id: r.project_id || undefined,
         project_name: r.projects?.name || '—',
         director_tag: r.director_tag,
-        revenue: 0,
-        direct_costs: 0,
+        revenue: profMap.get(r.project_id || '')?.revenue ?? 0,
+        direct_costs: profMap.get(r.project_id || '')?.total_expenses ?? 0,
         distributable_profit: Number(r.distributable_profit_kes),
         director_share: Number(r.director_share_kes),
         company_share: Number(r.company_share_kes),
