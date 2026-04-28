@@ -1,5 +1,18 @@
 # ARCHITECTURE_AUDIT
 
+**Verification status (2026-04-29):** Spot-check pass against current production state. Significant staleness — this audit was authored 2026-04-12 before the F-XX correctness numbering convention, predates AUDIT_1/2/3 work, and references the migration graph at 00021 (production is now at 00045). Of the 8 Priority Action Items in the executive summary:
+
+- **#2 Cron endpoint hardening — CLOSED** (commit 19589b8, 2026-04-29). New `src/lib/cron-auth.ts` helper with fail-closed `verifyCronSecret()`. Closed anonymous access on `/api/eod/auto-send` and tightened the existing soft fail-open in `rollover-cron` and `standing-cron`. Single source of truth across all 3 native cron handlers; re-export wrappers inherit. Audit framing was over-broad — only one route was genuinely unprotected; the other two cron paths re-export already-protected handlers.
+- **#8 TS build enforcement — CLOSED** (commit ac36a4f, 2026-04-29). `next.config.ts` flipped `ignoreBuildErrors` from `true` to `false`. Cleared 6 underlying TS errors first (3 F-07 enum-widening fallout in `budgets/[id]/page.tsx`; 1 component-API drift in `executive-kit.tsx`; 2 unrelated drift in `withdrawal-form-dialog.tsx`). Build now gates on `tsc`. Audit's §1 finding "0 TS errors" was stale — drift since authoring had introduced 6 errors, all mechanical to fix.
+- #1 PIN→password server-side migration — scoped, not executed. Read-only diagnostic completed (Phase 1 Track C, 2026-04-29). Effort estimated at ~15h across a dual-path rollout window spanning ~2 weeks. Single open question (Supabase service-role session-minting capability) needs verification before committing to one rollout shape. Deferred to a dedicated session.
+- #3 FX fallback unification — partially superseded by F-32 (00028 currency-sync triggers landed on all 5 financial tables, broader than this audit's framing) and F-32.1 (00045 forex_rates backfill + go-forward trigger, 2026-04-29 commit d28b127). Phase 2b (rate-aware `fn_currency_get_rate()`) deferred — non-urgent per AUDIT_2 §11.5 given current rate stability.
+- #4 idempotent migration guards — informational. New migrations since 00029 already adopt `IF NOT EXISTS` / `DROP ... IF EXISTS` patterns by convention (visible in 00043, 00044, 00045). The 00013 duplicate is historical and applied; renumbering would break drift. No action needed beyond continuing the convention.
+- #5 budget/variance/profit consolidation — substantially absorbed by F-07 (00041–00042 budget lifecycle RPCs), F-26 (00024–00028 lifecycle filters), F-12 (00043 withdrawal/EOD RPCs), and AUDIT_2 §11 confirmation that profit_share_records uses post-F-32 paired-currency schema. The "no source of truth" framing in this audit is largely outdated.
+- §8 Business Logic Correctness items — substantially absorbed: "expense status transition DB hardening unclear" closed by F-06 + R-8 (00029, 00044); "month closure enforcement" addressed by F-07; "multi-source variance/profit" largely consolidated.
+- #6 (rate limiting + Sentry + error envelope), #7 (refactor 15 files >500 LOC) — not yet addressed. Multi-session marathons; out of scope for tonight.
+
+Audit document not otherwise edited; original findings preserved as historical context.
+
 ## Executive Summary
 - **Critical auth mismatch:** login PIN suffixing is performed client-side (`password: pin + 'io'`) rather than server-side, so the transformation is exposed and contradicts the stated server-side model. Evidence: `src/app/(auth)/login/page.tsx:31-35`.
 - **API surface has multiple unauthenticated endpoints using service-role paths** (`/api/eod/auto-send`, cron re-export paths, signout route) and no global rate limiter/origin checks across API handlers. Evidence: `src/app/api/eod/auto-send/route.ts:8-18`, `src/app/api/expense-lifecycle/rollover-cron/route.ts:16-23`, `src/app/api/misc-draws/standing-cron/route.ts:28-35`, `src/app/api/auth/signout/route.ts:21-28`.
@@ -279,13 +292,13 @@ Vercel-hosted Next.js app → middleware session refresh (deprecated convention 
 
 ## Priority Action Items
 1. **Move PIN→password transformation to server-side auth API** and remove client suffixing logic. **Risk: Critical. Effort: M**.
-2. **Lock down unauthenticated cron endpoints** (`/api/eod/auto-send` especially) with mandatory secret verification and method hardening. **Risk: High. Effort: S**.
+2. [CLOSED 19589b8 — see verification status] **Lock down unauthenticated cron endpoints** (`/api/eod/auto-send` especially) with mandatory secret verification and method hardening. **Risk: High. Effort: S**.
 3. **Unify financial FX fallback logic** (single source of truth for USD→KES rate and lagged revenue conversion). **Risk: High. Effort: M**.
 4. **Resolve migration numbering collision (`00013`) and add idempotent guards for triggers/policies/functions.** **Risk: High. Effort: M/L**.
 5. **Consolidate budget/variance/profit computations into shared DB views or shared library utilities** to prevent KPI drift. **Risk: High. Effort: L**.
 6. **Introduce API rate limiting + standardized error envelope + structured observability (e.g., Sentry + request IDs).** **Risk: Medium. Effort: M**.
 7. **Refactor oversized files (>500 LOC)** starting with `misc/page.tsx`, `expense-lifecycle/route.ts`, and dashboard monoliths. **Risk: Medium. Effort: L**.
-8. **Fix lint invocation/config path issue and reinstate TS build enforcement once stable.** **Risk: Medium. Effort: S/M**.
+8. [CLOSED ac36a4f — see verification status] **Fix lint invocation/config path issue and reinstate TS build enforcement once stable.** **Risk: Medium. Effort: S/M**.
 
 ## Appendix
 
