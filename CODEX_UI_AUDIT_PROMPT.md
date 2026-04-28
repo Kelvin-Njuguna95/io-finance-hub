@@ -1,5 +1,7 @@
 # IO Finance Hub — Full UI Audit & Fix Prompt
 
+> **Status:** Executed 2026-04-14. Phase 3 fixes landed in commits cdd907a (`fix(ui): audit fixes — tokenize all colors, fix contrast, remove hardcoded hex`) and 5821d6b (`fix(ui): raise sidebar z-index above sticky topbar to prevent overlap`). Phase 2 chat findings are not preserved. Subsequent UI changes have not been re-audited. Kept on disk as historical record of the engagement.
+
 Copy everything below this line into a fresh Claude Code session:
 
 ---
