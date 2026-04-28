@@ -605,7 +605,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }
                   <Select
                     value={isEdit ? (payoutRecordId || 'none') : payoutRecordId}
                     onValueChange={(value) => setPayoutRecordId(
-                      value === 'none' || value.startsWith('no-record-') ? '' : (value || '')
+                      value === 'none' || (value ?? '').startsWith('no-record-') ? '' : (value ?? '')
                     )}
                   >
                     <SelectTrigger><SelectValue placeholder="Select profit share period" /></SelectTrigger>

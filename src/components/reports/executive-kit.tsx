@@ -29,7 +29,7 @@ export function ChartStatusBadge({ status }: { status: 'On Track' | 'Watch' | 'A
   return <Badge className={`border ${statusTone(status)}`}>{status}</Badge>;
 }
 
-export function ExecutiveKpiCard({ label, value, trend, positive = true }: { label: string; value: string; trend: string; positive?: boolean }) {
+export function ExecutiveKpiCard({ label, value, trend, positive = true }: { label: string; value: string; trend?: string; positive?: boolean }) {
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="bg-primary rounded-t-xl pb-2">
@@ -37,7 +37,9 @@ export function ExecutiveKpiCard({ label, value, trend, positive = true }: { lab
       </CardHeader>
       <CardContent className="pt-4">
         <p className="font-mono text-3xl font-semibold tabular-nums text-foreground">{value}</p>
-        <Badge className={`mt-3 ${positive ? 'bg-success-soft text-success-soft-foreground' : 'bg-danger-soft text-danger-soft-foreground'}`}>{trend}</Badge>
+        {trend && (
+          <Badge className={`mt-3 ${positive ? 'bg-success-soft text-success-soft-foreground' : 'bg-danger-soft text-danger-soft-foreground'}`}>{trend}</Badge>
+        )}
       </CardContent>
     </Card>
   );

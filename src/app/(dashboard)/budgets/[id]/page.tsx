@@ -234,8 +234,8 @@ export default function BudgetDetailPage() {
   const budgetSubmittedByRole = (budget as /* // */ any)?.submitted_by_role || 'team_leader';
   const EDITABLE_STATUSES = BUDGET_EDITABLE_STATUSES;
   const canTlEdit =
-    (isTl && EDITABLE_STATUSES.includes(activeVersion?.status || '')) ||
-    (isAccountant && isOwnBudget && budgetSubmittedByRole === 'accountant' && EDITABLE_STATUSES.includes(activeVersion?.status || ''));
+    (isTl && EDITABLE_STATUSES.includes((activeVersion?.status || '') as typeof BUDGET_EDITABLE_STATUSES[number])) ||
+    (isAccountant && isOwnBudget && budgetSubmittedByRole === 'accountant' && EDITABLE_STATUSES.includes((activeVersion?.status || '') as typeof BUDGET_EDITABLE_STATUSES[number]));
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState(0);
   const [editDesc, setEditDesc] = useState('');
@@ -676,7 +676,7 @@ export default function BudgetDetailPage() {
             </Card>
 
             {/* Submit / Resubmit button — available whenever the current user can edit this budget */}
-            {canTlEdit && EDITABLE_STATUSES.includes(activeVersion?.status || '') && (
+            {canTlEdit && EDITABLE_STATUSES.includes((activeVersion?.status || '') as typeof BUDGET_EDITABLE_STATUSES[number]) && (
               <div className="flex justify-end">
                 <Button onClick={handleResubmit} className="btn-gradient text-white gap-1" disabled={processing || items.length === 0}>
                   {activeVersion?.status === 'draft' ? 'Submit for PM Review' : 'Resubmit for PM Review'}
