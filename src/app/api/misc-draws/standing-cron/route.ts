@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { verifyCronSecret } from '@/lib/cron-auth';
 
 function currentPeriodInEAT(): { yearMonth: string; periodDate: string; day: number } {
   const now = new Date();
@@ -26,11 +27,8 @@ function currentPeriodInEAT(): { yearMonth: string; periodDate: string; day: num
 
 // Cron endpoint: create standing misc draws on 1st day of month.
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const fail = verifyCronSecret(request);
+  if (fail) return fail;
 
   const admin = createAdminClient();
   const { yearMonth, periodDate, day } = currentPeriodInEAT();

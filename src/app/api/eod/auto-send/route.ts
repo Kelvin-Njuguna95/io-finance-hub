@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { apiErrorResponse } from '@/lib/api-errors';
+import { verifyCronSecret } from '@/lib/cron-auth';
 
 // This endpoint is called by a cron job (Vercel Cron or external scheduler)
 // It checks if auto-send is enabled, if activity exists, and sends if needed
@@ -13,7 +14,10 @@ function createAdminClient() {
   );
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const fail = verifyCronSecret(request);
+  if (fail) return fail;
+
   try {
     const admin = createAdminClient();
     const today = new Intl.DateTimeFormat('en-KE', {

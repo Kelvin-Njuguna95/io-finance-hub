@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentYearMonth, getPrevYearMonth } from '@/lib/format';
+import { verifyCronSecret } from '@/lib/cron-auth';
 
 // Cron endpoint: ensure carry-forward rows from previous month were rolled into current month queue.
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const fail = verifyCronSecret(request);
+  if (fail) return fail;
 
   const admin = createAdminClient();
   const previousMonth = getPrevYearMonth();
