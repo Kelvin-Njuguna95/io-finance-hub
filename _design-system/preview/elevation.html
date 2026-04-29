@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Elevation — single overlay</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  body { margin: 0; padding: 24px; background: var(--surface-2); }
+  .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+  .label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground); margin-bottom: 10px; }
+  .flat {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground);
+  }
+  .elev {
+    background: var(--popover); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 14px 16px; box-shadow: var(--shadow-overlay); font-family: var(--font-mono); font-size: 12px; color: var(--foreground);
+  }
+  .meta { margin-top: 10px; font-size: 11px; color: var(--muted-foreground); }
+  .banned { color: var(--danger); font-weight: 600; }
+</style>
+</head><body>
+  <div class="wrap">
+    <div class="card">
+      <div class="label">Flat · everything except overlays</div>
+      <div class="flat">Card · row · button · sidebar</div>
+      <div class="meta">Border-only. <span class="banned">No hover-shadow.</span> Hover shifts tint instead.</div>
+    </div>
+    <div class="card">
+      <div class="label">--shadow-overlay · overlays only</div>
+      <div class="elev">Popover · dialog · dropdown · tooltip · toast</div>
+      <div class="meta"><code style="font-family:var(--font-mono); font-size: 10px;">0 4px 16px -6px rgb(0 0 0 / .10), 0 1px 3px -1px rgb(0 0 0 / .06)</code></div>
+    </div>
+  </div>
+</body></html>

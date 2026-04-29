@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Finance Hub · Budget BUD-2026-Q2-MERI</title>
+<link rel="stylesheet" href="IO Finance Hub/_design-system/colors_and_type.css" />
+<link rel="stylesheet" href="app-shell.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  /* Bullet for the variance hero */
+  .variance-hero {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 22px 24px; margin-top: 22px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px;
+  }
+  .vh-cell .lbl {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+  }
+  .vh-cell .val {
+    font-family: var(--font-mono); font-size: 28px; font-weight: 500;
+    color: var(--ink); margin-top: 12px; font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em; line-height: 1;
+  }
+  .vh-cell .val.danger { color: var(--danger); }
+  .vh-cell .val .ccy { font-size: 12px; color: var(--muted-foreground); margin-right: 6px; letter-spacing: 0.04em; }
+  .vh-cell .sub { margin-top: 8px; font-size: 12px; color: var(--warm-grey-3); }
+
+  .bullet-large { position: relative; height: 18px; margin-top: 18px; }
+  .bullet-large .track {
+    position: absolute; top: 6px; left: 0; right: 0; height: 6px;
+    background: var(--paper-3); border-radius: 3px;
+  }
+  .bullet-large .actual {
+    position: absolute; top: 6px; left: 0; height: 6px;
+    border-radius: 3px;
+  }
+  .bullet-large .actual.over { background: var(--danger); }
+  .bullet-large .marker {
+    position: absolute; top: 0; height: 18px; width: 1.5px; background: var(--ink); border-radius: 1px;
+  }
+  .bullet-large .target {
+    position: absolute; top: 0; height: 18px; width: 1px; background: var(--paper-4); right: 0;
+  }
+  .bullet-foot {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-top: 10px;
+    font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="side">
+    <div class="brand">
+      <span class="tile">IO</span>
+      <span><span class="eye">Impact Outsourcing</span><span class="title">Finance Hub</span></span>
+    </div>
+    <div class="group-label">Operations</div>
+    <a class="nav-item" href="dashboard.html"><i data-lucide="layout-dashboard"></i>Home</a>
+    <a class="nav-item active" href="budgets.html"><i data-lucide="clipboard-list"></i>Budgets <span class="count gold">7</span></a>
+    <a class="nav-item" href="expenses.html"><i data-lucide="receipt"></i>Expenses</a>
+    <a class="nav-item" href="invoices.html"><i data-lucide="file-text"></i>Invoices</a>
+    <a class="nav-item" href="withdrawals.html"><i data-lucide="arrow-down-to-line"></i>Withdrawals</a>
+    <a class="nav-item" href="profit-share.html"><i data-lucide="piggy-bank"></i>Profit share</a>
+    <div class="group-label">Reports</div>
+    <a class="nav-item" href="#"><i data-lucide="trending-up"></i>Monthly P&amp;L</a>
+    <a class="nav-item" href="#"><i data-lucide="flag"></i>Red flags <span class="count danger">3</span></a>
+    <a class="nav-item" href="#"><i data-lucide="inbox"></i>EOD reports</a>
+    <a class="nav-item" href="#"><i data-lucide="users"></i>Agent counts</a>
+    <div class="group-label">System</div>
+    <a class="nav-item" href="#"><i data-lucide="shield-check"></i>Audit trail</a>
+    <a class="nav-item" href="#"><i data-lucide="settings"></i>Settings</a>
+    <div class="spacer"></div>
+    <div class="closure-card">
+      <div class="eye">Month closure</div>
+      <div class="head">April 2026<br/><em>in progress</em></div>
+      <div class="progress"><span></span></div>
+      <div class="body">9 of 12 sign-offs complete · 3 days to lock</div>
+      <button class="btn-gold">Open closure</button>
+    </div>
+  </aside>
+
+  <div>
+    <header class="topbar">
+      <nav class="crumbs">
+        <a class="home" href="dashboard.html"><i data-lucide="home"></i></a>
+        <span class="sep">/</span>
+        <a href="budgets.html">Budgets</a>
+        <span class="sep">/</span>
+        <span class="here">BUD-2026-Q2-MERI</span>
+      </nav>
+      <div class="spacer"></div>
+      <div class="search">
+        <i data-lucide="search"></i>
+        <input placeholder="Search budgets, projects, owners…" />
+        <span class="kbd">⌘ K</span>
+      </div>
+      <button class="icon-btn" aria-label="Notifications"><i data-lucide="bell"></i><span class="dot gold"></span></button>
+      <div class="user-chip">
+        <span class="av">AM</span>
+        <div><div class="nm">Anne Mburu</div><div class="role">CFO</div></div>
+        <i data-lucide="chevron-down"></i>
+      </div>
+    </header>
+
+    <main class="page">
+
+      <div class="page-head">
+        <div class="titles">
+          <div class="eye">
+            <span>BUD-2026-Q2-MERI</span>
+            <span class="status danger">Over plan</span>
+            <span style="color: var(--paper-4);">·</span>
+            <span>v3 · superseded twice</span>
+          </div>
+          <h1>Meridian Care · <em>onboarding phase 2</em></h1>
+          <p class="subtitle">
+            Q2 2026 · Apr–Jun <span class="sep">·</span>
+            Approved by <span class="num">A. Mburu</span> on 11 Apr <span class="sep">·</span>
+            Owned by <span class="num">J. Wanjiku</span>, PM
+          </p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-ghost"><i data-lucide="history"></i>Versions</button>
+          <button class="btn btn-ghost"><i data-lucide="pencil"></i>Edit</button>
+          <button class="btn btn-ghost"><i data-lucide="copy"></i>Duplicate</button>
+          <button class="btn btn-primary"><i data-lucide="check"></i>Approve revision</button>
+        </div>
+      </div>
+
+      <!-- Variance hero -->
+      <div class="variance-hero">
+        <div class="vh-cell">
+          <div class="lbl">Approved budget</div>
+          <div class="val"><span class="ccy">KES</span>1,250,000</div>
+          <div class="sub">Quarterly · 90 day window</div>
+        </div>
+        <div class="vh-cell">
+          <div class="lbl">Spent · 37 of 90 days</div>
+          <div class="val"><span class="ccy">KES</span>1,348,000</div>
+          <div class="sub">Burn rate KES 36.4K / day</div>
+        </div>
+        <div class="vh-cell">
+          <div class="lbl">Variance</div>
+          <div class="val danger">+ <span class="ccy">KES</span>98,000</div>
+          <div class="sub">108% utilised · 41% of period elapsed</div>
+        </div>
+
+        <div style="grid-column: 1 / -1; margin-top: 6px;">
+          <div class="bullet-large">
+            <div class="track"></div>
+            <div class="actual over" style="width: 100%;"></div>
+            <div class="marker" style="left: 41%;" title="Period elapsed"></div>
+            <div class="target"></div>
+          </div>
+          <div class="bullet-foot">
+            <span>Period start · 01 Apr</span>
+            <span>Today · 14 May (41%)</span>
+            <span>Period end · 30 Jun</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Two-column: line items + sidebar -->
+      <div class="detail-grid" style="margin-top: 32px;">
+
+        <div class="detail-main">
+
+          <div>
+            <div class="section-head">
+              <h3>Line items</h3>
+              <span class="meta">8 lines · sorted by category</span>
+            </div>
+
+            <table class="line-table">
+              <thead>
+                <tr>
+                  <th style="width: 40%;">Category</th>
+                  <th>Description</th>
+                  <th class="right">Approved</th>
+                  <th class="right">Spent</th>
+                  <th class="right">Variance</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <div style="font-weight: 500;">Translator licences</div>
+                    <div style="font-size: 11.5px; color: var(--muted-foreground); margin-top: 4px;">Software · 12 seats</div>
+                  </td>
+                  <td style="color: var(--warm-grey-3);">Recurring · 12 seats × USD 28 / mo</td>
+                  <td class="right mono">540,000</td>
+                  <td class="right mono">612,000</td>
+                  <td class="right mono" style="color: var(--danger);">+ 72,000</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="font-weight: 500;">Trainer overtime</div>
+                    <div style="font-size: 11.5px; color: var(--muted-foreground); margin-top: 4px;">Headcount · variable</div>
+                  </td>
+                  <td style="color: var(--warm-grey-3);">3 trainers, weekend coverage Apr–Jun</td>
+                  <td class="right mono">320,000</td>
+                  <td class="right mono">358,000</td>
+                  <td class="right mono" style="color: var(--danger);">+ 38,000</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="font-weight: 500;">Onboarding kits</div>
+                    <div style="font-size: 11.5px; color: var(--muted-foreground); margin-top: 4px;">Hardware · one-time</div>
+                  </td>
+                  <td style="color: var(--warm-grey-3);">Headsets, monitors, badges · 18 new agents</td>
+                  <td class="right mono">216,000</td>
+                  <td class="right mono">204,000</td>
+                  <td class="right mono" style="color: var(--success-soft-foreground);">− 12,000</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="font-weight: 500;">Recruitment fees</div>
+                    <div style="font-size: 11.5px; color: var(--muted-foreground); margin-top: 4px;">Services · per-hire</div>
+                  </td>
+                  <td style="color: var(--warm-grey-3);">External agency · 6 placements</td>
+                  <td class="right mono">120,000</td>
+                  <td class="right mono">120,000</td>
+                  <td class="right mono" style="color: var(--muted-foreground);">—</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="font-weight: 500;">Compliance audit</div>
+                    <div style="font-size: 11.5px; color: var(--muted-foreground); margin-top: 4px;">Services · one-time</div>
+                  </td>
+                  <td style="color: var(--warm-grey-3);">HIPAA refresher for new cohort</td>
+                  <td class="right mono">54,000</td>
+                  <td class="right mono">54,000</td>
+                  <td class="right mono" style="color: var(--muted-foreground);">—</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td class="lbl" colspan="2">Total · KES</td>
+                  <td class="right">1,250,000</td>
+                  <td class="right">1,348,000</td>
+                  <td class="right" style="color: var(--danger);">+ 98,000</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div>
+            <div class="section-head">
+              <h3>Activity</h3>
+              <span class="meta">12 events · since 28 Mar</span>
+            </div>
+
+            <div class="timeline">
+              <div class="tl-item">
+                <div class="tl-when">14 May · 11:47</div>
+                <div class="tl-body">
+                  <span class="who">System</span> <span class="verb">flagged variance</span>
+                  <span class="num">+ 8% over plan</span> on
+                  <a class="ref" href="#">translator licences</a>.
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-when">12 May · 09:14</div>
+                <div class="tl-body">
+                  <span class="who">J. Wanjiku</span> <span class="verb">recorded expense</span>
+                  <a class="ref" href="#">EXP-05-12-0188</a> ·
+                  <span class="num">KES 28,000</span> · trainer overtime.
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-when">11 Apr · 16:22</div>
+                <div class="tl-body">
+                  <span class="who">A. Mburu</span> <span class="verb">approved budget</span>
+                  <a class="ref" href="#">BUD-2026-Q2-MERI</a> for
+                  <span class="num">KES 1,250,000</span>.
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-when">10 Apr · 14:08</div>
+                <div class="tl-body">
+                  <span class="who">J. Wanjiku</span> <span class="verb">submitted v3</span> with
+                  <span class="num">+ KES 320,000</span> uplift on trainer overtime.
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-when">09 Apr · 11:30</div>
+                <div class="tl-body">
+                  <span class="who">A. Mburu</span> <span class="verb">requested revision</span> ·
+                  reason: trainer overtime appeared under-budgeted.
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-when">28 Mar · 09:55</div>
+                <div class="tl-body">
+                  <span class="who">J. Wanjiku</span> <span class="verb">created budget</span>
+                  <a class="ref" href="#">BUD-2026-Q2-MERI</a> · v1 draft.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="detail-side">
+
+          <div class="quiet-card">
+            <div>
+              <div class="lbl">Approver chain</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span class="avatar muted">JW</span>
+                <div style="flex:1;">
+                  <div style="font-size:13.5px;font-weight:500;color:var(--ink);">J. Wanjiku</div>
+                  <div style="font-size:11.5px;color:var(--muted-foreground);">PM · author · 28 Mar</div>
+                </div>
+                <span class="status success" style="padding:2px 8px;font-size:10.5px;">Submitted</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span class="avatar muted">DK</span>
+                <div style="flex:1;">
+                  <div style="font-size:13.5px;font-weight:500;color:var(--ink);">D. Kimani</div>
+                  <div style="font-size:11.5px;color:var(--muted-foreground);">Accountant · 09 Apr</div>
+                </div>
+                <span class="status success" style="padding:2px 8px;font-size:10.5px;">Reviewed</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span class="avatar">AM</span>
+                <div style="flex:1;">
+                  <div style="font-size:13.5px;font-weight:500;color:var(--ink);">A. Mburu</div>
+                  <div style="font-size:11.5px;color:var(--muted-foreground);">CFO · 11 Apr</div>
+                </div>
+                <span class="status success" style="padding:2px 8px;font-size:10.5px;">Approved</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="quiet-card">
+            <div class="lbl">Linked records</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <a href="#" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle);">
+                <span style="font-size:13px;color:var(--ink);">Expenses (12)</span>
+                <span style="font-family:var(--font-mono);font-size:12px;color:var(--gold-lo);border-bottom:1px solid var(--gold);">View</span>
+              </a>
+              <a href="#" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle);">
+                <span style="font-size:13px;color:var(--ink);">Invoices (3)</span>
+                <span style="font-family:var(--font-mono);font-size:12px;color:var(--gold-lo);border-bottom:1px solid var(--gold);">View</span>
+              </a>
+              <a href="#" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
+                <span style="font-size:13px;color:var(--ink);">Project · Meridian Care</span>
+                <span style="font-family:var(--font-mono);font-size:12px;color:var(--gold-lo);border-bottom:1px solid var(--gold);">Open</span>
+              </a>
+            </div>
+          </div>
+
+          <div class="quiet-card">
+            <div class="lbl">Variance signal</div>
+            <div class="head">+ 8% over plan</div>
+            <p style="margin:0;font-size:13px;color:var(--warm-grey-3);line-height:1.55;">
+              Translator licences are running ahead of plan. Two seats were added in week 3 without
+              a budget revision. <a href="#" style="color:var(--gold-lo);border-bottom:1px solid var(--gold);">Open red-flag report</a>.
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Sticky action footer -->
+      <div class="sticky-foot">
+        <span class="lhs">Last updated 14 May 2026 · 11:47 EAT</span>
+        <button class="btn btn-ghost"><i data-lucide="archive"></i>Archive</button>
+        <button class="btn btn-danger"><i data-lucide="x"></i>Void</button>
+        <button class="btn btn-ghost"><i data-lucide="pencil"></i>Request revision</button>
+        <button class="btn btn-primary"><i data-lucide="check"></i>Approve revision · KES&nbsp;98K uplift</button>
+      </div>
+
+    </main>
+  </div>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

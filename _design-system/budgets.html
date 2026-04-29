@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Finance Hub · Budgets</title>
+<link rel="stylesheet" href="IO Finance Hub/_design-system/colors_and_type.css" />
+<link rel="stylesheet" href="app-shell.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  /* Page-specific layout for Budgets list */
+  .lr-budgets {
+    grid-template-columns: 1.4fr 1.2fr 0.9fr 0.9fr 220px 96px;
+  }
+  .bullet {
+    height: 6px; border-radius: 999px; background: var(--paper-3);
+    position: relative; overflow: hidden; margin-top: 6px;
+  }
+  .bullet > span { display: block; height: 100%; border-radius: 999px; background: var(--gold); }
+  .bullet > span.over { background: var(--danger); }
+  .bullet > span.under { background: var(--success); }
+  .util {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.10em; color: var(--muted-foreground);
+    margin-top: 6px;
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .util .num { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .util .num.over { color: var(--danger); }
+  .util .num.under { color: var(--success-soft-foreground); }
+
+  /* KPI strip above the list */
+  .strip {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    margin-bottom: 22px;
+  }
+  .strip .stat {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 18px 20px;
+  }
+  .strip .stat .lbl {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+  }
+  .strip .stat .val {
+    font-family: var(--font-mono); font-size: 26px; font-weight: 500;
+    color: var(--ink); margin-top: 12px; font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em; line-height: 1;
+  }
+  .strip .stat .val .ccy { font-size: 11px; color: var(--muted-foreground); margin-right: 6px; letter-spacing: 0.04em; }
+  .strip .stat .sub { margin-top: 8px; font-size: 12px; color: var(--warm-grey-3); }
+  .strip .stat .sub .delta { color: var(--success-soft-foreground); font-family: var(--font-mono); font-weight: 500; }
+  .strip .stat .sub .delta.danger { color: var(--danger); }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="side">
+    <div class="brand">
+      <span class="tile">IO</span>
+      <span>
+        <span class="eye">Impact Outsourcing</span>
+        <span class="title">Finance Hub</span>
+      </span>
+    </div>
+
+    <div class="group-label">Operations</div>
+    <a class="nav-item" href="dashboard.html"><i data-lucide="layout-dashboard"></i>Home</a>
+    <a class="nav-item active" href="budgets.html"><i data-lucide="clipboard-list"></i>Budgets <span class="count gold">7</span></a>
+    <a class="nav-item" href="expenses.html"><i data-lucide="receipt"></i>Expenses</a>
+    <a class="nav-item" href="invoices.html"><i data-lucide="file-text"></i>Invoices</a>
+    <a class="nav-item" href="withdrawals.html"><i data-lucide="arrow-down-to-line"></i>Withdrawals</a>
+    <a class="nav-item" href="profit-share.html"><i data-lucide="piggy-bank"></i>Profit share</a>
+
+    <div class="group-label">Reports</div>
+    <a class="nav-item" href="#"><i data-lucide="trending-up"></i>Monthly P&amp;L</a>
+    <a class="nav-item" href="#"><i data-lucide="flag"></i>Red flags <span class="count danger">3</span></a>
+    <a class="nav-item" href="#"><i data-lucide="inbox"></i>EOD reports</a>
+    <a class="nav-item" href="#"><i data-lucide="users"></i>Agent counts</a>
+
+    <div class="group-label">System</div>
+    <a class="nav-item" href="#"><i data-lucide="shield-check"></i>Audit trail</a>
+    <a class="nav-item" href="#"><i data-lucide="settings"></i>Settings</a>
+
+    <div class="spacer"></div>
+
+    <div class="closure-card">
+      <div class="eye">Month closure</div>
+      <div class="head">April 2026<br/><em>in progress</em></div>
+      <div class="progress"><span></span></div>
+      <div class="body">9 of 12 sign-offs complete · 3 days to lock</div>
+      <button class="btn-gold">Open closure</button>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <div>
+    <!-- Topbar -->
+    <header class="topbar">
+      <nav class="crumbs">
+        <a class="home" href="dashboard.html"><i data-lucide="home"></i></a>
+        <span class="sep">/</span>
+        <a href="#">Operations</a>
+        <span class="sep">/</span>
+        <span class="here">Budgets</span>
+      </nav>
+      <div class="spacer"></div>
+      <div class="search">
+        <i data-lucide="search"></i>
+        <input placeholder="Search budgets, projects, owners…" />
+        <span class="kbd">⌘ K</span>
+      </div>
+      <button class="icon-btn" aria-label="Notifications">
+        <i data-lucide="bell"></i>
+        <span class="dot gold"></span>
+      </button>
+      <div class="user-chip">
+        <span class="av">AM</span>
+        <div>
+          <div class="nm">Anne Mburu</div>
+          <div class="role">CFO</div>
+        </div>
+        <i data-lucide="chevron-down"></i>
+      </div>
+    </header>
+
+    <main class="page">
+
+      <!-- Page header -->
+      <div class="page-head">
+        <div class="titles">
+          <div class="eye">Operations · Approval</div>
+          <h1>Budgets <em>&amp;&nbsp;commitments</em></h1>
+          <p class="subtitle">
+            April 2026 <span class="sep">·</span>
+            <span class="num">23</span> active budgets <span class="sep">·</span>
+            <span class="num">7</span> awaiting approval <span class="sep">·</span>
+            <span class="num">KES&nbsp;42.6M</span> committed
+          </p>
+        </div>
+        <div class="actions">
+          <button class="pill"><i data-lucide="calendar"></i>April 2026 <i data-lucide="chevron-down"></i></button>
+          <button class="btn btn-ghost"><i data-lucide="download"></i>Export</button>
+          <button class="btn btn-primary"><i data-lucide="plus"></i>New budget</button>
+        </div>
+      </div>
+
+      <!-- KPI strip -->
+      <div class="strip">
+        <div class="stat">
+          <div class="lbl">Total committed · Apr</div>
+          <div class="val"><span class="ccy">KES</span>42,608,000</div>
+          <div class="sub"><span class="delta">+12.4%</span> vs March · 23 budgets</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Spent to date</div>
+          <div class="val"><span class="ccy">KES</span>28,140,000</div>
+          <div class="sub">66.0% utilised · across 23 budgets</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Awaiting approval</div>
+          <div class="val">7 budgets</div>
+          <div class="sub">Oldest <span class="delta danger">5 days</span> in queue</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Variance · over plan</div>
+          <div class="val">3 budgets</div>
+          <div class="sub"><span class="delta danger">+ KES 412K</span> aggregate overrun</div>
+        </div>
+      </div>
+
+      <!-- Filter row -->
+      <div class="filter-row">
+        <div class="group">
+          <button class="pill active">All <span class="ct">23</span></button>
+          <button class="pill">Pending <span class="ct">7</span></button>
+          <button class="pill">Approved <span class="ct">14</span></button>
+          <button class="pill">Rejected <span class="ct">1</span></button>
+          <button class="pill">Archived <span class="ct">1</span></button>
+        </div>
+        <div class="spacer"></div>
+        <button class="pill"><i data-lucide="folder"></i>All projects <i data-lucide="chevron-down"></i></button>
+        <button class="pill"><i data-lucide="user"></i>Any owner <i data-lucide="chevron-down"></i></button>
+        <button class="pill"><i data-lucide="sliders-horizontal"></i>Filters</button>
+      </div>
+
+      <!-- List frame -->
+      <div class="list-frame">
+        <div class="list-head lr-budgets">
+          <div class="h sorted">Budget <i data-lucide="chevron-down"></i></div>
+          <div class="h">Project</div>
+          <div class="h">Owner</div>
+          <div class="h">Period</div>
+          <div class="h right">Approved <span class="sep" style="margin: 0 4px;">/</span> Spent</div>
+          <div class="h right">Status</div>
+        </div>
+
+        <div class="list-rows">
+
+          <!-- Row 1 — pending CFO review -->
+          <div class="list-row lr-budgets">
+            <div>
+              <span class="col-id">BUD-2026-Q2-AIFI</span>
+              <div class="col-title">Ada Outbound · Q2 expansion</div>
+              <div class="col-sub">Headcount + tools uplift for the May–June ramp</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Ada Outbound</div>
+              <div class="col-sub">Outbound voice · KE-1</div>
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span class="avatar muted" style="width:30px;height:30px;font-size:10.5px;">KK</span>
+                <div>
+                  <div class="col-title" style="font-size:13px;">K. Kiprono</div>
+                  <div class="col-sub">PM · submitted 2d ago</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="col-meta">Q2 · Apr–Jun</div>
+              <div class="col-sub" style="margin-top:6px;">v3 · superseded twice</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>4,820,000</div>
+              <div class="bullet"><span style="width: 0%;"></span></div>
+              <div class="util"><span>not started</span><span class="num">0%</span></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status gold">Pending</span>
+            </div>
+          </div>
+
+          <!-- Row 2 — over budget, danger -->
+          <div class="list-row lr-budgets">
+            <div>
+              <span class="col-id">BUD-2026-Q2-MERI</span>
+              <div class="col-title">Meridian Care · Onboarding phase 2</div>
+              <div class="col-sub">Translator licences and trainer overtime</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Meridian Care</div>
+              <div class="col-sub">Healthcare BPO · KE-2</div>
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span class="avatar muted" style="width:30px;height:30px;font-size:10.5px;">JW</span>
+                <div>
+                  <div class="col-title" style="font-size:13px;">J. Wanjiku</div>
+                  <div class="col-sub">PM · approved 11 Apr</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="col-meta">Q2 · Apr–Jun</div>
+              <div class="col-sub" style="margin-top:6px;">37 of 90 days</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>1,250,000</div>
+              <div class="bullet"><span class="over" style="width: 100%;"></span></div>
+              <div class="util">
+                <span>over plan</span>
+                <span class="num over">108% · +98K</span>
+              </div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status danger">Over</span>
+            </div>
+          </div>
+
+          <!-- Row 3 — healthy approved -->
+          <div class="list-row lr-budgets">
+            <div>
+              <span class="col-id">BUD-2026-Q2-HELO</span>
+              <div class="col-title">Helios CX · Desktop rollout</div>
+              <div class="col-sub">Sprint 4 hardware refresh, Mombasa floor</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Helios CX</div>
+              <div class="col-sub">Inbound chat · MOM-1</div>
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span class="avatar muted" style="width:30px;height:30px;font-size:10.5px;">DO</span>
+                <div>
+                  <div class="col-title" style="font-size:13px;">D. Otieno</div>
+                  <div class="col-sub">PM · approved 02 Apr</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="col-meta">Q2 · Apr–Jun</div>
+              <div class="col-sub" style="margin-top:6px;">19 of 90 days</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>3,160,000</div>
+              <div class="bullet"><span style="width: 38%;"></span></div>
+              <div class="util">
+                <span>on plan</span>
+                <span class="num">38% · 1.20M</span>
+              </div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status success">Approved</span>
+            </div>
+          </div>
+
+          <!-- Row 4 — pending PM submission -->
+          <div class="list-row lr-budgets">
+            <div>
+              <span class="col-id">BUD-2026-Q2-NOOR</span>
+              <div class="col-title">Noor Partners · QA sprint</div>
+              <div class="col-sub">External QA contract for the April release</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Noor Partners</div>
+              <div class="col-sub">QA &amp; testing · KE-1</div>
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span class="avatar muted" style="width:30px;height:30px;font-size:10.5px;">SO</span>
+                <div>
+                  <div class="col-title" style="font-size:13px;">S. Omondi</div>
+                  <div class="col-sub">PM · submitted 5d ago</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="col-meta">Apr only</div>
+              <div class="col-sub" style="margin-top:6px;">v1 · first submission</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>820,000</div>
+              <div class="bullet"><span style="width: 0%;"></span></div>
+              <div class="util"><span>not started</span><span class="num">0%</span></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status gold">Pending</span>
+            </div>
+          </div>
+
+          <!-- Row 5 — under-spending -->
+          <div class="list-row lr-budgets">
+            <div>
+              <span class="col-id">BUD-2026-Q2-VEGA</span>
+              <div class="col-title">Vega Collections · Monthly retainer</div>
+              <div class="col-sub">Recurring · debt collection workflow</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Vega Collections</div>
+              <div class="col-sub">Collections · KE-2</div>
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span class="avatar muted" style="width:30px;height:30px;font-size:10.5px;">RM</span>
+                <div>
+                  <div class="col-title" style="font-size:13px;">R. Mwangi</div>
+                  <div class="col-sub">PM · approved 28 Mar</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="col-meta">Apr only</div>
+              <div class="col-sub" style="margin-top:6px;">21 of 30 days</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>1,860,000</div>
+              <div class="bullet"><span class="under" style="width: 51%;"></span></div>
+              <div class="util">
+                <span>under plan</span>
+                <span class="num under">51% · 949K</span>
+              </div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status success">Approved</span>
+            </div>
+          </div>
+
+          <!-- Row 6 — pending, draft from accountant -->
+          <div class="list-row lr-budgets">
+            <div>
+              <span class="col-id">BUD-2026-Q2-BLUE</span>
+              <div class="col-title">Bluewave Tech · Tooling refresh</div>
+              <div class="col-sub">JIRA, Slack and Linear seats Q2</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Bluewave Tech</div>
+              <div class="col-sub">Engineering BPO · KE-1</div>
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span class="avatar muted" style="width:30px;height:30px;font-size:10.5px;">PN</span>
+                <div>
+                  <div class="col-title" style="font-size:13px;">P. Ndegwa</div>
+                  <div class="col-sub">PM · submitted today</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="col-meta">Q2 · Apr–Jun</div>
+              <div class="col-sub" style="margin-top:6px;">v2 · revised</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>540,000</div>
+              <div class="bullet"><span style="width: 0%;"></span></div>
+              <div class="util"><span>not started</span><span class="num">0%</span></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status gold">Pending</span>
+            </div>
+          </div>
+
+          <!-- Row 7 — fully consumed approved -->
+          <div class="list-row lr-budgets">
+            <div>
+              <span class="col-id">BUD-2026-Q1-UPHO</span>
+              <div class="col-title">Uptown Hotels · Q1 closeout</div>
+              <div class="col-sub">Final-month tooling and QA backfill</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Uptown Hotels</div>
+              <div class="col-sub">Hospitality CX · KE-2</div>
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span class="avatar muted" style="width:30px;height:30px;font-size:10.5px;">FC</span>
+                <div>
+                  <div class="col-title" style="font-size:13px;">F. Cherono</div>
+                  <div class="col-sub">PM · closed 31 Mar</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="col-meta">Q1 · Jan–Mar</div>
+              <div class="col-sub" style="margin-top:6px;">closed · 90 days</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>2,140,000</div>
+              <div class="bullet"><span style="width: 96%;"></span></div>
+              <div class="util">
+                <span>final</span>
+                <span class="num">96% · 2.05M</span>
+              </div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status muted">Archived</span>
+            </div>
+          </div>
+
+          <!-- Row 8 — rejected -->
+          <div class="list-row lr-budgets">
+            <div>
+              <span class="col-id">BUD-2026-Q2-STRM</span>
+              <div class="col-title">Stream Wallet · Platform fee uplift</div>
+              <div class="col-sub">Recurring fee renegotiation buffer</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Stream Wallet</div>
+              <div class="col-sub">Fintech CX · KE-1</div>
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span class="avatar muted" style="width:30px;height:30px;font-size:10.5px;">LK</span>
+                <div>
+                  <div class="col-title" style="font-size:13px;">L. Kamau</div>
+                  <div class="col-sub">PM · rejected 09 Apr</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="col-meta">Q2 · Apr–Jun</div>
+              <div class="col-sub" style="margin-top:6px;">awaiting revision</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>180,000</div>
+              <div class="bullet"><span style="width: 0%;"></span></div>
+              <div class="util"><span>not started</span><span class="num">0%</span></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status danger">Rejected</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="list-foot">
+          <span class="lhs">Showing 8 of 23 · April 2026</span>
+          <div style="display:flex;align-items:baseline;gap:14px;">
+            <span class="lhs">Committed total</span>
+            <span class="total"><span class="ccy">KES</span>14,770,000</span>
+          </div>
+          <div class="pager">
+            <button class="btn btn-ghost btn-sm btn-icon"><i data-lucide="chevron-left"></i></button>
+            <span class="lhs">1 / 3</span>
+            <button class="btn btn-ghost btn-sm btn-icon"><i data-lucide="chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

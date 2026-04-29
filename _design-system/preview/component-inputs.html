@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Form inputs</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  body { margin: 0; padding: 22px; background: var(--surface-2); font-family: var(--font-sans); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  label { font-size: 12px; font-weight: 500; color: var(--foreground); }
+  input, select, textarea {
+    height: 36px; padding: 0 12px; border-radius: var(--radius); border: 1px solid var(--border);
+    background: var(--popover); font-size: 14px; color: var(--foreground); font-family: inherit;
+    transition: border-color var(--dur-fast);
+  }
+  input::placeholder, textarea::placeholder { color: var(--muted-foreground); }
+  input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--ring); outline-offset: 2px; border-color: transparent;
+  }
+  .invalid { border-color: var(--destructive); }
+  .help { font-size: 11px; color: var(--muted-foreground); }
+  .err  { font-size: 11px; color: var(--danger-soft-foreground); }
+  .group {
+    display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--popover); overflow: hidden;
+  }
+  .group input { border: 0; flex: 1; border-radius: 0; }
+  .prefix { display: inline-flex; align-items: center; padding: 0 12px; background: var(--muted); color: var(--muted-foreground); font-family: var(--font-mono); font-size: 12px; border-right: 1px solid var(--border); }
+</style>
+</head><body>
+  <div class="grid">
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="you@impactoutsourcing.co.ke"/>
+      <span class="help">Used for sign-in and approval notifications.</span>
+    </div>
+    <div class="field">
+      <label for="pin">PIN · 4 digits</label>
+      <input id="pin" type="password" placeholder="••••" style="font-family: var(--font-mono); letter-spacing: 0.5em; text-align: center;"/>
+    </div>
+    <div class="field">
+      <label for="amt">Amount</label>
+      <div class="group">
+        <span class="prefix">KES</span>
+        <input id="amt" type="text" value="1,248,500" style="font-family: var(--font-mono);"/>
+      </div>
+    </div>
+    <div class="field">
+      <label for="cat">Category</label>
+      <select id="cat">
+        <option>Utilities</option><option>Payroll</option><option>Tools</option><option>Rent</option><option>Misc</option>
+      </select>
+    </div>
+    <div class="field" style="grid-column: 1 / -1;">
+      <label for="note">Rejection note</label>
+      <input id="note" class="invalid" value="Missing receipt attachment" aria-invalid="true"/>
+      <span class="err">Required — include the receipt URL or scan.</span>
+    </div>
+  </div>
+</body></html>

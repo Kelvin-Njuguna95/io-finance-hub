@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Finance Hub · CFO dashboard</title>
+<link rel="stylesheet" href="./kit.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js" defer></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <span class="tile">IO</span>
+      <span><span class="eye">Impact Outsourcing</span><span class="title">Finance Hub</span></span>
+    </div>
+    <div class="group-label">Operations</div>
+    <a class="item active" href="./index.html"><i data-lucide="layout-dashboard"></i>Dashboard</a>
+    <a class="item" href="./budgets.html"><i data-lucide="clipboard-list"></i>Budgets<span class="count">7</span></a>
+    <a class="item" href="#"><i data-lucide="receipt"></i>Expenses</a>
+    <a class="item" href="#"><i data-lucide="arrow-down-to-line"></i>Withdrawals</a>
+    <a class="item" href="#"><i data-lucide="file-text"></i>Invoices</a>
+    <div class="group-label">Reports</div>
+    <a class="item" href="#"><i data-lucide="trending-up"></i>Monthly P&amp;L</a>
+    <a class="item" href="#"><i data-lucide="flag"></i>Red flags<span class="count">3</span></a>
+    <a class="item" href="#"><i data-lucide="inbox"></i>EOD reports</a>
+    <div class="spacer"></div>
+    <div class="user">
+      <span class="av">AM</span>
+      <div><div class="name">Anne Mburu</div><div class="role">CFO</div></div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <div class="crumbs">
+        <span>Finance Hub</span>
+        <i data-lucide="chevron-right"></i>
+        <b>Dashboard</b>
+      </div>
+      <div class="grow"></div>
+      <div class="actions">
+        <button class="icon-btn" aria-label="Search"><i data-lucide="search"></i></button>
+        <button class="icon-btn" aria-label="Notifications"><i data-lucide="bell"></i></button>
+        <a class="btn outline" href="./login.html"><i data-lucide="log-out"></i>Sign out</a>
+      </div>
+    </div>
+
+    <div class="page">
+      <!-- HERO -->
+      <section class="hero-surface">
+        <div class="eye">Impact Outsourcing</div>
+        <div class="title">Finance Hub</div>
+        <div class="date">Tuesday, 21 April 2026 · 14:32 EAT</div>
+      </section>
+
+      <!-- KPI STATS -->
+      <div class="stats">
+        <div class="stat brand">
+          <div class="row">
+            <div>
+              <div class="label">Revenue · Apr</div>
+              <div class="value">KES 12.4M</div>
+              <div class="sub"><span class="delta up">▲ 4.2%</span>vs March</div>
+            </div>
+            <span class="tile brand"><i data-lucide="wallet"></i></span>
+          </div>
+        </div>
+        <div class="stat warning">
+          <div class="row">
+            <div>
+              <div class="label">Approval backlog</div>
+              <div class="value">7</div>
+              <div class="sub">Budget versions awaiting review</div>
+            </div>
+            <span class="tile warning"><i data-lucide="clipboard-list"></i></span>
+          </div>
+        </div>
+        <div class="stat info">
+          <div class="row">
+            <div>
+              <div class="label">Pending withdrawals</div>
+              <div class="value">2</div>
+              <div class="sub">Director payouts awaiting approval</div>
+            </div>
+            <span class="tile info"><i data-lucide="arrow-down-to-line"></i></span>
+          </div>
+        </div>
+        <div class="stat danger">
+          <div class="row">
+            <div>
+              <div class="label">Red flags</div>
+              <div class="value">3</div>
+              <div class="sub">Outstanding risk signals</div>
+            </div>
+            <span class="tile danger"><i data-lucide="flag"></i></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTIONS -->
+      <div class="grid-2">
+        <!-- Outstanding invoices -->
+        <section class="card">
+          <header class="card-header">
+            <div>
+              <h3>Outstanding invoices</h3>
+              <p>Tracked in KES; estimated values shown italic.</p>
+            </div>
+            <a class="btn ghost" href="#">View all<i data-lucide="arrow-right"></i></a>
+          </header>
+          <div class="card-body" style="padding: 0;">
+            <table class="tbl">
+              <thead><tr><th>Invoice</th><th>Client</th><th>Status</th><th class="num">Amount</th></tr></thead>
+              <tbody>
+                <tr class="row-ok"><td class="num">INV-2026-0412</td><td>Ada Outbound</td><td><span class="chip success">Paid</span></td><td class="num">KES 1,480,000</td></tr>
+                <tr class="row-warn"><td class="num">INV-2026-0413</td><td>Vega Collections</td><td><span class="chip info">Submitted</span></td><td class="num est">≈ KES 920,500</td></tr>
+                <tr class="row-ok selected"><td class="num">INV-2026-0414</td><td>Helios CX</td><td><span class="chip success">Confirmed</span></td><td class="num">KES 2,145,000</td></tr>
+                <tr class="row-warn"><td class="num">INV-2026-0416</td><td>Noor Partners</td><td><span class="chip warning">Under review</span></td><td class="num">KES 1,060,000</td></tr>
+                <tr class="row-bad"><td class="num">INV-2026-0415</td><td>Meridian Care</td><td><span class="chip danger">Overdue</span></td><td class="num">KES 640,000</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Red flags panel -->
+        <section class="card">
+          <header class="card-header">
+            <div>
+              <h3>Red flags</h3>
+              <p>Monitored risk signals beyond tolerance.</p>
+            </div>
+          </header>
+          <div class="card-body stack-md">
+            <div class="flex-between" style="gap: 10px; padding: 10px 12px; border-radius: var(--radius); background: var(--danger-soft); color: var(--danger-soft-foreground);">
+              <span style="display:inline-flex; gap: 10px; align-items: flex-start;">
+                <i data-lucide="shield-alert" style="width:16px;height:16px;stroke-width:2;margin-top:2px;"></i>
+                <span><b>FX drift &gt; 2%</b><br/><span style="font-size:11.5px;opacity:0.85;">Withdrawal WTH-0188 needs re-approval.</span></span>
+              </span>
+              <span class="chip danger" style="background: rgba(255,255,255,0.6);">High</span>
+            </div>
+            <div class="flex-between" style="gap: 10px; padding: 10px 12px; border-radius: var(--radius); background: var(--warning-soft); color: var(--warning-soft-foreground);">
+              <span style="display:inline-flex; gap: 10px; align-items: flex-start;">
+                <i data-lucide="triangle-alert" style="width:16px;height:16px;stroke-width:2;margin-top:2px;"></i>
+                <span><b>Tools category · +12% vs plan</b><br/><span style="font-size:11.5px;opacity:0.85;">Q2 software subscriptions outpacing approved envelope.</span></span>
+              </span>
+              <span class="chip warning" style="background: rgba(255,255,255,0.6);">Medium</span>
+            </div>
+            <div class="flex-between" style="gap: 10px; padding: 10px 12px; border-radius: var(--radius); background: var(--warning-soft); color: var(--warning-soft-foreground);">
+              <span style="display:inline-flex; gap: 10px; align-items: flex-start;">
+                <i data-lucide="triangle-alert" style="width:16px;height:16px;stroke-width:2;margin-top:2px;"></i>
+                <span><b>Meridian Care · overdue 18d</b><br/><span style="font-size:11.5px;opacity:0.85;">KES 640,000 — last reminder 14 Apr.</span></span>
+              </span>
+              <span class="chip warning" style="background: rgba(255,255,255,0.6);">Medium</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Approvals queue -->
+      <section class="card">
+        <header class="card-header">
+          <div>
+            <h3>Approval queue · budget versions</h3>
+            <p>Versions waiting on CFO review · Africa/Nairobi.</p>
+          </div>
+          <div style="display:flex; gap: 8px;">
+            <button class="btn outline"><i data-lucide="filter"></i>Filter</button>
+            <button class="btn primary"><i data-lucide="check-circle-2"></i>Approve selected</button>
+          </div>
+        </header>
+        <div class="card-body" style="padding: 0;">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Version</th><th>Project</th><th>Owner</th><th>Submitted</th>
+                <th class="num">Total</th><th class="num">Δ vs prior</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="row-warn selected"><td class="num">BV-24.07</td><td>Ada Outbound · Q2 expansion</td><td>K. Kiprono</td><td class="num">2026-04-18</td><td class="num">KES 4,820,000</td><td class="num" style="color: var(--success-soft-foreground);">▲ 2.1%</td><td><span class="chip info">Submitted</span></td></tr>
+              <tr class="row-warn"><td class="num">BV-18.03</td><td>Helios CX · Desktop rollout</td><td>J. Wanjiku</td><td class="num">2026-04-18</td><td class="num">KES 2,145,000</td><td class="num" style="color: var(--danger-soft-foreground);">▼ 0.8%</td><td><span class="chip warning">Under review</span></td></tr>
+              <tr class="row-warn"><td class="num">BV-09.11</td><td>Meridian Care · Onboarding</td><td>S. Otieno</td><td class="num">2026-04-17</td><td class="num est">≈ KES 980,000</td><td class="num">—</td><td><span class="chip info">Submitted</span></td></tr>
+              <tr class="row-ok"><td class="num">BV-12.02</td><td>Noor Partners · QA sprint</td><td>P. Njeri</td><td class="num">2026-04-17</td><td class="num">KES 1,060,000</td><td class="num" style="color: var(--success-soft-foreground);">▲ 0.4%</td><td><span class="chip success">Approved</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+<script>window.addEventListener('DOMContentLoaded', () => lucide.createIcons());</script>
+</body></html>

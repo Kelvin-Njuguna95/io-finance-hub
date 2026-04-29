@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Icon tile pattern</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  body { margin: 0; padding: 22px; background: var(--surface-2); font-family: var(--font-sans); color: var(--foreground); }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 8px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); }
+  .tile {
+    display: inline-flex; width: 40px; height: 40px; border-radius: var(--radius);
+    align-items: center; justify-content: center;
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 25%, transparent);
+  }
+  .tile svg { width: 20px; height: 20px; stroke-width: 1.75; }
+  .t-brand   { background: color-mix(in oklab, var(--primary) 10%, white); color: var(--primary); }
+  .t-success { background: var(--success-soft); color: var(--success-soft-foreground); }
+  .t-warning { background: var(--warning-soft); color: var(--warning-soft-foreground); }
+  .t-danger  { background: var(--danger-soft);  color: var(--danger-soft-foreground); }
+  .t-info    { background: var(--info-soft);    color: var(--info-soft-foreground); }
+  .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted-foreground); font-weight: 600; }
+
+  .sizes { margin-top: 14px; display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; }
+  .sizes .s { display: inline-flex; border-radius: var(--radius); background: var(--primary-soft); color: var(--primary); align-items: center; justify-content: center; }
+  .sizes .s svg { stroke-width: 1.75; }
+  .s-28 { width: 28px; height: 28px; } .s-28 svg { width: 14px; height: 14px; }
+  .s-32 { width: 32px; height: 32px; } .s-32 svg { width: 16px; height: 16px; }
+  .s-36 { width: 36px; height: 36px; } .s-36 svg { width: 18px; height: 18px; }
+  .s-40 { width: 40px; height: 40px; } .s-40 svg { width: 20px; height: 20px; }
+  .meta { margin-left: auto; font-size: 11px; color: var(--muted-foreground); font-family: var(--font-mono); }
+</style>
+</head><body>
+  <div class="grid">
+    <div class="cell"><span class="tile t-brand"><i data-lucide="clipboard-list"></i></span><span class="label">brand</span></div>
+    <div class="cell"><span class="tile t-success"><i data-lucide="check-circle-2"></i></span><span class="label">success</span></div>
+    <div class="cell"><span class="tile t-warning"><i data-lucide="triangle-alert"></i></span><span class="label">warning</span></div>
+    <div class="cell"><span class="tile t-danger"><i data-lucide="shield-alert"></i></span><span class="label">danger</span></div>
+    <div class="cell"><span class="tile t-info"><i data-lucide="file-text"></i></span><span class="label">info</span></div>
+  </div>
+  <div class="sizes">
+    <span class="s s-28"><i data-lucide="wallet"></i></span>
+    <span class="s s-32"><i data-lucide="wallet"></i></span>
+    <span class="s s-36"><i data-lucide="wallet"></i></span>
+    <span class="s s-40"><i data-lucide="wallet"></i></span>
+    <span class="meta">28 · 32 · 36 · 40 px</span>
+  </div>
+  <script>lucide.createIcons();</script>
+</body></html>

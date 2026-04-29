@@ -1,0 +1,331 @@
+/* ========================================================================
+   IO Finance Hub — colors_and_type.css
+   Brand system sourced from impactoutsourcing.co.ke (uploaded pages).
+   Editorial paper / ink / gold. Fraunces + Geist + Geist Mono.
+   oklch used where ramps benefit; hex used where brand values are literal.
+   Light-only.
+   ======================================================================== */
+
+/* ---------- Fonts ----------
+   Fraunces  — display serif (opsz 9..144, weights 300–700, live italic)
+   Geist     — body sans (300–700)
+   Geist Mono — numeric / metadata (400/500)
+*/
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap");
+
+:root {
+  color-scheme: light;
+
+  /* ========== BRAND LITERALS (from the site) ========== */
+  /* Signature gold — the single saturated colour in the system */
+  --gold:        #C8A24B;
+  --gold-hi:     #D7B368;
+  --gold-lo:     #A8863A;
+  --gold-soft:   #F3E7C6;
+  --gold-foreground: #111210;
+
+  /* Paper — warm off-white canvas */
+  --paper:       #FAFAF7;
+  --paper-2:     #F4F2EC;
+  --paper-3:     #ECE8DE;
+  --paper-4:     #DFDACB;
+
+  /* Ink — deep warm-black with a faint gold undertone */
+  --ink:         #111210;
+  --ink-2:       #1C1D1A;
+  --ink-3:       #2A2B27;
+  --ink-4:       #3B3C37;
+
+  /* Warm greys — mid-tone ramp between paper and ink */
+  --warm-grey:   #8A877D;
+  --warm-grey-2: #6E6B62;
+  --warm-grey-3: #4E4C45;
+
+  /* ========== NEUTRAL RAMP (10 stops; aliases onto paper → ink) ========== */
+  --neutral-50:  var(--paper);
+  --neutral-100: var(--paper-2);
+  --neutral-200: var(--paper-3);
+  --neutral-300: var(--paper-4);
+  --neutral-400: var(--warm-grey);
+  --neutral-500: var(--warm-grey-2);
+  --neutral-600: var(--warm-grey-3);
+  --neutral-700: var(--ink-4);
+  --neutral-800: var(--ink-3);
+  --neutral-900: var(--ink);
+
+  /* ========== SURFACES ========== */
+  --background:     var(--paper);
+  --foreground:     var(--ink);
+  --surface-1:      var(--paper);
+  --surface-2:      var(--paper-2);
+  --surface-3:      var(--paper-3);
+  --surface-sunken: var(--paper-3);
+  --card:               var(--paper);
+  --card-foreground:    var(--ink);
+  --popover:            var(--paper);
+  --popover-foreground: var(--ink);
+
+  /* ========== BRAND ANCHOR — ink (primary UI surface anchor) ========== */
+  /* Primary maps to ink so buttons & solid fills read as authoritative editorial.
+     Gold is reserved as accent — see --accent below. */
+  --primary:                 var(--ink);
+  --primary-foreground:      var(--paper);
+  --primary-soft:            var(--paper-3);
+  --primary-soft-foreground: var(--ink);
+  --primary-hover:           var(--ink-2);
+  --primary-active:          #000000;
+
+  /* ========== NEUTRAL + ACCENT ALIASES (shadcn API preserved) ========== */
+  --secondary:            var(--paper-2);
+  --secondary-foreground: var(--ink);
+  --accent:               var(--gold);
+  --accent-foreground:    var(--ink);
+  --accent-soft:          var(--gold-soft);
+  --muted:                var(--paper-2);
+  --muted-foreground:     var(--warm-grey-2);
+
+  /* ========== SEMANTIC ANCHORS (tuned to sit on warm paper) ========== */
+  /* Success — olive-leaning green, so it harmonises with gold */
+  --success:                 oklch(0.560 0.130 145);
+  --success-foreground:      var(--paper);
+  --success-soft:            color-mix(in oklab, var(--success) 12%, var(--paper));
+  --success-soft-foreground: oklch(0.330 0.095 145);
+  --success-hover:           color-mix(in oklab, var(--success) 93%, white);
+  --success-active:          color-mix(in oklab, var(--success) 93%, black);
+
+  /* Warning — warm amber (adjacent to brand gold, not identical) */
+  --warning:                 oklch(0.750 0.160 75);
+  --warning-foreground:      var(--ink);
+  --warning-soft:            color-mix(in oklab, var(--warning) 14%, var(--paper));
+  --warning-soft-foreground: oklch(0.350 0.115 75);
+  --warning-hover:           color-mix(in oklab, var(--warning) 93%, white);
+  --warning-active:          color-mix(in oklab, var(--warning) 93%, black);
+
+  /* Danger — muted editorial red */
+  --danger:                  oklch(0.530 0.175 28);
+  --danger-foreground:       var(--paper);
+  --danger-soft:             color-mix(in oklab, var(--danger) 12%, var(--paper));
+  --danger-soft-foreground:  oklch(0.330 0.145 28);
+  --danger-hover:            color-mix(in oklab, var(--danger) 93%, white);
+  --danger-active:           color-mix(in oklab, var(--danger) 93%, black);
+  --destructive:             var(--danger);
+  --destructive-foreground:  var(--danger-foreground);
+
+  /* Info — desaturated slate-blue (status only; never brand) */
+  --info:                    oklch(0.500 0.100 240);
+  --info-foreground:         var(--paper);
+  --info-soft:               color-mix(in oklab, var(--info) 12%, var(--paper));
+  --info-soft-foreground:    oklch(0.310 0.085 240);
+  --info-hover:              color-mix(in oklab, var(--info) 93%, white);
+  --info-active:             color-mix(in oklab, var(--info) 93%, black);
+
+  /* ========== CHROME ========== */
+  --border:        var(--paper-4);
+  --border-subtle: var(--paper-3);
+  --border-strong: var(--warm-grey);
+  --input:         var(--paper-3);
+  --ring:          var(--gold);                     /* gold focus ring on paper */
+
+  /* ========== CHART-ONLY ========== */
+  --electric:                 oklch(0.540 0.120 240);
+  --electric-foreground:      var(--paper);
+  --electric-soft:            color-mix(in oklab, var(--electric) 12%, var(--paper));
+  --electric-soft-foreground: oklch(0.330 0.100 240);
+  --gold-foreground-chart:    var(--ink);
+  --violet:                   oklch(0.560 0.160 300);
+  --violet-soft:              color-mix(in oklab, var(--violet) 12%, var(--paper));
+  --violet-soft-foreground:   oklch(0.330 0.130 300);
+  --teal:                     oklch(0.600 0.095 195);
+  --teal-soft:                color-mix(in oklab, var(--teal) 12%, var(--paper));
+  --teal-soft-foreground:     oklch(0.320 0.075 195);
+  --chart-1: var(--gold);
+  --chart-2: var(--ink);
+  --chart-3: var(--success);
+  --chart-4: var(--violet);
+  --chart-5: var(--teal);
+  --chart-6: var(--danger);
+
+  /* ========== RADII ========== */
+  --radius-sm:   0.25rem;   /* 4px */
+  --radius:      0.375rem;  /* 6px */
+  --radius-lg:   0.625rem;  /* 10px */
+  --radius-full: 9999px;
+
+  /* ========== ELEVATION ========== */
+  --shadow-overlay:
+    0 4px 16px -6px oklch(0 0 0 / 0.10),
+    0 1px 3px -1px oklch(0 0 0 / 0.06);
+
+  /* ========== MOTION ========== */
+  --ease-standard:    cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized:  cubic-bezier(0.3, 0, 0, 1);
+  --ease-decelerate:  cubic-bezier(0, 0, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+
+  /* ========== SIDEBAR (paper + gold accent) ========== */
+  --sidebar:                    var(--paper-2);
+  --sidebar-foreground:         var(--ink);
+  --sidebar-primary:            var(--gold);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent:             var(--gold-soft);
+  --sidebar-accent-foreground:  var(--ink);
+  --sidebar-border:             var(--paper-4);
+  --sidebar-ring:               var(--gold);
+
+  /* ========== TYPOGRAPHY ========== */
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-sans:    "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-mono:    "Geist Mono", "SF Mono", "Fira Code", Menlo, Consolas, monospace;
+
+  /* Type scale — min body 15px */
+  --text-xs:   0.6875rem; /* 11px — micro labels, eyebrows, meta */
+  --text-sm:   0.8125rem; /* 13px — secondary UI, table body */
+  --text-base: 0.9375rem; /* 15px — body (minimum readable) */
+  --text-md:   1rem;      /* 16px — preferred body */
+  --text-lg:   1.125rem;  /* 18px — emphasised body */
+  --text-xl:   1.375rem;  /* 22px — h3 / small display */
+  --text-2xl:  1.75rem;   /* 28px — h2 / display */
+  --text-3xl:  2.25rem;   /* 36px — h1 / editorial title */
+  --text-4xl:  3rem;      /* 48px — hero display */
+
+  --line-tight:   1.1;
+  --line-snug:    1.25;
+  --line-normal:  1.5;
+  --line-relaxed: 1.65;
+
+  --tracking-display: -0.02em;
+  --tracking-tight:   -0.01em;
+  --tracking-normal:  0;
+  --tracking-wide:    0.08em;
+  --tracking-wider:   0.14em;
+  --tracking-widest:  0.22em;
+}
+
+/* ---------- Base ---------- */
+html { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+body { background: var(--background); color: var(--foreground); font-size: var(--text-md); line-height: var(--line-normal); }
+
+/* ---------- Semantic type classes ---------- */
+.t-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--muted-foreground);
+}
+.t-display {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: 400;
+  line-height: var(--line-tight);
+  letter-spacing: var(--tracking-display);
+  color: var(--foreground);
+  font-variation-settings: "opsz" 96;
+}
+.t-h1 {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: 400;
+  line-height: var(--line-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--foreground);
+  font-variation-settings: "opsz" 72;
+}
+.t-h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 400;
+  line-height: var(--line-snug);
+  letter-spacing: var(--tracking-tight);
+  color: var(--foreground);
+  font-variation-settings: "opsz" 48;
+}
+.t-h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 500;
+  line-height: var(--line-snug);
+  color: var(--foreground);
+  font-variation-settings: "opsz" 24;
+}
+.t-h-sans {
+  /* sans alternative for dense UI headers */
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: var(--line-snug);
+  letter-spacing: var(--tracking-tight);
+  color: var(--foreground);
+}
+.t-body {
+  font-size: var(--text-md);
+  font-weight: 400;
+  line-height: var(--line-normal);
+  color: var(--foreground);
+}
+.t-body-sm {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: var(--line-normal);
+  color: var(--foreground);
+}
+.t-lead {
+  font-size: var(--text-lg);
+  font-weight: 300;
+  line-height: var(--line-relaxed);
+  color: var(--warm-grey-3);
+}
+.t-muted {
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+.t-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+.t-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+/* Editorial italic — reserved for the one accented phrase inside a headline */
+.t-accent-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--gold-lo);
+}
+/* The one permitted italic role in data: revenueEstimated @ ≤14px table cells */
+.t-estimated {
+  font-style: italic;
+}
+.t-kpi {
+  font-family: var(--font-mono);
+  font-size: var(--text-3xl);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+}
+
+/* ---------- Focus ring (gold on paper) ---------- */
+:focus-visible { outline: none; }
+:where(a, button, [role="button"], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

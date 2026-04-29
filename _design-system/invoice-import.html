@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Finance Hub · Backdate import</title>
+<link rel="stylesheet" href="IO Finance Hub/_design-system/colors_and_type.css" />
+<link rel="stylesheet" href="app-shell.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  /* Stepper at the top */
+  .stepper {
+    display: flex; align-items: center; gap: 0; margin-bottom: 28px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 16px 22px;
+  }
+  .step { display: flex; align-items: center; gap: 10px; flex: 1; }
+  .step .num {
+    width: 26px; height: 26px; border-radius: 999px;
+    background: var(--paper-3); color: var(--muted-foreground);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    flex-shrink: 0;
+  }
+  .step.done .num { background: var(--ink); color: var(--paper); }
+  .step.active .num { background: var(--gold); color: var(--ink); box-shadow: 0 0 0 4px var(--gold-soft); }
+  .step .lbl {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted-foreground);
+  }
+  .step.done .lbl { color: var(--warm-grey-3); }
+  .step.active .lbl { color: var(--ink); }
+  .step .ttl { font-size: 13px; color: var(--ink); margin-left: 6px; }
+  .step.done .ttl { color: var(--warm-grey-3); }
+  .step .bar { flex: 1; height: 1.5px; background: var(--border-subtle); margin: 0 14px; }
+  .step.done .bar { background: var(--ink); }
+
+  /* Match table — staged imports */
+  .match-table { width: 100%; border-collapse: collapse; }
+  .match-table thead th {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+    text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border-subtle);
+  }
+  .match-table thead th.right { text-align: right; }
+  .match-table tbody td {
+    padding: 14px 12px; border-bottom: 1px solid var(--border-subtle);
+    font-size: 13px; color: var(--ink); vertical-align: middle;
+  }
+  .match-table tbody td.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .match-table tbody td.right { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .match-table tbody tr.matched { background: oklch(0.97 0.02 145 / 0.5); }
+  .match-table tbody tr.warn { background: var(--gold-soft); }
+  .match-table tbody tr.unmatched { background: var(--danger-soft); }
+
+  /* Confidence pill */
+  .conf {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    padding: 3px 9px; border-radius: var(--radius-full);
+    text-transform: uppercase; letter-spacing: 0.10em;
+  }
+  .conf.high { background: var(--success-soft); color: var(--success-soft-foreground); }
+  .conf.med { background: var(--gold-soft); color: var(--gold-lo); }
+  .conf.low { background: var(--danger-soft); color: var(--danger); }
+
+  /* Source pill (file) */
+  .src-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--paper-2); padding: 4px 10px; border-radius: var(--radius);
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--ink);
+    border: 1px solid var(--border-subtle); text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .src-pill [data-lucide] { width: 11px; height: 11px; stroke-width: 1.75; color: var(--gold-lo); }
+
+  /* Big import-summary KPI */
+  .imp-strip {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px;
+  }
+  .imp-strip .stat {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 18px 20px;
+  }
+  .imp-strip .stat.match { border-left: 3px solid var(--success); }
+  .imp-strip .stat.warn { border-left: 3px solid var(--gold); }
+  .imp-strip .stat.miss { border-left: 3px solid var(--danger); }
+  .imp-strip .stat .lbl {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+  }
+  .imp-strip .stat .val {
+    font-family: var(--font-mono); font-size: 26px; font-weight: 500;
+    color: var(--ink); margin-top: 12px; font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em; line-height: 1;
+  }
+  .imp-strip .stat .sub { margin-top: 8px; font-size: 12px; color: var(--warm-grey-3); }
+
+  /* Frame around the table */
+  .table-frame {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+  }
+  .table-frame .head-bar {
+    padding: 16px 20px; border-bottom: 1px solid var(--border-subtle);
+    display: flex; align-items: center; gap: 14px;
+    background: var(--paper-2);
+  }
+  .table-frame .head-bar .ttl {
+    font-family: var(--font-display); font-size: 15px; font-weight: 500; color: var(--ink);
+    letter-spacing: -0.01em; font-variation-settings: "opsz" 28;
+  }
+  .table-frame .head-bar .meta {
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground);
+    text-transform: uppercase; letter-spacing: 0.10em;
+  }
+
+  /* Disclosure note */
+  .disclose {
+    background: var(--gold-soft); border: 1px solid var(--gold);
+    border-radius: var(--radius-lg); padding: 18px 22px;
+    display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: flex-start;
+    margin-bottom: 22px;
+  }
+  .disclose .icon-tile {
+    width: 36px; height: 36px; border-radius: var(--radius);
+    background: var(--card); color: var(--gold-lo);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .disclose .icon-tile [data-lucide] { width: 17px; height: 17px; stroke-width: 1.75; }
+  .disclose .head {
+    font-family: var(--font-display); font-size: 15px; font-weight: 500; color: var(--ink);
+    margin: 0; font-variation-settings: "opsz" 28; letter-spacing: -0.01em;
+  }
+  .disclose p { margin: 4px 0 0; font-size: 12.5px; color: var(--warm-grey-3); line-height: 1.55; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="side">
+    <div class="brand">
+      <span class="tile">IO</span>
+      <span><span class="eye">Impact Outsourcing</span><span class="title">Finance Hub</span></span>
+    </div>
+    <div class="group-label">Operations</div>
+    <a class="nav-item" href="dashboard.html"><i data-lucide="layout-dashboard"></i>Home</a>
+    <a class="nav-item" href="budgets.html"><i data-lucide="clipboard-list"></i>Budgets <span class="count gold">7</span></a>
+    <a class="nav-item" href="expenses.html"><i data-lucide="receipt"></i>Expenses <span class="count gold">14</span></a>
+    <a class="nav-item active" href="invoices.html"><i data-lucide="file-text"></i>Invoices <span class="count danger">2</span></a>
+    <a class="nav-item" href="withdrawals.html"><i data-lucide="arrow-down-to-line"></i>Withdrawals</a>
+    <a class="nav-item" href="profit-share.html"><i data-lucide="piggy-bank"></i>Profit share</a>
+    <div class="group-label">Reports</div>
+    <a class="nav-item" href="#"><i data-lucide="trending-up"></i>Monthly P&amp;L</a>
+    <a class="nav-item" href="#"><i data-lucide="flag"></i>Red flags <span class="count danger">3</span></a>
+    <a class="nav-item" href="#"><i data-lucide="inbox"></i>EOD reports</a>
+    <a class="nav-item" href="#"><i data-lucide="users"></i>Agent counts</a>
+    <div class="group-label">System</div>
+    <a class="nav-item" href="#"><i data-lucide="shield-check"></i>Audit trail</a>
+    <a class="nav-item" href="#"><i data-lucide="settings"></i>Settings</a>
+    <div class="spacer"></div>
+    <div class="closure-card">
+      <div class="eye">Month closure</div>
+      <div class="head">April 2026<br/><em>in progress</em></div>
+      <div class="progress"><span></span></div>
+      <div class="body">9 of 12 sign-offs complete · 3 days to lock</div>
+      <button class="btn-gold">Open closure</button>
+    </div>
+  </aside>
+
+  <div>
+    <header class="topbar">
+      <nav class="crumbs">
+        <a class="home" href="dashboard.html"><i data-lucide="home"></i></a>
+        <span class="sep">/</span>
+        <a href="invoices.html">Invoices</a>
+        <span class="sep">/</span>
+        <span class="here">Backdate import</span>
+      </nav>
+      <div class="spacer"></div>
+      <div class="search"><i data-lucide="search"></i><input placeholder="Search…" /><span class="kbd">⌘ K</span></div>
+      <button class="icon-btn"><i data-lucide="bell"></i><span class="dot gold"></span></button>
+      <div class="user-chip">
+        <span class="av">AM</span>
+        <div><div class="nm">Anne Mburu</div><div class="role">CFO</div></div>
+        <i data-lucide="chevron-down"></i>
+      </div>
+    </header>
+
+    <main class="page">
+
+      <div class="page-head">
+        <div class="titles">
+          <div class="eye">Invoices · Import</div>
+          <h1>Backdate <em>historical invoices</em></h1>
+          <p class="subtitle">
+            Source <span class="num">bank-receipts-jan-mar-2026.csv</span> <span class="sep">·</span>
+            <span class="num">87 rows</span> <span class="sep">·</span>
+            uploaded by <span class="num">A. Mburu</span> 4 mins ago
+          </p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-quiet"><i data-lucide="x"></i>Cancel</button>
+          <button class="btn btn-ghost"><i data-lucide="arrow-left"></i>Back</button>
+          <button class="btn btn-primary"><i data-lucide="upload"></i>Import 71 matched</button>
+        </div>
+      </div>
+
+      <!-- Stepper -->
+      <div class="stepper">
+        <div class="step done">
+          <span class="num"><i data-lucide="check" style="width:13px;height:13px;stroke-width:2.5;"></i></span>
+          <span class="lbl">01</span><span class="ttl">Upload CSV</span>
+        </div>
+        <div class="bar" style="background: var(--ink);"></div>
+        <div class="step done">
+          <span class="num"><i data-lucide="check" style="width:13px;height:13px;stroke-width:2.5;"></i></span>
+          <span class="lbl">02</span><span class="ttl">Map columns</span>
+        </div>
+        <div class="bar" style="background: var(--ink);"></div>
+        <div class="step active">
+          <span class="num">3</span>
+          <span class="lbl">03</span><span class="ttl">Review matches</span>
+        </div>
+        <div class="bar"></div>
+        <div class="step">
+          <span class="num">4</span>
+          <span class="lbl">04</span><span class="ttl">Confirm &amp; backdate</span>
+        </div>
+      </div>
+
+      <!-- Disclose / consequence -->
+      <div class="disclose">
+        <div class="icon-tile"><i data-lucide="alert-triangle"></i></div>
+        <div>
+          <h3 class="head">Backdated entries are flagged in the audit trail</h3>
+          <p>
+            Importing creates invoice records dated in the past, which alters historical P&amp;L. Each row will be tagged
+            <span style="font-family: var(--font-mono); color: var(--ink); background: var(--card); padding: 1px 6px; border-radius: 3px; border: 1px solid var(--border-subtle); font-size: 11.5px;">backdated</span>,
+            authored to <strong style="color: var(--ink); font-weight: 500;">A. Mburu</strong>, and locked once a month it lands in is closed.
+            Months currently locked: <strong style="color: var(--ink); font-weight: 500;">Jan, Feb 2026</strong> &mdash; rows in those months will be staged for unlock approval.
+          </p>
+        </div>
+      </div>
+
+      <!-- Import strip -->
+      <div class="imp-strip">
+        <div class="stat match">
+          <div class="lbl">Auto-matched</div>
+          <div class="val">71 / 87</div>
+          <div class="sub">High confidence on amount + client + date</div>
+        </div>
+        <div class="stat warn">
+          <div class="lbl">Need review</div>
+          <div class="val">12 rows</div>
+          <div class="sub">Ambiguous client or partial-match amount</div>
+        </div>
+        <div class="stat miss">
+          <div class="lbl">No match</div>
+          <div class="val">4 rows</div>
+          <div class="sub">No invoice candidate · skip or create</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Total to import · KES</div>
+          <div class="val">12,420,800</div>
+          <div class="sub">Spans Jan → Mar 2026 · 3 clients</div>
+        </div>
+      </div>
+
+      <!-- Match table -->
+      <div class="table-frame">
+        <div class="head-bar">
+          <span class="ttl">Match review</span>
+          <span class="meta">87 rows · sorted by confidence</span>
+          <span class="spacer" style="flex:1;"></span>
+          <button class="btn btn-ghost btn-sm"><i data-lucide="filter"></i>Filter</button>
+          <button class="btn btn-ghost btn-sm"><i data-lucide="check-check"></i>Approve all matched</button>
+        </div>
+
+        <table class="match-table">
+          <thead>
+            <tr>
+              <th style="width: 38px;"><input type="checkbox" /></th>
+              <th>Bank receipt</th>
+              <th>Match</th>
+              <th>Client</th>
+              <th>Date</th>
+              <th class="right">Amount · KES</th>
+              <th>Confidence</th>
+              <th style="width: 130px;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+
+            <!-- Auto-matched, high confidence -->
+            <tr class="matched">
+              <td><input type="checkbox" checked /></td>
+              <td>
+                <div class="src-pill"><i data-lucide="file-down"></i>Row 14</div>
+                <div style="font-size: 11.5px; color: var(--warm-grey-3); margin-top: 6px;">Ref: <span style="font-family: var(--font-mono); color: var(--ink);">SCB-MAR28-7741</span></div>
+              </td>
+              <td>
+                <a href="invoice-detail.html" style="font-family: var(--font-mono); font-size: 12px; color: var(--gold-lo); border-bottom: 1px solid var(--gold);">INV-2026-03-0118</a>
+                <div style="font-size: 11.5px; color: var(--warm-grey-3); margin-top: 4px;">Helios CX · March retainer</div>
+              </td>
+              <td>Helios CX Inc</td>
+              <td class="mono">28 Mar 2026</td>
+              <td class="right">2,820,000</td>
+              <td><span class="conf high"><i data-lucide="check" style="width:11px;height:11px;"></i>98%</span></td>
+              <td>
+                <span class="status success" style="padding: 2px 8px; font-size: 10.5px;">Will import</span>
+              </td>
+            </tr>
+
+            <tr class="matched">
+              <td><input type="checkbox" checked /></td>
+              <td>
+                <div class="src-pill"><i data-lucide="file-down"></i>Row 22</div>
+                <div style="font-size: 11.5px; color: var(--warm-grey-3); margin-top: 6px;">Ref: <span style="font-family: var(--font-mono); color: var(--ink);">SCB-MAR15-6620</span></div>
+              </td>
+              <td>
+                <a href="#" style="font-family: var(--font-mono); font-size: 12px; color: var(--gold-lo); border-bottom: 1px solid var(--gold);">INV-2026-02-0098</a>
+                <div style="font-size: 11.5px; color: var(--warm-grey-3); margin-top: 4px;">Meridian Care · Feb retainer</div>
+              </td>
+              <td>Meridian Care Ltd</td>
+              <td class="mono">15 Mar 2026</td>
+              <td class="right">1,729,000</td>
+              <td><span class="conf high"><i data-lucide="check" style="width:11px;height:11px;"></i>97%</span></td>
+              <td><span class="status success" style="padding: 2px 8px; font-size: 10.5px;">Will import</span></td>
+            </tr>
+
+            <tr class="matched">
+              <td><input type="checkbox" checked /></td>
+              <td>
+                <div class="src-pill"><i data-lucide="file-down"></i>Row 31</div>
+                <div style="font-size: 11.5px; color: var(--warm-grey-3); margin-top: 6px;">Ref: <span style="font-family: var(--font-mono); color: var(--ink);">SCB-MAR02-5201</span></div>
+              </td>
+              <td>
+                <a href="#" style="font-family: var(--font-mono); font-size: 12px; color: var(--gold-lo); border-bottom: 1px solid var(--gold);">INV-2026-02-0094</a>
+                <div style="font-size: 11.5px; color: var(--warm-grey-3); margin-top: 4px;">Ada Outbound · Feb setup</div>
+              </td>
+              <td>Ada Outbound LLC</td>
+              <td class="mono">02 Mar 2026</td>
+              <td class="right">820,000</td>
+              <td><span class="conf high"><i data-lucide="check" style="width:11px;height:11px;"></i>95%</span></td>
+              <td><span class="status success" style="padding: 2px 8px; font-size: 10.5px;">Will import</span></td>
+            </tr>
+
+            <!-- Needs review -->
+            <tr class="warn">
+              <td><input type="checkbox" /></td>
+              <td>
+                <div class="src-pill"><i data-lucide="file-down"></i>Row 47</div>
+                <div style="font-size: 11.5px; color: var(--warm-grey-3); margin-top: 6px;">Ref: <span style="font-family: var(--font-mono); color: var(--ink);">SCB-FEB18-4192</span></div>
+              </td>
+              <td>
+                <span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink);">2 candidates</span>
+                <div style="font-size: 11.5px; color: var(--warm-grey-3); margin-top: 4px;">INV-2026-01-0067 · INV-2026-01-0068</div>
+              </td>
+              <td>Helios CX Inc <span style="font-size: 11px; color: var(--warm-grey-3);">· partial</span></td>
+              <td class="mono">18 Feb 2026</td>
+              <td class="right">2,940,000</td>
+              <td><span class="conf med"><i data-lucide="alert-circle" style="width:11px;height:11px;"></i>62%</span></td>
+              <td><button class="btn btn-ghost btn-sm">Pick match</button></td>
+            </tr>
+
+            <tr class="warn">
+              <td><input type="checkbox" /></td>
+              <td>
+                <div class="src-pill"><i data-lucide="file-down"></i>Row 53</div>
+                <div style="font-size: 11.5px; color: var(--warm-grey-3); margin-top: 6px;">Ref: <span style="font-family: var(--font-mono); color: var(--ink);">SCB-FEB10-3877</span></div>
+              </td>
+              <td>
+                <span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink);">Amount diff KES 12K</span>
+                <div style="font-size: 11.5px; color: var(--warm-grey-3); margin-top: 4px;">Possible withholding deduction</div>
+              </td>
+              <td>Noor Partners</td>
+              <td class="mono">10 Feb 2026</td>
+              <td class="right">608,000</td>
+              <td><span class="conf med"><i data-lucide="alert-circle" style="width:11px;height:11px;"></i>71%</span></td>
+              <td><button class="btn btn-ghost btn-sm">Confirm</button></td>
+            </tr>
+
+            <!-- No match -->
+            <tr class="unmatched">
+              <td><input type="checkbox" /></td>
+              <td>
+                <div class="src-pill"><i data-lucide="file-down"></i>Row 64</div>
+                <div style="font-size: 11.5px; color: var(--warm-grey-3); margin-top: 6px;">Ref: <span style="font-family: var(--font-mono); color: var(--ink);">SCB-JAN30-2841</span></div>
+              </td>
+              <td>
+                <span style="font-family: var(--font-mono); font-size: 12px; color: var(--danger);">No candidate</span>
+                <div style="font-size: 11.5px; color: var(--warm-grey-3); margin-top: 4px;">No invoice exists for this amount</div>
+              </td>
+              <td>Unknown · "MEDCARE"</td>
+              <td class="mono">30 Jan 2026</td>
+              <td class="right">240,000</td>
+              <td><span class="conf low"><i data-lucide="x" style="width:11px;height:11px;"></i>—</span></td>
+              <td><button class="btn btn-ghost btn-sm">Create invoice</button></td>
+            </tr>
+
+            <tr class="unmatched">
+              <td><input type="checkbox" /></td>
+              <td>
+                <div class="src-pill"><i data-lucide="file-down"></i>Row 71</div>
+                <div style="font-size: 11.5px; color: var(--warm-grey-3); margin-top: 6px;">Ref: <span style="font-family: var(--font-mono); color: var(--ink);">SCB-JAN22-2188</span></div>
+              </td>
+              <td>
+                <span style="font-family: var(--font-mono); font-size: 12px; color: var(--danger);">No candidate</span>
+                <div style="font-size: 11.5px; color: var(--warm-grey-3); margin-top: 4px;">Likely refund · negative amount</div>
+              </td>
+              <td>Vega Collections</td>
+              <td class="mono">22 Jan 2026</td>
+              <td class="right" style="color: var(--danger);">− 38,000</td>
+              <td><span class="conf low"><i data-lucide="x" style="width:11px;height:11px;"></i>—</span></td>
+              <td><button class="btn btn-ghost btn-sm">Skip row</button></td>
+            </tr>
+
+          </tbody>
+        </table>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-top:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:11px;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:0.10em;">
+          <span>Showing 7 of 87 · 3 high · 2 review · 2 no match</span>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm">Prev<i data-lucide="chevron-left"></i></button>
+            <button class="btn btn-ghost btn-sm">Next<i data-lucide="chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sticky next -->
+      <div class="sticky-foot">
+        <span class="lhs">71 of 87 will import · 12 need review · 4 will be skipped</span>
+        <button class="btn btn-ghost"><i data-lucide="arrow-left"></i>Back to mapping</button>
+        <button class="btn btn-primary"><i data-lucide="arrow-right"></i>Continue · review locked months</button>
+      </div>
+
+    </main>
+  </div>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

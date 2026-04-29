@@ -1,0 +1,884 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Finance Hub · Expense approval queue</title>
+<link rel="stylesheet" href="IO Finance Hub/_design-system/colors_and_type.css" />
+<link rel="stylesheet" href="app-shell.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  /* Three-pane layout: queue list · focused expense · budget context */
+  .queue-grid {
+    display: grid;
+    grid-template-columns: 320px 1fr 360px;
+    gap: 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    min-height: 720px;
+  }
+
+  /* ===== Queue rail (left) ===== */
+  .q-rail { border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; }
+  .q-rail .q-head {
+    padding: 14px 16px; border-bottom: 1px solid var(--border-subtle);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--paper-2);
+  }
+  .q-rail .q-head .lbl {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+  }
+  .q-rail .q-head .ct {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    background: var(--gold); color: var(--ink);
+    padding: 2px 8px; border-radius: var(--radius-full);
+  }
+  .q-list { flex: 1; overflow: auto; }
+  .q-item {
+    padding: 14px 16px; border-bottom: 1px solid var(--border-subtle);
+    cursor: pointer; transition: background var(--dur-fast) var(--ease-standard);
+    border-left: 3px solid transparent;
+  }
+  .q-item:hover { background: var(--paper-2); }
+  .q-item.active {
+    background: var(--gold-soft); border-left-color: var(--gold);
+  }
+  .q-item .id {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--muted-foreground);
+    text-transform: uppercase; letter-spacing: 0.10em;
+  }
+  .q-item .title {
+    font-size: 13.5px; font-weight: 500; color: var(--ink);
+    margin-top: 4px; line-height: 1.3;
+  }
+  .q-item .meta {
+    font-size: 11.5px; color: var(--warm-grey-3); margin-top: 4px;
+  }
+  .q-item .row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 8px;
+  }
+  .q-item .amt {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+    color: var(--ink); font-variant-numeric: tabular-nums;
+  }
+  .q-item .age {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--muted-foreground);
+    text-transform: uppercase; letter-spacing: 0.10em;
+  }
+  .q-item .age.warn { color: var(--gold-lo); }
+  .q-item .age.danger { color: var(--danger); }
+
+  /* ===== Center pane: focused expense ===== */
+  .q-focus { padding: 28px 32px; overflow: auto; }
+  .q-focus .head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding-bottom: 18px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 22px;
+  }
+  .q-focus .head .id-line {
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground);
+    text-transform: uppercase; letter-spacing: 0.10em; display: flex; align-items: center; gap: 10px;
+  }
+  .q-focus .head h2 {
+    font-family: var(--font-display); font-weight: 500;
+    font-size: 26px; line-height: 1.2; margin: 6px 0 0;
+    letter-spacing: -0.015em; font-variation-settings: "opsz" 32;
+    color: var(--ink);
+  }
+  .q-focus .head h2 em { font-style: italic; color: var(--warm-grey-3); font-weight: 400; }
+
+  .focus-amt {
+    font-family: var(--font-mono); font-size: 36px; font-weight: 500;
+    color: var(--ink); font-variant-numeric: tabular-nums;
+    line-height: 1; letter-spacing: -0.01em; text-align: right;
+  }
+  .focus-amt .ccy {
+    font-size: 12px; color: var(--muted-foreground); margin-right: 8px; letter-spacing: 0.04em;
+  }
+  .focus-amt-sub {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--muted-foreground);
+    text-transform: uppercase; letter-spacing: 0.14em; margin-top: 8px; text-align: right;
+  }
+
+  /* Receipt preview */
+  .receipt {
+    background: var(--paper); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+    display: grid; grid-template-columns: 100px 1fr; gap: 18px; align-items: center;
+    margin-bottom: 22px;
+  }
+  .receipt .doc {
+    width: 100px; height: 130px; background: var(--card);
+    border: 1px solid var(--border-subtle); border-radius: var(--radius);
+    position: relative; overflow: hidden; box-shadow: var(--shadow-sm);
+    display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px;
+  }
+  .receipt .doc::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 8px;
+    background: linear-gradient(90deg, transparent 0 8px, var(--paper-3) 8px 16px, transparent 16px 24px, var(--paper-3) 24px 32px, transparent 32px 40px, var(--paper-3) 40px 48px, transparent 48px 56px, var(--paper-3) 56px 64px, transparent 64px 72px, var(--paper-3) 72px 80px, transparent 80px 88px, var(--paper-3) 88px 96px, transparent 96px 100px);
+  }
+  .receipt .doc [data-lucide] { width: 28px; height: 28px; stroke-width: 1.5; color: var(--warm-grey-3); }
+  .receipt .doc .lbl {
+    font-family: var(--font-mono); font-size: 9.5px; color: var(--muted-foreground);
+    text-transform: uppercase; letter-spacing: 0.14em;
+  }
+  .receipt .meta { display: flex; flex-direction: column; gap: 6px; }
+  .receipt .meta .filename {
+    font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); font-weight: 500;
+  }
+  .receipt .meta .props {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--muted-foreground);
+    text-transform: uppercase; letter-spacing: 0.10em;
+  }
+  .receipt .meta .actions { display: flex; gap: 8px; margin-top: 6px; }
+
+  /* Detail grid */
+  .detail-fields {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px 32px;
+    margin-bottom: 26px;
+  }
+  .detail-fields .lbl {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+    display: block; margin-bottom: 6px;
+  }
+  .detail-fields .val { font-size: 14px; color: var(--ink); }
+  .detail-fields .val.mono {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  }
+  .detail-fields a.val { color: var(--gold-lo); border-bottom: 1px solid var(--gold); padding-bottom: 1px; }
+
+  /* Section headers within focus pane */
+  .focus-sec {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+    margin: 28px 0 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .focus-sec::after { content: ""; flex: 1; height: 1px; background: var(--border-subtle); }
+
+  /* ===== Approval chain — the spine of the decision UI =====
+     Shows the lineage from submitter through every required reviewer,
+     with the current stage emphasized in gold. Sits above the action
+     buttons so the reviewer always sees: who came before me, where I am,
+     who's next. */
+  .chain {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 22px 20px;
+    margin-top: 28px;
+  }
+  .chain .chain-eye {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted-foreground);
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 16px;
+  }
+  .chain .chain-eye::after { content: ""; flex: 1; height: 1px; background: var(--border-subtle); }
+  .chain .chain-eye .stage {
+    color: var(--ink); font-weight: 500;
+    background: var(--gold-soft); border: 1px solid var(--gold);
+    padding: 3px 10px; border-radius: var(--radius-full);
+    letter-spacing: 0.10em;
+  }
+
+  .chain-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    position: relative;
+  }
+  .chain-step {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 4px 14px 4px 0;
+    position: relative;
+  }
+  .chain-step + .chain-step { padding-left: 14px; }
+  /* connector line between steps */
+  .chain-step::before {
+    content: ""; position: absolute;
+    top: 18px; left: 0; right: 0; height: 2px;
+    background: var(--paper-3); z-index: 0;
+  }
+  .chain-step:first-child::before { left: 18px; }
+  .chain-step:last-child::before { right: calc(100% - 18px); }
+  .chain-step.done::before { background: var(--ink); }
+  .chain-step.active::before { background: linear-gradient(90deg, var(--ink) 0%, var(--ink) 50%, var(--paper-3) 50%, var(--paper-3) 100%); }
+
+  .chain-step .marker {
+    position: relative; z-index: 1;
+    width: 38px; height: 38px; border-radius: var(--radius-full);
+    background: var(--paper-3); color: var(--warm-grey-3);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+    border: 2px solid var(--paper);
+    flex-shrink: 0;
+  }
+  .chain-step.done .marker { background: var(--ink); color: var(--gold); }
+  .chain-step.active .marker {
+    background: var(--gold); color: var(--ink);
+    box-shadow: 0 0 0 4px var(--gold-soft), 0 0 0 5px var(--gold);
+    animation: chainPulse 2s ease-in-out infinite;
+  }
+  @keyframes chainPulse {
+    0%, 100% { box-shadow: 0 0 0 4px var(--gold-soft), 0 0 0 5px var(--gold); }
+    50%      { box-shadow: 0 0 0 7px var(--gold-soft), 0 0 0 8px var(--gold); }
+  }
+  .chain-step .marker [data-lucide] { width: 16px; height: 16px; stroke-width: 2; }
+
+  .chain-step .role {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+  }
+  .chain-step.active .role { color: var(--gold-lo); }
+  .chain-step .nm { font-size: 13px; font-weight: 500; color: var(--ink); line-height: 1.2; }
+  .chain-step.pending .nm { color: var(--warm-grey-3); font-weight: 400; }
+  .chain-step .when {
+    font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground);
+    text-transform: uppercase; letter-spacing: 0.12em;
+  }
+  .chain-step.active .when { color: var(--ink); font-weight: 500; }
+
+  /* ===== Decision panel — note + actions, restructured ===== */
+  .decision {
+    background: var(--paper); border: 1px solid var(--border);
+    border-top: 0;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    padding: 22px 22px 20px;
+    margin-top: -1px;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .decision .field-label { margin-bottom: 6px; }
+  .decision .note-area textarea {
+    min-height: 76px; background: var(--card); border-color: var(--border);
+  }
+
+  /* Action buttons — large, distinct hierarchy. Three buttons:
+     reject (icon-only danger), ask for changes (secondary), approve
+     (dominant). 'Request revision' lives in the right-rail Approver
+     guidance card; we don't duplicate it here. */
+  .acts {
+    display: grid;
+    grid-template-columns: auto 1fr 1.5fr;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .acts .btn-act {
+    height: 48px; padding: 0 14px;
+    border-radius: var(--radius);
+    font-family: inherit; font-size: 13.5px; font-weight: 500;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border: 1px solid transparent;
+    transition: background var(--dur-fast) var(--ease-standard),
+                border-color var(--dur-fast) var(--ease-standard),
+                transform var(--dur-fast) var(--ease-standard);
+    cursor: pointer; line-height: 1;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .acts .btn-act .lbl {
+    overflow: hidden; text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .acts .btn-act [data-lucide] { width: 17px; height: 17px; stroke-width: 2; flex-shrink: 0; }
+  .acts .btn-act .lbl { font-weight: 500; }
+  .acts .btn-act .sub {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.10em;
+    opacity: 0.75; line-height: 1; margin-top: 4px;
+    text-align: left;
+  }
+  .acts .btn-act .stack { display: flex; flex-direction: column; gap: 0; align-items: flex-start; }
+  .acts .btn-act:hover { transform: translateY(-1px); }
+  .acts .btn-act:active { transform: translateY(0); }
+  .acts .btn-act .kbd {
+    margin-left: auto;
+    font-family: var(--font-mono); font-size: 10px;
+    border: 1px solid currentColor;
+    border-bottom-width: 2px;
+    border-radius: 3px;
+    padding: 2px 7px;
+    opacity: 0.7;
+    line-height: 1;
+    text-transform: none; letter-spacing: 0;
+  }
+
+  .btn-reject {
+    background: var(--card); color: var(--danger);
+    border-color: var(--danger-soft);
+    width: 56px; padding: 0;
+    justify-content: center;
+  }
+  .btn-reject:hover { background: var(--danger-soft); border-color: var(--danger); }
+  .btn-reject [data-lucide] { width: 19px; height: 19px; }
+
+  .btn-revise {
+    background: var(--card); color: var(--ink);
+    border-color: var(--border-strong);
+  }
+  .btn-revise:hover { background: var(--paper-2); border-color: var(--ink); }
+
+  .btn-escalate {
+    background: var(--paper-2); color: var(--gold-lo);
+    border-color: var(--gold);
+  }
+  .btn-escalate:hover { background: var(--gold-soft); }
+
+  .btn-approve {
+    background: var(--ink); color: var(--paper);
+    border-color: var(--ink);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(255,255,255,0.04);
+  }
+  .btn-approve:hover { background: var(--ink-2); border-color: var(--ink-2); }
+  .btn-approve .accent {
+    width: 6px; height: 6px; border-radius: 999px; background: var(--gold); flex-shrink: 0;
+  }
+  .btn-approve .next {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.10em;
+    color: var(--gold); line-height: 1; margin-top: 4px;
+  }
+
+  .decision .meta-line {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    font-family: var(--font-mono); font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: 0.10em; color: var(--muted-foreground);
+  }
+  .decision .meta-line .dot { width: 4px; height: 4px; background: var(--paper-4); border-radius: 999px; }
+  .decision .meta-line .who { color: var(--ink); font-weight: 500; }
+
+  /* ===== Right pane: budget context ===== */
+  .q-context {
+    background: var(--paper-2); border-left: 1px solid var(--border-subtle);
+    padding: 24px 22px; overflow: auto;
+    display: flex; flex-direction: column; gap: 22px;
+  }
+  .ctx-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 18px;
+  }
+  .ctx-card .lbl {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+    margin-bottom: 12px;
+  }
+  .ctx-card .head {
+    font-family: var(--font-display); font-size: 16px; font-weight: 500;
+    color: var(--ink); margin: 0 0 4px; font-variation-settings: "opsz" 28;
+    letter-spacing: -0.01em;
+  }
+  .ctx-card .desc {
+    font-size: 12.5px; color: var(--warm-grey-3); margin: 0;
+  }
+
+  /* Budget bullet pre/post */
+  .pp-bullet { margin-top: 16px; }
+  .pp-row {
+    display: flex; align-items: baseline; justify-content: space-between;
+    font-family: var(--font-mono); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.10em; color: var(--muted-foreground);
+    margin-bottom: 6px;
+  }
+  .pp-row .num { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .pp-row .num.over { color: var(--danger); }
+  .pp-track {
+    height: 8px; background: var(--paper-3); border-radius: 999px;
+    position: relative; overflow: hidden;
+  }
+  .pp-track .filled {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: var(--gold); border-radius: 999px;
+  }
+  .pp-track .added {
+    position: absolute; top: 0; bottom: 0;
+    background: var(--danger); border-radius: 0 999px 999px 0;
+  }
+  .pp-track .target {
+    position: absolute; top: -2px; bottom: -2px; width: 1.5px;
+    background: var(--ink); right: 0; border-radius: 1px;
+  }
+  .pp-foot {
+    margin-top: 10px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.10em;
+    display: flex; gap: 8px; align-items: center;
+  }
+  .pp-foot .swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+  .pp-foot .swatch.gold { background: var(--gold); }
+  .pp-foot .swatch.danger { background: var(--danger); }
+
+  /* Vendor history list */
+  .vendor-list { display: flex; flex-direction: column; gap: 10px; }
+  .vendor-list .vl-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--border-subtle);
+    font-size: 12.5px;
+  }
+  .vendor-list .vl-row:last-child { border-bottom: 0; }
+  .vendor-list .vl-row .when {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--muted-foreground);
+    text-transform: uppercase; letter-spacing: 0.10em;
+  }
+  .vendor-list .vl-row .amt {
+    font-family: var(--font-mono); color: var(--ink); font-variant-numeric: tabular-nums;
+  }
+
+  /* Keyboard hints footer */
+  .kb-hints {
+    padding: 12px 22px; background: var(--paper-2);
+    border-top: 1px solid var(--border-subtle);
+    display: flex; align-items: center; gap: 18px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted-foreground);
+  }
+  .kb-hints .kb {
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .kb-hints .kbd {
+    background: var(--card); border: 1px solid var(--border);
+    border-bottom-width: 2px; border-radius: 3px;
+    padding: 1px 6px; font-size: 10px; color: var(--ink);
+    text-transform: none; letter-spacing: 0;
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="side">
+    <div class="brand">
+      <span class="tile">IO</span>
+      <span><span class="eye">Impact Outsourcing</span><span class="title">Finance Hub</span></span>
+    </div>
+    <div class="group-label">Operations</div>
+    <a class="nav-item" href="dashboard.html"><i data-lucide="layout-dashboard"></i>Home</a>
+    <a class="nav-item" href="budgets.html"><i data-lucide="clipboard-list"></i>Budgets <span class="count gold">7</span></a>
+    <a class="nav-item active" href="expenses.html"><i data-lucide="receipt"></i>Expenses <span class="count gold">14</span></a>
+    <a class="nav-item" href="invoices.html"><i data-lucide="file-text"></i>Invoices</a>
+    <a class="nav-item" href="withdrawals.html"><i data-lucide="arrow-down-to-line"></i>Withdrawals</a>
+    <a class="nav-item" href="profit-share.html"><i data-lucide="piggy-bank"></i>Profit share</a>
+    <div class="group-label">Reports</div>
+    <a class="nav-item" href="#"><i data-lucide="trending-up"></i>Monthly P&amp;L</a>
+    <a class="nav-item" href="#"><i data-lucide="flag"></i>Red flags <span class="count danger">3</span></a>
+    <a class="nav-item" href="#"><i data-lucide="inbox"></i>EOD reports</a>
+    <a class="nav-item" href="#"><i data-lucide="users"></i>Agent counts</a>
+    <div class="group-label">System</div>
+    <a class="nav-item" href="#"><i data-lucide="shield-check"></i>Audit trail</a>
+    <a class="nav-item" href="#"><i data-lucide="settings"></i>Settings</a>
+    <div class="spacer"></div>
+    <div class="closure-card">
+      <div class="eye">Month closure</div>
+      <div class="head">April 2026<br/><em>in progress</em></div>
+      <div class="progress"><span></span></div>
+      <div class="body">9 of 12 sign-offs complete · 3 days to lock</div>
+      <button class="btn-gold">Open closure</button>
+    </div>
+  </aside>
+
+  <div>
+    <header class="topbar">
+      <nav class="crumbs">
+        <a class="home" href="dashboard.html"><i data-lucide="home"></i></a>
+        <span class="sep">/</span>
+        <a href="expenses.html">Expenses</a>
+        <span class="sep">/</span>
+        <span class="here">Approval queue</span>
+      </nav>
+      <div class="spacer"></div>
+      <div class="search">
+        <i data-lucide="search"></i>
+        <input placeholder="Search by ID, vendor, project, owner…" />
+        <span class="kbd">⌘ K</span>
+      </div>
+      <button class="icon-btn" aria-label="Notifications"><i data-lucide="bell"></i><span class="dot gold"></span></button>
+      <div class="user-chip">
+        <span class="av">AM</span>
+        <div><div class="nm">Anne Mburu</div><div class="role">CFO</div></div>
+        <i data-lucide="chevron-down"></i>
+      </div>
+    </header>
+
+    <main class="page">
+
+      <div class="page-head">
+        <div class="titles">
+          <div class="eye">Expenses · Approval queue</div>
+          <h1>Review expenses <em>· 14 awaiting</em></h1>
+          <p class="subtitle">
+            Total in queue <span class="num">KES&nbsp;412,000</span> <span class="sep">·</span>
+            Oldest <span class="num">3 days</span> <span class="sep">·</span>
+            <span class="num">3 of 14</span> impact an over-plan budget
+          </p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-ghost"><i data-lucide="filter"></i>Filter queue</button>
+          <button class="btn btn-ghost"><i data-lucide="check-check"></i>Bulk decide</button>
+        </div>
+      </div>
+
+      <div class="queue-grid">
+
+        <!-- LEFT: queue list -->
+        <div class="q-rail">
+          <div class="q-head">
+            <span class="lbl">Pending</span>
+            <span class="ct">14</span>
+          </div>
+          <div class="q-list">
+
+            <div class="q-item active">
+              <div class="id">EXP-05-14-0247 · 3 hrs</div>
+              <div class="title">Trainer overtime · weekend cohort 4</div>
+              <div class="meta">Meridian Care · J. Wanjiku</div>
+              <div class="row">
+                <span class="amt">KES 28,000</span>
+                <span class="age warn">over plan</span>
+              </div>
+            </div>
+
+            <div class="q-item">
+              <div class="id">EXP-05-14-0246 · 4 hrs</div>
+              <div class="title">Petty cash · office supplies</div>
+              <div class="meta">Internal admin · M. Ali</div>
+              <div class="row">
+                <span class="amt">KES 3,800</span>
+                <span class="age danger">no receipt</span>
+              </div>
+            </div>
+
+            <div class="q-item">
+              <div class="id">EXP-05-13-0243 · 21 hrs</div>
+              <div class="title">Onboarding kits · 18 agents</div>
+              <div class="meta">Meridian Care · J. Wanjiku</div>
+              <div class="row">
+                <span class="amt">KES 204,000</span>
+                <span class="age">on plan</span>
+              </div>
+            </div>
+
+            <div class="q-item">
+              <div class="id">EXP-05-13-0240 · 1d</div>
+              <div class="title">Headsets · Plantronics 320</div>
+              <div class="meta">Ada Outbound · K. Kiprono</div>
+              <div class="row">
+                <span class="amt">KES 56,000</span>
+                <span class="age">budget pending</span>
+              </div>
+            </div>
+
+            <div class="q-item">
+              <div class="id">EXP-05-13-0239 · 1d</div>
+              <div class="title">Cleaning services · Apr</div>
+              <div class="meta">Internal admin · M. Ali</div>
+              <div class="row">
+                <span class="amt">KES 18,000</span>
+                <span class="age">on plan</span>
+              </div>
+            </div>
+
+            <div class="q-item">
+              <div class="id">EXP-05-12-0234 · 2d</div>
+              <div class="title">Slack Pro renewal · Q2</div>
+              <div class="meta">Helios CX · D. Otieno</div>
+              <div class="row">
+                <span class="amt">KES 42,000</span>
+                <span class="age">on plan</span>
+              </div>
+            </div>
+
+            <div class="q-item">
+              <div class="id">EXP-05-12-0231 · 2d</div>
+              <div class="title">Travel · Mombasa site visit</div>
+              <div class="meta">Helios CX · D. Otieno</div>
+              <div class="row">
+                <span class="amt">KES 28,400</span>
+                <span class="age warn">no policy match</span>
+              </div>
+            </div>
+
+            <div class="q-item">
+              <div class="id">EXP-05-11-0226 · 3d</div>
+              <div class="title">Internet upgrade · Westlands</div>
+              <div class="meta">Internal admin · A. Mburu</div>
+              <div class="row">
+                <span class="amt">KES 32,000</span>
+                <span class="age danger">3d in queue</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- CENTER: focused expense -->
+        <div class="q-focus">
+          <div class="head">
+            <div>
+              <div class="id-line">
+                <span>EXP-05-14-0247</span>
+                <span style="color:var(--paper-4);">·</span>
+                <span class="status gold" style="padding:2px 8px;font-size:10.5px;">Pending review</span>
+                <span style="color:var(--paper-4);">·</span>
+                <span>Submitted 14 May, 11:47 EAT</span>
+              </div>
+              <h2>Trainer overtime · <em>weekend cohort 4</em></h2>
+            </div>
+            <div>
+              <div class="focus-amt"><span class="ccy">KES</span>28,000</div>
+              <div class="focus-amt-sub">Headcount · weekend rate × 14 hrs</div>
+            </div>
+          </div>
+
+          <!-- Receipt -->
+          <div class="receipt">
+            <div class="doc">
+              <i data-lucide="file-text"></i>
+              <span class="lbl">PDF</span>
+            </div>
+            <div class="meta">
+              <span class="filename">payroll-overtime-may-w2.pdf</span>
+              <span class="props">2 pages · 187 KB · uploaded by J. Wanjiku</span>
+              <div class="actions">
+                <button class="btn btn-ghost btn-sm"><i data-lucide="eye"></i>Preview</button>
+                <button class="btn btn-ghost btn-sm"><i data-lucide="download"></i>Download</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detail fields -->
+          <div class="detail-fields">
+            <div>
+              <span class="lbl">Project</span>
+              <div class="val">Meridian Care · Healthcare BPO</div>
+            </div>
+            <div>
+              <span class="lbl">Linked budget</span>
+              <a href="budget-detail.html" class="val">BUD-2026-Q2-MERI · Onboarding phase 2</a>
+            </div>
+            <div>
+              <span class="lbl">Budget line</span>
+              <div class="val">Trainer overtime <span style="color:var(--warm-grey-3);font-size:12.5px;">· headcount</span></div>
+            </div>
+            <div>
+              <span class="lbl">Vendor</span>
+              <div class="val">Internal payroll <span style="color:var(--warm-grey-3);font-size:12.5px;">· no external invoice</span></div>
+            </div>
+            <div>
+              <span class="lbl">Submitted by</span>
+              <div class="val" style="display:flex;align-items:center;gap:10px;">
+                <span class="avatar muted" style="width:28px;height:28px;font-size:10px;">JW</span>
+                <span>J. Wanjiku <span style="color:var(--warm-grey-3);font-size:12.5px;">· PM</span></span>
+              </div>
+            </div>
+            <div>
+              <span class="lbl">Payment method</span>
+              <div class="val mono">Payroll · 31 May cycle</div>
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <span class="lbl">Description</span>
+              <div class="val" style="line-height:1.55;">
+                Weekend training shifts (Sat–Sun, 7 hrs each) for the Meridian Care second onboarding cohort.
+                Two trainers @ KES 1,000 / hr × 14 hrs. Approved coverage per cohort plan.
+              </div>
+            </div>
+          </div>
+
+          <!-- Activity -->
+          <div class="focus-sec">Activity</div>
+          <div class="timeline">
+            <div class="tl-item">
+              <div class="tl-when">14 May · 11:47</div>
+              <div class="tl-body">
+                <span class="who">J. Wanjiku</span> <span class="verb">submitted</span> · attached
+                <a class="ref" href="#">payroll-overtime-may-w2.pdf</a>.
+              </div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-when">14 May · 11:48</div>
+              <div class="tl-body">
+                <span class="who">System</span> <span class="verb">flagged</span> · linked budget is
+                <a class="ref" href="budget-detail.html">BUD-2026-Q2-MERI</a> at
+                <span class="num">108% used</span>. CFO approval required.
+              </div>
+            </div>
+          </div>
+
+          <!-- Approval chain — the spine.
+               Submitter → PM → CFO (you) → Director sign-off.
+               'Active' state pulses in gold so the reviewer sees their
+               place in the queue. Pending steps stay quiet. -->
+          <div class="chain">
+            <div class="chain-eye">
+              Approval chain
+              <span class="stage">Stage 3 of 4 · your turn</span>
+            </div>
+            <div class="chain-row">
+              <div class="chain-step done">
+                <span class="marker"><i data-lucide="check"></i></span>
+                <span class="role">01 · Submitter</span>
+                <span class="nm">J. Wanjiku · PM</span>
+                <span class="when">14 May · 11:47</span>
+              </div>
+              <div class="chain-step done">
+                <span class="marker"><i data-lucide="check"></i></span>
+                <span class="role">02 · Project lead</span>
+                <span class="nm">L. Kimani · Ops lead</span>
+                <span class="when">14 May · 12:04</span>
+              </div>
+              <div class="chain-step active">
+                <span class="marker">3</span>
+                <span class="role">03 · CFO — your turn</span>
+                <span class="nm">A. Mburu</span>
+                <span class="when">Required · budget over 100%</span>
+              </div>
+              <div class="chain-step pending">
+                <span class="marker">4</span>
+                <span class="role">04 · Director sign-off</span>
+                <span class="nm">M. Otieno</span>
+                <span class="when">Auto-routed if approved</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Decision panel — note + actions.
+               Approve is the dominant button (filled black w/ gold accent
+               + 'next: Director' meta), Ask for changes is a confident
+               secondary, Reject sits as an icon-only danger button so the
+               irreversible action doesn't get clicked by accident. -->
+          <div class="decision">
+            <div class="meta-line">
+              <span>Reviewing as <span class="who">A. Mburu · CFO</span></span>
+              <span class="dot"></span>
+              <span>Decision will be logged to audit trail</span>
+              <span class="dot"></span>
+              <span>Approval auto-routes to <span class="who">M. Otieno</span></span>
+            </div>
+
+            <div class="note-area">
+              <label class="field-label">Note <span style="font-weight: 400; color: var(--warm-grey-3); font-size: 11px; margin-left: 6px; text-transform: none; letter-spacing: 0;">optional · visible to submitter and next reviewer</span></label>
+              <textarea class="textarea" placeholder="Reason, conditions, or context for the next reviewer—e.g. 'Approving this cohort, but PM should file a budget revision before Cohort 5.'"></textarea>
+            </div>
+
+            <div class="acts">
+              <button class="btn-act btn-reject" aria-label="Reject" title="Reject · R">
+                <i data-lucide="x"></i>
+              </button>
+              <button class="btn-act btn-revise" title="Ask for changes · C">
+                <i data-lucide="message-circle"></i>
+                <span class="lbl">Ask for changes</span>
+                <span class="kbd">C</span>
+              </button>
+              <button class="btn-act btn-approve" title="Approve · A">
+                <span class="accent"></span>
+                <i data-lucide="check"></i>
+                <span class="lbl">Approve · KES 28,000</span>
+                <span class="kbd">A</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: budget + vendor context -->
+        <div class="q-context">
+
+          <div class="ctx-card" style="border-color: var(--danger-soft);">
+            <div class="lbl" style="color: var(--danger);">Budget impact · approving this</div>
+            <div class="head">+ KES 28,000 over plan</div>
+            <p class="desc">
+              Trainer overtime is already 108% used. Approving this lifts utilisation to
+              <strong style="color:var(--ink);">112%</strong> of the line.
+            </p>
+
+            <div class="pp-bullet">
+              <div class="pp-row">
+                <span>Approved</span>
+                <span class="num">320,000</span>
+              </div>
+              <div class="pp-track">
+                <div class="filled" style="width: 100%;"></div>
+                <div class="added" style="left: 100%; width: 11%;"></div>
+                <div class="target"></div>
+              </div>
+              <div class="pp-foot">
+                <span><span class="swatch gold"></span> Already spent · 358K</span>
+                <span style="margin-left: auto;"><span class="swatch danger"></span> This expense · 28K</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ctx-card">
+            <div class="lbl">Linked budget</div>
+            <a href="budget-detail.html" style="text-decoration: none;">
+              <div class="head">BUD-2026-Q2-MERI</div>
+              <p class="desc">Onboarding phase 2 · Q2 2026</p>
+              <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.10em;">
+                <span>Owner · J. Wanjiku</span>
+                <span style="color: var(--gold-lo); border-bottom: 1px solid var(--gold);">Open</span>
+              </div>
+            </a>
+          </div>
+
+          <div class="ctx-card">
+            <div class="lbl">Recent · same line, last 30 days</div>
+            <div class="vendor-list">
+              <div class="vl-row">
+                <div>
+                  <div style="color: var(--ink);">Cohort 3 weekend</div>
+                  <span class="when">07 May · approved</span>
+                </div>
+                <span class="amt">28,000</span>
+              </div>
+              <div class="vl-row">
+                <div>
+                  <div style="color: var(--ink);">Cohort 2 weekend</div>
+                  <span class="when">30 Apr · approved</span>
+                </div>
+                <span class="amt">28,000</span>
+              </div>
+              <div class="vl-row">
+                <div>
+                  <div style="color: var(--ink);">Mid-week makeup</div>
+                  <span class="when">22 Apr · approved</span>
+                </div>
+                <span class="amt">14,000</span>
+              </div>
+              <div class="vl-row">
+                <div>
+                  <div style="color: var(--ink);">Cohort 1 weekend</div>
+                  <span class="when">16 Apr · approved</span>
+                </div>
+                <span class="amt">28,000</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ctx-card" style="background: var(--gold-soft); border-color: var(--gold);">
+            <div class="lbl" style="color: var(--gold-lo);">Approver guidance</div>
+            <p style="margin: 0; font-size: 12.5px; color: var(--ink); line-height: 1.55;">
+              Trainer overtime is the dominant driver of the variance on this budget. Consider approving
+              this expense and asking the PM to file a budget revision rather than rejecting case-by-case.
+            </p>
+            <button class="btn btn-ghost btn-sm" style="margin-top: 12px; background: var(--card);"><i data-lucide="pencil"></i>Request budget revision</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Keyboard hints -->
+      <div class="kb-hints" style="margin-top: 14px; border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); border-top: 1px solid var(--border-subtle);">
+        <span class="kb">Approve <span class="kbd">A</span></span>
+        <span class="kb">Reject <span class="kbd">R</span></span>
+        <span class="kb">Ask changes <span class="kbd">C</span></span>
+        <span class="kb">Next <span class="kbd">J</span></span>
+        <span class="kb">Previous <span class="kbd">K</span></span>
+        <span class="kb">Open budget <span class="kbd">B</span></span>
+        <span style="margin-left: auto;">Decisions are written to the audit trail immediately</span>
+      </div>
+
+    </main>
+  </div>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

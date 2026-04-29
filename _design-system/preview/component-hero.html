@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Hero surface · light variant</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  body { margin: 0; padding: 20px; background: var(--surface-2); font-family: var(--font-sans); color: var(--foreground); }
+  .hero {
+    position: relative; overflow: hidden;
+    border-radius: var(--radius-lg); padding: 22px 24px 22px;
+    background: var(--card); border: 1px solid var(--border);
+    display: grid; grid-template-columns: 1.1fr 2fr; gap: 20px; align-items: stretch;
+  }
+  /* soft decorative washes using only in-system colours */
+  .hero::before {
+    content: ""; position: absolute; right: -40px; top: -40px; width: 280px; height: 280px;
+    background: radial-gradient(circle, var(--success-soft) 0%, transparent 65%);
+    opacity: 0.6; pointer-events: none;
+  }
+  .hero::after {
+    content: ""; position: absolute; left: -60px; bottom: -80px; width: 320px; height: 320px;
+    background: radial-gradient(circle, var(--info-soft) 0%, transparent 65%);
+    opacity: 0.5; pointer-events: none;
+  }
+  .intro { position: relative; z-index: 1; }
+  .eye { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.22em; color: var(--muted-foreground); }
+  .title { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; margin-top: 6px; color: var(--foreground); }
+  .date  { font-size: 12.5px; color: var(--muted-foreground); margin-top: 8px; }
+  .greet {
+    margin-top: 14px; font-size: 13.5px; color: var(--foreground); max-width: 38ch;
+    line-height: 1.45;
+  }
+  .greet b { color: var(--primary); font-weight: 600; }
+
+  .tiles { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .tile {
+    position: relative; padding: 14px 14px 14px 16px;
+    border-radius: var(--radius-lg); background: var(--card);
+    border: 1px solid var(--border);
+  }
+  .tile::before {
+    content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0;
+  }
+  .tile.success::before { background: var(--success); }
+  .tile.warning::before { background: var(--warning); }
+  .tile.danger::before  { background: var(--danger); }
+
+  .tile-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .tile .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground); font-weight: 600; }
+  .tile .value { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; margin-top: 8px; line-height: 1.1; color: var(--foreground); }
+  .tile .sub { font-size: 11px; color: var(--muted-foreground); margin-top: 6px; line-height: 1.4; }
+
+  .icon {
+    width: 34px; height: 34px; border-radius: var(--radius);
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 22%, transparent);
+    flex-shrink: 0;
+  }
+  .icon svg { width: 17px; height: 17px; stroke-width: 1.75; }
+  .icon.success { background: var(--success-soft); color: var(--success-soft-foreground); }
+  .icon.warning { background: var(--warning-soft); color: var(--warning-soft-foreground); }
+  .icon.danger  { background: var(--danger-soft);  color: var(--danger-soft-foreground); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; margin-top: 8px;
+    border-radius: var(--radius-full); font-size: 10px; font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .pill.up   { background: var(--success-soft); color: var(--success-soft-foreground); }
+  .pill.warn { background: var(--warning-soft); color: var(--warning-soft-foreground); }
+  .pill.bad  { background: var(--danger-soft); color: var(--danger-soft-foreground); }
+</style>
+</head><body>
+  <section class="hero">
+    <div class="intro">
+      <div class="eye">Impact Outsourcing</div>
+      <div class="title">Finance Hub</div>
+      <div class="date">Tuesday, 21 April 2026 · 14:32 EAT</div>
+      <p class="greet">Good afternoon, <b>Anne</b>. You have 7 budget versions and 2 withdrawals waiting on your review this morning.</p>
+    </div>
+    <div class="tiles">
+      <div class="tile success">
+        <div class="tile-row">
+          <div>
+            <div class="label">Revenue · Apr</div>
+            <div class="value">KES 12.4M</div>
+            <span class="pill up">▲ 4.2% vs March</span>
+          </div>
+          <span class="icon success"><i data-lucide="wallet"></i></span>
+        </div>
+      </div>
+      <div class="tile warning">
+        <div class="tile-row">
+          <div>
+            <div class="label">Approval backlog</div>
+            <div class="value">7</div>
+            <span class="pill warn">Awaiting CFO review</span>
+          </div>
+          <span class="icon warning"><i data-lucide="clipboard-list"></i></span>
+        </div>
+      </div>
+      <div class="tile danger">
+        <div class="tile-row">
+          <div>
+            <div class="label">Red flags</div>
+            <div class="value">3</div>
+            <span class="pill bad">1 high · 2 medium</span>
+          </div>
+          <span class="icon danger"><i data-lucide="flag"></i></span>
+        </div>
+      </div>
+    </div>
+  </section>
+  <script>lucide.createIcons();</script>
+</body></html>

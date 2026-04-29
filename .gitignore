@@ -46,8 +46,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# design system (reference material, not shipped)
-_design-system/
+# Design system reference: track HTML/CSS/assets, skip nested uploads/screenshots
+_design-system/uploads/
+_design-system/scraps/
 
 # feature specs (reference material, not shipped)
 _feature-specs/

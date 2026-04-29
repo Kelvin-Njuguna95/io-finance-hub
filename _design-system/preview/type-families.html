@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Type — families</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  body { margin: 0; padding: 22px; background: var(--surface-2); }
+  .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; }
+  .label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted-foreground); }
+  .specimen { margin-top: 6px; font-size: 28px; line-height: 1; letter-spacing: -0.01em; color: var(--foreground); }
+  .meta { margin-top: 10px; font-size: 11px; color: var(--muted-foreground); }
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .sans { font-family: var(--font-sans); }
+</style>
+</head><body>
+  <div class="wrap">
+    <div class="card">
+      <div class="label">Fraunces · display · serif</div>
+      <div class="specimen" style="font-family: var(--font-display); font-weight: 400; font-variation-settings: 'opsz' 72;">Treasury, <em style="font-style: italic; color: var(--gold-lo); font-weight: 400;">calm.</em></div>
+      <div class="meta">300–700 · opsz 9..144 · live italic — <span style="font-family: var(--font-mono);">--font-display</span></div>
+    </div>
+    <div class="card">
+      <div class="label">Geist · body sans</div>
+      <div class="specimen sans" style="font-weight: 400; font-size: 22px;">Calm, disciplined, legible.</div>
+      <div class="specimen sans" style="font-weight: 600; font-size: 22px; margin-top: 4px;">Calm, disciplined, legible.</div>
+      <div class="meta">300 · 400 · 500 · 600 · 700 — <span style="font-family: var(--font-mono);">--font-sans</span></div>
+    </div>
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="label">Geist Mono · numeric &amp; metadata</div>
+      <div class="specimen mono" style="font-weight: 400;">KES 12,458,900</div>
+      <div class="specimen mono" style="font-weight: 500; margin-top: 4px;">INV-2026-0417 · 14:32 EAT</div>
+      <div class="meta">400 · 500 — <span style="font-family: var(--font-mono);">--font-mono</span></div>
+    </div>
+  </div>
+</body></html>

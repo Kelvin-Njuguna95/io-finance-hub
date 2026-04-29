@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Finance Hub · Request withdrawal</title>
+<link rel="stylesheet" href="IO Finance Hub/_design-system/colors_and_type.css" />
+<link rel="stylesheet" href="app-shell.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  /* Two-column form layout: form on left, live "consequence" panel on right */
+  .form-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 28px; align-items: flex-start; }
+
+  /* Form card */
+  .form-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 26px 30px;
+    display: flex; flex-direction: column; gap: 26px;
+  }
+  .form-card .card-eye {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted-foreground);
+    margin-bottom: -10px;
+  }
+  .form-card h3 {
+    margin: 0; font-family: var(--font-display); font-size: 17px; font-weight: 500;
+    letter-spacing: -0.005em; font-variation-settings: "opsz" 32;
+  }
+  .form-card h3 em { font-style: italic; color: var(--gold-lo); font-weight: 400; }
+
+  /* Director picker — selectable cards */
+  .director-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .director-card {
+    background: var(--paper); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px; cursor: pointer;
+    transition: border-color var(--dur-fast), background var(--dur-fast);
+    display: flex; flex-direction: column; gap: 10px;
+    position: relative;
+  }
+  .director-card:hover { border-color: var(--border-strong); }
+  .director-card.selected { border-color: var(--gold); background: var(--gold-soft); box-shadow: 0 0 0 1px var(--gold); }
+  .director-card .top { display: flex; align-items: center; gap: 10px; }
+  .director-card .av {
+    width: 32px; height: 32px; border-radius: var(--radius-full);
+    background: var(--gold); color: var(--ink);
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .director-card .nm { font-size: 13.5px; font-weight: 500; color: var(--ink); line-height: 1.2; }
+  .director-card .role { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.10em; margin-top: 3px; }
+  .director-card .equity { font-family: var(--font-mono); font-size: 11px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .director-card .equity .lbl { color: var(--muted-foreground); margin-right: 6px; text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; }
+  .director-card .check {
+    position: absolute; top: 10px; right: 10px;
+    width: 18px; height: 18px; border-radius: 999px;
+    background: var(--card); border: 1.5px solid var(--paper-4);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .director-card.selected .check { background: var(--ink); border-color: var(--ink); }
+  .director-card.selected .check::after {
+    content: ""; width: 8px; height: 8px; border-radius: 999px; background: var(--gold);
+  }
+
+  /* Method radio cards */
+  .method-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .method-card {
+    background: var(--paper); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; cursor: pointer; display: flex; gap: 14px; align-items: flex-start;
+    transition: border-color var(--dur-fast), background var(--dur-fast);
+    position: relative;
+  }
+  .method-card:hover { border-color: var(--border-strong); }
+  .method-card.selected { border-color: var(--ink); background: var(--paper); box-shadow: 0 0 0 1px var(--ink); }
+  .method-card .icon-tile {
+    width: 36px; height: 36px; border-radius: var(--radius);
+    background: var(--paper-2); color: var(--gold-lo);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .method-card .icon-tile [data-lucide] { width: 17px; height: 17px; stroke-width: 1.75; }
+  .method-card.cash .icon-tile { background: var(--gold-soft); color: var(--gold-lo); }
+  .method-card .nm { font-size: 14px; font-weight: 500; color: var(--ink); line-height: 1.2; }
+  .method-card .desc { font-size: 12px; color: var(--warm-grey-3); margin-top: 4px; line-height: 1.4; }
+  .method-card .req {
+    font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.10em;
+    color: var(--muted-foreground); margin-top: 8px;
+  }
+  .method-card.selected .req { color: var(--ink); }
+  .method-card.cash .req { color: var(--danger); }
+
+  /* Approvers section — derived from amount + method */
+  .approver-stack { display: flex; flex-direction: column; gap: 10px; }
+  .approver-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-subtle); border-radius: var(--radius);
+    background: var(--paper);
+  }
+  .approver-row .av {
+    width: 32px; height: 32px; border-radius: var(--radius-full);
+    background: var(--paper-3); color: var(--warm-grey-3);
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .approver-row .av.gold { background: var(--gold); color: var(--ink); }
+  .approver-row .nm { font-size: 13.5px; font-weight: 500; color: var(--ink); line-height: 1.2; }
+  .approver-row .role { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.10em; margin-top: 3px; }
+  .approver-row .why {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--muted-foreground);
+    text-transform: uppercase; letter-spacing: 0.10em; margin-left: auto;
+  }
+  .approver-row.required { border-color: var(--gold); background: var(--gold-soft); }
+  .approver-row.required .av.gold { box-shadow: 0 0 0 3px rgba(0,0,0,0.04); }
+  .approver-row.required .why { color: var(--gold-lo); }
+
+  /* Live consequence panel (sticky) */
+  .consequence {
+    background: var(--ink); color: var(--paper);
+    border-radius: var(--radius-lg);
+    padding: 24px 26px;
+    display: flex; flex-direction: column; gap: 22px;
+    position: sticky; top: 76px;
+  }
+  .consequence .eye {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.18em; color: var(--gold);
+  }
+  .consequence h3 {
+    margin: 6px 0 0; font-family: var(--font-display); font-size: 22px; font-weight: 400;
+    letter-spacing: -0.01em; line-height: 1.2; font-variation-settings: "opsz" 32;
+  }
+  .consequence h3 em { font-style: italic; color: var(--gold); font-weight: 400; }
+  .consequence .panel-sub { font-size: 12.5px; color: rgba(250,250,247,0.65); margin-top: 8px; line-height: 1.5; }
+
+  .ledger {
+    background: rgba(255,255,255,0.05); border-radius: var(--radius);
+    padding: 16px 18px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .ledger .row { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; }
+  .ledger .row .lbl {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.12em; color: rgba(250,250,247,0.5);
+  }
+  .ledger .row .val {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    font-size: 14px; color: var(--paper); font-weight: 500;
+  }
+  .ledger .row .val .ccy { font-size: 10px; color: rgba(250,250,247,0.5); margin-right: 5px; letter-spacing: 0.04em; }
+  .ledger .row.totalish { border-top: 1px solid rgba(255,255,255,0.10); padding-top: 12px; margin-top: 4px; }
+  .ledger .row.totalish .lbl { color: var(--gold); }
+  .ledger .row.totalish .val { font-size: 18px; }
+  .ledger .row .val.danger { color: oklch(0.78 0.15 25); }
+  .ledger .row .val.gold { color: var(--gold); }
+
+  /* Threshold rules */
+  .rules { display: flex; flex-direction: column; gap: 8px; }
+  .rules .rule {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 12px; color: rgba(250,250,247,0.78); line-height: 1.45;
+  }
+  .rules .rule [data-lucide] { width: 13px; height: 13px; stroke-width: 1.75; color: var(--gold); margin-top: 2px; flex-shrink: 0; }
+  .rules .rule.danger [data-lucide] { color: oklch(0.78 0.15 25); }
+  .rules .rule.danger { color: oklch(0.86 0.06 25); }
+  .rules .rule strong { color: var(--paper); font-weight: 500; }
+
+  /* Inline note styling for the optional note textarea */
+  .note-counter {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--muted-foreground);
+    text-transform: uppercase; letter-spacing: 0.12em; text-align: right; margin-top: 4px;
+  }
+
+  /* Big amount input — special-cased larger than the rest */
+  .amount-input {
+    height: 64px;
+    font-family: var(--font-mono); font-size: 28px; font-weight: 500;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+    padding-left: 64px;
+  }
+  .amount-input + .ccy-prefix {
+    font-size: 13px !important;
+    left: 18px !important;
+  }
+
+  /* Quarter chip strip — quick presets */
+  .preset-strip { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .preset-strip button {
+    height: 28px; padding: 0 12px; border-radius: var(--radius-full);
+    background: var(--paper-2); border: 1px solid var(--border);
+    font-family: var(--font-mono); font-size: 11px; color: var(--ink);
+    transition: background var(--dur-fast);
+  }
+  .preset-strip button:hover { background: var(--gold-soft); border-color: var(--gold); }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="side">
+    <div class="brand">
+      <span class="tile">IO</span>
+      <span><span class="eye">Impact Outsourcing</span><span class="title">Finance Hub</span></span>
+    </div>
+    <div class="group-label">Operations</div>
+    <a class="nav-item" href="dashboard.html"><i data-lucide="layout-dashboard"></i>Home</a>
+    <a class="nav-item" href="budgets.html"><i data-lucide="clipboard-list"></i>Budgets <span class="count gold">7</span></a>
+    <a class="nav-item" href="expenses.html"><i data-lucide="receipt"></i>Expenses <span class="count gold">14</span></a>
+    <a class="nav-item" href="invoices.html"><i data-lucide="file-text"></i>Invoices <span class="count danger">2</span></a>
+    <a class="nav-item active" href="withdrawals.html"><i data-lucide="arrow-down-to-line"></i>Withdrawals <span class="count danger">3</span></a>
+    <a class="nav-item" href="profit-share.html"><i data-lucide="piggy-bank"></i>Profit share</a>
+    <div class="group-label">Reports</div>
+    <a class="nav-item" href="#"><i data-lucide="trending-up"></i>Monthly P&amp;L</a>
+    <a class="nav-item" href="#"><i data-lucide="flag"></i>Red flags <span class="count danger">3</span></a>
+    <a class="nav-item" href="#"><i data-lucide="inbox"></i>EOD reports</a>
+    <a class="nav-item" href="#"><i data-lucide="users"></i>Agent counts</a>
+    <div class="group-label">System</div>
+    <a class="nav-item" href="#"><i data-lucide="shield-check"></i>Audit trail</a>
+    <a class="nav-item" href="#"><i data-lucide="settings"></i>Settings</a>
+    <div class="spacer"></div>
+    <div class="closure-card">
+      <div class="eye">Month closure</div>
+      <div class="head">April 2026<br/><em>in progress</em></div>
+      <div class="progress"><span></span></div>
+      <div class="body">9 of 12 sign-offs complete · 3 days to lock</div>
+      <button class="btn-gold">Open closure</button>
+    </div>
+  </aside>
+
+  <div>
+    <header class="topbar">
+      <nav class="crumbs">
+        <a class="home" href="dashboard.html"><i data-lucide="home"></i></a>
+        <span class="sep">/</span>
+        <a href="withdrawals.html">Withdrawals</a>
+        <span class="sep">/</span>
+        <span class="here">New request</span>
+      </nav>
+      <div class="spacer"></div>
+      <div class="search"><i data-lucide="search"></i><input placeholder="Search…" /><span class="kbd">⌘ K</span></div>
+      <button class="icon-btn"><i data-lucide="bell"></i><span class="dot gold"></span></button>
+      <div class="user-chip">
+        <span class="av">AM</span>
+        <div><div class="nm">Anne Mburu</div><div class="role">CFO</div></div>
+        <i data-lucide="chevron-down"></i>
+      </div>
+    </header>
+
+    <main class="page surface-2">
+
+      <!-- Page header -->
+      <div class="page-head">
+        <div class="titles">
+          <div class="eye">Withdrawals · New</div>
+          <h1>Request a <em>withdrawal</em></h1>
+          <p class="subtitle">
+            Director cash &amp; bank draws &mdash; require multi-signature approval. Operating account currently
+            <span class="num" style="color: var(--danger);">KES&nbsp;3.96M</span> available, with
+            <span class="num">KES&nbsp;218K</span> drift unresolved.
+          </p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-quiet"><i data-lucide="x"></i>Cancel</button>
+          <button class="btn btn-ghost">Save draft</button>
+        </div>
+      </div>
+
+      <!-- Two-column layout -->
+      <div class="form-grid">
+
+        <!-- LEFT: form -->
+        <div class="form-card">
+
+          <!-- Director -->
+          <div>
+            <span class="card-eye">Step 1</span>
+            <h3 style="margin-top: 6px;">Whose <em>equity</em> draws this from?</h3>
+            <p style="margin: 6px 0 14px; font-size: 13px; color: var(--warm-grey-3); line-height: 1.5;">
+              Withdrawals are drawn against an individual director's equity ledger. The other directors
+              must counter-sign before payout.
+            </p>
+            <div class="director-grid">
+              <div class="director-card selected">
+                <div class="check"></div>
+                <div class="top">
+                  <span class="av">MO</span>
+                  <div><div class="nm">M. Otieno</div><div class="role">Founder</div></div>
+                </div>
+                <div class="equity"><span class="lbl">equity</span>40% · KES 3.20M</div>
+              </div>
+              <div class="director-card">
+                <div class="check"></div>
+                <div class="top">
+                  <span class="av" style="background: oklch(0.55 0.10 245); color: var(--paper);">JK</span>
+                  <div><div class="nm">J. Kariuki</div><div class="role">Director</div></div>
+                </div>
+                <div class="equity"><span class="lbl">equity</span>35% · KES 2.40M</div>
+              </div>
+              <div class="director-card">
+                <div class="check"></div>
+                <div class="top">
+                  <span class="av" style="background: oklch(0.50 0.12 25); color: var(--paper);">SW</span>
+                  <div><div class="nm">S. Wambui</div><div class="role">Director</div></div>
+                </div>
+                <div class="equity"><span class="lbl">equity</span>25% · KES 1.80M</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Purpose / amount -->
+          <div>
+            <span class="card-eye">Step 2</span>
+            <h3 style="margin-top: 6px;">How much &amp; <em>what for</em>?</h3>
+
+            <div class="field" style="margin-top: 18px;">
+              <span class="field-label">Purpose</span>
+              <select class="select">
+                <option>Quarterly profit-share draw</option>
+                <option>Personal draw against equity</option>
+                <option>Director bonus · per board resolution</option>
+                <option>Reimbursement &mdash; out-of-pocket business expense</option>
+                <option>Petty cash float &mdash; field operations</option>
+                <option>Other &mdash; describe in note</option>
+              </select>
+              <span class="field-help">Profit-share draws are pre-checked against quarterly distributable cap.</span>
+            </div>
+
+            <div class="field" style="margin-top: 18px;">
+              <span class="field-label">Amount</span>
+              <div class="input-wrap">
+                <span class="ccy-prefix">KES</span>
+                <input type="text" class="input amount-input" value="820,000" />
+              </div>
+              <div class="preset-strip">
+                <button>10% of Q1 distributable</button>
+                <button>30% of Q1 distributable</button>
+                <button>Full distributable cap</button>
+                <button>Custom</button>
+              </div>
+              <span class="field-help">
+                Q1 distributable cap for M. Otieno: <strong style="color:var(--ink);">KES 1,200,000</strong>.
+                <span style="color: var(--success-soft-foreground); font-weight: 500;">Within cap · OK.</span>
+              </span>
+            </div>
+
+            <div class="field" style="margin-top: 18px;">
+              <span class="field-label">Effective date</span>
+              <div class="field-row cols-2">
+                <input type="text" class="input input-mono" value="14 May 2026" />
+                <select class="select">
+                  <option>Pay on approval</option>
+                  <option>Pay on 1st of next month</option>
+                  <option>Custom date</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Method -->
+          <div>
+            <span class="card-eye">Step 3</span>
+            <h3 style="margin-top: 6px;">Pay <em>by what method</em>?</h3>
+            <div class="method-grid" style="margin-top: 14px;">
+              <div class="method-card selected">
+                <span class="icon-tile"><i data-lucide="landmark"></i></span>
+                <div>
+                  <div class="nm">Bank transfer</div>
+                  <div class="desc">Routed via SCB operating account. Bank reference auto-recorded on settlement.</div>
+                  <div class="req">2 of 3 signatures · auto-reconciled</div>
+                </div>
+              </div>
+              <div class="method-card cash">
+                <span class="icon-tile"><i data-lucide="banknote"></i></span>
+                <div>
+                  <div class="nm">Cash withdrawal</div>
+                  <div class="desc">Drawn at branch and hand-recorded. No bank reference &mdash; risk of drift.</div>
+                  <div class="req">3 of 3 signatures · manual reconciliation required</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="field" style="margin-top: 18px;">
+              <span class="field-label">Destination account</span>
+              <select class="select">
+                <option>SCB · M. Otieno · acct ••3471 (default)</option>
+                <option>Equity Bank · M. Otieno · acct ••2204</option>
+                <option>Add new account…</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Approvers (auto-derived) -->
+          <div>
+            <span class="card-eye">Step 4</span>
+            <h3 style="margin-top: 6px;">Required <em>signatures</em></h3>
+            <p style="margin: 6px 0 14px; font-size: 13px; color: var(--warm-grey-3); line-height: 1.5;">
+              Auto-derived from amount and method. M. Otieno's signature is included as the requesting director.
+            </p>
+            <div class="approver-stack">
+              <div class="approver-row">
+                <span class="av gold">MO</span>
+                <div>
+                  <div class="nm">M. Otieno</div>
+                  <div class="role">Requesting director · 40%</div>
+                </div>
+                <span class="why">self &mdash; auto-signed</span>
+              </div>
+              <div class="approver-row required">
+                <span class="av gold">JK</span>
+                <div>
+                  <div class="nm">J. Kariuki</div>
+                  <div class="role">Director · 35%</div>
+                </div>
+                <span class="why">required · counter-sign</span>
+              </div>
+              <div class="approver-row">
+                <span class="av">SW</span>
+                <div>
+                  <div class="nm">S. Wambui</div>
+                  <div class="role">Director · 25%</div>
+                </div>
+                <span class="why">optional · 2 of 3 needed</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Note -->
+          <div>
+            <span class="card-eye">Optional</span>
+            <h3 style="margin-top: 6px;">Note to <em>co-directors</em></h3>
+            <textarea class="textarea" style="margin-top: 14px;" placeholder="Context the other directors should see when reviewing…">Q1 distributable closed 8 May. This is the 30% personal portion per our partnership agreement; remaining 70% stays in operating account.</textarea>
+            <div class="note-counter">182 / 500</div>
+          </div>
+
+        </div>
+
+        <!-- RIGHT: live consequence -->
+        <aside class="consequence">
+          <div>
+            <span class="eye">Impact preview</span>
+            <h3>This will draw <em>KES&nbsp;820,000</em> from operating bank to M. Otieno equity</h3>
+            <p class="panel-sub">Recalculates as you change amount, method, or director.</p>
+          </div>
+
+          <div class="ledger">
+            <div class="row">
+              <span class="lbl">Operating bank · before</span>
+              <span class="val"><span class="ccy">KES</span>3,964,000</span>
+            </div>
+            <div class="row">
+              <span class="lbl">This withdrawal</span>
+              <span class="val danger">− 820,000</span>
+            </div>
+            <div class="row">
+              <span class="lbl">Pending other approvals</span>
+              <span class="val gold">− 720,000</span>
+            </div>
+            <div class="row totalish">
+              <span class="lbl">If all approved</span>
+              <span class="val"><span class="ccy">KES</span>2,424,000</span>
+            </div>
+          </div>
+
+          <div class="ledger">
+            <div class="row">
+              <span class="lbl">M. Otieno equity ledger · before</span>
+              <span class="val"><span class="ccy">KES</span>3,200,000</span>
+            </div>
+            <div class="row">
+              <span class="lbl">This withdrawal</span>
+              <span class="val danger">− 820,000</span>
+            </div>
+            <div class="row totalish">
+              <span class="lbl">After payout</span>
+              <span class="val"><span class="ccy">KES</span>2,380,000</span>
+            </div>
+          </div>
+
+          <div>
+            <span class="eye" style="color: rgba(250,250,247,0.55);">Rules &amp; checks</span>
+            <div class="rules" style="margin-top: 12px;">
+              <div class="rule"><i data-lucide="check"></i><span><strong>Within Q1 cap</strong> &mdash; KES 820K of KES 1.20M distributable</span></div>
+              <div class="rule"><i data-lucide="check"></i><span><strong>Counter-sign rule</strong> &mdash; bank transfer needs 2 of 3 signatures</span></div>
+              <div class="rule"><i data-lucide="check"></i><span><strong>Operating runway</strong> &mdash; 47 days of payroll remain after this</span></div>
+              <div class="rule danger"><i data-lucide="alert-triangle"></i><span><strong>Bank drift</strong> &mdash; KES 218K reconciliation pending. Recommended to resolve first.</span></div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <button class="btn btn-gold" style="height: 42px;">
+              <i data-lucide="send"></i>Submit for counter-signature
+            </button>
+            <button class="btn" style="background: transparent; color: var(--gold); border-color: rgba(255,255,255,0.15); height: 36px;">
+              <i data-lucide="git-compare"></i>Reconcile drift first
+            </button>
+          </div>
+        </aside>
+
+      </div>
+
+    </main>
+  </div>
+</div>
+<script>
+  lucide.createIcons();
+
+  // Interactivity: select director / method cards
+  document.querySelectorAll('.director-grid').forEach(g => {
+    g.addEventListener('click', e => {
+      const card = e.target.closest('.director-card');
+      if (!card) return;
+      g.querySelectorAll('.director-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+    });
+  });
+  document.querySelectorAll('.method-grid').forEach(g => {
+    g.addEventListener('click', e => {
+      const card = e.target.closest('.method-card');
+      if (!card) return;
+      g.querySelectorAll('.method-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+    });
+  });
+</script>
+</body>
+</html>

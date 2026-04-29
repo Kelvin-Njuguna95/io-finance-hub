@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Stat card tiles</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  body { margin: 0; padding: 22px; background: var(--surface-2); font-family: var(--font-sans); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stat {
+    position: relative; overflow: hidden; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 16px 18px; padding-left: 20px;
+  }
+  .stat::before {
+    content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; opacity: 0.8;
+  }
+  .stat.brand::before { background: var(--primary); }
+  .stat.success::before { background: var(--success); }
+  .stat.warning::before { background: var(--warning); }
+  .stat.danger::before { background: var(--danger); }
+  .stat.info::before { background: var(--info); }
+
+  .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+  .label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted-foreground); }
+  .value {
+    font-family: var(--font-mono); font-size: 1.75rem; font-weight: 600; line-height: 1;
+    letter-spacing: -0.01em; font-variant-numeric: tabular-nums; color: var(--foreground); margin-top: 8px;
+  }
+  .sub { font-size: 11px; color: var(--muted-foreground); margin-top: 6px; }
+  .delta {
+    display: inline-flex; align-items: center; gap: 2px; padding: 2px 6px; border-radius: var(--radius-full);
+    font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; margin-right: 6px;
+  }
+  .d-up   { background: var(--success-soft); color: var(--success-soft-foreground); }
+  .d-down { background: var(--danger-soft); color: var(--danger-soft-foreground); }
+
+  .tile {
+    display: inline-flex; width: 36px; height: 36px; border-radius: var(--radius);
+    align-items: center; justify-content: center; flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 25%, transparent);
+  }
+  .tile.brand   { background: color-mix(in oklab, var(--primary) 10%, white); color: var(--primary); }
+  .tile.success { background: var(--success-soft); color: var(--success-soft-foreground); }
+  .tile.warning { background: var(--warning-soft); color: var(--warning-soft-foreground); }
+  .tile.danger  { background: var(--danger-soft); color: var(--danger-soft-foreground); }
+  .tile.info    { background: var(--info-soft); color: var(--info-soft-foreground); }
+  .tile svg { width: 18px; height: 18px; stroke-width: 1.75; }
+</style>
+</head><body>
+  <div class="grid">
+    <div class="stat brand">
+      <div class="row">
+        <div>
+          <div class="label">Revenue · Apr</div>
+          <div class="value">KES 12.4M</div>
+          <div class="sub"><span class="delta d-up">▲ 4.2%</span>vs March</div>
+        </div>
+        <span class="tile brand"><i data-lucide="wallet"></i></span>
+      </div>
+    </div>
+    <div class="stat warning">
+      <div class="row">
+        <div>
+          <div class="label">Approval backlog</div>
+          <div class="value">7</div>
+          <div class="sub">Budget versions awaiting review</div>
+        </div>
+        <span class="tile warning"><i data-lucide="clipboard-list"></i></span>
+      </div>
+    </div>
+    <div class="stat danger">
+      <div class="row">
+        <div>
+          <div class="label">Red flags</div>
+          <div class="value">3</div>
+          <div class="sub">Outstanding risk signals</div>
+        </div>
+        <span class="tile danger"><i data-lucide="flag"></i></span>
+      </div>
+    </div>
+  </div>
+  <script>lucide.createIcons();</script>
+</body></html>

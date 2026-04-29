@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Alerts & empty state</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  body { margin: 0; padding: 22px; background: var(--surface-2); font-family: var(--font-sans); font-size: 13px; color: var(--foreground); }
+  .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .alert {
+    display: flex; gap: 10px; padding: 10px 12px;
+    border-radius: var(--radius);
+  }
+  .alert svg { width: 16px; height: 16px; stroke-width: 2; flex-shrink: 0; margin-top: 2px; }
+  .alert.info    { background: var(--info-soft);    color: var(--info-soft-foreground);    border-left: 3px solid var(--info); }
+  .alert.warn    { background: var(--warning-soft); color: var(--warning-soft-foreground); border-left: 3px solid var(--warning); }
+  .alert.danger  { background: var(--danger-soft);  color: var(--danger-soft-foreground);  border-left: 3px solid var(--danger); }
+  .alert.success { background: var(--success-soft); color: var(--success-soft-foreground); border-left: 3px solid var(--success); }
+  .alert b { display: block; font-weight: 600; margin-bottom: 2px; }
+  .alert p { margin: 0; font-size: 12px; opacity: 0.85; }
+
+  .empty {
+    grid-column: 1 / -1;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 24px; text-align: center;
+  }
+  .empty .tile {
+    display: inline-flex; width: 40px; height: 40px; border-radius: var(--radius);
+    align-items: center; justify-content: center;
+    background: var(--success-soft); color: var(--success-soft-foreground);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--success) 25%, transparent);
+  }
+  .empty .tile svg { width: 20px; height: 20px; stroke-width: 1.75; }
+  .empty h4 { margin: 10px 0 2px; font-size: 14px; font-weight: 600; }
+  .empty p { margin: 0; font-size: 12px; color: var(--muted-foreground); }
+</style>
+</head><body>
+  <div class="wrap">
+    <div class="alert info"><i data-lucide="info"></i><div><b>Month-end approaching</b><p>Close April expenses by 30 Apr 18:00 EAT.</p></div></div>
+    <div class="alert warn"><i data-lucide="triangle-alert"></i><div><b>Variance above tolerance</b><p>Tools category is 12% over budget this month.</p></div></div>
+    <div class="alert danger"><i data-lucide="shield-alert"></i><div><b>Withdrawal requires re-approval</b><p>Exchange rate drifted &gt;2% since draft.</p></div></div>
+    <div class="alert success"><i data-lucide="check-circle-2"></i><div><b>EOD report sent</b><p>Delivered to #finance at 17:32 EAT.</p></div></div>
+    <div class="empty">
+      <span class="tile"><i data-lucide="check-circle-2"></i></span>
+      <h4>No active red flags</h4>
+      <p>All monitored signals are within tolerance.</p>
+    </div>
+  </div>
+  <script>lucide.createIcons();</script>
+</body></html>

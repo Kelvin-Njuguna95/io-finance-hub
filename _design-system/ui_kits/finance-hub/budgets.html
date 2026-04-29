@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Finance Hub · Budget approvals</title>
+<link rel="stylesheet" href="./kit.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js" defer></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <span class="tile">IO</span>
+      <span><span class="eye">Impact Outsourcing</span><span class="title">Finance Hub</span></span>
+    </div>
+    <div class="group-label">Operations</div>
+    <a class="item" href="./index.html"><i data-lucide="layout-dashboard"></i>Dashboard</a>
+    <a class="item active" href="./budgets.html"><i data-lucide="clipboard-list"></i>Budgets<span class="count">7</span></a>
+    <a class="item" href="#"><i data-lucide="receipt"></i>Expenses</a>
+    <a class="item" href="#"><i data-lucide="arrow-down-to-line"></i>Withdrawals</a>
+    <a class="item" href="#"><i data-lucide="file-text"></i>Invoices</a>
+    <div class="group-label">Reports</div>
+    <a class="item" href="#"><i data-lucide="trending-up"></i>Monthly P&amp;L</a>
+    <a class="item" href="#"><i data-lucide="flag"></i>Red flags<span class="count">3</span></a>
+    <div class="spacer"></div>
+    <div class="user"><span class="av">AM</span><div><div class="name">Anne Mburu</div><div class="role">CFO</div></div></div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <div class="crumbs"><span>Finance Hub</span><i data-lucide="chevron-right"></i><span>Budgets</span><i data-lucide="chevron-right"></i><b>BV-24.07</b></div>
+      <div class="grow"></div>
+      <div class="actions">
+        <button class="icon-btn" aria-label="Search"><i data-lucide="search"></i></button>
+        <button class="icon-btn" aria-label="Notifications"><i data-lucide="bell"></i></button>
+      </div>
+    </div>
+
+    <div class="page">
+      <div class="page-header">
+        <div>
+          <div class="eye">Budget version · BV-24.07</div>
+          <h1>Ada Outbound · Q2 expansion</h1>
+          <p>Submitted by K. Kiprono on 2026-04-18 · Awaiting CFO review</p>
+        </div>
+        <div style="display:flex; gap: 8px;">
+          <button class="btn outline"><i data-lucide="message-square"></i>Request changes</button>
+          <button class="btn outline" style="color: var(--destructive); border-color: color-mix(in oklab, var(--destructive) 30%, var(--border));"><i data-lucide="x"></i>Reject</button>
+          <button class="btn primary"><i data-lucide="check-circle-2"></i>Approve version</button>
+        </div>
+      </div>
+
+      <!-- Meta pills -->
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <span class="chip muted"><i data-lucide="calendar" style="width:12px;height:12px;stroke-width:2;margin-right:2px;"></i>Period · Apr–Jun 2026</span>
+        <span class="chip muted">Currency · KES</span>
+        <span class="chip info">Version · 3 of 3</span>
+        <span class="chip warning">Δ prior ▲ 2.1%</span>
+      </div>
+
+      <div class="grid-2">
+        <!-- Line items -->
+        <section class="card">
+          <header class="card-header">
+            <div><h3>Line items</h3><p>24 categories · 18 confirmed · 6 estimated</p></div>
+            <button class="btn ghost"><i data-lucide="download"></i>Export</button>
+          </header>
+          <div class="card-body" style="padding: 0;">
+            <table class="tbl">
+              <thead><tr><th>Category</th><th>Subcategory</th><th class="num">Plan (KES)</th><th class="num">Actual</th><th class="num">Variance</th></tr></thead>
+              <tbody>
+                <tr class="row-ok"><td>Payroll</td><td>Agents · shift A</td><td class="num">2,140,000</td><td class="num">2,140,000</td><td class="num" style="color: var(--success-soft-foreground);">0.0%</td></tr>
+                <tr class="row-ok"><td>Payroll</td><td>Team leads</td><td class="num">580,000</td><td class="num">572,000</td><td class="num" style="color: var(--success-soft-foreground);">▼ 1.4%</td></tr>
+                <tr class="row-warn"><td>Tools</td><td>CRM seats</td><td class="num">320,000</td><td class="num est">≈ 358,000</td><td class="num" style="color: var(--danger-soft-foreground);">▲ 11.9%</td></tr>
+                <tr class="row-warn"><td>Tools</td><td>Dialer minutes</td><td class="num">180,000</td><td class="num">195,400</td><td class="num" style="color: var(--danger-soft-foreground);">▲ 8.6%</td></tr>
+                <tr class="row-ok"><td>Utilities</td><td>Power · Westlands</td><td class="num">86,000</td><td class="num">82,100</td><td class="num" style="color: var(--success-soft-foreground);">▼ 4.5%</td></tr>
+                <tr class="row-ok"><td>Utilities</td><td>Internet · KCB fibre</td><td class="num">42,000</td><td class="num">42,000</td><td class="num" style="color: var(--success-soft-foreground);">0.0%</td></tr>
+                <tr class="row-ok"><td>Rent</td><td>Westlands floor 4</td><td class="num">640,000</td><td class="num">640,000</td><td class="num" style="color: var(--success-soft-foreground);">0.0%</td></tr>
+                <tr class="row-warn"><td>Misc</td><td>Training travel</td><td class="num est">≈ 120,000</td><td class="num">—</td><td class="num muted">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Side panel -->
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <section class="card">
+            <header class="card-header"><div><h3>Summary</h3></div></header>
+            <div class="card-body">
+              <div class="flex-between" style="padding: 6px 0;"><span class="muted">Plan total</span><span class="num">KES 4,820,000</span></div>
+              <div class="flex-between" style="padding: 6px 0;"><span class="muted">Actual YTD</span><span class="num">KES 4,029,500</span></div>
+              <div class="flex-between" style="padding: 6px 0;"><span class="muted">Remaining</span><span class="num">KES 790,500</span></div>
+              <div class="flex-between" style="padding: 6px 0; border-top: 1px solid var(--border); margin-top: 6px; padding-top: 10px;"><span class="muted">Δ prior version</span><span class="chip success">▲ 2.1% KES 99,000</span></div>
+            </div>
+          </section>
+
+          <section class="card">
+            <header class="card-header"><div><h3>Activity</h3></div></header>
+            <div class="card-body">
+              <ol style="list-style:none; padding: 0; margin: 0;">
+                <li style="display:flex; gap:10px; padding: 8px 0; border-bottom: 1px dashed var(--border);">
+                  <span style="width:28px;height:28px;border-radius:var(--radius);background:var(--info-soft);color:var(--info-soft-foreground);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i data-lucide="send" style="width:14px;height:14px;stroke-width:1.75;"></i></span>
+                  <div style="font-size:13px;"><b>Submitted for review</b><div class="muted" style="font-size:11.5px;">K. Kiprono · 2026-04-18 · 09:12 EAT</div></div>
+                </li>
+                <li style="display:flex; gap:10px; padding: 8px 0; border-bottom: 1px dashed var(--border);">
+                  <span style="width:28px;height:28px;border-radius:var(--radius);background:var(--warning-soft);color:var(--warning-soft-foreground);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i data-lucide="message-square" style="width:14px;height:14px;stroke-width:1.75;"></i></span>
+                  <div style="font-size:13px;"><b>Comment from PM</b><div class="muted" style="font-size:11.5px;">Dialer over-spend flagged · 2026-04-18 · 10:40 EAT</div></div>
+                </li>
+                <li style="display:flex; gap:10px; padding: 8px 0;">
+                  <span style="width:28px;height:28px;border-radius:var(--radius);background:var(--muted);color:var(--muted-foreground);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i data-lucide="clock" style="width:14px;height:14px;stroke-width:1.75;"></i></span>
+                  <div style="font-size:13px;"><b>Awaiting CFO review</b><div class="muted" style="font-size:11.5px;">Since 18 Apr · 28h elapsed</div></div>
+                </li>
+              </ol>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>window.addEventListener('DOMContentLoaded', () => lucide.createIcons());</script>
+</body></html>

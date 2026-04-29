@@ -1,0 +1,1108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Finance Hub · Home (CFO)</title>
+<link rel="stylesheet" href="IO Finance Hub/_design-system/colors_and_type.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js" defer></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  /* ---------- Tweak-driven theme variables ---------- */
+  :root {
+    /* Display rhythm — drives padding, sizes, line-heights */
+    --rhythm-pad: 18px;
+    --rhythm-pad-lg: 22px;
+    --rhythm-kpi: 28px;
+    --rhythm-h1: 28px;
+    --rhythm-card-gap: 14px;
+    --rhythm-trend-h: 280px;
+  }
+  /* ===== Editorial mode: Manuscript ===== */
+  body.mode-manuscript {
+    --background: #F4EFE2;
+    --surface-2: #ECE5D2;
+    --surface-3: #E2D9C2;
+    --paper: #F4EFE2;
+    --paper-2: #ECE5D2;
+    --paper-3: #E2D9C2;
+    --paper-4: #C9BD9F;
+    --border: #C9BD9F;
+    --border-subtle: #D6CBAE;
+  }
+  body.mode-manuscript main h1,
+  body.mode-manuscript .trend-head h3,
+  body.mode-manuscript .rail-section h3 {
+    font-variation-settings: "opsz" 96 !important;
+    letter-spacing: -0.018em;
+  }
+  body.mode-manuscript .home-header h1 { font-size: calc(var(--rhythm-h1) * 1.18); }
+  body.mode-manuscript .kpi .value { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-weight: 400; font-variation-settings: "opsz" 96; letter-spacing: -0.02em; }
+  body.mode-manuscript .trend-head h3 { font-size: 22px; }
+
+  /* ===== Editorial mode: Terminal ===== */
+  body.mode-terminal {
+    --background: #111210;
+    --surface-2: #1C1D1A;
+    --surface-3: #2A2B27;
+    --paper: #111210;
+    --paper-2: #1C1D1A;
+    --paper-3: #2A2B27;
+    --paper-4: #3B3C37;
+    --foreground: #F5F1E2;
+    --ink: #F5F1E2;
+    --warm-grey-3: #C9C2A8;
+    --warm-grey-2: #A29B82;
+    --muted-foreground: #8A8470;
+    --border: rgba(245,241,226,0.10);
+    --border-subtle: rgba(245,241,226,0.06);
+    --card: #1C1D1A;
+    --card-foreground: #F5F1E2;
+    --primary: var(--gold);
+    --primary-foreground: #111210;
+    --muted: #2A2B27;
+  }
+  body.mode-terminal .brand .tile { background: var(--gold); color: #111210; }
+  body.mode-terminal .nav-item.active { background: rgba(200,162,75,0.16); box-shadow: inset 2px 0 0 0 var(--gold); color: var(--gold); }
+  body.mode-terminal .nav-item.active [data-lucide] { color: var(--gold); }
+  body.mode-terminal .closure-card { background: #2A2B27; border-color: rgba(245,241,226,0.06); }
+  body.mode-terminal .icon-btn,
+  body.mode-terminal .user-chip,
+  body.mode-terminal .pill-select,
+  body.mode-terminal .rail-period,
+  body.mode-terminal .search input { background: #1C1D1A; border-color: rgba(245,241,226,0.10); color: var(--foreground); }
+  body.mode-terminal .search input::placeholder { color: rgba(245,241,226,0.45); }
+  body.mode-terminal .icon-btn .dot { border-color: #1C1D1A; }
+  body.mode-terminal .kpi { background: #1C1D1A; border-color: rgba(245,241,226,0.08); }
+  body.mode-terminal .kpi .value { color: var(--foreground); }
+  body.mode-terminal .kpi .value,
+  body.mode-terminal .home-header h1,
+  body.mode-terminal .trend-head h3,
+  body.mode-terminal .rail-section h3 { font-family: var(--font-mono); letter-spacing: -0.01em; font-weight: 500; }
+  body.mode-terminal .home-header h1 em,
+  body.mode-terminal .trend-head h3 em { color: var(--gold); }
+  body.mode-terminal .trend { background: #1C1D1A; border-color: rgba(245,241,226,0.08); }
+  body.mode-terminal .rail { background: #111210; border-left-color: rgba(245,241,226,0.08); }
+  body.mode-terminal .health-card { background: #1C1D1A; border-color: rgba(245,241,226,0.08); }
+  body.mode-terminal .health-grid .dot.idle { background: rgba(245,241,226,0.06); }
+  body.mode-terminal .health-grid .dot.featured { box-shadow: 0 0 0 2px #1C1D1A, 0 0 0 4px var(--gold), 0 0 12px var(--gold); }
+  body.mode-terminal .featured-callout { background: #2A2B27; border: 1px solid rgba(200,162,75,0.25); }
+  body.mode-terminal .eod-item:hover { background: #2A2B27; }
+  body.mode-terminal .eod-item.active { background: rgba(200,162,75,0.16); }
+  body.mode-terminal .eod-item.active .nm { color: var(--gold); }
+  body.mode-terminal .glyph.muted { background: #2A2B27; color: var(--warm-grey-3); }
+  body.mode-terminal .glyph.ink { background: var(--gold); color: #111210; }
+  body.mode-terminal .view-all { color: var(--gold); border-bottom-color: var(--gold); }
+  body.mode-terminal .side {
+    background: linear-gradient(180deg, #1C1D1A 0%, #111210 100%);
+    border-right-color: rgba(245,241,226,0.08);
+  }
+  body.mode-terminal .brand { border-bottom-color: rgba(245,241,226,0.08); }
+  body.mode-terminal .nav-item { color: var(--warm-grey-3); }
+  body.mode-terminal .nav-item:hover { background: #2A2B27; color: var(--foreground); }
+  body.mode-terminal .nav-item:hover [data-lucide] { color: var(--foreground); }
+  body.mode-terminal .kpi.with-spark .spark path[fill^="url(#sparkA)"] { opacity: 0.7; }
+  body.mode-terminal svg text[fill="var(--muted-foreground)"] { fill: rgba(245,241,226,0.55); }
+
+  /* ---------- App scaffolding ---------- */
+  html, body { margin: 0; }
+  body {
+    background: var(--surface-2);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; }
+
+  .shell { display: grid; grid-template-columns: 232px 1fr 320px; min-height: 100vh; }
+
+  /* ---------- Sidebar ---------- */
+  .side {
+    background: linear-gradient(180deg, var(--paper-2) 0%, var(--paper) 60%);
+    border-right: 1px solid var(--border);
+    padding: 16px 12px 16px;
+    display: flex; flex-direction: column; gap: 4px;
+    position: sticky; top: 0; align-self: start; height: 100vh;
+  }
+  .brand { display: flex; align-items: center; gap: 11px; padding: 6px 8px 16px; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+  .brand .tile {
+    width: 38px; height: 38px; background: var(--ink); color: var(--gold);
+    border-radius: var(--radius); display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-weight: 500; font-size: 14px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06); flex-shrink: 0;
+  }
+  .brand .eye {
+    font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.2em;
+    color: var(--muted-foreground); font-weight: 500; line-height: 1.1; display: block;
+  }
+  .brand .title {
+    font-family: var(--font-display); font-size: 15px; font-weight: 500;
+    color: var(--foreground); margin-top: 3px; display: block; letter-spacing: -0.01em;
+    font-variation-settings: "opsz" 24;
+  }
+
+  .group-label {
+    font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.16em; color: var(--muted-foreground);
+    padding: 12px 10px 6px; font-weight: 500;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 10px; height: 36px; border-radius: var(--radius);
+    color: var(--warm-grey-3); font-size: 13px;
+    transition: background var(--dur-base) var(--ease-standard), color var(--dur-base) var(--ease-standard);
+    white-space: nowrap;
+  }
+  .nav-item [data-lucide] { width: 16px; height: 16px; stroke-width: 1.75; color: var(--warm-grey-2); flex-shrink: 0; }
+  .nav-item:hover { background: var(--paper-3); color: var(--ink); }
+  .nav-item:hover [data-lucide] { color: var(--ink); }
+  .nav-item.active { background: var(--gold-soft); color: var(--ink); font-weight: 600; box-shadow: inset 2px 0 0 0 var(--gold); }
+  .nav-item.active [data-lucide] { color: var(--gold-lo); }
+  .nav-item .count {
+    margin-left: auto; min-width: 20px; height: 18px; padding: 0 6px;
+    border-radius: var(--radius-full); background: var(--ink); color: var(--paper);
+    font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .nav-item .count.gold { background: var(--gold); color: var(--ink); }
+  .nav-item .count.danger { background: var(--danger); color: var(--paper); }
+
+  .side .spacer { flex: 1; }
+  .closure-card {
+    margin-top: 10px;
+    background: var(--ink); color: var(--paper);
+    border-radius: var(--radius-lg); padding: 14px;
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .closure-card .eye { font-family: var(--font-mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.18em; color: rgba(250,250,247,0.6); }
+  .closure-card .head { font-family: var(--font-display); font-size: 15px; line-height: 1.2; margin: 6px 0 4px; font-weight: 400; font-variation-settings: "opsz" 32; }
+  .closure-card .body { font-size: 12px; color: rgba(250,250,247,0.65); line-height: 1.45; }
+  .closure-card .progress { height: 4px; background: rgba(250,250,247,0.10); border-radius: 999px; margin: 12px 0 10px; overflow: hidden; }
+  .closure-card .progress span { display: block; height: 100%; width: 72%; background: var(--gold); }
+  .closure-card .btn-gold {
+    width: 100%; height: 32px; background: var(--gold); color: var(--ink);
+    border: 0; border-radius: var(--radius); font-family: inherit; font-size: 12px; font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .closure-card .btn-gold:hover { background: var(--gold-hi); }
+
+  /* ---------- Main column ---------- */
+  main { padding: 22px 26px 40px; min-width: 0; }
+
+  .home-header { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
+  .home-header h1 {
+    font-family: var(--font-display); font-size: var(--rhythm-h1); font-weight: 400;
+    line-height: 1.1; letter-spacing: -0.01em; margin: 0;
+    font-variation-settings: "opsz" 72;
+  }
+  .home-header h1 em { font-style: italic; color: var(--gold-lo); font-weight: 400; }
+  .home-header .meta {
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground);
+    text-transform: uppercase; letter-spacing: 0.14em; padding-top: 6px;
+  }
+  .header-spacer { flex: 1; }
+
+  .search {
+    position: relative; width: 320px;
+  }
+  .search input {
+    width: 100%; height: 38px; padding: 0 14px 0 38px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-full);
+    font-family: inherit; font-size: 13px; color: var(--foreground);
+  }
+  .search input::placeholder { color: var(--muted-foreground); }
+  .search [data-lucide] {
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px; color: var(--muted-foreground); stroke-width: 1.75;
+  }
+  .search .kbd {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 2px 6px; background: var(--paper-2);
+  }
+
+  .icon-btn {
+    position: relative;
+    width: 38px; height: 38px; border-radius: var(--radius-full);
+    background: var(--card); border: 1px solid var(--border);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--warm-grey-3);
+  }
+  .icon-btn:hover { background: var(--paper-2); color: var(--ink); }
+  .icon-btn [data-lucide] { width: 16px; height: 16px; stroke-width: 1.75; }
+  .icon-btn .dot {
+    position: absolute; top: 8px; right: 9px; width: 7px; height: 7px;
+    background: var(--danger); border-radius: 999px; border: 1.5px solid var(--card);
+  }
+
+  .user-chip {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 10px 4px 4px; border-radius: var(--radius-full);
+    background: var(--card); border: 1px solid var(--border);
+  }
+  .user-chip .av {
+    width: 30px; height: 30px; border-radius: var(--radius-full);
+    background: var(--gold); color: var(--ink);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-weight: 500; font-size: 11px;
+  }
+  .user-chip .nm { font-size: 12.5px; font-weight: 500; line-height: 1.1; }
+  .user-chip .role { font-family: var(--font-mono); font-size: 9.5px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.14em; margin-top: 2px; }
+  .user-chip [data-lucide] { width: 14px; height: 14px; stroke-width: 1.75; color: var(--muted-foreground); margin-left: 4px; }
+
+  /* ---------- KPI grid ---------- */
+  .kpi-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--rhythm-card-gap); margin-bottom: var(--rhythm-card-gap);
+  }
+  @media (max-width: 1280px) {
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+  }
+  .kpi {
+    position: relative; background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: var(--rhythm-pad) var(--rhythm-pad) calc(var(--rhythm-pad) - 2px);
+    overflow: hidden;
+  }
+  .kpi .row { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+  .kpi .info { min-width: 0; }
+  .kpi .label {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--muted-foreground);
+  }
+  .kpi .value {
+    font-family: var(--font-mono); font-size: var(--rhythm-kpi); font-weight: 500;
+    line-height: 1.05; letter-spacing: -0.01em; color: var(--ink);
+    margin-top: 10px; font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .kpi .sub {
+    margin-top: 10px; display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--muted-foreground);
+  }
+  .kpi .delta {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 2px 7px; border-radius: var(--radius-full);
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi .delta.up   { background: var(--success-soft); color: var(--success-soft-foreground); }
+  .kpi .delta.down { background: var(--danger-soft); color: var(--danger-soft-foreground); }
+  .kpi .delta [data-lucide] { width: 11px; height: 11px; stroke-width: 2.25; }
+  .kpi .menu {
+    width: 26px; height: 26px; border-radius: var(--radius-sm);
+    background: transparent; border: 0; color: var(--muted-foreground);
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .kpi .menu:hover { background: var(--paper-2); color: var(--ink); }
+  .kpi .menu [data-lucide] { width: 14px; height: 14px; stroke-width: 1.75; }
+
+  .kpi .viz {
+    position: absolute; right: 16px; top: 14px;
+    width: 96px; height: 96px;
+    pointer-events: none;
+  }
+  .kpi.with-spark { padding-bottom: 0; }
+  .kpi.with-spark .spark {
+    margin: 14px -18px 0; padding: 0;
+    height: 56px; display: block;
+  }
+
+  /* ---------- Big trend chart ---------- */
+  .trend {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: var(--rhythm-pad) var(--rhythm-pad-lg) 8px;
+  }
+  .trend-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
+  .trend-head h3 {
+    margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 500;
+    letter-spacing: -0.005em; font-variation-settings: "opsz" 32;
+  }
+  .trend-head p { margin: 4px 0 0; font-size: 12px; color: var(--muted-foreground); }
+  .legend { display: flex; align-items: center; gap: 16px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--warm-grey-3); }
+  .legend i { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+  .legend i.rev { background: var(--ink); }
+  .legend i.cost { background: var(--gold); }
+  .legend i.net { background: var(--success); }
+  .pill-select {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 30px; padding: 0 12px; border-radius: var(--radius-full);
+    background: var(--card); border: 1px solid var(--border);
+    font-size: 12px; color: var(--foreground); font-family: inherit;
+  }
+  .pill-select [data-lucide] { width: 12px; height: 12px; stroke-width: 1.75; color: var(--muted-foreground); }
+
+  .trend-chart { position: relative; margin-top: 8px; }
+  .trend-chart svg { display: block; width: 100%; height: var(--rhythm-trend-h); }
+
+  /* ---------- Right rail ---------- */
+  .rail {
+    position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+    padding: 22px 22px 32px; border-left: 1px solid var(--border);
+    background: var(--background);
+    display: flex; flex-direction: column; gap: 22px;
+  }
+  .rail-section h3 {
+    margin: 0; font-family: var(--font-display); font-size: 19px; font-weight: 500;
+    letter-spacing: -0.005em; font-variation-settings: "opsz" 32;
+  }
+  .rail-section .sub { font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.14em; margin-top: 4px; }
+
+  /* Health map (replacement for world map) */
+  .health-card {
+    margin-top: 14px;
+    background: linear-gradient(180deg, var(--paper-2) 0%, var(--paper) 100%);
+    border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 14px; position: relative; overflow: hidden;
+  }
+  .health-grid {
+    display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px;
+    height: 132px; align-content: center;
+  }
+  .health-grid .dot {
+    aspect-ratio: 1; border-radius: var(--radius-sm);
+    background: var(--paper-3); position: relative;
+    transition: transform var(--dur-base) var(--ease-standard);
+  }
+  .health-grid .dot.healthy { background: oklch(0.560 0.130 145 / 0.85); }
+  .health-grid .dot.watch   { background: oklch(0.750 0.160 75 / 0.9); }
+  .health-grid .dot.risk    { background: oklch(0.530 0.175 28 / 0.85); }
+  .health-grid .dot.idle    { background: var(--paper-3); }
+  .health-grid .dot.featured {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 2px var(--paper-2), 0 0 0 4px var(--ink);
+    z-index: 2;
+  }
+
+  .featured-callout {
+    margin-top: 14px;
+    background: var(--ink); color: var(--paper);
+    border-radius: var(--radius-lg); padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .featured-callout .gauge {
+    width: 56px; height: 56px; flex-shrink: 0; position: relative;
+  }
+  .featured-callout .gauge svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .featured-callout .gauge .pct {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--gold);
+  }
+  .featured-callout .nm { font-family: var(--font-mono); font-size: 10px; color: rgba(250,250,247,0.55); text-transform: uppercase; letter-spacing: 0.18em; }
+  .featured-callout .val { font-family: var(--font-display); font-size: 18px; font-weight: 400; margin-top: 2px; line-height: 1.1; font-variation-settings: "opsz" 32; }
+  .featured-callout .desc { font-size: 11.5px; color: rgba(250,250,247,0.6); margin-top: 4px; }
+
+  .legend-row { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+  .legend-row span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted-foreground); font-family: var(--font-mono); letter-spacing: 0.04em; }
+  .legend-row i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .legend-row i.healthy { background: oklch(0.560 0.130 145 / 0.85); }
+  .legend-row i.watch   { background: oklch(0.750 0.160 75 / 0.9); }
+  .legend-row i.risk    { background: oklch(0.530 0.175 28 / 0.85); }
+
+  /* Pending invoices */
+  .pending-list { display: flex; flex-direction: column; margin-top: 12px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); overflow: hidden; }
+  .pending-row { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-bottom: 1px solid var(--border-subtle); }
+  .pending-row:last-child { border-bottom: 0; }
+  .pending-row:hover { background: var(--paper-2); }
+  .pending-row .left { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+  .pending-row .top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .pending-row .inv-no { font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.04em; flex-shrink: 0; }
+  .pending-row .client { font-size: 13px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pending-row .meta { font-size: 11px; color: var(--muted-foreground); display: flex; align-items: center; gap: 6px; }
+  .pending-row .meta .sep { color: var(--paper-4); }
+  .pending-row .right { text-align: right; flex-shrink: 0; }
+  .pending-row .amt { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .pending-row .amt.est { font-style: italic; color: var(--warm-grey-3); }
+  .pending-row .due { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; margin-top: 3px; color: var(--muted-foreground); }
+  .pending-row .due.over { color: var(--danger); }
+  .pending-row .due.soon { color: var(--warning-soft-foreground); }
+  body.mode-terminal .pending-list { background: #1C1D1A; border-color: rgba(245,241,226,0.08); }
+  body.mode-terminal .pending-row { border-bottom-color: rgba(245,241,226,0.06); }
+  body.mode-terminal .pending-row:hover { background: #2A2B27; }
+
+  .pending-foot { display: flex; align-items: baseline; justify-content: space-between; margin-top: 12px; padding: 0 2px; }
+  .pending-foot .label { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted-foreground); }
+  .pending-foot .total { font-family: var(--font-mono); font-size: 15px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  body.mode-terminal .pending-foot .total { color: var(--foreground); }
+
+  /* Profit by project — horizontal bar breakdown */
+  .profit-list { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+  .profit-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+  .profit-row .nm { font-size: 13px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .profit-row .amt { font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; text-align: right; }
+  .profit-row .amt.neg { color: var(--danger); }
+  .profit-row .bar-wrap { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; }
+  .profit-row .bar { flex: 1; height: 6px; border-radius: 999px; background: var(--paper-3); position: relative; overflow: hidden; }
+  .profit-row .bar > span { display: block; height: 100%; border-radius: 999px; background: var(--ink); }
+  .profit-row.top .bar > span { background: var(--gold); }
+  .profit-row.neg .bar > span { background: var(--danger); }
+  .profit-row .pct { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted-foreground); letter-spacing: 0.04em; min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+  body.mode-terminal .profit-row .nm { color: var(--foreground); }
+  body.mode-terminal .profit-row .amt { color: var(--foreground); }
+  body.mode-terminal .profit-row .bar { background: rgba(245,241,226,0.08); }
+  body.mode-terminal .profit-row.top .bar > span { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+
+  /* Recent EOD activity (transactions equivalent) */
+  .eod-list { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+  .eod-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 10px;
+    border-radius: var(--radius);
+    transition: background var(--dur-fast) var(--ease-standard);
+  }
+  .eod-item:hover { background: var(--paper-2); }
+  .eod-item.active { background: var(--gold-soft); }
+  .eod-item .glyph {
+    width: 36px; height: 36px; border-radius: var(--radius-full);
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  }
+  .glyph.ink { background: var(--ink); color: var(--gold); }
+  .glyph.gold { background: var(--gold); color: var(--ink); }
+  .glyph.success { background: var(--success-soft); color: var(--success-soft-foreground); ring: 1px solid; }
+  .glyph.info { background: var(--info-soft); color: var(--info-soft-foreground); }
+  .glyph.warn { background: var(--warning-soft); color: var(--warning-soft-foreground); }
+  .glyph.danger { background: var(--danger-soft); color: var(--danger-soft-foreground); }
+  .glyph.muted { background: var(--paper-3); color: var(--warm-grey-3); }
+  .eod-item .who { min-width: 0; flex: 1; }
+  .eod-item .who .nm { font-size: 13px; font-weight: 500; color: var(--ink); line-height: 1.2; }
+  .eod-item .who .meta { font-size: 11px; color: var(--muted-foreground); margin-top: 2px; line-height: 1.3; }
+  .eod-item .amt {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--ink);
+    text-align: right; white-space: nowrap;
+  }
+  .eod-item .amt.pos { color: var(--success-soft-foreground); }
+  .eod-item .amt.neg { color: var(--warm-grey-3); }
+  .eod-item .amt small { display: block; font-size: 10px; color: var(--muted-foreground); font-weight: 400; margin-top: 1px; letter-spacing: 0.04em; }
+
+  /* Subtle dividers in main column */
+  .row-flex { display: flex; align-items: center; gap: 10px; }
+
+  .view-all {
+    margin-top: 12px; display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.14em; color: var(--ink); font-weight: 500;
+    border-bottom: 1px solid var(--ink); padding-bottom: 2px; align-self: flex-start;
+  }
+  .view-all [data-lucide] { width: 12px; height: 12px; stroke-width: 1.75; }
+
+  .rail-period {
+    height: 30px; padding: 0 10px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border); background: var(--card);
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 11px; color: var(--warm-grey-3);
+    text-transform: uppercase; letter-spacing: 0.12em;
+  }
+  .rail-period [data-lucide] { width: 12px; height: 12px; stroke-width: 1.75; }
+</style>
+</head>
+<body class="mode-treasury">
+<div class="shell">
+
+  <!-- ====================== SIDEBAR ====================== -->
+  <aside class="side">
+    <div class="brand">
+      <span class="tile">IO</span>
+      <span>
+        <span class="eye">Impact Outsourcing</span>
+        <span class="title">Finance Hub</span>
+      </span>
+    </div>
+
+    <div class="group-label">Operations</div>
+    <a class="nav-item active" href="#"><i data-lucide="layout-dashboard"></i>Home</a>
+    <a class="nav-item" href="#"><i data-lucide="clipboard-list"></i>Budgets <span class="count gold">7</span></a>
+    <a class="nav-item" href="#"><i data-lucide="receipt"></i>Expenses</a>
+    <a class="nav-item" href="#"><i data-lucide="file-text"></i>Invoices</a>
+    <a class="nav-item" href="#"><i data-lucide="arrow-down-to-line"></i>Withdrawals</a>
+    <a class="nav-item" href="#"><i data-lucide="piggy-bank"></i>Profit share</a>
+
+    <div class="group-label">Reports</div>
+    <a class="nav-item" href="#"><i data-lucide="trending-up"></i>Monthly P&amp;L</a>
+    <a class="nav-item" href="#"><i data-lucide="flag"></i>Red flags <span class="count danger">3</span></a>
+    <a class="nav-item" href="#"><i data-lucide="inbox"></i>EOD reports</a>
+    <a class="nav-item" href="#"><i data-lucide="users"></i>Agent counts</a>
+
+    <div class="group-label">System</div>
+    <a class="nav-item" href="#"><i data-lucide="shield-check"></i>Audit trail</a>
+    <a class="nav-item" href="#"><i data-lucide="settings"></i>Settings</a>
+
+    <div class="spacer"></div>
+
+    <div class="closure-card">
+      <div class="eye">Month closure</div>
+      <div class="head">April 2026<br/><em style="font-style: italic; color: var(--gold); font-weight: 400; font-size: 13px;">in progress</em></div>
+      <div class="progress"><span></span></div>
+      <div class="body">9 of 12 sign-offs complete · 3 days to lock</div>
+      <button class="btn-gold" style="margin-top: 12px;">
+        Open closure
+      </button>
+    </div>
+  </aside>
+
+  <!-- ====================== MAIN ====================== -->
+  <main>
+
+    <!-- Header row: title + search + bell + user -->
+    <div class="home-header">
+      <div>
+        <h1>Good morning, <em>Anne</em></h1>
+        <div class="meta">Tuesday · 21 April 2026 · 09:14 EAT</div>
+      </div>
+      <div class="header-spacer"></div>
+
+      <div class="search">
+        <i data-lucide="search"></i>
+        <input placeholder="Search invoices, projects, withdrawals…" />
+        <span class="kbd">⌘ K</span>
+      </div>
+
+      <button class="icon-btn" aria-label="Notifications">
+        <i data-lucide="bell"></i>
+        <span class="dot"></span>
+      </button>
+
+      <div class="user-chip">
+        <span class="av">AM</span>
+        <div>
+          <div class="nm">Anne Mburu</div>
+          <div class="role">CFO</div>
+        </div>
+        <i data-lucide="chevron-down"></i>
+      </div>
+    </div>
+
+    <!-- KPI grid: 6 cards (3 × 2) -->
+    <div class="kpi-grid">
+
+      <!-- KPI 1: Total Revenue -->
+      <div class="kpi">
+        <div class="row">
+          <div class="info">
+            <div class="label">Total revenue · Apr</div>
+            <div class="value">KES 12.40M</div>
+            <div class="sub">
+              <span class="delta up"><i data-lucide="arrow-up-right"></i>+4.28%</span>
+              <span>vs March</span>
+            </div>
+          </div>
+          <button class="menu" aria-label="Options"><i data-lucide="more-horizontal"></i></button>
+        </div>
+      </div>
+
+      <!-- KPI 2: Net Profit (sparkline like the screenshot) -->
+      <div class="kpi with-spark">
+        <div class="row">
+          <div class="info">
+            <div class="label">Net profit · Apr</div>
+            <div class="value">KES 1.22M</div>
+            <div class="sub">
+              <span class="delta up"><i data-lucide="arrow-up-right"></i>+30.91%</span>
+              <span>vs March</span>
+            </div>
+          </div>
+          <button class="menu" aria-label="Options"><i data-lucide="more-horizontal"></i></button>
+        </div>
+        <svg class="spark" viewBox="0 0 320 56" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="sparkA" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--gold)" stop-opacity="0.28"/>
+              <stop offset="100%" stop-color="var(--gold)" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="M0,42 L20,40 L40,38 L60,32 L80,30 L100,34 L120,28 L140,22 L160,28 L180,18 L200,12 L220,18 L240,14 L260,20 L280,16 L300,10 L320,14 L320,56 L0,56 Z"
+                fill="url(#sparkA)"/>
+          <path d="M0,42 L20,40 L40,38 L60,32 L80,30 L100,34 L120,28 L140,22 L160,28 L180,18 L200,12 L220,18 L240,14 L260,20 L280,16 L300,10 L320,14"
+                fill="none" stroke="var(--gold-lo)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <!-- KPI 3: Bank balance USD with descending sparkline -->
+      <div class="kpi with-spark">
+        <div class="row">
+          <div class="info">
+            <div class="label">Bank balance</div>
+            <div class="value">USD 286,419</div>
+            <div class="sub">
+              <span class="delta down"><i data-lucide="arrow-down-right"></i>−2.17%</span>
+              <span>last 7 days</span>
+            </div>
+          </div>
+          <button class="menu" aria-label="Options"><i data-lucide="more-horizontal"></i></button>
+        </div>
+        <svg class="spark" viewBox="0 0 320 56" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="sparkB" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--success)" stop-opacity="0.22"/>
+              <stop offset="100%" stop-color="var(--success)" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="M0,8 L20,12 L40,10 L60,18 L80,16 L100,22 L120,20 L140,28 L160,24 L180,32 L200,28 L220,38 L240,34 L260,40 L280,36 L300,42 L320,38 L320,56 L0,56 Z"
+                fill="url(#sparkB)"/>
+          <path d="M0,8 L20,12 L40,10 L60,18 L80,16 L100,22 L120,20 L140,28 L160,24 L180,32 L200,28 L220,38 L240,34 L260,40 L280,36 L300,42 L320,38"
+                fill="none" stroke="var(--success)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <!-- KPI 4: Committed Capital / Approved Budgets -->
+      <div class="kpi">
+        <div class="row">
+          <div class="info">
+            <div class="label">Committed capital · Apr</div>
+            <div class="value">KES 8.92M</div>
+            <div class="sub">
+              <span class="delta up"><i data-lucide="arrow-up-right"></i>+12.4%</span>
+              <span>7 budgets approved</span>
+            </div>
+          </div>
+          <button class="menu" aria-label="Options"><i data-lucide="more-horizontal"></i></button>
+        </div>
+      </div>
+
+      <!-- KPI 5: Money owed to us (renamed from AR Ageing) -->
+      <div class="kpi">
+        <div class="row">
+          <div class="info">
+            <div class="label">Money owed to us</div>
+            <div class="value">KES 4.86M</div>
+            <div class="sub">
+              <span class="delta down"><i data-lucide="arrow-down-right"></i>−1.16%</span>
+              <span>14 invoices · 3 past due</span>
+            </div>
+          </div>
+          <button class="menu" aria-label="Options"><i data-lucide="more-horizontal"></i></button>
+        </div>
+      </div>
+
+      <!-- KPI 6: Cash runway -->
+      <div class="kpi">
+        <div class="row">
+          <div class="info">
+            <div class="label">Cash runway</div>
+            <div class="value">9.4 mo</div>
+            <div class="sub">
+              <span class="delta up"><i data-lucide="arrow-up-right"></i>+0.6 mo</span>
+              <span>at current burn</span>
+            </div>
+          </div>
+          <button class="menu" aria-label="Options"><i data-lucide="more-horizontal"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trend chart -->
+    <div class="trend">
+      <div class="trend-head">
+        <div>
+          <h3>Revenue &amp; spending trend</h3>
+          <p>Lagged service period · KES millions, all projects</p>
+        </div>
+        <div class="row-flex">
+          <div class="legend">
+            <span><i class="rev"></i>Revenue</span>
+            <span><i class="cost"></i>Direct costs</span>
+            <span><i class="net"></i>Net profit</span>
+          </div>
+          <button class="pill-select"><i data-lucide="calendar"></i>Last 6 months <i data-lucide="chevron-down"></i></button>
+        </div>
+      </div>
+
+      <div class="trend-chart">
+        <svg viewBox="0 0 760 280" preserveAspectRatio="none" aria-hidden="true">
+          <!-- gridlines -->
+          <g stroke="var(--paper-3)" stroke-width="1">
+            <line x1="50" y1="40"  x2="740" y2="40"/>
+            <line x1="50" y1="90"  x2="740" y2="90"/>
+            <line x1="50" y1="140" x2="740" y2="140"/>
+            <line x1="50" y1="190" x2="740" y2="190"/>
+            <line x1="50" y1="240" x2="740" y2="240"/>
+          </g>
+          <!-- y axis labels (mono) -->
+          <g font-family="var(--font-mono)" font-size="10" fill="var(--muted-foreground)" text-anchor="end">
+            <text x="42" y="44">15</text>
+            <text x="42" y="94">12</text>
+            <text x="42" y="144">9</text>
+            <text x="42" y="194">6</text>
+            <text x="42" y="244">3</text>
+          </g>
+          <!-- x axis labels -->
+          <g font-family="var(--font-mono)" font-size="10" fill="var(--muted-foreground)" text-anchor="middle" letter-spacing="0.05em">
+            <text x="105" y="266">NOV 25</text>
+            <text x="220" y="266">DEC 25</text>
+            <text x="335" y="266">JAN 26</text>
+            <text x="450" y="266">FEB 26</text>
+            <text x="565" y="266">MAR 26</text>
+            <text x="680" y="266">APR 26</text>
+          </g>
+
+          <!-- Direct costs (gold, with soft fill) -->
+          <defs>
+            <linearGradient id="goldFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--gold)" stop-opacity="0.18"/>
+              <stop offset="100%" stop-color="var(--gold)" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="inkFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--ink)" stop-opacity="0.10"/>
+              <stop offset="100%" stop-color="var(--ink)" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+
+          <!-- costs line + area -->
+          <path d="M105,150 L220,140 L335,160 L450,135 L565,145 L680,150 L680,250 L105,250 Z" fill="url(#goldFill)"/>
+          <path d="M105,150 L220,140 L335,160 L450,135 L565,145 L680,150"
+                fill="none" stroke="var(--gold)" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"/>
+
+          <!-- revenue line + area (ink) -->
+          <path d="M105,110 L220,95 L335,80 L450,90 L565,72 L680,55 L680,250 L105,250 Z" fill="url(#inkFill)"/>
+          <path d="M105,110 L220,95 L335,80 L450,90 L565,72 L680,55"
+                fill="none" stroke="var(--ink)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+
+          <!-- net profit (success, dashed) -->
+          <path d="M105,200 L220,205 L335,210 L450,195 L565,180 L680,165"
+                fill="none" stroke="var(--success)" stroke-width="2"
+                stroke-dasharray="4 4" stroke-linejoin="round" stroke-linecap="round"/>
+
+          <!-- markers at hover point (Mar 26) -->
+          <circle cx="565" cy="72" r="4" fill="var(--ink)" stroke="var(--paper)" stroke-width="2"/>
+          <circle cx="565" cy="145" r="4" fill="var(--gold)" stroke="var(--paper)" stroke-width="2"/>
+
+          <!-- vertical hover line -->
+          <line x1="565" y1="40" x2="565" y2="240" stroke="var(--ink)" stroke-width="1" stroke-dasharray="2 3" opacity="0.35"/>
+
+          <!-- tooltip (ink card) -->
+          <g transform="translate(565,40)">
+            <rect x="-72" y="-30" width="144" height="64" rx="8" fill="var(--ink)"/>
+            <rect x="-72" y="-30" width="144" height="64" rx="8" fill="none" stroke="rgba(255,255,255,0.06)"/>
+            <polygon points="-6,34 6,34 0,42" fill="var(--ink)"/>
+            <text x="-58" y="-12" font-family="var(--font-mono)" font-size="9" fill="rgba(250,250,247,0.55)" letter-spacing="0.14em">MAR 2026</text>
+            <circle cx="-58" cy="4" r="3" fill="var(--paper)"/>
+            <text x="-50" y="7" font-family="var(--font-mono)" font-size="11" fill="var(--paper)">KES 13.92M</text>
+            <circle cx="-58" cy="22" r="3" fill="var(--gold)"/>
+            <text x="-50" y="25" font-family="var(--font-mono)" font-size="11" fill="var(--paper)">KES  8.41M</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ====================== RIGHT RAIL ====================== -->
+  <aside class="rail">
+    <!-- Pending invoices -->
+    <div class="rail-section">
+      <div class="row-flex" style="justify-content: space-between;">
+        <div>
+          <h3>Pending invoices</h3>
+          <div class="sub">5 awaiting · KES 4.86M</div>
+        </div>
+        <div class="rail-period"><i data-lucide="calendar"></i>April</div>
+      </div>
+
+      <div class="pending-list">
+        <div class="pending-row">
+          <div class="left">
+            <div class="top">
+              <span class="inv-no">INV-2026-0415</span>
+            </div>
+            <div class="client">Meridian Care</div>
+            <div class="meta">Onboarding · phase 2</div>
+          </div>
+          <div class="right">
+            <div class="amt">KES 640,000</div>
+            <div class="due over">Overdue 18d</div>
+          </div>
+        </div>
+
+        <div class="pending-row">
+          <div class="left">
+            <div class="top">
+              <span class="inv-no">INV-2026-0413</span>
+            </div>
+            <div class="client">Vega Collections</div>
+            <div class="meta">Recurring · monthly retainer</div>
+          </div>
+          <div class="right">
+            <div class="amt est">≈ KES 920,500</div>
+            <div class="due soon">Due 26 Apr</div>
+          </div>
+        </div>
+
+        <div class="pending-row">
+          <div class="left">
+            <div class="top">
+              <span class="inv-no">INV-2026-0416</span>
+            </div>
+            <div class="client">Noor Partners</div>
+            <div class="meta">QA sprint · April</div>
+          </div>
+          <div class="right">
+            <div class="amt">KES 1,060,000</div>
+            <div class="due">Due 02 May</div>
+          </div>
+        </div>
+
+        <div class="pending-row">
+          <div class="left">
+            <div class="top">
+              <span class="inv-no">INV-2026-0418</span>
+            </div>
+            <div class="client">Helios CX</div>
+            <div class="meta">Desktop rollout · sprint 4</div>
+          </div>
+          <div class="right">
+            <div class="amt">KES 2,145,000</div>
+            <div class="due">Due 08 May</div>
+          </div>
+        </div>
+
+        <div class="pending-row">
+          <div class="left">
+            <div class="top">
+              <span class="inv-no">INV-2026-0419</span>
+            </div>
+            <div class="client">Ada Outbound</div>
+            <div class="meta">Q2 expansion · partial</div>
+          </div>
+          <div class="right">
+            <div class="amt">KES 95,000</div>
+            <div class="due">Due 14 May</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pending-foot">
+        <span class="label">Outstanding · April</span>
+        <span class="total">KES 4,860,500</span>
+      </div>
+    </div>
+
+    <!-- Profit by project -->
+    <div class="rail-section">
+      <div class="row-flex" style="justify-content: space-between;">
+        <div>
+          <h3>Profit by project</h3>
+          <div class="sub">April · KES net margin</div>
+        </div>
+      </div>
+
+      <div class="profit-list">
+        <div class="profit-row top">
+          <span class="nm">Ada Outbound</span>
+          <span class="amt">KES 482K</span>
+          <div class="bar-wrap">
+            <div class="bar"><span style="width: 100%;"></span></div>
+            <span class="pct">39.5%</span>
+          </div>
+        </div>
+
+        <div class="profit-row">
+          <span class="nm">Helios CX</span>
+          <span class="amt">KES 318K</span>
+          <div class="bar-wrap">
+            <div class="bar"><span style="width: 66%;"></span></div>
+            <span class="pct">26.1%</span>
+          </div>
+        </div>
+
+        <div class="profit-row">
+          <span class="nm">Noor Partners</span>
+          <span class="amt">KES 246K</span>
+          <div class="bar-wrap">
+            <div class="bar"><span style="width: 51%;"></span></div>
+            <span class="pct">20.2%</span>
+          </div>
+        </div>
+
+        <div class="profit-row">
+          <span class="nm">Vega Collections</span>
+          <span class="amt">KES 198K</span>
+          <div class="bar-wrap">
+            <div class="bar"><span style="width: 41%;"></span></div>
+            <span class="pct">16.2%</span>
+          </div>
+        </div>
+
+        <div class="profit-row neg">
+          <span class="nm">Meridian Care</span>
+          <span class="amt neg">− KES 24K</span>
+          <div class="bar-wrap">
+            <div class="bar"><span style="width: 5%;"></span></div>
+            <span class="pct">−2.0%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent activity (replaces transactions) -->
+    <div class="rail-section">
+      <h3>Recent activity</h3>
+      <div class="sub">EOD log · last 24 hours</div>
+
+      <div class="eod-list">
+        <div class="eod-item">
+          <span class="glyph success"><i data-lucide="check-circle-2" style="width:16px;height:16px;stroke-width:1.75;"></i></span>
+          <div class="who">
+            <div class="nm">Bluewave Tech</div>
+            <div class="meta">Invoice INV-2026-0414 · paid</div>
+          </div>
+          <div class="amt pos">+ KES 4,830<small>14:08 EAT</small></div>
+        </div>
+
+        <div class="eod-item active">
+          <span class="glyph gold"><i data-lucide="file-check-2" style="width:16px;height:16px;stroke-width:1.75;"></i></span>
+          <div class="who">
+            <div class="nm">Uptown Hotels</div>
+            <div class="meta">Invoice settlement · J. Wanjiku</div>
+          </div>
+          <div class="amt pos">+ KES 1,386<small>13:42 EAT</small></div>
+        </div>
+
+        <div class="eod-item">
+          <span class="glyph info"><i data-lucide="arrow-down-to-line" style="width:16px;height:16px;stroke-width:1.75;"></i></span>
+          <div class="who">
+            <div class="nm">Director payout · MK</div>
+            <div class="meta">Withdrawal WTH-0188 · pending CFO</div>
+          </div>
+          <div class="amt neg">USD 8,200<small>12:11 EAT</small></div>
+        </div>
+
+        <div class="eod-item">
+          <span class="glyph warn"><i data-lucide="triangle-alert" style="width:16px;height:16px;stroke-width:1.75;"></i></span>
+          <div class="who">
+            <div class="nm">Tools category</div>
+            <div class="meta">Variance +12% vs plan · Q2</div>
+          </div>
+          <div class="amt neg">KES 82,280<small>11:47 EAT</small></div>
+        </div>
+
+        <div class="eod-item">
+          <span class="glyph ink"><i data-lucide="clipboard-list" style="width:16px;height:16px;stroke-width:1.75;"></i></span>
+          <div class="who">
+            <div class="nm">Ada Outbound · BV-24.07</div>
+            <div class="meta">Budget submitted · K. Kiprono</div>
+          </div>
+          <div class="amt neg">KES 4.82M<small>10:30 EAT</small></div>
+        </div>
+
+        <div class="eod-item">
+          <span class="glyph muted"><i data-lucide="receipt" style="width:16px;height:16px;stroke-width:1.75;"></i></span>
+          <div class="who">
+            <div class="nm">Stream Wallet</div>
+            <div class="meta">Platform fee · Ada Outbound</div>
+          </div>
+          <div class="amt neg">KES 82,280<small>09:55 EAT</small></div>
+        </div>
+
+        <div class="eod-item">
+          <span class="glyph danger"><i data-lucide="undo-2" style="width:16px;height:16px;stroke-width:1.75;"></i></span>
+          <div class="who">
+            <div class="nm">Meridian Care</div>
+            <div class="meta">Refund issued · invoice -0411</div>
+          </div>
+          <div class="amt neg">− KES 28,400<small>09:14 EAT</small></div>
+        </div>
+      </div>
+
+      <a class="view-all" href="#">View full EOD log <i data-lucide="arrow-right"></i></a>
+    </div>
+  </aside>
+</div>
+
+<div id="tweaks-root"></div>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "mode": "treasury",
+    "accent": "gold",
+    "rhythm": "editorial"
+  }/*EDITMODE-END*/;
+
+  // Accent definitions — all share editorial chroma so the system stays disciplined.
+  const ACCENTS = {
+    gold:  { hi: "#D7B368", base: "#C8A24B", lo: "#A8863A", soft: "#F3E7C6" },
+    olive: { hi: "#9AA463", base: "#7A8348", lo: "#5F6638", soft: "#E5E8CF" },
+    ember: { hi: "#D88862", base: "#B86A45", lo: "#94522F", soft: "#F4D9C9" },
+  };
+
+  // Rhythm scales — drive padding, sizes, line-heights together so the page reflows coherently.
+  const RHYTHMS = {
+    compact:   { pad: "14px", padLg: "16px", kpi: "24px",   h1: "24px", gap: "10px", trend: "240px" },
+    editorial: { pad: "18px", padLg: "22px", kpi: "28px",   h1: "28px", gap: "14px", trend: "280px" },
+    generous:  { pad: "26px", padLg: "30px", kpi: "36px",   h1: "36px", gap: "20px", trend: "340px" },
+  };
+
+  function applyTweaks(t) {
+    const body = document.body;
+    body.classList.remove("mode-treasury", "mode-manuscript", "mode-terminal");
+    body.classList.add("mode-" + t.mode);
+
+    const a = ACCENTS[t.accent] || ACCENTS.gold;
+    const root = document.documentElement;
+    root.style.setProperty("--gold",      a.base);
+    root.style.setProperty("--gold-hi",   a.hi);
+    root.style.setProperty("--gold-lo",   a.lo);
+    root.style.setProperty("--gold-soft", a.soft);
+
+    const r = RHYTHMS[t.rhythm] || RHYTHMS.editorial;
+    root.style.setProperty("--rhythm-pad",      r.pad);
+    root.style.setProperty("--rhythm-pad-lg",   r.padLg);
+    root.style.setProperty("--rhythm-kpi",      r.kpi);
+    root.style.setProperty("--rhythm-h1",       r.h1);
+    root.style.setProperty("--rhythm-card-gap", r.gap);
+    root.style.setProperty("--rhythm-trend-h", r.trend);
+  }
+
+  function App() {
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+    React.useEffect(() => { applyTweaks(t); }, [t.mode, t.accent, t.rhythm]);
+
+    return (
+      <TweaksPanel>
+        <TweakSection label="Editorial mode" />
+        <TweakRadio
+          label="Register"
+          value={t.mode}
+          options={["treasury", "manuscript", "terminal"]}
+          onChange={(v) => setTweak("mode", v)}
+        />
+
+        <TweakSection label="Accent" />
+        <TweakRadio
+          label="Tone"
+          value={t.accent}
+          options={["gold", "olive", "ember"]}
+          onChange={(v) => setTweak("accent", v)}
+        />
+
+        <TweakSection label="Rhythm" />
+        <TweakRadio
+          label="Density"
+          value={t.rhythm}
+          options={["compact", "editorial", "generous"]}
+          onChange={(v) => setTweak("rhythm", v)}
+        />
+      </TweaksPanel>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("tweaks-root")).render(<App />);
+</script>
+
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    if (window.lucide) window.lucide.createIcons();
+  });
+</script>
+</body>
+</html>

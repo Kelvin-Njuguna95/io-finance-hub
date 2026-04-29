@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Type scale</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  body { margin: 0; padding: 22px; background: var(--surface-2); }
+  .row { display: grid; grid-template-columns: 80px 110px 1fr; align-items: baseline; gap: 16px; padding: 9px 0; border-bottom: 1px dashed var(--border); }
+  .row:last-child { border-bottom: 0; }
+  .px { font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); }
+  .tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted-foreground); }
+  .sample { color: var(--foreground); }
+</style>
+</head><body>
+  <div class="row"><span class="px">40 / 2.5rem</span><span class="tag">4xl · display</span><span class="sample t-h1" style="font-size: 2.5rem; letter-spacing: -0.02em;">Monthly close</span></div>
+  <div class="row"><span class="px">32 / 2rem</span><span class="tag">3xl · KPI</span><span class="sample t-kpi" style="font-size: 2rem;">KES 12.4M</span></div>
+  <div class="row"><span class="px">24 / 1.5rem</span><span class="tag">2xl · h1</span><span class="sample t-h1">Budget approval queue</span></div>
+  <div class="row"><span class="px">20 / 1.25rem</span><span class="tag">xl · h2</span><span class="sample t-h2">Outstanding receivables</span></div>
+  <div class="row"><span class="px">18 / 1.125rem</span><span class="tag">lg · h3</span><span class="sample t-h3">Project health</span></div>
+  <div class="row"><span class="px">16 / 1rem</span><span class="tag">md · body</span><span class="sample t-body">Default paragraph text — minimum 15px, 16px preferred for extended sessions.</span></div>
+  <div class="row"><span class="px">13 / 0.8125rem</span><span class="tag">sm · UI</span><span class="sample t-body-sm">Secondary UI · table body · descriptions</span></div>
+  <div class="row"><span class="px">11 / 0.6875rem</span><span class="tag">xs · eyebrow</span><span class="sample t-eyebrow">IMPACT OUTSOURCING · FINANCE</span></div>
+</body></html>

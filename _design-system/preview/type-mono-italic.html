@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Mono usage & italic role</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  body { margin: 0; padding: 20px; background: var(--surface-2); font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 600; color: var(--muted-foreground); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 8px 9px 0; border-bottom: 1px dashed var(--border); }
+  tr:last-child td { border-bottom: 0; }
+  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+  .est { font-style: italic; color: var(--muted-foreground); }
+  .note { margin-top: 10px; font-size: 10px; color: var(--muted-foreground); letter-spacing: 0.04em; }
+  .note b { color: var(--foreground); }
+</style>
+</head><body>
+  <div class="card">
+    <table>
+      <thead><tr><th>Invoice</th><th>Client</th><th style="text-align:right;">Revenue (KES)</th></tr></thead>
+      <tbody>
+        <tr><td class="num">INV-2026-0412</td><td>Ada Outbound</td><td class="num">1,480,000</td></tr>
+        <tr><td class="num">INV-2026-0413</td><td>Vega Collections</td><td class="num est">≈ 920,500</td></tr>
+        <tr><td class="num">INV-2026-0414</td><td>Helios CX</td><td class="num">2,145,000</td></tr>
+        <tr><td class="num">INV-2026-0415</td><td>Meridian Care</td><td class="num est">≈ 640,000</td></tr>
+      </tbody>
+    </table>
+    <div class="note"><b>Italic</b> + <b>≈ prefix</b> = estimated value (<code style="font-family:var(--font-mono);">revenueEstimated</code>). One role. Never used for emphasis, foreign words, or proper nouns.</div>
+  </div>
+</body></html>

@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Colours — brand & neutrals</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ==========================================================================
+     Impact Outsourcing brand system — extracted from the uploaded site pages.
+     Fonts: Fraunces (display, italic hero accents), Geist (sans), Geist Mono.
+     Theme tokens: --paper / --ink / --gold / --warm-grey.
+     ========================================================================== */
+  :root {
+    --f-display: "Fraunces", Georgia, "Times New Roman", serif;
+    --f-sans:    "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --f-mono:    "Geist Mono", "SF Mono", Menlo, Consolas, monospace;
+
+    /* Signature gold — warm amber-gold brand accent */
+    --gold:          #C8A24B;
+    --gold-hi:       #D7B368;
+    --gold-lo:       #A8863A;
+    --gold-soft:     #F3E7C6;
+
+    /* Paper — warm off-white canvas (ink-on-paper feel) */
+    --paper:         #FAFAF7;
+    --paper-2:       #F4F2EC;
+    --paper-3:       #ECE8DE;
+    --paper-4:       #DFDACB;
+
+    /* Ink — deep near-black with a gold undertone so it blends with paper + gold */
+    --ink:           #111210;
+    --ink-2:         #1C1D1A;
+    --ink-3:         #2A2B27;
+    --ink-4:         #3B3C37;
+
+    /* Warm greys — the mid-tone ramp between paper and ink */
+    --warm-grey:     #8A877D;
+    --warm-grey-2:   #6E6B62;
+    --warm-grey-3:   #4E4C45;
+  }
+
+  html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  body {
+    margin: 0; padding: 28px;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-sans);
+    font-size: 15px; line-height: 1.5;
+  }
+
+  .wrap { display: flex; flex-direction: column; gap: 26px; max-width: 980px; }
+
+  .header .kicker {
+    font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--warm-grey-2);
+  }
+  .header h1 {
+    font-family: var(--f-display); font-weight: 400;
+    font-size: 34px; line-height: 1.1; letter-spacing: -0.01em;
+    margin: 6px 0 0; color: var(--ink);
+  }
+  .header h1 em {
+    font-style: italic; font-weight: 400; color: var(--gold-lo);
+  }
+
+  .group-label {
+    font-family: var(--f-sans); font-size: 11px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--warm-grey-2);
+  }
+  .group-meta {
+    font-family: var(--f-mono); font-size: 10px;
+    color: var(--warm-grey); margin-top: 3px;
+  }
+
+  .row { display: flex; gap: 6px; align-items: stretch; margin-top: 10px; }
+  .swatch {
+    flex: 1; height: 68px; border-radius: 6px;
+    border: 1px solid rgba(17,18,16,0.08);
+    position: relative; overflow: hidden;
+  }
+  .lab {
+    position: absolute; left: 10px; bottom: 8px;
+    font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.01em;
+  }
+  .lab.on-dark  { color: rgba(250,250,247,0.88); }
+  .lab.on-light { color: var(--ink-3); }
+  .lab.on-gold  { color: var(--ink); }
+
+  /* Harmony strip — the three anchors side by side */
+  .harmony {
+    display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 0;
+    border-radius: 10px; overflow: hidden;
+    border: 1px solid rgba(17,18,16,0.08);
+    margin-top: 10px;
+  }
+  .harmony > div {
+    padding: 22px 20px; min-height: 132px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .harmony .serif {
+    font-family: var(--f-display); font-weight: 400;
+    font-size: 22px; line-height: 1.15; letter-spacing: -0.01em;
+  }
+  .harmony .serif em { font-style: italic; }
+  .harmony .meta { font-family: var(--f-mono); font-size: 10px; opacity: 0.72; }
+  .h-paper { background: var(--paper);  color: var(--ink); }
+  .h-ink   { background: var(--ink);    color: var(--paper); }
+  .h-gold  { background: var(--gold);   color: var(--ink); }
+
+  /* Typography specimen — prove the Fraunces + Geist pairing reads well */
+  .type-card {
+    background: var(--paper-2);
+    border: 1px solid rgba(17,18,16,0.06);
+    border-radius: 10px;
+    padding: 24px 26px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+  }
+  .type-card .display {
+    font-family: var(--f-display); font-weight: 400;
+    font-size: 28px; line-height: 1.1; letter-spacing: -0.01em; color: var(--ink);
+  }
+  .type-card .display em { font-style: italic; color: var(--gold-lo); }
+  .type-card .body {
+    font-family: var(--f-sans); font-size: 14px; line-height: 1.55;
+    color: var(--ink-3);
+  }
+  .type-card .body .muted { color: var(--warm-grey-2); }
+  .type-card .mono {
+    font-family: var(--f-mono); font-size: 11px; color: var(--warm-grey-2);
+    margin-top: 10px; letter-spacing: 0.02em;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+
+    <div class="header">
+      <div class="kicker">Brand · colour &amp; type</div>
+      <h1>Paper, ink, and a <em>signature gold.</em></h1>
+    </div>
+
+    <div>
+      <div class="group-label">Brand anchor · signature gold</div>
+      <div class="group-meta">--gold · editorial amber · the only saturated colour in the system</div>
+      <div class="row">
+        <div class="swatch" style="background: var(--gold); flex: 2;">
+          <span class="lab on-gold">--gold · #C8A24B</span>
+        </div>
+        <div class="swatch" style="background: var(--gold-soft);">
+          <span class="lab on-light">--gold-soft · #F3E7C6</span>
+        </div>
+        <div class="swatch" style="background: var(--gold-hi);">
+          <span class="lab on-gold">--gold-hi · #D7B368</span>
+        </div>
+        <div class="swatch" style="background: var(--gold-lo);">
+          <span class="lab on-dark">--gold-lo · #A8863A</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="group-label">Paper · warm off-white canvas</div>
+      <div class="group-meta">--paper &amp; ramp · surfaces, cards, editorial backgrounds</div>
+      <div class="row">
+        <div class="swatch" style="background: var(--paper); border-color: var(--paper-4);">
+          <span class="lab on-light">--paper · #FAFAF7</span>
+        </div>
+        <div class="swatch" style="background: var(--paper-2); border-color: var(--paper-4);">
+          <span class="lab on-light">--paper-2 · #F4F2EC</span>
+        </div>
+        <div class="swatch" style="background: var(--paper-3); border-color: var(--paper-4);">
+          <span class="lab on-light">--paper-3 · #ECE8DE</span>
+        </div>
+        <div class="swatch" style="background: var(--paper-4); border-color: var(--paper-4);">
+          <span class="lab on-light">--paper-4 · #DFDACB</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="group-label">Ink · deep warm-black</div>
+      <div class="group-meta">--ink &amp; ramp · type, dark sections, emphasis surfaces</div>
+      <div class="row">
+        <div class="swatch" style="background: var(--ink);">
+          <span class="lab on-dark">--ink · #111210</span>
+        </div>
+        <div class="swatch" style="background: var(--ink-2);">
+          <span class="lab on-dark">--ink-2 · #1C1D1A</span>
+        </div>
+        <div class="swatch" style="background: var(--ink-3);">
+          <span class="lab on-dark">--ink-3 · #2A2B27</span>
+        </div>
+        <div class="swatch" style="background: var(--ink-4);">
+          <span class="lab on-dark">--ink-4 · #3B3C37</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="group-label">Warm greys · mid-tone ramp</div>
+      <div class="group-meta">--warm-grey · body secondary, captions, dividers</div>
+      <div class="row">
+        <div class="swatch" style="background: var(--warm-grey);">
+          <span class="lab on-dark">--warm-grey · #8A877D</span>
+        </div>
+        <div class="swatch" style="background: var(--warm-grey-2);">
+          <span class="lab on-dark">--warm-grey-2 · #6E6B62</span>
+        </div>
+        <div class="swatch" style="background: var(--warm-grey-3);">
+          <span class="lab on-dark">--warm-grey-3 · #4E4C45</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="group-label">Harmony check · paper · ink · gold</div>
+      <div class="group-meta">the three anchors of the system, proven to sit together</div>
+      <div class="harmony">
+        <div class="h-paper">
+          <div class="serif">Paper sets the <em>tone.</em></div>
+          <div class="meta">#FAFAF7 · Fraunces / Geist</div>
+        </div>
+        <div class="h-ink">
+          <div class="serif">Ink carries <em>weight.</em></div>
+          <div class="meta">#111210 · Geist Mono</div>
+        </div>
+        <div class="h-gold">
+          <div class="serif">Gold marks <em>intent.</em></div>
+          <div class="meta">#C8A24B · single accent</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="group-label">Type pairing · Fraunces + Geist + Geist Mono</div>
+      <div class="group-meta">display serif with live italic · neutral geometric sans · mono for metadata</div>
+      <div class="type-card" style="margin-top: 10px;">
+        <div>
+          <div class="display">Human-in-the-loop systems for <em>production-grade accuracy.</em></div>
+          <div class="mono">Fraunces · 300–700 · opsz 9–144</div>
+        </div>
+        <div>
+          <div class="body">
+            Geist carries the body text — neutral, technical, quiet enough that the Fraunces display and the gold accent do the emotional work. <span class="muted">Warm grey handles captions and secondary copy so the ink stays reserved for things that matter.</span>
+          </div>
+          <div class="mono">Geist · 300–700 &nbsp;·&nbsp; Geist Mono · 400/500</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body></html>

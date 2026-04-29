@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Finance Hub · New budget</title>
+<link rel="stylesheet" href="IO Finance Hub/_design-system/colors_and_type.css" />
+<link rel="stylesheet" href="app-shell.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  /* Page-level form layout — full-page form, not modal,
+     because line-item budgets routinely have 8+ rows */
+  .form-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 32px; }
+  .form-stack { display: flex; flex-direction: column; gap: 24px; }
+  .form-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 24px;
+  }
+  .form-card .head {
+    font-family: var(--font-display); font-size: 17px; font-weight: 500;
+    margin: 0 0 4px; font-variation-settings: "opsz" 32;
+  }
+  .form-card .desc {
+    font-size: 12.5px; color: var(--warm-grey-3); margin: 0 0 18px;
+  }
+
+  /* Inline line-item table editor */
+  .li-table { width: 100%; border-collapse: collapse; }
+  .li-table thead th {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+    text-align: left; padding: 10px 8px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .li-table thead th.right { text-align: right; }
+  .li-table tbody td { padding: 8px; vertical-align: middle; border-bottom: 1px solid var(--border-subtle); }
+  .li-table tbody tr:last-child td { border-bottom: 0; }
+  .li-table input.input { height: 34px; font-size: 13px; }
+  .li-table .row-del {
+    width: 28px; height: 28px; border-radius: var(--radius);
+    background: transparent; border: 1px solid transparent; color: var(--muted-foreground);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .li-table .row-del:hover { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-soft); }
+  .li-table .row-del [data-lucide] { width: 14px; height: 14px; stroke-width: 1.75; }
+  .li-table .add-row {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: transparent; border: 1px dashed var(--paper-4); color: var(--warm-grey-3);
+    font-size: 12.5px; padding: 8px 14px; border-radius: var(--radius);
+    margin-top: 12px;
+  }
+  .li-table .add-row:hover { border-color: var(--ink); color: var(--ink); background: var(--paper-2); }
+  .li-table .add-row [data-lucide] { width: 13px; height: 13px; stroke-width: 1.75; }
+
+  /* Summary card on the right */
+  .summary-num {
+    font-family: var(--font-mono); font-size: 32px; font-weight: 500;
+    color: var(--ink); font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em; line-height: 1;
+  }
+  .summary-num .ccy { font-size: 12px; color: var(--muted-foreground); margin-right: 6px; letter-spacing: 0.04em; }
+  .summary-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 10px 0; border-bottom: 1px solid var(--border-subtle);
+    font-size: 13px;
+  }
+  .summary-row:last-child { border-bottom: 0; }
+  .summary-row .lbl { color: var(--warm-grey-3); }
+  .summary-row .val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="side">
+    <div class="brand">
+      <span class="tile">IO</span>
+      <span><span class="eye">Impact Outsourcing</span><span class="title">Finance Hub</span></span>
+    </div>
+    <div class="group-label">Operations</div>
+    <a class="nav-item" href="dashboard.html"><i data-lucide="layout-dashboard"></i>Home</a>
+    <a class="nav-item active" href="budgets.html"><i data-lucide="clipboard-list"></i>Budgets <span class="count gold">7</span></a>
+    <a class="nav-item" href="expenses.html"><i data-lucide="receipt"></i>Expenses</a>
+    <a class="nav-item" href="invoices.html"><i data-lucide="file-text"></i>Invoices</a>
+    <a class="nav-item" href="withdrawals.html"><i data-lucide="arrow-down-to-line"></i>Withdrawals</a>
+    <a class="nav-item" href="profit-share.html"><i data-lucide="piggy-bank"></i>Profit share</a>
+    <div class="group-label">Reports</div>
+    <a class="nav-item" href="#"><i data-lucide="trending-up"></i>Monthly P&amp;L</a>
+    <a class="nav-item" href="#"><i data-lucide="flag"></i>Red flags <span class="count danger">3</span></a>
+    <a class="nav-item" href="#"><i data-lucide="inbox"></i>EOD reports</a>
+    <a class="nav-item" href="#"><i data-lucide="users"></i>Agent counts</a>
+    <div class="group-label">System</div>
+    <a class="nav-item" href="#"><i data-lucide="shield-check"></i>Audit trail</a>
+    <a class="nav-item" href="#"><i data-lucide="settings"></i>Settings</a>
+    <div class="spacer"></div>
+    <div class="closure-card">
+      <div class="eye">Month closure</div>
+      <div class="head">April 2026<br/><em>in progress</em></div>
+      <div class="progress"><span></span></div>
+      <div class="body">9 of 12 sign-offs complete · 3 days to lock</div>
+      <button class="btn-gold">Open closure</button>
+    </div>
+  </aside>
+
+  <div>
+    <header class="topbar">
+      <nav class="crumbs">
+        <a class="home" href="dashboard.html"><i data-lucide="home"></i></a>
+        <span class="sep">/</span>
+        <a href="budgets.html">Budgets</a>
+        <span class="sep">/</span>
+        <span class="here">New budget</span>
+      </nav>
+      <div class="spacer"></div>
+      <div class="search">
+        <i data-lucide="search"></i>
+        <input placeholder="Search budgets, projects, owners…" />
+        <span class="kbd">⌘ K</span>
+      </div>
+      <button class="icon-btn"><i data-lucide="bell"></i><span class="dot gold"></span></button>
+      <div class="user-chip">
+        <span class="av">AM</span>
+        <div><div class="nm">Anne Mburu</div><div class="role">CFO</div></div>
+        <i data-lucide="chevron-down"></i>
+      </div>
+    </header>
+
+    <main class="page">
+
+      <div class="page-head">
+        <div class="titles">
+          <div class="eye">Operations · Budgets</div>
+          <h1>New budget <em>· draft</em></h1>
+          <p class="subtitle">Q2 2026 · Apr–Jun <span class="sep">·</span> Author <span class="num">A. Mburu</span></p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-quiet"><i data-lucide="x"></i>Discard</button>
+          <button class="btn btn-ghost"><i data-lucide="save"></i>Save as draft</button>
+          <button class="btn btn-primary"><i data-lucide="send"></i>Submit for approval</button>
+        </div>
+      </div>
+
+      <form class="form-grid" onsubmit="return false;">
+
+        <div class="form-stack">
+
+          <!-- Section: Budget basics -->
+          <div class="form-card">
+            <div class="head">Budget basics</div>
+            <p class="desc">Identify the project, period and owner. The budget number is generated on submit.</p>
+
+            <div class="field-row cols-2" style="margin-bottom: 16px;">
+              <div class="field">
+                <label class="field-label">Project</label>
+                <select class="select">
+                  <option>Meridian Care · Healthcare BPO</option>
+                  <option>Ada Outbound · Outbound voice</option>
+                  <option>Helios CX · Inbound chat</option>
+                  <option>Noor Partners · QA &amp; testing</option>
+                  <option>Vega Collections · Collections</option>
+                </select>
+                <span class="field-help">Only projects you own appear here.</span>
+              </div>
+              <div class="field">
+                <label class="field-label">Currency</label>
+                <div class="segmented">
+                  <button type="button" class="active">KES</button>
+                  <button type="button">USD</button>
+                </div>
+                <span class="field-help">USD budgets use the locked rate at submission time.</span>
+              </div>
+            </div>
+
+            <div class="field" style="margin-bottom: 16px;">
+              <label class="field-label">Title</label>
+              <input class="input" value="Onboarding phase 2" placeholder="A short editorial label, sentence case" />
+              <span class="field-help">Shown on the list view as the primary line.</span>
+            </div>
+
+            <div class="field-row cols-3" style="margin-bottom: 16px;">
+              <div class="field">
+                <label class="field-label">Period</label>
+                <div class="segmented">
+                  <button type="button">Month</button>
+                  <button type="button" class="active">Quarter</button>
+                  <button type="button">Custom</button>
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-label">Period start</label>
+                <div class="input-wrap">
+                  <input class="input input-mono" value="2026-04-01" />
+                  <i data-lucide="calendar" class="suffix-icon"></i>
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-label">Period end</label>
+                <div class="input-wrap">
+                  <input class="input input-mono" value="2026-06-30" />
+                  <i data-lucide="calendar" class="suffix-icon"></i>
+                </div>
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field-label">Description</label>
+              <textarea class="textarea" placeholder="What this budget pays for, written in sentence case.">Translator licences and trainer overtime to support the second onboarding cohort. Replaces v2 with revised trainer hours.</textarea>
+              <span class="field-help">Treasury register. No marketing voice.</span>
+            </div>
+          </div>
+
+          <!-- Section: Line items -->
+          <div class="form-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+              <div>
+                <div class="head">Line items</div>
+                <p class="desc" style="margin: 4px 0 0;">Break the budget into categories. Variance is tracked per line.</p>
+              </div>
+              <button class="btn btn-ghost btn-sm"><i data-lucide="upload"></i>Import CSV</button>
+            </div>
+
+            <table class="li-table">
+              <thead>
+                <tr>
+                  <th style="width: 26%;">Category</th>
+                  <th style="width: 14%;">Type</th>
+                  <th>Description</th>
+                  <th class="right" style="width: 16%;">Approved · KES</th>
+                  <th style="width: 36px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><input class="input" value="Translator licences" /></td>
+                  <td>
+                    <select class="select">
+                      <option>Software</option>
+                      <option>Hardware</option>
+                      <option>Headcount</option>
+                      <option>Services</option>
+                      <option>Travel</option>
+                    </select>
+                  </td>
+                  <td><input class="input" value="Recurring · 12 seats × USD 28 / mo" /></td>
+                  <td><input class="input input-mono" style="text-align:right;" value="540,000" /></td>
+                  <td><button type="button" class="row-del"><i data-lucide="trash-2"></i></button></td>
+                </tr>
+                <tr>
+                  <td><input class="input" value="Trainer overtime" /></td>
+                  <td>
+                    <select class="select">
+                      <option>Headcount</option>
+                      <option>Software</option>
+                      <option>Services</option>
+                    </select>
+                  </td>
+                  <td><input class="input" value="3 trainers, weekend coverage" /></td>
+                  <td><input class="input input-mono" style="text-align:right;" value="320,000" /></td>
+                  <td><button type="button" class="row-del"><i data-lucide="trash-2"></i></button></td>
+                </tr>
+                <tr>
+                  <td><input class="input" value="Onboarding kits" /></td>
+                  <td>
+                    <select class="select">
+                      <option>Hardware</option>
+                      <option>Software</option>
+                    </select>
+                  </td>
+                  <td><input class="input" value="Headsets, monitors, badges · 18 agents" /></td>
+                  <td><input class="input input-mono" style="text-align:right;" value="216,000" /></td>
+                  <td><button type="button" class="row-del"><i data-lucide="trash-2"></i></button></td>
+                </tr>
+                <tr>
+                  <td><input class="input" value="Recruitment fees" /></td>
+                  <td>
+                    <select class="select">
+                      <option>Services</option>
+                    </select>
+                  </td>
+                  <td><input class="input" value="External agency · 6 placements" /></td>
+                  <td><input class="input input-mono" style="text-align:right;" value="120,000" /></td>
+                  <td><button type="button" class="row-del"><i data-lucide="trash-2"></i></button></td>
+                </tr>
+                <tr>
+                  <td><input class="input" value="Compliance audit" /></td>
+                  <td>
+                    <select class="select">
+                      <option>Services</option>
+                    </select>
+                  </td>
+                  <td><input class="input" value="HIPAA refresher for new cohort" /></td>
+                  <td><input class="input input-mono" style="text-align:right;" value="54,000" /></td>
+                  <td><button type="button" class="row-del"><i data-lucide="trash-2"></i></button></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <button type="button" class="add-row"><i data-lucide="plus"></i>Add line item</button>
+          </div>
+
+        </div>
+
+        <!-- Right column: summary + approver -->
+        <div class="form-stack">
+          <div class="form-card" style="position: sticky; top: 80px;">
+            <div class="head">Summary</div>
+            <p class="desc">Live as you edit.</p>
+
+            <div style="margin: 18px 0;">
+              <div style="font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground); margin-bottom: 12px;">Approved total</div>
+              <div class="summary-num"><span class="ccy">KES</span>1,250,000</div>
+              <div style="margin-top:8px;font-size:12.5px;color:var(--warm-grey-3);">≈ USD 9,615 at locked rate KES 130 / USD</div>
+            </div>
+
+            <div style="margin-top: 14px;">
+              <div class="summary-row"><span class="lbl">Software</span><span class="val">540,000</span></div>
+              <div class="summary-row"><span class="lbl">Headcount</span><span class="val">320,000</span></div>
+              <div class="summary-row"><span class="lbl">Hardware</span><span class="val">216,000</span></div>
+              <div class="summary-row"><span class="lbl">Services</span><span class="val">174,000</span></div>
+            </div>
+
+            <div style="margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border-subtle);">
+              <div style="font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground); margin-bottom: 12px;">Comparison</div>
+              <div class="summary-row"><span class="lbl">Last quarter</span><span class="val">980,000</span></div>
+              <div class="summary-row"><span class="lbl">Versus plan</span><span class="val" style="color: var(--gold-lo);">+ 27.6%</span></div>
+              <div class="summary-row"><span class="lbl">Project quarter cap</span><span class="val">2,500,000</span></div>
+            </div>
+          </div>
+
+          <div class="form-card">
+            <div class="head">Approver chain</div>
+            <p class="desc">Submission goes to the accountant first, then the CFO.</p>
+
+            <div style="display:flex;flex-direction:column;gap:14px;margin-top:14px;">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span class="avatar muted">DK</span>
+                <div style="flex:1;">
+                  <div style="font-size:13.5px;font-weight:500;color:var(--ink);">D. Kimani</div>
+                  <div style="font-size:11.5px;color:var(--muted-foreground);">Accountant · review</div>
+                </div>
+                <span class="status muted" style="padding:2px 8px;font-size:10.5px;">Step 1</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span class="avatar">AM</span>
+                <div style="flex:1;">
+                  <div style="font-size:13.5px;font-weight:500;color:var(--ink);">A. Mburu</div>
+                  <div style="font-size:11.5px;color:var(--muted-foreground);">CFO · final approval</div>
+                </div>
+                <span class="status muted" style="padding:2px 8px;font-size:10.5px;">Step 2</span>
+              </div>
+            </div>
+
+            <div class="field" style="margin-top: 18px;">
+              <label class="field-label">Note for reviewer</label>
+              <textarea class="textarea" style="min-height: 70px;" placeholder="Optional. Leave a one-liner if anything is unusual."></textarea>
+            </div>
+          </div>
+
+          <!-- Validation example -->
+          <div class="form-card" style="border-color: var(--gold);">
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+              <i data-lucide="info" style="width:16px;height:16px;stroke-width:1.75;color:var(--gold-lo);margin-top:2px;"></i>
+              <div>
+                <div class="head" style="font-size: 14px;">Project quarter cap nearly reached</div>
+                <p style="margin:6px 0 0;font-size:12.5px;color:var(--warm-grey-3);line-height:1.55;">
+                  This budget plus open commitments would consume <strong style="color:var(--ink);">98%</strong> of the
+                  Meridian Care quarter cap. CFO approval is required.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+
+    </main>
+  </div>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

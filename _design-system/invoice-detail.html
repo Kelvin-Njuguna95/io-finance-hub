@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Finance Hub · INV-2026-04-0142</title>
+<link rel="stylesheet" href="IO Finance Hub/_design-system/colors_and_type.css" />
+<link rel="stylesheet" href="app-shell.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  /* Two-up: invoice document on left, action rail on right */
+  .doc-grid { display: grid; grid-template-columns: 1fr 380px; gap: 28px; align-items: flex-start; }
+
+  /* Invoice document — paper-like card */
+  .doc-paper {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 48px 52px;
+    box-shadow: var(--shadow-sm);
+  }
+  .doc-paper .doc-head {
+    display: grid; grid-template-columns: 1fr auto; gap: 32px;
+    padding-bottom: 28px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 32px;
+  }
+  .doc-paper .from .brand-row {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+  }
+  .doc-paper .from .brand-tile {
+    width: 40px; height: 40px; background: var(--ink); color: var(--gold);
+    border-radius: var(--radius); display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-weight: 500; font-size: 14px;
+  }
+  .doc-paper .from .name {
+    font-family: var(--font-display); font-size: 16px; font-weight: 500; color: var(--ink);
+    font-variation-settings: "opsz" 28; letter-spacing: -0.01em;
+  }
+  .doc-paper .from .addr {
+    font-size: 12.5px; color: var(--warm-grey-3); line-height: 1.6;
+  }
+
+  .doc-paper .doc-id {
+    text-align: right;
+  }
+  .doc-paper .doc-id .lbl {
+    font-family: var(--font-mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.18em; color: var(--muted-foreground);
+  }
+  .doc-paper .doc-id .num {
+    font-family: var(--font-mono); font-size: 22px; font-weight: 500;
+    color: var(--ink); margin-top: 6px; font-variant-numeric: tabular-nums; letter-spacing: 0.04em;
+  }
+
+  /* Bill-to + dates band */
+  .bill-band {
+    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 28px;
+    margin-bottom: 32px;
+  }
+  .bill-band .lbl {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted-foreground);
+    margin-bottom: 8px;
+  }
+  .bill-band .v1 {
+    font-size: 14px; font-weight: 500; color: var(--ink); line-height: 1.4;
+  }
+  .bill-band .v2 {
+    font-size: 12.5px; color: var(--warm-grey-3); line-height: 1.6; margin-top: 6px;
+  }
+  .bill-band .v1.mono {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+  }
+
+  /* Line items table */
+  .doc-lines { width: 100%; border-collapse: collapse; }
+  .doc-lines thead th {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted-foreground);
+    text-align: left; padding: 10px 0; border-bottom: 1px solid var(--ink);
+  }
+  .doc-lines thead th.right { text-align: right; }
+  .doc-lines tbody td {
+    padding: 16px 0; border-bottom: 1px solid var(--border-subtle);
+    font-size: 13.5px; color: var(--ink); vertical-align: top;
+  }
+  .doc-lines tbody td.right {
+    text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  }
+  .doc-lines tbody td .desc {
+    font-size: 12px; color: var(--warm-grey-3); margin-top: 5px; line-height: 1.5;
+  }
+  .doc-lines tbody td .ref {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--gold-lo); margin-top: 6px;
+    text-transform: uppercase; letter-spacing: 0.10em;
+    border-bottom: 1px solid var(--gold); padding-bottom: 1px; display: inline-block;
+  }
+
+  /* Totals */
+  .totals { margin-top: 18px; display: flex; justify-content: flex-end; }
+  .totals table { border-collapse: collapse; min-width: 320px; }
+  .totals td {
+    padding: 8px 0; font-size: 13px;
+  }
+  .totals td:first-child { color: var(--warm-grey-3); padding-right: 40px; }
+  .totals td.right {
+    text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .totals tr.grand td {
+    font-size: 16px; font-weight: 500; color: var(--ink);
+    border-top: 2px solid var(--ink); padding-top: 14px; margin-top: 6px;
+  }
+  .totals tr.grand td.right {
+    font-size: 22px; letter-spacing: -0.01em;
+  }
+
+  /* Notes */
+  .doc-notes {
+    margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--border-subtle);
+  }
+  .doc-notes .lbl {
+    font-family: var(--font-mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted-foreground);
+    margin-bottom: 10px;
+  }
+  .doc-notes p { margin: 0; font-size: 12.5px; color: var(--warm-grey-3); line-height: 1.7; }
+
+  /* Action rail */
+  .rail-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 22px;
+    margin-bottom: 16px;
+  }
+  .rail-card .lbl {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+    margin-bottom: 10px;
+  }
+  .rail-card .head {
+    font-family: var(--font-display); font-size: 17px; font-weight: 500;
+    color: var(--ink); margin: 0; font-variation-settings: "opsz" 28; letter-spacing: -0.01em;
+  }
+  .rail-card .desc { font-size: 12.5px; color: var(--warm-grey-3); margin: 4px 0 0; line-height: 1.55; }
+
+  .due-num {
+    font-family: var(--font-mono); font-size: 30px; font-weight: 500;
+    color: var(--ink); font-variant-numeric: tabular-nums;
+    line-height: 1; letter-spacing: -0.01em; margin: 12px 0 4px;
+  }
+  .due-num.danger { color: var(--danger); }
+  .due-num .ccy { font-size: 11px; color: var(--muted-foreground); margin-right: 6px; letter-spacing: 0.04em; }
+
+  .pay-row {
+    display: flex; justify-content: space-between; padding: 8px 0;
+    font-size: 12.5px; border-bottom: 1px solid var(--border-subtle);
+  }
+  .pay-row:last-child { border-bottom: 0; }
+  .pay-row .lhs { color: var(--warm-grey-3); }
+  .pay-row .rhs { font-family: var(--font-mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="side">
+    <div class="brand">
+      <span class="tile">IO</span>
+      <span><span class="eye">Impact Outsourcing</span><span class="title">Finance Hub</span></span>
+    </div>
+    <div class="group-label">Operations</div>
+    <a class="nav-item" href="dashboard.html"><i data-lucide="layout-dashboard"></i>Home</a>
+    <a class="nav-item" href="budgets.html"><i data-lucide="clipboard-list"></i>Budgets <span class="count gold">7</span></a>
+    <a class="nav-item" href="expenses.html"><i data-lucide="receipt"></i>Expenses <span class="count gold">14</span></a>
+    <a class="nav-item active" href="invoices.html"><i data-lucide="file-text"></i>Invoices <span class="count danger">2</span></a>
+    <a class="nav-item" href="withdrawals.html"><i data-lucide="arrow-down-to-line"></i>Withdrawals</a>
+    <a class="nav-item" href="profit-share.html"><i data-lucide="piggy-bank"></i>Profit share</a>
+    <div class="group-label">Reports</div>
+    <a class="nav-item" href="#"><i data-lucide="trending-up"></i>Monthly P&amp;L</a>
+    <a class="nav-item" href="#"><i data-lucide="flag"></i>Red flags <span class="count danger">3</span></a>
+    <a class="nav-item" href="#"><i data-lucide="inbox"></i>EOD reports</a>
+    <a class="nav-item" href="#"><i data-lucide="users"></i>Agent counts</a>
+    <div class="group-label">System</div>
+    <a class="nav-item" href="#"><i data-lucide="shield-check"></i>Audit trail</a>
+    <a class="nav-item" href="#"><i data-lucide="settings"></i>Settings</a>
+    <div class="spacer"></div>
+    <div class="closure-card">
+      <div class="eye">Month closure</div>
+      <div class="head">April 2026<br/><em>in progress</em></div>
+      <div class="progress"><span></span></div>
+      <div class="body">9 of 12 sign-offs complete · 3 days to lock</div>
+      <button class="btn-gold">Open closure</button>
+    </div>
+  </aside>
+
+  <div>
+    <header class="topbar">
+      <nav class="crumbs">
+        <a class="home" href="dashboard.html"><i data-lucide="home"></i></a>
+        <span class="sep">/</span>
+        <a href="invoices.html">Invoices</a>
+        <span class="sep">/</span>
+        <span class="here">INV-2026-04-0142</span>
+      </nav>
+      <div class="spacer"></div>
+      <div class="search">
+        <i data-lucide="search"></i>
+        <input placeholder="Search…" />
+        <span class="kbd">⌘ K</span>
+      </div>
+      <button class="icon-btn"><i data-lucide="bell"></i><span class="dot gold"></span></button>
+      <div class="user-chip">
+        <span class="av">AM</span>
+        <div><div class="nm">Anne Mburu</div><div class="role">CFO</div></div>
+        <i data-lucide="chevron-down"></i>
+      </div>
+    </header>
+
+    <main class="page">
+
+      <div class="page-head">
+        <div class="titles">
+          <div class="eye">
+            <span>INV-2026-04-0142</span>
+            <span class="status danger">Overdue · 18 days</span>
+            <span style="color: var(--paper-4);">·</span>
+            <span>Issued by A. Mburu on 14 Apr</span>
+          </div>
+          <h1>Meridian Care · <em>April retainer</em></h1>
+          <p class="subtitle">
+            Bill cycle <span class="num">Apr 2026</span> <span class="sep">·</span>
+            Owner <span class="num">A. Mburu</span> <span class="sep">·</span>
+            <span class="num">3</span> reminders sent
+          </p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-ghost"><i data-lucide="printer"></i>Print</button>
+          <button class="btn btn-ghost"><i data-lucide="download"></i>PDF</button>
+          <button class="btn btn-ghost"><i data-lucide="copy"></i>Duplicate</button>
+          <button class="btn btn-primary"><i data-lucide="check"></i>Mark as paid</button>
+        </div>
+      </div>
+
+      <div class="doc-grid">
+
+        <!-- Invoice document -->
+        <div class="doc-paper">
+
+          <!-- Header -->
+          <div class="doc-head">
+            <div class="from">
+              <div class="brand-row">
+                <span class="brand-tile">IO</span>
+                <div>
+                  <div style="font-family: var(--font-mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted-foreground); font-weight: 500;">Impact Outsourcing</div>
+                  <div class="name">Finance &amp; Treasury</div>
+                </div>
+              </div>
+              <div class="addr">
+                ABC Place, 4th Floor · Waiyaki Way<br/>
+                Westlands · Nairobi · KE-110<br/>
+                VAT P051234567X · finance@impactoutsourcing.co.ke
+              </div>
+            </div>
+            <div class="doc-id">
+              <div class="lbl">Invoice</div>
+              <div class="num">INV-2026-04-0142</div>
+              <div style="margin-top: 22px;">
+                <div class="lbl">Status</div>
+                <span class="status danger" style="margin-top: 6px; padding: 4px 10px;">Overdue · 18d</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bill-to band -->
+          <div class="bill-band">
+            <div>
+              <div class="lbl">Billed to</div>
+              <div class="v1">Meridian Care Ltd</div>
+              <div class="v2">
+                Attn: Sarah Mensah<br/>
+                12 Marina Drive · Lagos<br/>
+                Nigeria · NG-101245
+              </div>
+            </div>
+            <div>
+              <div class="lbl">Project</div>
+              <div class="v1">Healthcare BPO</div>
+              <div class="v2">Onboarding phase 2 · Q2 2026</div>
+            </div>
+            <div>
+              <div class="lbl">Issued</div>
+              <div class="v1 mono">14 Apr 2026</div>
+              <div class="v2">Cycle Apr 2026 · NET 30</div>
+            </div>
+            <div>
+              <div class="lbl">Due</div>
+              <div class="v1 mono" style="color: var(--danger);">14 May 2026</div>
+              <div class="v2" style="color: var(--danger);">18 days late · last reminder 12 May</div>
+            </div>
+          </div>
+
+          <!-- Line items -->
+          <table class="doc-lines">
+            <thead>
+              <tr>
+                <th style="width: 56%;">Description</th>
+                <th class="right" style="width: 14%;">Qty</th>
+                <th class="right" style="width: 14%;">Rate · KES</th>
+                <th class="right" style="width: 16%;">Amount · KES</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  Agent-hours · inbound voice
+                  <div class="desc">14 trainers + 28 agents · weekly totals rolled up. Average daily contact time 6h 12m per agent.</div>
+                  <a class="ref" href="#">From EOD reports · 01 Apr → 30 Apr</a>
+                </td>
+                <td class="right">3,200</td>
+                <td class="right">480</td>
+                <td class="right">1,536,000</td>
+              </tr>
+              <tr>
+                <td>
+                  Trainer hours · weekend cohort coverage
+                  <div class="desc">2 trainers × 14 hrs across 4 weekends. Weekend rate.</div>
+                  <a class="ref" href="budget-detail.html">Linked · BUD-2026-Q2-MERI</a>
+                </td>
+                <td class="right">112</td>
+                <td class="right">1,000</td>
+                <td class="right">112,000</td>
+              </tr>
+              <tr>
+                <td>
+                  Translator licences · pass-through
+                  <div class="desc">12 seats × USD 28 / mo, locked at KES 130 / USD per the master agreement.</div>
+                </td>
+                <td class="right">12</td>
+                <td class="right">3,640</td>
+                <td class="right">43,680</td>
+              </tr>
+              <tr>
+                <td>
+                  Compliance audit · HIPAA refresher
+                  <div class="desc">One-time. New cohort certification.</div>
+                </td>
+                <td class="right">1</td>
+                <td class="right">54,000</td>
+                <td class="right">54,000</td>
+              </tr>
+              <tr>
+                <td>
+                  Onboarding kits · headsets, badges
+                  <div class="desc">18 new agents · invoiced at cost.</div>
+                </td>
+                <td class="right">18</td>
+                <td class="right">4,127</td>
+                <td class="right">74,320</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Totals -->
+          <div class="totals">
+            <table>
+              <tr><td>Subtotal</td><td class="right">1,820,000</td></tr>
+              <tr><td>VAT (16%) · waived per bilateral</td><td class="right">0</td></tr>
+              <tr><td>Withholding (5%) · client deducts</td><td class="right">− 91,000</td></tr>
+              <tr class="grand"><td>Total due · KES</td><td class="right">1,729,000</td></tr>
+            </table>
+          </div>
+
+          <!-- Notes / payment instructions -->
+          <div class="doc-notes">
+            <div class="lbl">Payment instructions</div>
+            <p>
+              Wire transfer to <strong style="color: var(--ink); font-weight: 500;">Standard Chartered Bank Kenya</strong>,
+              account <strong style="color: var(--ink); font-weight: 500; font-family: var(--font-mono);">0102 4421 1180 9001</strong>,
+              SWIFT <strong style="color: var(--ink); font-weight: 500; font-family: var(--font-mono);">SCBLKENXXXX</strong>.
+              Reference invoice number on remittance. NET 30 from issue date.
+              Late payments attract 1.5% monthly interest per the master service agreement, clause 8.3.
+            </p>
+          </div>
+        </div>
+
+        <!-- Right rail -->
+        <div>
+
+          <div class="rail-card" style="border-color: var(--danger-soft);">
+            <div class="lbl" style="color: var(--danger);">Due now · overdue</div>
+            <div class="due-num danger"><span class="ccy">KES</span>1,729,000</div>
+            <div class="desc">As of 14 May 2026 · 18 days past due. 3 reminders sent, last on 12 May.</div>
+            <div style="display:flex;gap:8px;margin-top:16px;">
+              <button class="btn btn-primary" style="flex:1;"><i data-lucide="check"></i>Mark paid</button>
+              <button class="btn btn-ghost"><i data-lucide="send"></i>Remind</button>
+            </div>
+          </div>
+
+          <div class="rail-card">
+            <div class="lbl">Payment activity</div>
+            <div class="pay-row"><span class="lhs">Invoice total</span><span class="rhs">1,820,000</span></div>
+            <div class="pay-row"><span class="lhs">Withholding (client)</span><span class="rhs">− 91,000</span></div>
+            <div class="pay-row"><span class="lhs">Receipts to date</span><span class="rhs">0</span></div>
+            <div class="pay-row" style="margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--border-subtle); font-weight: 500;">
+              <span style="color:var(--ink);">Outstanding</span>
+              <span class="rhs" style="color:var(--danger); font-size: 15px;">1,729,000</span>
+            </div>
+          </div>
+
+          <div class="rail-card">
+            <div class="lbl">Linked records</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <a href="budget-detail.html" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle);">
+                <span style="font-size:13px;color:var(--ink);">Budget · BUD-2026-Q2-MERI</span>
+                <span style="font-family:var(--font-mono);font-size:12px;color:var(--gold-lo);border-bottom:1px solid var(--gold);">Open</span>
+              </a>
+              <a href="#" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle);">
+                <span style="font-size:13px;color:var(--ink);">EOD reports (28)</span>
+                <span style="font-family:var(--font-mono);font-size:12px;color:var(--gold-lo);border-bottom:1px solid var(--gold);">View</span>
+              </a>
+              <a href="expenses.html" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
+                <span style="font-size:13px;color:var(--ink);">Pass-through expenses (4)</span>
+                <span style="font-family:var(--font-mono);font-size:12px;color:var(--gold-lo);border-bottom:1px solid var(--gold);">View</span>
+              </a>
+            </div>
+          </div>
+
+          <div class="rail-card">
+            <div class="lbl">Activity</div>
+            <div class="timeline">
+              <div class="tl-item">
+                <div class="tl-when">12 May · 09:02</div>
+                <div class="tl-body"><span class="who">A. Mburu</span> sent <span class="verb">3rd reminder</span>.</div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-when">06 May · 09:00</div>
+                <div class="tl-body"><span class="who">System</span> sent <span class="verb">automatic reminder</span>.</div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-when">14 May · was due</div>
+                <div class="tl-body"><span class="who">System</span> marked <span class="verb">overdue</span>.</div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-when">14 Apr · 16:40</div>
+                <div class="tl-body"><span class="who">A. Mburu</span> <span class="verb">issued invoice</span> · KES 1,820,000.</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

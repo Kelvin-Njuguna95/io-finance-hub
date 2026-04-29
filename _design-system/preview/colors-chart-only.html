@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Chart-only palette</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  body { margin: 0; padding: 20px; }
+  .note {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+    margin-bottom: 10px; font-weight: 600;
+  }
+  .note b { color: var(--danger); font-weight: 600; }
+  .row { display: flex; gap: 6px; }
+  .sw {
+    flex: 1; height: 72px; border-radius: var(--radius); position: relative; overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .sw .tag {
+    position: absolute; left: 10px; top: 10px; font-size: 10px; font-family: var(--font-mono);
+    color: rgba(255,255,255,0.9); letter-spacing: 0.04em;
+  }
+  .sw .tag.on-light { color: rgba(0,0,0,0.7); }
+  .sw .name {
+    position: absolute; left: 10px; bottom: 8px; font-size: 11px; font-weight: 600;
+    color: rgba(255,255,255,0.95); letter-spacing: 0.04em;
+  }
+  .sw .name.on-light { color: rgba(0,0,0,0.8); }
+</style>
+</head><body>
+  <div class="note"><b>Chart-only</b> · do not use on UI surfaces</div>
+  <div class="row">
+    <div class="sw" style="background: var(--electric);"><span class="tag">chart-1</span><span class="name">Electric blue</span></div>
+    <div class="sw" style="background: var(--gold);"><span class="tag on-light">chart-2</span><span class="name on-light">Gold</span></div>
+    <div class="sw" style="background: var(--success);"><span class="tag">chart-3</span><span class="name">Green</span></div>
+    <div class="sw" style="background: var(--violet);"><span class="tag">chart-4</span><span class="name">Violet</span></div>
+    <div class="sw" style="background: var(--teal);"><span class="tag">chart-5</span><span class="name">Teal</span></div>
+    <div class="sw" style="background: var(--danger);"><span class="tag">chart-6</span><span class="name">Red</span></div>
+  </div>
+</body></html>

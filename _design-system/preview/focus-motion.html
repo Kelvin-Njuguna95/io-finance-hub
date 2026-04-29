@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Focus ring & motion</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  body { margin: 0; padding: 22px; background: var(--surface-2); }
+  .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; }
+  .label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground); margin-bottom: 12px; }
+  .btn { display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: var(--radius); background: var(--primary); color: #fff; font-size: 13px; font-weight: 500; border: 1px solid transparent; outline: 2px solid var(--ring); outline-offset: 2px; }
+  .chip { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: var(--radius); background: var(--card); border: 1px solid var(--border); font-size: 12px; color: var(--foreground); margin-left: 8px; outline: 2px solid var(--ring); outline-offset: 2px; }
+  .legend { font-size: 11px; color: var(--muted-foreground); margin-top: 10px; font-family: var(--font-mono); }
+  .motion dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; font-size: 12px; }
+  .motion dt { font-family: var(--font-mono); color: var(--muted-foreground); font-size: 11px; }
+  .motion dd { margin: 0; color: var(--foreground); }
+  .ok { color: var(--success-soft-foreground); font-weight: 600; }
+  .no { color: var(--danger); font-weight: 600; }
+</style>
+</head><body>
+  <div class="wrap">
+    <div class="card">
+      <div class="label">Focus · one treatment, no opt-outs</div>
+      <button class="btn">Approve budget</button>
+      <span class="chip">USD chip</span>
+      <div class="legend">outline: 2px solid var(--ring); offset 2px · :focus-visible only</div>
+    </div>
+    <div class="card motion">
+      <div class="label">Motion · sparse</div>
+      <dl>
+        <dt>--dur-fast</dt><dd>120ms · tint shifts, focus</dd>
+        <dt>--dur-base</dt><dd>200ms · tab swap, toast</dd>
+        <dt>--dur-slow</dt><dd>320ms · KPI count-up</dd>
+        <dt>ease-standard</dt><dd>cubic-bezier(.2, 0, 0, 1)</dd>
+      </dl>
+      <div class="legend" style="margin-top: 10px;">
+        <span class="ok">Allowed</span>: status, toast, tab, count-up ·
+        <span class="no">Banned</span>: hover-lift, fade-in, shimmer
+      </div>
+    </div>
+  </div>
+</body></html>

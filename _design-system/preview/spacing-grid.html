@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Spacing — 4pt grid</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  body { margin: 0; padding: 22px; background: var(--surface-2); font-family: var(--font-sans); }
+  .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .cell { text-align: center; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 6px; }
+  .bar { background: var(--primary-soft); margin: 0 auto 8px; }
+  .px { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); }
+  .name { font-size: 11px; font-weight: 600; color: var(--foreground); margin-top: 2px; }
+  .breathing { outline: 1px dashed var(--success); outline-offset: 3px; }
+  .note { margin-top: 12px; font-size: 11px; color: var(--muted-foreground); letter-spacing: 0.02em; }
+  .ok { color: var(--success-soft-foreground); font-weight: 600; }
+  .exc { color: var(--warning-soft-foreground); font-weight: 600; }
+</style>
+</head><body>
+  <div class="grid">
+    <div class="cell"><div class="bar" style="width:4px; height:4px;"></div><div class="px">4</div><div class="name">0.25rem</div></div>
+    <div class="cell"><div class="bar breathing" style="width:8px; height:8px;"></div><div class="px">8</div><div class="name">0.5rem</div></div>
+    <div class="cell"><div class="bar breathing" style="width:12px; height:12px;"></div><div class="px">12</div><div class="name">0.75rem</div></div>
+    <div class="cell"><div class="bar breathing" style="width:16px; height:16px;"></div><div class="px">16</div><div class="name">1rem</div></div>
+    <div class="cell"><div class="bar breathing" style="width:24px; height:24px;"></div><div class="px">24</div><div class="name">1.5rem</div></div>
+    <div class="cell"><div class="bar" style="width:32px; height:32px;"></div><div class="px">32</div><div class="name">2rem</div></div>
+  </div>
+  <div class="note">
+    <span class="ok">Default reach</span>: breathing stops <b>8 / 12 / 16 / 24</b> (dashed). Reach 4 only when density demands.
+    <br/>
+    <span class="exc">One off-grid exception</span>: badge <code style="font-family:var(--font-mono);">py-0.5</code> (2px) — nowhere else.
+  </div>
+</body></html>

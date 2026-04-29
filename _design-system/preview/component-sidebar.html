@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Sidebar nav · paper + gold accent</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  body { margin: 0; padding: 0; background: var(--surface-2); font-family: var(--font-sans); color: var(--foreground); }
+  .shell { display: flex; gap: 0; min-height: 360px; }
+
+  .side {
+    width: 244px; padding: 14px 12px; display: flex; flex-direction: column; gap: 10px;
+    background: linear-gradient(180deg, var(--paper-2) 0%, var(--paper) 70%);
+    border-right: 1px solid var(--border);
+  }
+
+  .brand { display: flex; align-items: center; gap: 12px; padding: 6px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
+  .brand .tile {
+    width: 36px; height: 36px; border-radius: var(--radius);
+    background: var(--ink); color: var(--gold);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-weight: 500; font-size: 13px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+  }
+  .brand .names { display: flex; flex-direction: column; min-width: 0; }
+  .brand .eye { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted-foreground); font-weight: 500; line-height: 1.2; }
+  .brand .title { font-family: var(--font-display); font-size: 15px; font-weight: 500; letter-spacing: -0.01em; color: var(--foreground); margin-top: 3px; line-height: 1.2; }
+
+  .group-label {
+    font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.16em;
+    color: var(--muted-foreground); padding: 10px 10px 4px; font-weight: 500;
+  }
+
+  .item {
+    display: flex; align-items: center; gap: 10px; padding: 0 10px; height: 34px;
+    border-radius: var(--radius); color: var(--warm-grey-3); font-size: 13px;
+    cursor: pointer; transition: all var(--dur-base) var(--ease-standard); text-decoration: none;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .item [data-lucide] { width: 16px; height: 16px; stroke-width: 1.75; color: var(--warm-grey-2); flex-shrink: 0; }
+  .item:hover { background: var(--paper-3); color: var(--ink); }
+  .item:hover [data-lucide] { color: var(--ink); }
+
+  .item.active {
+    background: var(--gold-soft);
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: inset 2px 0 0 0 var(--gold);
+  }
+  .item.active [data-lucide] { color: var(--gold-lo); }
+
+  .badge-num {
+    margin-left: auto; background: var(--gold); color: var(--ink);
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+    min-width: 18px; height: 16px; padding: 0 5px;
+    border-radius: var(--radius-full); display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  .spacer { flex: 1; }
+  .user {
+    display: flex; align-items: center; gap: 10px; padding: 10px 8px;
+    border-top: 1px solid var(--border);
+  }
+  .user .av {
+    width: 32px; height: 32px; border-radius: var(--radius-full);
+    background: var(--gold); color: var(--ink);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-weight: 500; font-size: 11px;
+  }
+  .user .nm { font-size: 12.5px; color: var(--foreground); font-weight: 500; }
+  .user .rl { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.14em; margin-top: 2px; }
+
+  .content {
+    flex: 1; padding: 16px 20px; color: var(--muted-foreground); font-size: 12px;
+    background: var(--card);
+  }
+  .content b { color: var(--foreground); font-weight: 600; display: block; margin-bottom: 4px; font-family: var(--font-display); font-size: 15px; letter-spacing: -0.005em; }
+</style>
+</head><body>
+  <div class="shell">
+    <aside class="side">
+      <div class="brand">
+        <span class="tile">IO</span>
+        <span class="names">
+          <span class="eye">Impact Outsourcing</span>
+          <span class="title">Finance Hub</span>
+        </span>
+      </div>
+
+      <div>
+        <div class="group-label">Operations</div>
+        <div class="item"><i data-lucide="layout-dashboard"></i>Dashboard</div>
+        <div class="item active"><i data-lucide="clipboard-list"></i>Budgets</div>
+        <div class="item"><i data-lucide="receipt"></i>Expenses</div>
+        <div class="item"><i data-lucide="file-text"></i>Invoices</div>
+        <div class="item"><i data-lucide="bell"></i>Notifications<span class="badge-num">3</span></div>
+      </div>
+      <div>
+        <div class="group-label">Reports</div>
+        <div class="item"><i data-lucide="trending-up"></i>Monthly P&amp;L</div>
+        <div class="item"><i data-lucide="flag"></i>Red flags</div>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="user">
+        <span class="av">AM</span>
+        <div><div class="nm">Anne Mburu</div><div class="rl">CFO</div></div>
+      </div>
+    </aside>
+    <div class="content">
+      <b>Paper + gold accent variant</b>
+      warm paper gradient surface · ink "IO" brandmark tile · active row uses --gold-soft with 2px gold accent rail · hover tint sits on --paper-3 · gold-lo icon colour on active items stays readable against the soft cream highlight.
+    </div>
+  </div>
+  <script>lucide.createIcons();</script>
+</body></html>

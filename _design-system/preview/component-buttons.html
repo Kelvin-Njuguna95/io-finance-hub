@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Buttons</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  body { margin: 0; padding: 22px; background: var(--surface-2); font-family: var(--font-sans); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 14px; }
+  .row { display: flex; flex-direction: column; gap: 6px; }
+  .label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted-foreground); }
+  button {
+    height: 36px; padding: 0 16px; border-radius: var(--radius); font-size: 13px; font-weight: 500;
+    border: 1px solid transparent; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: all var(--dur-base) var(--ease-standard);
+  }
+  .primary    { background: var(--primary); color: var(--primary-foreground); }
+  .primary:hover { background: var(--primary-hover); }
+  .outline    { background: var(--card); color: var(--primary); border-color: var(--border); }
+  .outline:hover { background: var(--muted); }
+  .secondary  { background: var(--card); color: var(--primary); border: 1px solid var(--border); }
+  .secondary:hover { background: var(--muted); }
+  .ghost      { background: transparent; color: var(--muted-foreground); }
+  .ghost:hover{ background: var(--muted); color: var(--foreground); }
+  .destructive{ background: var(--destructive); color: var(--destructive-foreground); }
+  .destructive:hover { background: var(--danger-hover); }
+  .link       { background: transparent; color: var(--info); padding: 0; height: auto; text-decoration: none; }
+  .link:hover { text-decoration: underline; text-underline-offset: 4px; }
+  .sizes button { margin-right: 8px; }
+  .sm { height: 28px; padding: 0 12px; font-size: 12px; }
+  .xs { height: 24px; padding: 0 8px; font-size: 11px; border-radius: var(--radius-sm); }
+  .lg { height: 40px; padding: 0 20px; font-size: 15px; }
+</style>
+</head><body>
+  <div class="grid">
+    <div class="row"><span class="label">Primary</span><button class="primary">Approve budget</button></div>
+    <div class="row"><span class="label">Outline</span><button class="outline">Request review</button></div>
+    <div class="row"><span class="label">Secondary</span><button class="secondary">Save draft</button></div>
+    <div class="row"><span class="label">Ghost</span><button class="ghost">Cancel</button></div>
+    <div class="row"><span class="label">Destructive</span><button class="destructive">Delete version</button></div>
+    <div class="row"><span class="label">Link</span><button class="link">View monthly close →</button></div>
+  </div>
+  <div style="margin-top: 18px;">
+    <div class="label" style="margin-bottom: 8px;">Sizes · xs / sm / default / lg</div>
+    <div class="sizes">
+      <button class="primary xs">xs</button>
+      <button class="primary sm">sm</button>
+      <button class="primary">default</button>
+      <button class="primary lg">lg</button>
+    </div>
+  </div>
+</body></html>

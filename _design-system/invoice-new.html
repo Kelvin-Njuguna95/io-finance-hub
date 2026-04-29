@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Finance Hub · New invoice</title>
+<link rel="stylesheet" href="IO Finance Hub/_design-system/colors_and_type.css" />
+<link rel="stylesheet" href="app-shell.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  .form-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 32px; }
+  .form-stack { display: flex; flex-direction: column; gap: 24px; }
+  .form-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; }
+  .form-card .head { font-family: var(--font-display); font-size: 17px; font-weight: 500; margin: 0 0 4px; font-variation-settings: "opsz" 32; letter-spacing: -0.01em; }
+  .form-card .desc { font-size: 12.5px; color: var(--warm-grey-3); margin: 0 0 18px; }
+
+  .li-table { width: 100%; border-collapse: collapse; }
+  .li-table thead th {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+    text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border-subtle);
+  }
+  .li-table thead th.right { text-align: right; }
+  .li-table tbody td { padding: 8px; vertical-align: middle; border-bottom: 1px solid var(--border-subtle); }
+  .li-table tbody tr:last-child td { border-bottom: 0; }
+  .li-table input.input { height: 34px; font-size: 13px; }
+  .li-table .row-del {
+    width: 28px; height: 28px; border-radius: var(--radius); background: transparent;
+    border: 1px solid transparent; color: var(--muted-foreground);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .li-table .row-del:hover { background: var(--danger-soft); color: var(--danger); }
+  .li-table .row-del [data-lucide] { width: 14px; height: 14px; stroke-width: 1.75; }
+  .li-table .add-row {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: transparent; border: 1px dashed var(--paper-4); color: var(--warm-grey-3);
+    font-size: 12.5px; padding: 8px 14px; border-radius: var(--radius); margin-top: 12px;
+  }
+  .li-table .add-row:hover { border-color: var(--ink); color: var(--ink); background: var(--paper-2); }
+  .li-table .add-row [data-lucide] { width: 13px; height: 13px; stroke-width: 1.75; }
+
+  .summary-num { font-family: var(--font-mono); font-size: 32px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1; }
+  .summary-num .ccy { font-size: 12px; color: var(--muted-foreground); margin-right: 6px; letter-spacing: 0.04em; }
+  .summary-row { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--border-subtle); font-size: 13px; }
+  .summary-row:last-child { border-bottom: 0; }
+  .summary-row .lbl { color: var(--warm-grey-3); }
+  .summary-row .val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="side">
+    <div class="brand">
+      <span class="tile">IO</span>
+      <span><span class="eye">Impact Outsourcing</span><span class="title">Finance Hub</span></span>
+    </div>
+    <div class="group-label">Operations</div>
+    <a class="nav-item" href="dashboard.html"><i data-lucide="layout-dashboard"></i>Home</a>
+    <a class="nav-item" href="budgets.html"><i data-lucide="clipboard-list"></i>Budgets <span class="count gold">7</span></a>
+    <a class="nav-item" href="expenses.html"><i data-lucide="receipt"></i>Expenses <span class="count gold">14</span></a>
+    <a class="nav-item active" href="invoices.html"><i data-lucide="file-text"></i>Invoices <span class="count danger">2</span></a>
+    <a class="nav-item" href="withdrawals.html"><i data-lucide="arrow-down-to-line"></i>Withdrawals</a>
+    <a class="nav-item" href="profit-share.html"><i data-lucide="piggy-bank"></i>Profit share</a>
+    <div class="group-label">Reports</div>
+    <a class="nav-item" href="#"><i data-lucide="trending-up"></i>Monthly P&amp;L</a>
+    <a class="nav-item" href="#"><i data-lucide="flag"></i>Red flags <span class="count danger">3</span></a>
+    <a class="nav-item" href="#"><i data-lucide="inbox"></i>EOD reports</a>
+    <a class="nav-item" href="#"><i data-lucide="users"></i>Agent counts</a>
+    <div class="group-label">System</div>
+    <a class="nav-item" href="#"><i data-lucide="shield-check"></i>Audit trail</a>
+    <a class="nav-item" href="#"><i data-lucide="settings"></i>Settings</a>
+    <div class="spacer"></div>
+    <div class="closure-card">
+      <div class="eye">Month closure</div>
+      <div class="head">April 2026<br/><em>in progress</em></div>
+      <div class="progress"><span></span></div>
+      <div class="body">9 of 12 sign-offs complete · 3 days to lock</div>
+      <button class="btn-gold">Open closure</button>
+    </div>
+  </aside>
+
+  <div>
+    <header class="topbar">
+      <nav class="crumbs">
+        <a class="home" href="dashboard.html"><i data-lucide="home"></i></a>
+        <span class="sep">/</span>
+        <a href="invoices.html">Invoices</a>
+        <span class="sep">/</span>
+        <span class="here">New invoice</span>
+      </nav>
+      <div class="spacer"></div>
+      <div class="search"><i data-lucide="search"></i><input placeholder="Search…" /><span class="kbd">⌘ K</span></div>
+      <button class="icon-btn"><i data-lucide="bell"></i><span class="dot gold"></span></button>
+      <div class="user-chip">
+        <span class="av">AM</span>
+        <div><div class="nm">Anne Mburu</div><div class="role">CFO</div></div>
+        <i data-lucide="chevron-down"></i>
+      </div>
+    </header>
+
+    <main class="page">
+
+      <div class="page-head">
+        <div class="titles">
+          <div class="eye">Invoices · New</div>
+          <h1>New invoice <em>· draft</em></h1>
+          <p class="subtitle">Author <span class="num">A. Mburu</span> <span class="sep">·</span> ID <span class="num">INV-2026-05-0144</span> assigned on issue</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-quiet"><i data-lucide="x"></i>Discard</button>
+          <button class="btn btn-ghost"><i data-lucide="save"></i>Save as draft</button>
+          <button class="btn btn-ghost"><i data-lucide="eye"></i>Preview PDF</button>
+          <button class="btn btn-primary"><i data-lucide="send"></i>Issue &amp; send</button>
+        </div>
+      </div>
+
+      <form class="form-grid" onsubmit="return false;">
+        <div class="form-stack">
+
+          <div class="form-card">
+            <div class="head">Bill-to &amp; project</div>
+            <p class="desc">Pull from the client directory. Pass-through pricing is locked when you pick the project.</p>
+            <div class="field-row cols-2" style="margin-bottom: 16px;">
+              <div class="field">
+                <label class="field-label">Client</label>
+                <select class="select">
+                  <option>Meridian Care Ltd</option>
+                  <option>Helios CX Inc</option>
+                  <option>Ada Outbound LLC</option>
+                  <option>Noor Partners</option>
+                  <option>Vega Collections</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label">Project</label>
+                <select class="select">
+                  <option>Healthcare BPO · Onboarding phase 2</option>
+                  <option>Healthcare BPO · Steady-state</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-row cols-3">
+              <div class="field">
+                <label class="field-label">Bill cycle</label>
+                <input class="input" value="May 2026" />
+              </div>
+              <div class="field">
+                <label class="field-label">Issue date</label>
+                <div class="input-wrap"><input class="input input-mono" value="2026-05-14" /><i data-lucide="calendar" class="suffix-icon"></i></div>
+              </div>
+              <div class="field">
+                <label class="field-label">Terms</label>
+                <select class="select">
+                  <option>NET 30 · due 13 Jun 2026</option>
+                  <option>NET 14 · due 28 May 2026</option>
+                  <option>NET 7 · due 21 May 2026</option>
+                  <option>Due on receipt</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+              <div>
+                <div class="head">Line items</div>
+                <p class="desc" style="margin: 4px 0 0;">Pull from EOD reports or write ad-hoc lines. Pass-through is at locked KES 130 / USD.</p>
+              </div>
+              <button class="btn btn-ghost btn-sm"><i data-lucide="download"></i>Pull EOD totals</button>
+            </div>
+            <table class="li-table">
+              <thead>
+                <tr>
+                  <th style="width: 50%;">Description</th>
+                  <th class="right" style="width: 12%;">Qty</th>
+                  <th class="right" style="width: 16%;">Rate · KES</th>
+                  <th class="right" style="width: 16%;">Amount</th>
+                  <th style="width: 36px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><input class="input" value="Agent-hours · inbound voice (May)" /></td>
+                  <td><input class="input input-mono" style="text-align:right;" value="3,400" /></td>
+                  <td><input class="input input-mono" style="text-align:right;" value="480" /></td>
+                  <td><input class="input input-mono" style="text-align:right;" value="1,632,000" /></td>
+                  <td><button type="button" class="row-del"><i data-lucide="trash-2"></i></button></td>
+                </tr>
+                <tr>
+                  <td><input class="input" value="Trainer hours · weekend coverage" /></td>
+                  <td><input class="input input-mono" style="text-align:right;" value="120" /></td>
+                  <td><input class="input input-mono" style="text-align:right;" value="1,000" /></td>
+                  <td><input class="input input-mono" style="text-align:right;" value="120,000" /></td>
+                  <td><button type="button" class="row-del"><i data-lucide="trash-2"></i></button></td>
+                </tr>
+                <tr>
+                  <td><input class="input" value="Translator licences · pass-through" /></td>
+                  <td><input class="input input-mono" style="text-align:right;" value="12" /></td>
+                  <td><input class="input input-mono" style="text-align:right;" value="3,640" /></td>
+                  <td><input class="input input-mono" style="text-align:right;" value="43,680" /></td>
+                  <td><button type="button" class="row-del"><i data-lucide="trash-2"></i></button></td>
+                </tr>
+              </tbody>
+            </table>
+            <button type="button" class="add-row"><i data-lucide="plus"></i>Add line item</button>
+          </div>
+
+          <div class="form-card">
+            <div class="head">Notes &amp; payment</div>
+            <p class="desc">Shown on the printed invoice.</p>
+            <div class="field" style="margin-bottom: 16px;">
+              <label class="field-label">Payment instructions</label>
+              <textarea class="textarea">Wire transfer to Standard Chartered Bank Kenya, account 0102 4421 1180 9001, SWIFT SCBLKENXXXX. Reference invoice number on remittance.</textarea>
+            </div>
+            <div class="field-row cols-2">
+              <div class="field">
+                <label class="field-label">VAT</label>
+                <select class="select">
+                  <option>Waived per bilateral agreement</option>
+                  <option>16% standard rate</option>
+                  <option>0% zero-rated export</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label">Withholding</label>
+                <select class="select">
+                  <option>5% · client deducts</option>
+                  <option>None</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="form-stack">
+          <div class="form-card" style="position: sticky; top: 80px;">
+            <div class="head">Summary</div>
+            <p class="desc">Live as you edit.</p>
+            <div style="margin: 18px 0;">
+              <div style="font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground); margin-bottom: 12px;">Total due</div>
+              <div class="summary-num"><span class="ccy">KES</span>1,705,696</div>
+              <div style="margin-top:8px;font-size:12.5px;color:var(--warm-grey-3);">Net of 5% withholding · ≈ USD 13,121</div>
+            </div>
+            <div style="margin-top: 14px;">
+              <div class="summary-row"><span class="lbl">Subtotal</span><span class="val">1,795,680</span></div>
+              <div class="summary-row"><span class="lbl">VAT (waived)</span><span class="val">0</span></div>
+              <div class="summary-row"><span class="lbl">Withholding (5%)</span><span class="val" style="color: var(--warm-grey-3);">− 89,784</span></div>
+            </div>
+            <div style="margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border-subtle);">
+              <div style="font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground); margin-bottom: 12px;">Comparison</div>
+              <div class="summary-row"><span class="lbl">Last cycle (Apr)</span><span class="val">1,729,000</span></div>
+              <div class="summary-row"><span class="lbl">Vs last cycle</span><span class="val" style="color: var(--gold-lo);">− 1.4%</span></div>
+            </div>
+          </div>
+
+          <div class="form-card">
+            <div class="head">Send to</div>
+            <p class="desc">Recipients pulled from the client directory.</p>
+            <div style="display:flex;flex-direction:column;gap:14px;margin-top:14px;">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span class="avatar muted">SM</span>
+                <div style="flex:1;">
+                  <div style="font-size:13.5px;font-weight:500;color:var(--ink);">Sarah Mensah</div>
+                  <div style="font-size:11.5px;color:var(--muted-foreground);">Finance lead · sarah@meridian.health</div>
+                </div>
+                <span class="status muted" style="padding:2px 8px;font-size:10.5px;">To</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span class="avatar muted">JO</span>
+                <div style="flex:1;">
+                  <div style="font-size:13.5px;font-weight:500;color:var(--ink);">Jared Okello</div>
+                  <div style="font-size:11.5px;color:var(--muted-foreground);">AP clerk · ap@meridian.health</div>
+                </div>
+                <span class="status muted" style="padding:2px 8px;font-size:10.5px;">CC</span>
+              </div>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" style="margin-top: 14px;"><i data-lucide="user-plus"></i>Add recipient</button>
+          </div>
+
+          <div class="form-card" style="border-color: var(--gold);">
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+              <i data-lucide="info" style="width:16px;height:16px;stroke-width:1.75;color:var(--gold-lo);margin-top:2px;"></i>
+              <div>
+                <div class="head" style="font-size: 14px;">Previous cycle still overdue</div>
+                <p style="margin:6px 0 0;font-size:12.5px;color:var(--warm-grey-3);line-height:1.55;">
+                  <a href="invoice-detail.html" style="color:var(--gold-lo);border-bottom:1px solid var(--gold);">INV-2026-04-0142</a> is 18 days late.
+                  Consider sending a reminder before issuing this one.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+
+    </main>
+  </div>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

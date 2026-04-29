@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Surfaces & borders</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  body { margin: 0; padding: 20px; background: var(--background); }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .cell { height: 92px; border-radius: var(--radius); display: flex; flex-direction: column; justify-content: space-between; padding: 10px 12px; font-size: 11px; color: var(--muted-foreground); }
+  .name { font-weight: 600; color: var(--foreground); font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .borders { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+  .b { height: 56px; border-radius: var(--radius); background: var(--card); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); }
+</style>
+</head><body>
+  <div class="grid">
+    <div class="cell" style="background: var(--background); border: 1px solid var(--border);"><span class="name">--background</span><span>neutral-100</span></div>
+    <div class="cell" style="background: var(--surface-2); border: 1px solid var(--border);"><span class="name">--surface-2</span><span>neutral-50</span></div>
+    <div class="cell" style="background: var(--surface-3); border: 1px solid var(--border);"><span class="name">--surface-3</span><span>mid-50/100</span></div>
+    <div class="cell" style="background: var(--surface-sunken); border: 1px solid var(--border);"><span class="name">--surface-sunken</span><span>neutral-200</span></div>
+  </div>
+  <div class="borders">
+    <div class="b" style="border: 1px solid var(--border-subtle);">--border-subtle</div>
+    <div class="b" style="border: 1px solid var(--border);">--border</div>
+    <div class="b" style="border: 1px solid var(--border-strong);">--border-strong</div>
+  </div>
+</body></html>

@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Finance Hub · Invoices</title>
+<link rel="stylesheet" href="IO Finance Hub/_design-system/colors_and_type.css" />
+<link rel="stylesheet" href="app-shell.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  /* Invoices list: id+title · client · issued · due · amount · status */
+  .lr-inv {
+    grid-template-columns: 1.6fr 1fr 110px 130px 200px 130px 50px;
+  }
+
+  /* Aging bar — small visual for due/overdue */
+  .age {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 11px; font-variant-numeric: tabular-nums;
+    color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.10em;
+  }
+  .age .dot {
+    width: 7px; height: 7px; border-radius: 999px; background: var(--paper-4);
+  }
+  .age.warn { color: var(--gold-lo); }
+  .age.warn .dot { background: var(--gold); }
+  .age.danger { color: var(--danger); }
+  .age.danger .dot { background: var(--danger); }
+  .age.paid { color: var(--success-soft-foreground); }
+  .age.paid .dot { background: var(--success); }
+
+  /* KPI strip — same pattern */
+  .strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+  .strip .stat { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; }
+  .strip .stat .lbl { font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground); }
+  .strip .stat .val { font-family: var(--font-mono); font-size: 26px; font-weight: 500; color: var(--ink); margin-top: 12px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1; }
+  .strip .stat .val .ccy { font-size: 11px; color: var(--muted-foreground); margin-right: 6px; letter-spacing: 0.04em; }
+  .strip .stat .sub { margin-top: 8px; font-size: 12px; color: var(--warm-grey-3); }
+  .strip .stat .sub .delta { color: var(--success-soft-foreground); font-family: var(--font-mono); font-weight: 500; }
+  .strip .stat .sub .delta.danger { color: var(--danger); }
+  .strip .stat .sub .delta.gold { color: var(--gold-lo); }
+
+  /* Aging buckets visualization on the right */
+  .aging-bar {
+    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 1px; background: var(--border-subtle);
+    border-radius: var(--radius); overflow: hidden;
+    margin-top: 10px;
+  }
+  .aging-bar .bucket {
+    background: var(--card); padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .aging-bar .bucket .lbl {
+    font-family: var(--font-mono); font-size: 9.5px; color: var(--muted-foreground);
+    text-transform: uppercase; letter-spacing: 0.12em;
+  }
+  .aging-bar .bucket .val {
+    font-family: var(--font-mono); font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 500;
+  }
+  .aging-bar .bucket.warn { background: var(--gold-soft); }
+  .aging-bar .bucket.warn .val { color: var(--gold-lo); }
+  .aging-bar .bucket.danger { background: var(--danger-soft); }
+  .aging-bar .bucket.danger .val { color: var(--danger); }
+
+  /* Mini due bar inside list rows */
+  .due-bar {
+    height: 4px; background: var(--paper-3); border-radius: 999px;
+    position: relative; overflow: hidden; margin-top: 6px;
+    width: 120px;
+  }
+  .due-bar .filled { position: absolute; left: 0; top: 0; bottom: 0; background: var(--gold); border-radius: 999px; }
+  .due-bar .filled.over { background: var(--danger); }
+  .due-bar .filled.paid { background: var(--success); }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="side">
+    <div class="brand">
+      <span class="tile">IO</span>
+      <span><span class="eye">Impact Outsourcing</span><span class="title">Finance Hub</span></span>
+    </div>
+    <div class="group-label">Operations</div>
+    <a class="nav-item" href="dashboard.html"><i data-lucide="layout-dashboard"></i>Home</a>
+    <a class="nav-item" href="budgets.html"><i data-lucide="clipboard-list"></i>Budgets <span class="count gold">7</span></a>
+    <a class="nav-item" href="expenses.html"><i data-lucide="receipt"></i>Expenses <span class="count gold">14</span></a>
+    <a class="nav-item active" href="invoices.html"><i data-lucide="file-text"></i>Invoices <span class="count danger">2</span></a>
+    <a class="nav-item" href="withdrawals.html"><i data-lucide="arrow-down-to-line"></i>Withdrawals</a>
+    <a class="nav-item" href="profit-share.html"><i data-lucide="piggy-bank"></i>Profit share</a>
+    <div class="group-label">Reports</div>
+    <a class="nav-item" href="#"><i data-lucide="trending-up"></i>Monthly P&amp;L</a>
+    <a class="nav-item" href="#"><i data-lucide="flag"></i>Red flags <span class="count danger">3</span></a>
+    <a class="nav-item" href="#"><i data-lucide="inbox"></i>EOD reports</a>
+    <a class="nav-item" href="#"><i data-lucide="users"></i>Agent counts</a>
+    <div class="group-label">System</div>
+    <a class="nav-item" href="#"><i data-lucide="shield-check"></i>Audit trail</a>
+    <a class="nav-item" href="#"><i data-lucide="settings"></i>Settings</a>
+    <div class="spacer"></div>
+    <div class="closure-card">
+      <div class="eye">Month closure</div>
+      <div class="head">April 2026<br/><em>in progress</em></div>
+      <div class="progress"><span></span></div>
+      <div class="body">9 of 12 sign-offs complete · 3 days to lock</div>
+      <button class="btn-gold">Open closure</button>
+    </div>
+  </aside>
+
+  <div>
+    <header class="topbar">
+      <nav class="crumbs">
+        <a class="home" href="dashboard.html"><i data-lucide="home"></i></a>
+        <span class="sep">/</span>
+        <a href="#">Operations</a>
+        <span class="sep">/</span>
+        <span class="here">Invoices</span>
+      </nav>
+      <div class="spacer"></div>
+      <div class="search">
+        <i data-lucide="search"></i>
+        <input placeholder="Search invoice ID, client, project…" />
+        <span class="kbd">⌘ K</span>
+      </div>
+      <button class="icon-btn"><i data-lucide="bell"></i><span class="dot gold"></span></button>
+      <div class="user-chip">
+        <span class="av">AM</span>
+        <div><div class="nm">Anne Mburu</div><div class="role">CFO</div></div>
+        <i data-lucide="chevron-down"></i>
+      </div>
+    </header>
+
+    <main class="page">
+
+      <div class="page-head">
+        <div class="titles">
+          <div class="eye">Receivables · Client billing</div>
+          <h1>Invoices <em>&amp; receivables</em></h1>
+          <p class="subtitle">
+            April 2026 <span class="sep">·</span>
+            <span class="num">42</span> open <span class="sep">·</span>
+            <span class="num">2</span> overdue <span class="sep">·</span>
+            <span class="num">KES&nbsp;18.4M</span> outstanding
+          </p>
+        </div>
+        <div class="actions">
+          <button class="pill"><i data-lucide="calendar"></i>April 2026 <i data-lucide="chevron-down"></i></button>
+          <button class="btn btn-ghost"><i data-lucide="upload"></i>Backdate import</button>
+          <button class="btn btn-ghost"><i data-lucide="download"></i>Export</button>
+          <button class="btn btn-primary"><i data-lucide="plus"></i>New invoice</button>
+        </div>
+      </div>
+
+      <!-- KPI strip -->
+      <div class="strip">
+        <div class="stat">
+          <div class="lbl">Outstanding · open</div>
+          <div class="val"><span class="ccy">KES</span>18,402,000</div>
+          <div class="sub">42 invoices · avg 28-day terms</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Collected · April</div>
+          <div class="val"><span class="ccy">KES</span>32,180,000</div>
+          <div class="sub"><span class="delta">+14.2%</span> vs March · DSO 31 days</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Overdue</div>
+          <div class="val"><span class="ccy">KES</span>1,820,000</div>
+          <div class="sub"><span class="delta danger">2 invoices</span> · oldest 18 days late</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Aging buckets</div>
+          <div class="aging-bar" style="margin-top: 6px;">
+            <div class="bucket"><span class="lbl">0–30</span><span class="val">14.2M</span></div>
+            <div class="bucket"><span class="lbl">31–60</span><span class="val">2.4M</span></div>
+            <div class="bucket warn"><span class="lbl">61–90</span><span class="val">0.0M</span></div>
+            <div class="bucket danger"><span class="lbl">90+</span><span class="val">1.8M</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter row -->
+      <div class="filter-row">
+        <div class="group">
+          <button class="pill active">All <span class="ct">128</span></button>
+          <button class="pill">Draft <span class="ct">3</span></button>
+          <button class="pill">Sent <span class="ct">8</span></button>
+          <button class="pill">Open <span class="ct">42</span></button>
+          <button class="pill">Overdue <span class="ct">2</span></button>
+          <button class="pill">Paid <span class="ct">73</span></button>
+        </div>
+        <div class="spacer"></div>
+        <button class="pill"><i data-lucide="building-2"></i>All clients <i data-lucide="chevron-down"></i></button>
+        <button class="pill"><i data-lucide="folder"></i>All projects <i data-lucide="chevron-down"></i></button>
+        <button class="pill"><i data-lucide="sliders-horizontal"></i>Filters</button>
+      </div>
+
+      <!-- List -->
+      <div class="list-frame">
+        <div class="list-head lr-inv">
+          <div class="h sorted">Invoice <i data-lucide="chevron-down"></i></div>
+          <div class="h">Client</div>
+          <div class="h">Issued</div>
+          <div class="h">Due</div>
+          <div class="h right">Amount</div>
+          <div class="h right">Status</div>
+          <div class="h"></div>
+        </div>
+
+        <div class="list-rows">
+
+          <!-- Overdue, 18 days late -->
+          <div class="list-row lr-inv">
+            <div>
+              <span class="col-id">INV-2026-04-0142</span>
+              <div class="col-title">Meridian Care · April retainer</div>
+              <div class="col-sub">3,200 agent-hours · 14 trainers · weekly billing rolled up</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Meridian Care Ltd</div>
+              <div class="col-sub">Healthcare BPO · NET 30</div>
+            </div>
+            <div>
+              <div class="col-meta">14 Apr</div>
+            </div>
+            <div>
+              <div class="col-meta">14 May</div>
+              <div class="age danger" style="margin-top: 6px;"><span class="dot"></span>18 days late</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>1,820,000</div>
+              <div class="due-bar" style="margin-left: auto;"><div class="filled over" style="width: 100%;"></div></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status danger">Overdue</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Open, due in 9 days -->
+          <div class="list-row lr-inv">
+            <div>
+              <span class="col-id">INV-2026-04-0141</span>
+              <div class="col-title">Helios CX · April retainer</div>
+              <div class="col-sub">Inbound chat ·  Mombasa floor · 4,800 contact-hours</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Helios CX Inc</div>
+              <div class="col-sub">Inbound chat · NET 30</div>
+            </div>
+            <div>
+              <div class="col-meta">23 Apr</div>
+            </div>
+            <div>
+              <div class="col-meta">23 May</div>
+              <div class="age" style="margin-top: 6px;"><span class="dot"></span>due in 9 days</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>2,940,000</div>
+              <div class="due-bar" style="margin-left: auto;"><div class="filled" style="width: 70%;"></div></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status info">Sent</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Open, partial -->
+          <div class="list-row lr-inv">
+            <div>
+              <span class="col-id">INV-2026-04-0140</span>
+              <div class="col-title">Ada Outbound · expansion setup fee</div>
+              <div class="col-sub">One-time · workstation provisioning, phase 1</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Ada Outbound LLC</div>
+              <div class="col-sub">Outbound voice · NET 14</div>
+            </div>
+            <div>
+              <div class="col-meta">25 Apr</div>
+            </div>
+            <div>
+              <div class="col-meta">09 May</div>
+              <div class="age warn" style="margin-top: 6px;"><span class="dot"></span>50% paid</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>820,000</div>
+              <div class="col-amt-sub gold">240K outstanding</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status gold">Partial</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Paid -->
+          <div class="list-row lr-inv">
+            <div>
+              <span class="col-id">INV-2026-04-0139</span>
+              <div class="col-title">Noor Partners · April QA sprint</div>
+              <div class="col-sub">External QA contract · sprint 4</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Noor Partners</div>
+              <div class="col-sub">QA &amp; testing · NET 14</div>
+            </div>
+            <div>
+              <div class="col-meta">18 Apr</div>
+            </div>
+            <div>
+              <div class="col-meta">02 May</div>
+              <div class="age paid" style="margin-top: 6px;"><span class="dot"></span>paid 30 Apr</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>620,000</div>
+              <div class="due-bar" style="margin-left: auto;"><div class="filled paid" style="width: 100%;"></div></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status success">Paid</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Draft -->
+          <div class="list-row lr-inv">
+            <div>
+              <span class="col-id">INV-2026-05-0143</span>
+              <div class="col-title">Vega Collections · May retainer</div>
+              <div class="col-sub">Draft · pending PM review of agent hours</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Vega Collections</div>
+              <div class="col-sub">Collections · NET 30</div>
+            </div>
+            <div>
+              <div class="col-meta">—</div>
+            </div>
+            <div>
+              <div class="col-meta">—</div>
+              <div class="age" style="margin-top: 6px;"><span class="dot"></span>not issued</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>1,140,000</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status muted">Draft</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Backdated, recently imported -->
+          <div class="list-row lr-inv">
+            <div>
+              <span class="col-id">INV-2026-03-0118</span>
+              <div class="col-title">Helios CX · March retainer <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--gold-lo); margin-left: 8px; padding: 2px 7px; border: 1px solid var(--gold); border-radius: 999px; text-transform: uppercase; letter-spacing: 0.10em;">Backdated</span></div>
+              <div class="col-sub">Imported 12 May · linked to bank receipt 28 Mar</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Helios CX Inc</div>
+              <div class="col-sub">Inbound chat · NET 30</div>
+            </div>
+            <div>
+              <div class="col-meta">28 Feb</div>
+            </div>
+            <div>
+              <div class="col-meta">28 Mar</div>
+              <div class="age paid" style="margin-top: 6px;"><span class="dot"></span>paid 28 Mar</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>2,820,000</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status success">Paid</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-top:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:11px;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:0.10em;">
+          <span>Showing 1–6 of 128</span>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" disabled style="opacity:0.5;"><i data-lucide="chevron-left"></i>Prev</button>
+            <button class="btn btn-ghost btn-sm">Next<i data-lucide="chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

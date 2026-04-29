@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<title>Badges & status</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  body { margin: 0; padding: 22px; background: var(--surface-2); font-family: var(--font-sans); font-size: 13px; color: var(--foreground); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .row + .row { margin-top: 12px; }
+  .label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground); margin-bottom: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    height: 20px; padding: 0 8px; border-radius: var(--radius-sm);
+    font-size: 11px; font-weight: 500; line-height: 1;
+    border: 1px solid transparent;
+  }
+  .b-default  { background: var(--primary); color: var(--primary-foreground); }
+  .b-success  { background: var(--success-soft); color: var(--success-soft-foreground); }
+  .b-warning  { background: var(--warning-soft); color: var(--warning-soft-foreground); }
+  .b-danger   { background: var(--danger-soft); color: var(--danger-soft-foreground); }
+  .b-info     { background: var(--info-soft); color: var(--info-soft-foreground); }
+  .b-outline  { background: transparent; color: var(--foreground); border-color: var(--border); }
+  .b-muted    { background: var(--muted); color: var(--muted-foreground); }
+
+  .delta {
+    display: inline-flex; align-items: center; gap: 2px;
+    padding: 2px 6px; border-radius: var(--radius-full);
+    font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+  }
+  .d-up   { background: var(--success-soft); color: var(--success-soft-foreground); }
+  .d-down { background: var(--danger-soft); color: var(--danger-soft-foreground); }
+</style>
+</head><body>
+  <div>
+    <div class="label">Badges · status vocabulary</div>
+    <div class="row">
+      <span class="badge b-success">Approved</span>
+      <span class="badge b-success">Confirmed</span>
+      <span class="badge b-info">Submitted</span>
+      <span class="badge b-warning">Pending</span>
+      <span class="badge b-warning">Under review</span>
+      <span class="badge b-danger">Rejected</span>
+      <span class="badge b-danger">Overdue</span>
+      <span class="badge b-muted">Draft</span>
+    </div>
+  </div>
+  <div style="margin-top: 16px;">
+    <div class="label">Variants</div>
+    <div class="row">
+      <span class="badge b-default">default</span>
+      <span class="badge b-outline">outline</span>
+      <span class="badge b-muted">muted</span>
+    </div>
+  </div>
+  <div style="margin-top: 16px;">
+    <div class="label">Delta pills · used in KPIs</div>
+    <div class="row">
+      <span class="delta d-up">▲ 4.2%</span>
+      <span class="delta d-down">▼ 1.8%</span>
+      <span class="delta d-up">▲ 12 projects</span>
+    </div>
+  </div>
+</body></html>

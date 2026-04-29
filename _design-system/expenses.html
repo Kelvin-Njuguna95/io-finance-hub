@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Finance Hub · Expenses</title>
+<link rel="stylesheet" href="IO Finance Hub/_design-system/colors_and_type.css" />
+<link rel="stylesheet" href="app-shell.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  /* Expenses list grid:
+     date · expense (id+title+sub) · project · budget link · category · amount · status · actions */
+  .lr-exp {
+    grid-template-columns: 100px 1.6fr 1fr 1fr 0.7fr 180px 110px 50px;
+  }
+
+  /* Receipt indicator */
+  .rcpt {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: 0.10em;
+    color: var(--muted-foreground); margin-top: 4px;
+  }
+  .rcpt [data-lucide] { width: 11px; height: 11px; stroke-width: 1.75; }
+  .rcpt.ok { color: var(--success-soft-foreground); }
+  .rcpt.miss { color: var(--danger); }
+
+  /* Tiny budget-link chip */
+  .bud-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: var(--radius);
+    background: var(--paper-2); border: 1px solid var(--border-subtle);
+    font-family: var(--font-mono); font-size: 11px; color: var(--ink);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    transition: background var(--dur-fast) var(--ease-standard);
+  }
+  .bud-chip:hover { background: var(--gold-soft); border-color: var(--gold); }
+  .bud-chip [data-lucide] { width: 12px; height: 12px; stroke-width: 1.75; color: var(--gold-lo); }
+  .bud-chip.over { border-color: var(--danger-soft); color: var(--danger); }
+  .bud-chip.over [data-lucide] { color: var(--danger); }
+
+  /* KPI strip — same pattern as Budgets */
+  .strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+  .strip .stat { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; }
+  .strip .stat .lbl { font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground); }
+  .strip .stat .val { font-family: var(--font-mono); font-size: 26px; font-weight: 500; color: var(--ink); margin-top: 12px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1; }
+  .strip .stat .val .ccy { font-size: 11px; color: var(--muted-foreground); margin-right: 6px; letter-spacing: 0.04em; }
+  .strip .stat .sub { margin-top: 8px; font-size: 12px; color: var(--warm-grey-3); }
+  .strip .stat .sub .delta { color: var(--success-soft-foreground); font-family: var(--font-mono); font-weight: 500; }
+  .strip .stat .sub .delta.danger { color: var(--danger); }
+  .strip .stat .sub .delta.gold { color: var(--gold-lo); }
+
+  /* Date column — stacked day + month-of-year */
+  .date-cell {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  }
+  .date-cell .d { font-size: 16px; font-weight: 500; color: var(--ink); line-height: 1; }
+  .date-cell .m { font-size: 10.5px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.14em; margin-top: 6px; display: block; }
+
+  /* Day separator row */
+  .day-sep {
+    padding: 14px 22px 8px;
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+    background: var(--paper-2); border-bottom: 1px solid var(--border-subtle);
+    display: flex; align-items: baseline; gap: 16px;
+  }
+  .day-sep .total { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .day-sep .count { margin-left: auto; }
+
+  /* The 3-up callout strip on top — slightly different language */
+  .callout-row {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 18px 22px; margin-bottom: 22px;
+    display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center;
+  }
+  .callout-row .icon-tile {
+    width: 40px; height: 40px; border-radius: var(--radius);
+    background: var(--gold-soft); color: var(--gold-lo);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .callout-row .icon-tile [data-lucide] { width: 18px; height: 18px; stroke-width: 1.75; }
+  .callout-row .head {
+    font-family: var(--font-display); font-size: 15px; font-weight: 500; color: var(--ink);
+    margin: 0; font-variation-settings: "opsz" 28; letter-spacing: -0.01em;
+  }
+  .callout-row .body {
+    font-size: 12.5px; color: var(--warm-grey-3); margin-top: 4px;
+  }
+  .callout-row .body .num { font-family: var(--font-mono); color: var(--ink); }
+
+  /* Bulk-select bar that takes over the toolbar when rows are selected.
+     Mocked in static state so the design reads. */
+  .bulk-bar {
+    background: var(--ink); color: var(--paper);
+    border-radius: var(--radius-lg); padding: 12px 18px;
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 14px;
+  }
+  .bulk-bar .ct {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+    background: var(--gold); color: var(--ink);
+    padding: 3px 10px; border-radius: var(--radius-full);
+  }
+  .bulk-bar .lbl { font-size: 13px; }
+  .bulk-bar .lbl strong { font-weight: 500; color: var(--paper); }
+  .bulk-bar .num {
+    font-family: var(--font-mono); color: var(--gold); margin-left: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .bulk-bar .spacer { flex: 1; }
+  .bulk-bar button {
+    background: transparent; color: var(--paper); border: 1px solid rgba(255,255,255,0.18);
+    height: 30px; padding: 0 12px; border-radius: var(--radius);
+    font-size: 12px; display: inline-flex; align-items: center; gap: 6px;
+    transition: background var(--dur-fast) var(--ease-standard);
+  }
+  .bulk-bar button:hover { background: rgba(255,255,255,0.08); }
+  .bulk-bar button [data-lucide] { width: 13px; height: 13px; stroke-width: 1.75; }
+  .bulk-bar button.primary { background: var(--gold); color: var(--ink); border-color: var(--gold); font-weight: 500; }
+  .bulk-bar button.primary:hover { background: var(--gold-hi); }
+  .bulk-bar button.dismiss { padding: 0; width: 30px; justify-content: center; opacity: 0.7; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="side">
+    <div class="brand">
+      <span class="tile">IO</span>
+      <span><span class="eye">Impact Outsourcing</span><span class="title">Finance Hub</span></span>
+    </div>
+    <div class="group-label">Operations</div>
+    <a class="nav-item" href="dashboard.html"><i data-lucide="layout-dashboard"></i>Home</a>
+    <a class="nav-item" href="budgets.html"><i data-lucide="clipboard-list"></i>Budgets <span class="count gold">7</span></a>
+    <a class="nav-item active" href="expenses.html"><i data-lucide="receipt"></i>Expenses <span class="count gold">14</span></a>
+    <a class="nav-item" href="invoices.html"><i data-lucide="file-text"></i>Invoices</a>
+    <a class="nav-item" href="withdrawals.html"><i data-lucide="arrow-down-to-line"></i>Withdrawals</a>
+    <a class="nav-item" href="profit-share.html"><i data-lucide="piggy-bank"></i>Profit share</a>
+    <div class="group-label">Reports</div>
+    <a class="nav-item" href="#"><i data-lucide="trending-up"></i>Monthly P&amp;L</a>
+    <a class="nav-item" href="#"><i data-lucide="flag"></i>Red flags <span class="count danger">3</span></a>
+    <a class="nav-item" href="#"><i data-lucide="inbox"></i>EOD reports</a>
+    <a class="nav-item" href="#"><i data-lucide="users"></i>Agent counts</a>
+    <div class="group-label">System</div>
+    <a class="nav-item" href="#"><i data-lucide="shield-check"></i>Audit trail</a>
+    <a class="nav-item" href="#"><i data-lucide="settings"></i>Settings</a>
+    <div class="spacer"></div>
+    <div class="closure-card">
+      <div class="eye">Month closure</div>
+      <div class="head">April 2026<br/><em>in progress</em></div>
+      <div class="progress"><span></span></div>
+      <div class="body">9 of 12 sign-offs complete · 3 days to lock</div>
+      <button class="btn-gold">Open closure</button>
+    </div>
+  </aside>
+
+  <div>
+    <header class="topbar">
+      <nav class="crumbs">
+        <a class="home" href="dashboard.html"><i data-lucide="home"></i></a>
+        <span class="sep">/</span>
+        <a href="#">Operations</a>
+        <span class="sep">/</span>
+        <span class="here">Expenses</span>
+      </nav>
+      <div class="spacer"></div>
+      <div class="search">
+        <i data-lucide="search"></i>
+        <input placeholder="Search by ID, vendor, project, owner…" />
+        <span class="kbd">⌘ K</span>
+      </div>
+      <button class="icon-btn" aria-label="Notifications"><i data-lucide="bell"></i><span class="dot gold"></span></button>
+      <div class="user-chip">
+        <span class="av">AM</span>
+        <div><div class="nm">Anne Mburu</div><div class="role">CFO</div></div>
+        <i data-lucide="chevron-down"></i>
+      </div>
+    </header>
+
+    <main class="page">
+
+      <!-- Page header -->
+      <div class="page-head">
+        <div class="titles">
+          <div class="eye">Operations · Receipts</div>
+          <h1>Expenses <em>&amp; receipts</em></h1>
+          <p class="subtitle">
+            April 2026 <span class="sep">·</span>
+            <span class="num">187</span> recorded <span class="sep">·</span>
+            <span class="num">14</span> awaiting approval <span class="sep">·</span>
+            <span class="num">KES&nbsp;6.42M</span> spent month-to-date
+          </p>
+        </div>
+        <div class="actions">
+          <button class="pill"><i data-lucide="calendar"></i>April 2026 <i data-lucide="chevron-down"></i></button>
+          <button class="btn btn-ghost"><i data-lucide="download"></i>Export</button>
+          <button class="btn btn-primary"><i data-lucide="plus"></i>Record expense</button>
+        </div>
+      </div>
+
+      <!-- KPI strip -->
+      <div class="strip">
+        <div class="stat">
+          <div class="lbl">Spent · April</div>
+          <div class="val"><span class="ccy">KES</span>6,418,000</div>
+          <div class="sub"><span class="delta">+8.1%</span> vs March · 187 expenses</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Awaiting approval</div>
+          <div class="val">14 expenses</div>
+          <div class="sub"><span class="delta gold">KES 412,000</span> in queue · oldest 3d</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Missing receipts</div>
+          <div class="val">6 expenses</div>
+          <div class="sub"><span class="delta danger">2 over 7 days</span> · all under KES 5K</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Driving budget overrun</div>
+          <div class="val">3 budgets</div>
+          <div class="sub"><span class="delta danger">+ KES 412K</span> across linked expenses</div>
+        </div>
+      </div>
+
+      <!-- Bulk-select state — shown statically because it teaches the interaction -->
+      <div class="bulk-bar">
+        <span class="ct">3</span>
+        <span class="lbl"><strong>3 expenses selected</strong> · total <span class="num">KES 87,400</span> · all linked to <span class="num">BUD-2026-Q2-MERI</span></span>
+        <span class="spacer"></span>
+        <button><i data-lucide="paperclip"></i>Attach receipts</button>
+        <button><i data-lucide="folder"></i>Reassign budget</button>
+        <button class="primary"><i data-lucide="check"></i>Approve all 3</button>
+        <button class="dismiss" aria-label="Clear selection"><i data-lucide="x"></i></button>
+      </div>
+
+      <!-- Filter row -->
+      <div class="filter-row">
+        <div class="group">
+          <button class="pill active">All <span class="ct">187</span></button>
+          <button class="pill">Pending <span class="ct">14</span></button>
+          <button class="pill">Approved <span class="ct">168</span></button>
+          <button class="pill">Rejected <span class="ct">2</span></button>
+          <button class="pill">Missing receipt <span class="ct">6</span></button>
+        </div>
+        <div class="spacer"></div>
+        <button class="pill"><i data-lucide="folder"></i>All projects <i data-lucide="chevron-down"></i></button>
+        <button class="pill"><i data-lucide="layers"></i>All categories <i data-lucide="chevron-down"></i></button>
+        <button class="pill"><i data-lucide="user"></i>Any owner <i data-lucide="chevron-down"></i></button>
+        <button class="pill"><i data-lucide="sliders-horizontal"></i>Filters</button>
+      </div>
+
+      <!-- List frame -->
+      <div class="list-frame">
+        <div class="list-head lr-exp">
+          <div class="h sorted">Date <i data-lucide="chevron-down"></i></div>
+          <div class="h">Expense</div>
+          <div class="h">Project</div>
+          <div class="h">Budget</div>
+          <div class="h">Category</div>
+          <div class="h right">Amount</div>
+          <div class="h right">Status</div>
+          <div class="h"></div>
+        </div>
+
+        <!-- Day separator: today -->
+        <div class="day-sep">
+          <span>Today · 14 May 2026</span>
+          <span>—</span>
+          <span class="total">KES 142,800</span>
+          <span class="count">4 expenses</span>
+        </div>
+
+        <div class="list-rows">
+
+          <!-- Row 1 — pending approval, has receipt -->
+          <div class="list-row lr-exp">
+            <div class="date-cell"><span class="d">14</span><span class="m">11:47</span></div>
+            <div>
+              <span class="col-id">EXP-05-14-0247</span>
+              <div class="col-title">Trainer overtime · weekend cohort 4</div>
+              <div class="col-sub">Vendor: <strong style="color:var(--ink);font-weight:500;">Internal payroll</strong> · submitted by J. Wanjiku</div>
+              <div class="rcpt ok"><i data-lucide="paperclip"></i>Receipt attached</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Meridian Care</div>
+              <div class="col-sub">Healthcare BPO</div>
+            </div>
+            <div>
+              <a href="budget-detail.html" class="bud-chip over">
+                <i data-lucide="alert-triangle"></i>BUD-2026-Q2-MERI
+              </a>
+              <div class="col-sub" style="margin-top: 6px;">Trainer overtime line · 108% used</div>
+            </div>
+            <div><span class="status muted" style="padding:2px 8px;font-size:10.5px;">Headcount</span></div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>28,000</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status gold">Pending</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Row 2 — pending, missing receipt -->
+          <div class="list-row lr-exp">
+            <div class="date-cell"><span class="d">14</span><span class="m">10:22</span></div>
+            <div>
+              <span class="col-id">EXP-05-14-0246</span>
+              <div class="col-title">Petty cash · office supplies</div>
+              <div class="col-sub">Vendor: <strong style="color:var(--ink);font-weight:500;">Naivas Westlands</strong> · submitted by M. Ali</div>
+              <div class="rcpt miss"><i data-lucide="alert-circle"></i>Receipt missing · 4 hrs</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Internal · admin</div>
+              <div class="col-sub">Office operations</div>
+            </div>
+            <div>
+              <a href="#" class="bud-chip">
+                <i data-lucide="link"></i>BUD-2026-OPS-ADM
+              </a>
+              <div class="col-sub" style="margin-top: 6px;">Office supplies line · 42% used</div>
+            </div>
+            <div><span class="status muted" style="padding:2px 8px;font-size:10.5px;">Supplies</span></div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>3,800</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status gold">Pending</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Row 3 — approved auto -->
+          <div class="list-row lr-exp">
+            <div class="date-cell"><span class="d">14</span><span class="m">09:14</span></div>
+            <div>
+              <span class="col-id">EXP-05-14-0245</span>
+              <div class="col-title">Translator licences · 2 seats</div>
+              <div class="col-sub">Vendor: <strong style="color:var(--ink);font-weight:500;">LingualBox SaaS</strong> · auto-approved · recurring</div>
+              <div class="rcpt ok"><i data-lucide="paperclip"></i>Invoice attached</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Meridian Care</div>
+              <div class="col-sub">Healthcare BPO</div>
+            </div>
+            <div>
+              <a href="budget-detail.html" class="bud-chip over">
+                <i data-lucide="alert-triangle"></i>BUD-2026-Q2-MERI
+              </a>
+              <div class="col-sub" style="margin-top: 6px;">Translator licences line · 113% used</div>
+            </div>
+            <div><span class="status muted" style="padding:2px 8px;font-size:10.5px;">Software</span></div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>56,000</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status success">Approved</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Row 4 — approved, healthcare project -->
+          <div class="list-row lr-exp">
+            <div class="date-cell"><span class="d">14</span><span class="m">08:02</span></div>
+            <div>
+              <span class="col-id">EXP-05-14-0244</span>
+              <div class="col-title">Mobile data · field agents</div>
+              <div class="col-sub">Vendor: <strong style="color:var(--ink);font-weight:500;">Safaricom B2B</strong> · auto-approved</div>
+              <div class="rcpt ok"><i data-lucide="paperclip"></i>Statement attached</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Helios CX</div>
+              <div class="col-sub">Inbound chat</div>
+            </div>
+            <div>
+              <a href="#" class="bud-chip">
+                <i data-lucide="link"></i>BUD-2026-Q2-HELO
+              </a>
+              <div class="col-sub" style="margin-top: 6px;">Connectivity line · 38% used</div>
+            </div>
+            <div><span class="status muted" style="padding:2px 8px;font-size:10.5px;">Telecoms</span></div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>55,000</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status success">Approved</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Day separator: yesterday -->
+        <div class="day-sep">
+          <span>Yesterday · 13 May 2026</span>
+          <span>—</span>
+          <span class="total">KES 318,400</span>
+          <span class="count">9 expenses</span>
+        </div>
+
+        <div class="list-rows">
+
+          <!-- Row 5 — pending, large amount -->
+          <div class="list-row lr-exp">
+            <div class="date-cell"><span class="d">13</span><span class="m">17:40</span></div>
+            <div>
+              <span class="col-id">EXP-05-13-0243</span>
+              <div class="col-title">Onboarding kits · 18 agents</div>
+              <div class="col-sub">Vendor: <strong style="color:var(--ink);font-weight:500;">Naked Pixel Ltd</strong> · submitted by J. Wanjiku</div>
+              <div class="rcpt ok"><i data-lucide="paperclip"></i>2 receipts attached</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Meridian Care</div>
+              <div class="col-sub">Healthcare BPO</div>
+            </div>
+            <div>
+              <a href="budget-detail.html" class="bud-chip">
+                <i data-lucide="link"></i>BUD-2026-Q2-MERI
+              </a>
+              <div class="col-sub" style="margin-top: 6px;">Onboarding kits line · 94% used</div>
+            </div>
+            <div><span class="status muted" style="padding:2px 8px;font-size:10.5px;">Hardware</span></div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>204,000</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status gold">Pending</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Row 6 — rejected, ada outbound -->
+          <div class="list-row lr-exp">
+            <div class="date-cell"><span class="d">13</span><span class="m">14:11</span></div>
+            <div>
+              <span class="col-id">EXP-05-13-0242</span>
+              <div class="col-title">Team lunch · Mombasa floor</div>
+              <div class="col-sub">Vendor: <strong style="color:var(--ink);font-weight:500;">Tamarind Mombasa</strong> · submitted by D. Otieno</div>
+              <div class="rcpt ok"><i data-lucide="paperclip"></i>Receipt attached</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Helios CX</div>
+              <div class="col-sub">Inbound chat</div>
+            </div>
+            <div>
+              <a href="#" class="bud-chip">
+                <i data-lucide="link"></i>BUD-2026-Q2-HELO
+              </a>
+              <div class="col-sub" style="margin-top: 6px;">Outside any line · ad-hoc</div>
+            </div>
+            <div><span class="status muted" style="padding:2px 8px;font-size:10.5px;">Hospitality</span></div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>18,400</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status danger">Rejected</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Row 7 — approved -->
+          <div class="list-row lr-exp">
+            <div class="date-cell"><span class="d">13</span><span class="m">11:50</span></div>
+            <div>
+              <span class="col-id">EXP-05-13-0241</span>
+              <div class="col-title">Recruitment fee · 2 placements</div>
+              <div class="col-sub">Vendor: <strong style="color:var(--ink);font-weight:500;">BrightSearch Africa</strong> · approved by A. Mburu</div>
+              <div class="rcpt ok"><i data-lucide="paperclip"></i>Invoice attached</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Meridian Care</div>
+              <div class="col-sub">Healthcare BPO</div>
+            </div>
+            <div>
+              <a href="budget-detail.html" class="bud-chip">
+                <i data-lucide="link"></i>BUD-2026-Q2-MERI
+              </a>
+              <div class="col-sub" style="margin-top: 6px;">Recruitment fees line · 67% used</div>
+            </div>
+            <div><span class="status muted" style="padding:2px 8px;font-size:10.5px;">Services</span></div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>40,000</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status success">Approved</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Row 8 — pending, voice ada outbound -->
+          <div class="list-row lr-exp">
+            <div class="date-cell"><span class="d">13</span><span class="m">09:30</span></div>
+            <div>
+              <span class="col-id">EXP-05-13-0240</span>
+              <div class="col-title">Headsets · Plantronics EncorePro 320</div>
+              <div class="col-sub">Vendor: <strong style="color:var(--ink);font-weight:500;">Telcom Kenya</strong> · submitted by K. Kiprono</div>
+              <div class="rcpt ok"><i data-lucide="paperclip"></i>Quote attached</div>
+            </div>
+            <div>
+              <div class="col-title" style="font-size: 13px;">Ada Outbound</div>
+              <div class="col-sub">Outbound voice</div>
+            </div>
+            <div>
+              <a href="#" class="bud-chip">
+                <i data-lucide="link"></i>BUD-2026-Q2-AIFI
+              </a>
+              <div class="col-sub" style="margin-top: 6px;">Hardware line · pending budget approval</div>
+            </div>
+            <div><span class="status muted" style="padding:2px 8px;font-size:10.5px;">Hardware</span></div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>56,000</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status gold">Pending</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Pagination footer -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-top:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:11px;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:0.10em;">
+          <span>Showing 1–8 of 187</span>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" disabled style="opacity:0.5;"><i data-lucide="chevron-left"></i>Prev</button>
+            <button class="btn btn-ghost btn-sm">Next<i data-lucide="chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

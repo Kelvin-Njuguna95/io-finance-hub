@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Finance Hub · Withdrawals</title>
+<link rel="stylesheet" href="IO Finance Hub/_design-system/colors_and_type.css" />
+<link rel="stylesheet" href="app-shell.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  /* Withdrawals list:
+     date · request (id+purpose+sub) · director · approvals · method · amount · status · actions */
+  .lr-wd { grid-template-columns: 100px 1.7fr 0.9fr 1fr 0.9fr 180px 110px 50px; }
+
+  /* KPI strip — same vocab as expenses */
+  .strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+  .strip .stat { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; }
+  .strip .stat .lbl { font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground); }
+  .strip .stat .val { font-family: var(--font-mono); font-size: 26px; font-weight: 500; color: var(--ink); margin-top: 12px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1; }
+  .strip .stat .val .ccy { font-size: 11px; color: var(--muted-foreground); margin-right: 6px; letter-spacing: 0.04em; }
+  .strip .stat .sub { margin-top: 8px; font-size: 12px; color: var(--warm-grey-3); }
+  .strip .stat .sub .delta { color: var(--success-soft-foreground); font-family: var(--font-mono); font-weight: 500; }
+  .strip .stat .sub .delta.danger { color: var(--danger); }
+  .strip .stat .sub .delta.gold { color: var(--gold-lo); }
+  .strip .stat.alert { border-left: 3px solid var(--danger); }
+
+  .date-cell { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .date-cell .d { font-size: 16px; font-weight: 500; color: var(--ink); line-height: 1; }
+  .date-cell .m { font-size: 10.5px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.14em; margin-top: 6px; display: block; }
+
+  /* Approvals dot-track: M / J / S avatars in a row, filled when signed */
+  .approvers { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; }
+  .approvers .av {
+    width: 22px; height: 22px; border-radius: var(--radius-full);
+    font-family: var(--font-mono); font-size: 9.5px; font-weight: 500;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1.5px solid var(--card);
+  }
+  .approvers .av.signed { background: var(--ink); color: var(--gold); }
+  .approvers .av.pending { background: var(--paper-3); color: var(--warm-grey-3); }
+  .approvers .av.declined { background: var(--danger-soft); color: var(--danger); }
+  .approvers .meta {
+    font-family: var(--font-mono); font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: 0.10em; color: var(--muted-foreground);
+    margin-left: 6px;
+  }
+
+  /* Method pill — bank vs cash */
+  .method-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: var(--radius);
+    background: var(--paper-2); border: 1px solid var(--border-subtle);
+    font-family: var(--font-mono); font-size: 11px; color: var(--ink);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .method-pill [data-lucide] { width: 12px; height: 12px; stroke-width: 1.75; color: var(--gold-lo); }
+  .method-pill.cash { border-color: var(--gold); background: var(--gold-soft); }
+  .method-pill.cash [data-lucide] { color: var(--gold-lo); }
+
+  /* Director cell — avatar + name */
+  .director-cell { display: flex; align-items: center; gap: 10px; }
+  .director-cell .av {
+    width: 28px; height: 28px; border-radius: var(--radius-full);
+    background: var(--gold); color: var(--ink);
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .director-cell .nm { font-size: 13px; font-weight: 500; color: var(--ink); line-height: 1.2; }
+  .director-cell .role { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.12em; margin-top: 3px; }
+
+  /* Day separator like Expenses */
+  .day-sep {
+    padding: 14px 22px 8px;
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+    background: var(--paper-2); border-bottom: 1px solid var(--border-subtle);
+    display: flex; align-items: baseline; gap: 16px;
+  }
+  .day-sep .total { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .day-sep .count { margin-left: auto; }
+
+  /* Reconciliation banner — front-and-center because this is the headline pain point.
+     Operating-account vs ledger drift, surfaced before the user is asked to record more. */
+  .recon-banner {
+    background: var(--card); border: 1px solid var(--border);
+    border-left: 3px solid var(--danger);
+    border-radius: var(--radius-lg);
+    padding: 22px 26px;
+    display: grid; grid-template-columns: 1.4fr 1fr 1fr auto; gap: 28px; align-items: center;
+    margin-bottom: 22px;
+  }
+  .recon-banner .lhs .eye {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.18em; color: var(--danger);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .recon-banner .lhs .eye [data-lucide] { width: 12px; height: 12px; stroke-width: 2; }
+  .recon-banner .lhs .head {
+    font-family: var(--font-display); font-size: 19px; font-weight: 500; color: var(--ink);
+    margin: 8px 0 4px; line-height: 1.25; letter-spacing: -0.01em;
+    font-variation-settings: "opsz" 32;
+  }
+  .recon-banner .lhs .body { font-size: 12.5px; color: var(--warm-grey-3); line-height: 1.5; }
+  .recon-banner .pair { display: flex; flex-direction: column; gap: 4px; }
+  .recon-banner .pair .lbl {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground);
+  }
+  .recon-banner .pair .val {
+    font-family: var(--font-mono); font-size: 22px; font-weight: 500;
+    color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+  }
+  .recon-banner .pair .val .ccy { font-size: 11px; color: var(--muted-foreground); margin-right: 6px; letter-spacing: 0.04em; }
+  .recon-banner .pair .val.danger { color: var(--danger); }
+  .recon-banner .actions { display: flex; flex-direction: column; gap: 8px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="side">
+    <div class="brand">
+      <span class="tile">IO</span>
+      <span><span class="eye">Impact Outsourcing</span><span class="title">Finance Hub</span></span>
+    </div>
+    <div class="group-label">Operations</div>
+    <a class="nav-item" href="dashboard.html"><i data-lucide="layout-dashboard"></i>Home</a>
+    <a class="nav-item" href="budgets.html"><i data-lucide="clipboard-list"></i>Budgets <span class="count gold">7</span></a>
+    <a class="nav-item" href="expenses.html"><i data-lucide="receipt"></i>Expenses <span class="count gold">14</span></a>
+    <a class="nav-item" href="invoices.html"><i data-lucide="file-text"></i>Invoices <span class="count danger">2</span></a>
+    <a class="nav-item active" href="withdrawals.html"><i data-lucide="arrow-down-to-line"></i>Withdrawals <span class="count danger">3</span></a>
+    <a class="nav-item" href="profit-share.html"><i data-lucide="piggy-bank"></i>Profit share</a>
+    <div class="group-label">Reports</div>
+    <a class="nav-item" href="#"><i data-lucide="trending-up"></i>Monthly P&amp;L</a>
+    <a class="nav-item" href="#"><i data-lucide="flag"></i>Red flags <span class="count danger">3</span></a>
+    <a class="nav-item" href="#"><i data-lucide="inbox"></i>EOD reports</a>
+    <a class="nav-item" href="#"><i data-lucide="users"></i>Agent counts</a>
+    <div class="group-label">System</div>
+    <a class="nav-item" href="#"><i data-lucide="shield-check"></i>Audit trail</a>
+    <a class="nav-item" href="#"><i data-lucide="settings"></i>Settings</a>
+    <div class="spacer"></div>
+    <div class="closure-card">
+      <div class="eye">Month closure</div>
+      <div class="head">April 2026<br/><em>in progress</em></div>
+      <div class="progress"><span></span></div>
+      <div class="body">9 of 12 sign-offs complete · 3 days to lock</div>
+      <button class="btn-gold">Open closure</button>
+    </div>
+  </aside>
+
+  <div>
+    <header class="topbar">
+      <nav class="crumbs">
+        <a class="home" href="dashboard.html"><i data-lucide="home"></i></a>
+        <span class="sep">/</span>
+        <a href="#">Operations</a>
+        <span class="sep">/</span>
+        <span class="here">Withdrawals</span>
+      </nav>
+      <div class="spacer"></div>
+      <div class="search">
+        <i data-lucide="search"></i>
+        <input placeholder="Search by ID, director, purpose…" />
+        <span class="kbd">⌘ K</span>
+      </div>
+      <button class="icon-btn" aria-label="Notifications"><i data-lucide="bell"></i><span class="dot gold"></span></button>
+      <div class="user-chip">
+        <span class="av">AM</span>
+        <div><div class="nm">Anne Mburu</div><div class="role">CFO</div></div>
+        <i data-lucide="chevron-down"></i>
+      </div>
+    </header>
+
+    <main class="page">
+
+      <!-- Page header -->
+      <div class="page-head">
+        <div class="titles">
+          <div class="eye">Operations · Director cash &amp; bank</div>
+          <h1>Withdrawals <em>&amp; director draws</em></h1>
+          <p class="subtitle">
+            April 2026 <span class="sep">·</span>
+            <span class="num">23</span> recorded <span class="sep">·</span>
+            <span class="num">3</span> awaiting approval <span class="sep">·</span>
+            <span class="num">KES&nbsp;3.84M</span> drawn month-to-date
+          </p>
+        </div>
+        <div class="actions">
+          <button class="pill"><i data-lucide="calendar"></i>April 2026 <i data-lucide="chevron-down"></i></button>
+          <button class="btn btn-ghost"><i data-lucide="git-compare"></i>Reconcile</button>
+          <button class="btn btn-primary"><i data-lucide="plus"></i>Request withdrawal</button>
+        </div>
+      </div>
+
+      <!-- Reconciliation banner — the painful drift the team flagged.
+           Surfaces ledger vs operating-account before any new request is filed. -->
+      <div class="recon-banner">
+        <div class="lhs">
+          <span class="eye"><i data-lucide="alert-triangle"></i>Bank-vs-ledger drift detected</span>
+          <h2 class="head">Operating account is <em style="font-style:italic;color:var(--gold-lo);font-weight:400;">KES&nbsp;218,400</em> below recorded balance</h2>
+          <p class="body">
+            Last reconciled 6 days ago by A. Mburu. Drift began appearing on <strong style="color:var(--ink);font-weight:500;">10 Apr</strong> after
+            two cash withdrawals were recorded without bank reference numbers. Resolve before approving new requests.
+          </p>
+        </div>
+        <div class="pair">
+          <span class="lbl">Ledger says</span>
+          <span class="val"><span class="ccy">KES</span>4,182,400</span>
+        </div>
+        <div class="pair">
+          <span class="lbl">Bank says</span>
+          <span class="val danger"><span class="ccy">KES</span>3,964,000</span>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary btn-sm"><i data-lucide="git-compare"></i>Reconcile now</button>
+          <button class="btn btn-ghost btn-sm"><i data-lucide="file-text"></i>View drift log</button>
+        </div>
+      </div>
+
+      <!-- KPI strip -->
+      <div class="strip">
+        <div class="stat">
+          <div class="lbl">Drawn · April</div>
+          <div class="val"><span class="ccy">KES</span>3,840,000</div>
+          <div class="sub"><span class="delta">+12.4%</span> vs March · 23 withdrawals</div>
+        </div>
+        <div class="stat alert">
+          <div class="lbl">Awaiting approval</div>
+          <div class="val">3 requests</div>
+          <div class="sub"><span class="delta gold">KES 1,540,000</span> in queue · oldest 2d</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Director balances</div>
+          <div class="val">3 directors</div>
+          <div class="sub">M. Otieno · J. Kariuki · S. Wambui</div>
+        </div>
+        <div class="stat alert">
+          <div class="lbl">Cash drift</div>
+          <div class="val danger" style="color: var(--danger);"><span class="ccy" style="color:var(--muted-foreground);">KES</span>− 218,400</div>
+          <div class="sub"><span class="delta danger">2 unresolved entries</span> · since 10 Apr</div>
+        </div>
+      </div>
+
+      <!-- Filter row -->
+      <div class="filter-row">
+        <div class="group">
+          <button class="pill active">All <span class="ct">23</span></button>
+          <button class="pill">Pending <span class="ct">3</span></button>
+          <button class="pill">Approved <span class="ct">19</span></button>
+          <button class="pill">Declined <span class="ct">1</span></button>
+          <button class="pill">Reconciled <span class="ct">17</span></button>
+        </div>
+        <div class="spacer"></div>
+        <button class="pill"><i data-lucide="user"></i>All directors <i data-lucide="chevron-down"></i></button>
+        <button class="pill"><i data-lucide="banknote"></i>All methods <i data-lucide="chevron-down"></i></button>
+        <button class="pill"><i data-lucide="sliders-horizontal"></i>Filters</button>
+      </div>
+
+      <!-- List frame -->
+      <div class="list-frame">
+        <div class="list-head lr-wd">
+          <div class="h sorted">Date <i data-lucide="chevron-down"></i></div>
+          <div class="h">Request</div>
+          <div class="h">Director</div>
+          <div class="h">Approvals</div>
+          <div class="h">Method</div>
+          <div class="h right">Amount</div>
+          <div class="h right">Status</div>
+          <div class="h"></div>
+        </div>
+
+        <!-- Today -->
+        <div class="day-sep">
+          <span>Today · 14 May 2026</span>
+          <span>—</span>
+          <span class="total">KES 1,540,000</span>
+          <span class="count">3 pending</span>
+        </div>
+
+        <div class="list-rows">
+
+          <!-- Row 1 — pending, 1 of 3 signed, attention -->
+          <div class="list-row lr-wd">
+            <div class="date-cell"><span class="d">14</span><span class="m">11:14</span></div>
+            <div>
+              <span class="col-id">WDR-2026-05-014</span>
+              <div class="col-title">Quarterly profit-share draw · Q1 final</div>
+              <div class="col-sub">Against <strong style="color:var(--ink);font-weight:500;">M. Otieno</strong> equity ledger · 30% of distributable</div>
+              <div class="rcpt" style="color: var(--gold-lo); margin-top: 6px;"><i data-lucide="paperclip"></i>Profit-share calc attached</div>
+            </div>
+            <div class="director-cell">
+              <span class="av">MO</span>
+              <div><div class="nm">M. Otieno</div><div class="role">Founder · 40%</div></div>
+            </div>
+            <div>
+              <div class="approvers">
+                <span class="av signed" title="M. Otieno · signed">MO</span>
+                <span class="av pending" title="J. Kariuki · pending">JK</span>
+                <span class="av pending" title="S. Wambui · pending">SW</span>
+              </div>
+              <div class="approvers" style="margin-top: 4px;"><span class="meta">1 of 3 signed</span></div>
+            </div>
+            <div>
+              <span class="method-pill"><i data-lucide="landmark"></i>Bank · Equity</span>
+              <div class="col-sub" style="margin-top: 6px;">SCB · acct ••3471</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>820,000</div>
+              <div class="col-amt-sub">cap KES 1.20M Q1</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status gold">Pending</span>
+            </div>
+            <div class="row-actions">
+              <button class="approve" aria-label="Approve"><i data-lucide="check"></i></button>
+              <button class="reject" aria-label="Decline"><i data-lucide="x"></i></button>
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Row 2 — pending, 0 of 3, just filed -->
+          <div class="list-row lr-wd">
+            <div class="date-cell"><span class="d">14</span><span class="m">09:38</span></div>
+            <div>
+              <span class="col-id">WDR-2026-05-013</span>
+              <div class="col-title">Personal draw against equity</div>
+              <div class="col-sub">Reason: <strong style="color:var(--ink);font-weight:500;">House deposit · personal</strong> · note from director attached</div>
+            </div>
+            <div class="director-cell">
+              <span class="av" style="background: oklch(0.55 0.10 245); color: var(--paper);">JK</span>
+              <div><div class="nm">J. Kariuki</div><div class="role">Director · 35%</div></div>
+            </div>
+            <div>
+              <div class="approvers">
+                <span class="av pending" title="M. Otieno">MO</span>
+                <span class="av signed" title="J. Kariuki · self-signed">JK</span>
+                <span class="av pending" title="S. Wambui">SW</span>
+              </div>
+              <div class="approvers" style="margin-top: 4px;"><span class="meta">1 of 3 · self only</span></div>
+            </div>
+            <div>
+              <span class="method-pill"><i data-lucide="landmark"></i>Bank · Equity</span>
+              <div class="col-sub" style="margin-top: 6px;">Equity Bank · acct ••8821</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>500,000</div>
+              <div class="col-amt-sub">balance KES 2.40M</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status gold">Pending</span>
+            </div>
+            <div class="row-actions">
+              <button class="approve" aria-label="Approve"><i data-lucide="check"></i></button>
+              <button class="reject" aria-label="Decline"><i data-lucide="x"></i></button>
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Row 3 — pending CASH, the dangerous case -->
+          <div class="list-row lr-wd" style="background: var(--danger-soft); ">
+            <div class="date-cell"><span class="d">14</span><span class="m">08:02</span></div>
+            <div>
+              <span class="col-id" style="color: var(--danger);">WDR-2026-05-012</span>
+              <div class="col-title">Petty cash float · field offices</div>
+              <div class="col-sub">For <strong style="color:var(--ink);font-weight:500;">Kisumu &amp; Eldoret</strong> training pop-up · 2-week float</div>
+              <div class="rcpt miss" style="margin-top: 6px;"><i data-lucide="alert-circle"></i>Cash request &mdash; requires both partner signatures</div>
+            </div>
+            <div class="director-cell">
+              <span class="av" style="background: oklch(0.50 0.12 25); color: var(--paper);">SW</span>
+              <div><div class="nm">S. Wambui</div><div class="role">Director · 25%</div></div>
+            </div>
+            <div>
+              <div class="approvers">
+                <span class="av pending" title="M. Otieno">MO</span>
+                <span class="av pending" title="J. Kariuki">JK</span>
+                <span class="av signed" title="S. Wambui">SW</span>
+              </div>
+              <div class="approvers" style="margin-top: 4px;"><span class="meta" style="color: var(--danger);">cash · 1 of 3</span></div>
+            </div>
+            <div>
+              <span class="method-pill cash"><i data-lucide="banknote"></i>Cash · Float</span>
+              <div class="col-sub" style="margin-top: 6px;">Withdrawn at branch</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>220,000</div>
+              <div class="col-amt-sub danger">over KES 100K threshold</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status danger">Needs review</span>
+            </div>
+            <div class="row-actions">
+              <button class="approve" aria-label="Approve"><i data-lucide="check"></i></button>
+              <button class="reject" aria-label="Decline"><i data-lucide="x"></i></button>
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Earlier this week -->
+        <div class="day-sep">
+          <span>Earlier this week</span>
+          <span>—</span>
+          <span class="total">KES 1,200,000</span>
+          <span class="count">4 withdrawals</span>
+        </div>
+
+        <div class="list-rows">
+
+          <!-- Row 4 — approved, fully signed bank, reconciled -->
+          <div class="list-row lr-wd">
+            <div class="date-cell"><span class="d">12</span><span class="m">May</span></div>
+            <div>
+              <span class="col-id">WDR-2026-05-011</span>
+              <div class="col-title">Director bonus · Q1 performance</div>
+              <div class="col-sub">Approved per <strong style="color:var(--ink);font-weight:500;">board resolution 2026-Q1-04</strong></div>
+              <div class="rcpt ok" style="margin-top: 6px;"><i data-lucide="check-circle"></i>Reconciled with bank statement</div>
+            </div>
+            <div class="director-cell">
+              <span class="av">MO</span>
+              <div><div class="nm">M. Otieno</div><div class="role">Founder · 40%</div></div>
+            </div>
+            <div>
+              <div class="approvers">
+                <span class="av signed">MO</span>
+                <span class="av signed">JK</span>
+                <span class="av signed">SW</span>
+              </div>
+              <div class="approvers" style="margin-top: 4px;"><span class="meta" style="color: var(--success-soft-foreground);">3 of 3 signed</span></div>
+            </div>
+            <div>
+              <span class="method-pill"><i data-lucide="landmark"></i>Bank · Bonus</span>
+              <div class="col-sub" style="margin-top: 6px;">SCB · acct ••3471</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>450,000</div>
+              <div class="col-amt-sub">ref TX-7741922</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status success">Paid</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Row 5 — approved cash, NOT yet reconciled (this is the risky pattern) -->
+          <div class="list-row lr-wd">
+            <div class="date-cell"><span class="d">10</span><span class="m">May</span></div>
+            <div>
+              <span class="col-id">WDR-2026-05-010</span>
+              <div class="col-title">Field cash float · Mombasa cohort 7</div>
+              <div class="col-sub">Trainer per-diems · 12 trainers × 5 days</div>
+              <div class="rcpt miss" style="margin-top: 6px;"><i data-lucide="alert-circle"></i>No bank reference &mdash; included in drift</div>
+            </div>
+            <div class="director-cell">
+              <span class="av">MO</span>
+              <div><div class="nm">M. Otieno</div><div class="role">Founder · 40%</div></div>
+            </div>
+            <div>
+              <div class="approvers">
+                <span class="av signed">MO</span>
+                <span class="av signed">JK</span>
+                <span class="av signed">SW</span>
+              </div>
+              <div class="approvers" style="margin-top: 4px;"><span class="meta" style="color: var(--success-soft-foreground);">3 of 3 signed</span></div>
+            </div>
+            <div>
+              <span class="method-pill cash"><i data-lucide="banknote"></i>Cash · Float</span>
+              <div class="col-sub" style="margin-top: 6px;">Hand-carried by trainer</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>180,000</div>
+              <div class="col-amt-sub gold">awaiting reconciliation</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status info">Open</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Row 6 — declined -->
+          <div class="list-row lr-wd">
+            <div class="date-cell"><span class="d">9</span><span class="m">May</span></div>
+            <div>
+              <span class="col-id">WDR-2026-05-009</span>
+              <div class="col-title">Personal draw · weekend trip</div>
+              <div class="col-sub">Declined &mdash; <strong style="color:var(--ink);font-weight:500;">below profit-share threshold this quarter</strong></div>
+              <div class="rcpt miss" style="margin-top: 6px;"><i data-lucide="message-square"></i>Note from M. Otieno · "wait for Q1 close"</div>
+            </div>
+            <div class="director-cell">
+              <span class="av" style="background: oklch(0.55 0.10 245); color: var(--paper);">JK</span>
+              <div><div class="nm">J. Kariuki</div><div class="role">Director · 35%</div></div>
+            </div>
+            <div>
+              <div class="approvers">
+                <span class="av declined" title="Declined">MO</span>
+                <span class="av signed">JK</span>
+                <span class="av pending">SW</span>
+              </div>
+              <div class="approvers" style="margin-top: 4px;"><span class="meta" style="color: var(--danger);">declined by MO</span></div>
+            </div>
+            <div>
+              <span class="method-pill"><i data-lucide="landmark"></i>Bank · Equity</span>
+              <div class="col-sub" style="margin-top: 6px;">Equity Bank · acct ••8821</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>250,000</div>
+              <div class="col-amt-sub danger">declined</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status danger">Declined</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+          <!-- Row 7 — approved, reconciled -->
+          <div class="list-row lr-wd">
+            <div class="date-cell"><span class="d">8</span><span class="m">May</span></div>
+            <div>
+              <span class="col-id">WDR-2026-05-008</span>
+              <div class="col-title">Quarterly profit-share draw · Q1 final</div>
+              <div class="col-sub">Against <strong style="color:var(--ink);font-weight:500;">S. Wambui</strong> equity ledger · 25% of distributable</div>
+              <div class="rcpt ok" style="margin-top: 6px;"><i data-lucide="check-circle"></i>Reconciled with bank statement</div>
+            </div>
+            <div class="director-cell">
+              <span class="av" style="background: oklch(0.50 0.12 25); color: var(--paper);">SW</span>
+              <div><div class="nm">S. Wambui</div><div class="role">Director · 25%</div></div>
+            </div>
+            <div>
+              <div class="approvers">
+                <span class="av signed">MO</span>
+                <span class="av signed">JK</span>
+                <span class="av signed">SW</span>
+              </div>
+              <div class="approvers" style="margin-top: 4px;"><span class="meta" style="color: var(--success-soft-foreground);">3 of 3 signed</span></div>
+            </div>
+            <div>
+              <span class="method-pill"><i data-lucide="landmark"></i>Bank · Equity</span>
+              <div class="col-sub" style="margin-top: 6px;">SCB · acct ••3471</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="col-amt"><span class="ccy">KES</span>320,000</div>
+              <div class="col-amt-sub">ref TX-7741018</div>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <span class="status success">Paid</span>
+            </div>
+            <div class="row-actions">
+              <button aria-label="More"><i data-lucide="more-horizontal"></i></button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- footer -->
+        <div class="list-foot">
+          <span class="lhs">Showing 7 of 23 · KES 3.84M YTD</span>
+          <span class="total"><span class="ccy">KES</span>3,840,000</span>
+          <div class="pager">
+            <button class="btn btn-ghost btn-sm"><i data-lucide="chevron-left"></i></button>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:0.10em;">1 / 4</span>
+            <button class="btn btn-ghost btn-sm"><i data-lucide="chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>
