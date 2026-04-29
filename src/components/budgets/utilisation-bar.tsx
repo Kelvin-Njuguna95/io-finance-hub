@@ -16,10 +16,17 @@ type Tone = 'default' | 'over' | 'under' | 'not-started';
 type UtilisationBarProps = {
   approvedKes: number;
   spentKes: number;
-  /** 0..100. When provided, enables the "under plan" tone. */
+  /** 0..100. When provided, enables the "under plan" tone and (in `large`
+   *  size) renders a vertical period marker on the bar. */
   periodElapsedPct?: number;
-  /** Compact = small (in-row). Larger = more breathing room. Default true. */
+  /** Compact = small (in-row). Larger = more breathing room. Default true.
+   *  Retained for prior call sites; superseded by `size` when set. */
   compact?: boolean;
+  /** `default` is in-row scale. `large` renders the variance-hero bullet
+   *  with optional period marker and hides the caption row. */
+  size?: 'default' | 'large';
+  /** Override default caption visibility (large size hides by default). */
+  showCaption?: boolean;
   className?: string;
 };
 
@@ -58,39 +65,56 @@ export function UtilisationBar({
   spentKes,
   periodElapsedPct = 0,
   compact = true,
+  size,
+  showCaption,
   className,
 }: UtilisationBarProps) {
+  const resolvedSize: 'default' | 'large' =
+    size ?? (compact ? 'default' : 'large');
+  const captionVisible =
+    showCaption ?? (resolvedSize === 'default');
   const tone = deriveTone(approvedKes, spentKes, periodElapsedPct);
   const ratioPct =
     approvedKes > 0 ? Math.min(100, (spentKes / approvedKes) * 100) : 0;
   const labelPct = approvedKes > 0 ? Math.round((spentKes / approvedKes) * 100) : 0;
+  const showMarker =
+    resolvedSize === 'large' && periodElapsedPct > 0 && periodElapsedPct < 100;
 
   return (
     <div className={cn('w-full', className)}>
       <div
         className={cn(
-          'overflow-hidden rounded-full bg-[var(--paper-3)]',
-          compact ? 'h-1.5' : 'h-2.5',
+          'relative overflow-hidden rounded-full bg-[var(--paper-3)]',
+          resolvedSize === 'large' ? 'h-2' : 'h-1.5',
         )}
       >
         <div
           className={cn('h-full rounded-full', TONE_BAR[tone])}
           style={{ width: `${ratioPct}%` }}
         />
-      </div>
-      <div
-        className={cn(
-          'mt-1.5 flex items-baseline justify-between font-mono uppercase tracking-[0.10em] text-muted-foreground',
-          compact ? 'text-[10.5px]' : 'text-xs',
+        {showMarker && (
+          <span
+            aria-hidden
+            className="absolute top-[-3px] h-[14px] w-[1.5px] rounded-[1px] bg-foreground"
+            style={{ left: `${Math.min(100, periodElapsedPct)}%` }}
+          />
         )}
-      >
-        <span>{LABEL[tone]}</span>
-        <span className={cn('tabular-nums', TONE_NUM[tone])}>
-          {tone === 'not-started'
-            ? '0%'
-            : `${labelPct}% · ${formatCompactKES(spentKes).replace('KES ', '')}`}
-        </span>
       </div>
+      {captionVisible && (
+        <div
+          className={cn(
+            'mt-1.5 flex items-baseline justify-between font-mono uppercase tracking-[0.10em] text-muted-foreground',
+            resolvedSize === 'large' ? 'text-xs' : 'text-[10.5px]',
+          )}
+        >
+          <span>{LABEL[tone]}</span>
+          <span className={cn('tabular-nums', TONE_NUM[tone])}>
+            {tone === 'not-started'
+              ? '0%'
+              : `${labelPct}% · ${formatCompactKES(spentKes).replace('KES ', '')}`}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
