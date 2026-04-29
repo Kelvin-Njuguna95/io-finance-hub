@@ -2,41 +2,25 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
-import { PageHeader } from '@/components/layout/page-header';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
-import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
-import { Plus, Trash2, Save, Send, AlertTriangle, Info } from 'lucide-react';
+import { PageTitle } from '@/components/layout/page-title';
+import { formatYearMonth, getCurrentYearMonth } from '@/lib/format';
 import { toast } from 'sonner';
 import type { Department } from '@/types/database';
 import { getUserErrorMessage } from '@/lib/errors';
-import { getActiveProjects, getAssignedActiveProjects } from '@/lib/queries/projects';
+import {
+  getActiveProjects,
+  getAssignedActiveProjects,
+} from '@/lib/queries/projects';
 import { canSubmitDepartmentBudget } from '@/lib/permissions';
-import { ROLE_LABELS } from '@/types/database';
-
-interface LineItem {
-  id: string;
-  description: string;
-  category: string;
-  quantity: number;
-  unit_cost_kes: number;
-  notes: string;
-}
-
-interface ExistingBudgetInfo {
-  submitted_by_role: string;
-  submitted_by_name: string;
-  submitted_at: string;
-  total_kes: number;
-  status: string;
-}
+import {
+  BudgetForm,
+  type ExistingBudgetSummary,
+  type ScopeKind,
+} from '@/components/budgets/budget-form';
+import type { LineItem } from '@/components/budgets/line-item-editor';
 
 function generateId() {
   return Math.random().toString(36).substring(2, 15);
@@ -47,16 +31,23 @@ export default function NewBudgetPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [scopeType, setScopeType] = useState<'project' | 'department'>('project');
+  const [scopeType, setScopeType] = useState<ScopeKind>('project');
   const [scopeId, setScopeId] = useState('');
   const [yearMonth, setYearMonth] = useState(getCurrentYearMonth());
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<LineItem[]>([
-    { id: generateId(), description: '', category: '', quantity: 1, unit_cost_kes: 0, notes: '' },
+    {
+      id: generateId(),
+      description: '',
+      category: '',
+      quantity: 1,
+      unit_cost_kes: 0,
+      notes: '',
+    },
   ]);
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
-  const [existingBudgets, setExistingBudgets] = useState<ExistingBudgetInfo[]>([]);
+  const [existingBudgets, setExistingBudgets] = useState<ExistingBudgetSummary[]>([]);
   const [miscGateBlocked, setMiscGateBlocked] = useState(false);
   const [miscGateMessage, setMiscGateMessage] = useState('');
 
@@ -78,7 +69,10 @@ export default function NewBudgetPage() {
 
       if (user?.role === 'team_leader') {
         // Load only assigned projects
-        const { data: assignedProjects } = await getAssignedActiveProjects(supabase, user.id);
+        const { data: assignedProjects } = await getAssignedActiveProjects(
+          supabase,
+          user.id,
+        );
         setProjects(assignedProjects || []);
         setScopeType('project');
       } else if (user?.role === 'accountant') {
@@ -91,7 +85,10 @@ export default function NewBudgetPage() {
         setDepartments(departmentsRes.data || []);
         setScopeType('project');
       } else if (user?.role === 'project_manager') {
-        const { data: assignedProjects } = await getAssignedActiveProjects(supabase, user.id);
+        const { data: assignedProjects } = await getAssignedActiveProjects(
+          supabase,
+          user.id,
+        );
         setProjects(assignedProjects || []);
         setScopeType('project');
       } else if (user?.role === 'department_head') {
@@ -131,7 +128,9 @@ export default function NewBudgetPage() {
       const supabase = createClient();
       const query = supabase
         .from('budgets')
-        .select('id, submitted_by_role, created_by, budget_versions(status, total_amount_kes, submitted_at, submitted_by)')
+        .select(
+          'id, submitted_by_role, created_by, budget_versions(status, total_amount_kes, submitted_at, submitted_by)',
+        )
         .eq('year_month', yearMonth);
 
       if (scopeType === 'project') {
@@ -149,11 +148,21 @@ export default function NewBudgetPage() {
 
       // Get user names for submitters
       const userIds = new Set<string>();
-      data.forEach((b: /* // */ any) => { if (b.created_by) userIds.add(b.created_by); });
-      const { data: users } = await supabase.from('users').select('id, full_name').in('id', Array.from(userIds));
-      const nameMap = new Map((users || []).map((u: /* // */ any) => [u.id, u.full_name]));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data.forEach((b: any) => {
+        if (b.created_by) userIds.add(b.created_by);
+      });
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, full_name')
+        .in('id', Array.from(userIds));
+      const nameMap = new Map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (users || []).map((u: any) => [u.id, u.full_name]),
+      );
 
-      const infos: ExistingBudgetInfo[] = data.map((b: /* // */ any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const infos: ExistingBudgetSummary[] = data.map((b: any) => {
         const vers = (b.budget_versions || [])[0];
         return {
           submitted_by_role: b.submitted_by_role || 'team_leader',
@@ -190,8 +199,15 @@ export default function NewBudgetPage() {
       }
 
       // Previous month
-      const prevDate = new Date(parseInt(yearMonth.split('-')[0]), parseInt(yearMonth.split('-')[1]) - 2, 1);
-      const prevMonth = prevDate.getFullYear() + '-' + String(prevDate.getMonth() + 1).padStart(2, '0');
+      const prevDate = new Date(
+        parseInt(yearMonth.split('-')[0]),
+        parseInt(yearMonth.split('-')[1]) - 2,
+        1,
+      );
+      const prevMonth =
+        prevDate.getFullYear() +
+        '-' +
+        String(prevDate.getMonth() + 1).padStart(2, '0');
 
       if (prevMonth < gateStartMonth) {
         setMiscGateBlocked(false);
@@ -213,13 +229,17 @@ export default function NewBudgetPage() {
           .from('user_project_assignments')
           .select('user_id, users(full_name)')
           .eq('project_id', scopeId);
-        const pmAssign = projAssign?.find((a: /* // */ any) => true); // Get any assigned user
-        const pmName = (pmAssign as /* // */ any)?.users?.full_name || 'the Project Manager';
-        const projectName = projects.find(p => p.id === scopeId)?.name || 'this project';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+        const pmAssign = projAssign?.find((a: any) => true);
+        const pmName =
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (pmAssign as any)?.users?.full_name || 'the Project Manager';
+        const projectName =
+          projects.find((p) => p.id === scopeId)?.name || 'this project';
 
         setMiscGateBlocked(true);
         setMiscGateMessage(
-          `${pmName}'s misc report for ${formatYearMonth(prevMonth)} has not been submitted for ${projectName}. The budget cannot be submitted until this is complete. Contact ${pmName} to submit their misc report.`
+          `${pmName}'s misc report for ${formatYearMonth(prevMonth)} has not been submitted for ${projectName}. The budget cannot be submitted until this is complete. Contact ${pmName} to submit their misc report.`,
         );
       } else {
         setMiscGateBlocked(false);
@@ -229,7 +249,17 @@ export default function NewBudgetPage() {
   }, [scopeId, yearMonth, isAccountant, scopeType, projects]);
 
   function addItem() {
-    setItems([...items, { id: generateId(), description: '', category: '', quantity: 1, unit_cost_kes: 0, notes: '' }]);
+    setItems([
+      ...items,
+      {
+        id: generateId(),
+        description: '',
+        category: '',
+        quantity: 1,
+        unit_cost_kes: 0,
+        notes: '',
+      },
+    ]);
   }
 
   function removeItem(id: string) {
@@ -238,16 +268,15 @@ export default function NewBudgetPage() {
   }
 
   function updateItem(id: string, field: keyof LineItem, value: string | number) {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, [field]: value } : i)));
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, [field]: value } : i)),
+    );
   }
 
-  function getItemTotal(item: LineItem) {
-    return {
-      kes: item.quantity * item.unit_cost_kes,
-    };
-  }
-
-  const totalKes = items.reduce((s, i) => s + i.quantity * i.unit_cost_kes, 0);
+  const totalKes = items.reduce(
+    (s, i) => s + i.quantity * i.unit_cost_kes,
+    0,
+  );
 
   async function handleSave(submit: boolean) {
     if (!scopeId) {
@@ -259,7 +288,9 @@ export default function NewBudgetPage() {
       return;
     }
     if (items.some((i) => i.quantity <= 0 || i.unit_cost_kes <= 0)) {
-      toast.error('Each line item must have quantity and amount greater than zero.');
+      toast.error(
+        'Each line item must have quantity and amount greater than zero.',
+      );
       return;
     }
     if (totalKes <= 0) {
@@ -267,7 +298,9 @@ export default function NewBudgetPage() {
       return;
     }
     if (submit && miscGateBlocked) {
-      toast.error('Cannot submit — misc report gate is blocking. See the warning above.');
+      toast.error(
+        'Cannot submit — misc report gate is blocking. See the warning above.',
+      );
       return;
     }
 
@@ -276,18 +309,21 @@ export default function NewBudgetPage() {
       const supabase = createClient();
 
       // Determine submitted_by_role
-      const submittedByRole = user?.role === 'accountant'
-        ? 'accountant'
-        : user?.role === 'project_manager'
-          ? 'project_manager'
-          : user?.role === 'department_head'
-            ? 'department_head'
-            : user?.role === 'cfo'
-              ? 'cfo'
-              : 'team_leader';
+      const submittedByRole =
+        user?.role === 'accountant'
+          ? 'accountant'
+          : user?.role === 'project_manager'
+            ? 'project_manager'
+            : user?.role === 'department_head'
+              ? 'department_head'
+              : user?.role === 'cfo'
+                ? 'cfo'
+                : 'team_leader';
 
       // Get auth session for API calls
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.access_token) {
         toast.error('Session expired. Please log in again.');
         return;
@@ -298,14 +334,14 @@ export default function NewBudgetPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           scope_type: scopeType,
           scope_id: scopeId,
           year_month: yearMonth,
           notes,
-          items: items.map(item => ({
+          items: items.map((item) => ({
             description: item.description,
             category: item.category || null,
             quantity: item.quantity,
@@ -325,15 +361,16 @@ export default function NewBudgetPage() {
 
       // Send notifications and audit log if submitting
       if (submit) {
-        const scopeName = scopeType === 'project'
-          ? projects.find((p) => p.id === scopeId)?.name ?? 'Unknown'
-          : departments.find((d) => d.id === scopeId)?.name ?? 'Unknown';
+        const scopeName =
+          scopeType === 'project'
+            ? projects.find((p) => p.id === scopeId)?.name ?? 'Unknown'
+            : departments.find((d) => d.id === scopeId)?.name ?? 'Unknown';
         try {
           await fetch('/api/budgets/accountant-submit-notify', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`,
+              Authorization: `Bearer ${session.access_token}`,
             },
             body: JSON.stringify({
               budget_id: createData.budget_id,
@@ -343,7 +380,9 @@ export default function NewBudgetPage() {
               year_month: yearMonth,
               total_kes: totalKes,
               submitted_by_role: submittedByRole,
-              existing_tl_budget: existingBudgets.some(b => b.submitted_by_role === 'team_leader'),
+              existing_tl_budget: existingBudgets.some(
+                (b) => b.submitted_by_role === 'team_leader',
+              ),
               scope_type: scopeType,
               scope_name: scopeName,
             }),
@@ -363,231 +402,69 @@ export default function NewBudgetPage() {
       toast.success(successMessage);
       router.push('/budgets');
     } catch (error) {
-      toast.error(getUserErrorMessage(error, 'Could not save budget right now. Please try again.'));
+      toast.error(
+        getUserErrorMessage(
+          error,
+          'Could not save budget right now. Please try again.',
+        ),
+      );
     } finally {
       setSaving(false);
     }
   }
 
+  const showScopeTypeToggle =
+    user?.role === 'cfo' ||
+    user?.role === 'project_manager' ||
+    user?.role === 'accountant';
+  const showFirstSubmitterNotice =
+    isAccountant || user?.role === 'team_leader';
+
   return (
     <div>
-      <PageHeader title="New Budget" description={isAccountant ? 'Submit a project or department budget' : 'Create a new budget submission'} />
+      <div className="border-b border-border/70 bg-background px-6 py-6">
+        <PageTitle
+          primary="New budget"
+          accent="draft"
+          subtitle={
+            user
+              ? `${formatYearMonth(yearMonth)} · author ${user.full_name}`
+              : formatYearMonth(yearMonth)
+          }
+        />
+      </div>
 
-      <div className="p-6 max-w-4xl space-y-6">
-        {/* Scope selection */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Budget Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {(user?.role === 'cfo' || user?.role === 'project_manager' || user?.role === 'accountant') && (
-                <div className="space-y-1">
-                  <Label>Scope Type</Label>
-                  <Select value={scopeType} onValueChange={(v) => { if (v) { setScopeType(v as 'project' | 'department'); setScopeId(''); } }}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="project">Project</SelectItem>
-                      {canCreateDepartmentBudget && <SelectItem value="department">Department</SelectItem>}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              <div className="space-y-1">
-                <Label>{scopeType === 'project' ? 'Project' : 'Department'} *</Label>
-                <Select value={scopeId} onValueChange={(v) => v && setScopeId(v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {scopeType === 'project'
-                      ? projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)
-                      : departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)
-                    }
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1">
-                <Label>Period</Label>
-                <Select value={yearMonth} onValueChange={(v) => v && setYearMonth(v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 6 }, (_, i) => {
-                      const d = new Date();
-                      d.setMonth(d.getMonth() + i);
-                      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                      return <SelectItem key={ym} value={ym}>{formatYearMonth(ym)}</SelectItem>;
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Existing budgets context panel */}
-            {scopeId && scopeType === 'project' && existingBudgets.length > 0 && (
-              <div className="rounded-lg border border-warning/30 bg-warning-soft/50 p-3 space-y-1">
-                <div className="flex items-center gap-2 text-warning-soft-foreground font-medium text-sm">
-                  <AlertTriangle className="h-4 w-4" />
-                  {projects.find(p => p.id === scopeId)?.name} — {formatYearMonth(yearMonth)}
-                </div>
-                <p className="text-sm text-warning-soft-foreground">
-                  Existing budgets this month:
-                </p>
-                {existingBudgets.map((eb, i) => (
-                  <p key={i} className="text-sm text-warning-soft-foreground pl-2">
-                    — Submitted by <strong>{eb.submitted_by_name}</strong> ({ROLE_LABELS[eb.submitted_by_role as keyof typeof ROLE_LABELS] || eb.submitted_by_role})
-                    {eb.status !== 'draft' && <> · {formatCurrency(eb.total_kes, 'KES')} · Status: {eb.status}</>}
-                  </p>
-                ))}
-                <p className="text-xs text-warning-soft-foreground mt-1">
-                  Submitting yours will create an additional version. Both will be visible to the PM for review.
-                </p>
-              </div>
-            )}
-
-            {scopeId && scopeType === 'project' && existingBudgets.length === 0 && (isAccountant || user?.role === 'team_leader') && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                <div className="flex items-center gap-2 text-blue-700 text-sm">
-                  <Info className="h-4 w-4" />
-                  No budget submitted yet for this period. You are the first to submit.
-                </div>
-              </div>
-            )}
-
-            {scopeType === 'department' && scopeId && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                <div className="flex items-center gap-2 text-blue-700 text-sm">
-                  <Info className="h-4 w-4" />
-                  Department expenditures are classified as <strong>shared costs</strong> and will be distributed across projects during P&amp;L reporting.
-                </div>
-              </div>
-            )}
-
-            {/* Misc gate warning */}
-            {miscGateBlocked && (
-              <div className="rounded-lg border border-danger/30 bg-danger-soft/50 p-3">
-                <div className="flex items-center gap-2 text-danger-soft-foreground font-medium text-sm">
-                  <AlertTriangle className="h-4 w-4" />
-                  Submission Blocked
-                </div>
-                <p className="text-sm text-danger-soft-foreground mt-1">{miscGateMessage}</p>
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <Label>Notes</Label>
-              <Textarea
-                placeholder="Optional budget notes..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Line Items */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-sm">Line Items</CardTitle>
-            <Button variant="outline" size="sm" onClick={addItem} className="gap-1">
-              <Plus className="h-3 w-3" /> Add Item
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {items.map((item, idx) => (
-              <div key={item.id} className="space-y-3 rounded-md border p-4">
-                <div className="flex items-start justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">Item {idx + 1}</span>
-                  {items.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => removeItem(item.id)}
-                    >
-                      <Trash2 className="h-3 w-3 text-danger-soft-foreground" />
-                    </Button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Description *</Label>
-                    <Input
-                      value={item.description}
-                      onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                      placeholder="e.g. Agent salaries"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Category</Label>
-                    <Select
-                      value={item.category || undefined}
-                      onValueChange={(value) => {
-                        if (value) updateItem(item.id, 'category', value);
-                      }}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                      <SelectContent>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Quantity</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={item.quantity}
-                      onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Unit Cost (KES)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min={0}
-                      value={item.unit_cost_kes || ''}
-                      onChange={(e) => updateItem(item.id, 'unit_cost_kes', parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end text-xs text-muted-foreground">
-                  <span>Subtotal: {formatCurrency(getItemTotal(item).kes, 'KES')}</span>
-                </div>
-              </div>
-            ))}
-
-            <Separator />
-
-            <div className="flex justify-end text-sm font-semibold">
-              <span>Total: {formatCurrency(totalKes, 'KES')}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Actions */}
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={() => router.push('/budgets')}>
-            Cancel
-          </Button>
-          <Button variant="outline" onClick={() => handleSave(false)} disabled={saving} className="gap-1">
-            <Save className="h-4 w-4" /> Save Draft
-          </Button>
-          <Button onClick={() => handleSave(true)} disabled={saving || miscGateBlocked} className="gap-1">
-            <Send className="h-4 w-4" /> Submit for Approval
-          </Button>
-        </div>
+      <div className="p-6">
+        <BudgetForm
+          scopeOptions={{
+            projects,
+            departments: departments.map((d) => ({ id: d.id, name: d.name })),
+            canCreateDepartment: canCreateDepartmentBudget,
+          }}
+          scope={{ type: scopeType, id: scopeId, yearMonth }}
+          onScopeChange={(next) => {
+            if (next.type !== undefined) setScopeType(next.type);
+            if (next.id !== undefined) setScopeId(next.id);
+            if (next.yearMonth !== undefined) setYearMonth(next.yearMonth);
+          }}
+          notes={notes}
+          onNotesChange={setNotes}
+          items={items}
+          categories={categories}
+          lineItemHandlers={{
+            onAdd: addItem,
+            onRemove: removeItem,
+            onUpdate: updateItem,
+          }}
+          existingBudgets={existingBudgets}
+          miscGateBlocked={miscGateBlocked}
+          miscGateMessage={miscGateMessage}
+          submitting={saving}
+          showScopeTypeToggle={showScopeTypeToggle}
+          showFirstSubmitterNotice={showFirstSubmitterNotice}
+          onDiscard={() => router.push('/budgets')}
+          onSave={handleSave}
+        />
       </div>
     </div>
   );
