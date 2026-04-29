@@ -26,10 +26,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { formatCurrency, getCurrentYearMonth } from '@/lib/format';
+import { formatCompactCurrency, getCurrentYearMonth } from '@/lib/format';
 import { EXPENSE_STATUS } from '@/lib/constants/status';
 import { CfoMiscApproval } from '@/components/misc/cfo-misc-approval';
-import { OutstandingReceivablesPanel } from '@/components/revenue/outstanding-receivables-panel';
+import { PendingInvoicesRail } from '@/components/revenue/pending-invoices-rail';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
 import { useBankBalance } from '@/hooks/use-bank-balance';
 import { useMonthlyApprovedBudget } from '@/hooks/use-monthly-approved-budget';
@@ -257,28 +257,28 @@ export function CfoDashboard() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <StatCard
               title={`Total revenue · ${monthLabel}`}
-              value={snapshot ? formatCurrency(Number(snapshot.total_revenue_kes), 'KES') : '—'}
+              value={snapshot ? formatCompactCurrency(Number(snapshot.total_revenue_kes), 'KES') : '—'}
               subtitle="vs March"
               trend={{ value: '+4.28%', direction: 'up' }}
               loading={!snapshot}
             />
             <StatCard
               title={`Net profit · ${monthLabel}`}
-              value={snapshot ? formatCurrency(Number(snapshot.net_profit_kes), 'KES') : '—'}
+              value={snapshot ? formatCompactCurrency(Number(snapshot.net_profit_kes), 'KES') : '—'}
               subtitle="vs March"
               trend={{ value: '+30.91%', direction: 'up' }}
               loading={!snapshot}
             />
             <StatCard
               title="Bank balance"
-              value={bank.error ? '—' : formatCurrency(bank.totalUSD, 'USD')}
+              value={bank.error ? '—' : formatCompactCurrency(bank.totalUSD, 'USD')}
               subtitle="last 7 days"
               trend={{ value: '−2.17%', direction: 'down' }}
               loading={bank.loading}
             />
             <StatCard
               title={`Committed capital · ${monthLabel}`}
-              value={approvedBudget.error ? '—' : formatCurrency(approvedBudget.total, 'KES')}
+              value={approvedBudget.error ? '—' : formatCompactCurrency(approvedBudget.total, 'KES')}
               subtitle="7 budgets approved"
               trend={{ value: '+12.4%', direction: 'up' }}
               loading={approvedBudget.loading}
@@ -445,8 +445,8 @@ export function CfoDashboard() {
 
         {/* Right rail — intelligence panel */}
         <aside className="space-y-6">
-          {/* Pending invoices — reuses existing panel */}
-          <OutstandingReceivablesPanel />
+          {/* Pending invoices — compact rail variant of OutstandingReceivablesPanel */}
+          <PendingInvoicesRail />
 
           {/* Project health (rail-compact view of healthScores).
               The audit's "Profit by project" panel was rebranded to "Project

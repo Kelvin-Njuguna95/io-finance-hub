@@ -11,6 +11,50 @@ export function formatCurrency(amount: number, currency: 'USD' | 'KES' = 'KES'):
   return currency === 'USD' ? formatUSD(amount) : formatKES(amount);
 }
 
+/**
+ * Compact currency for executive KPI surfaces and rail subtitles. Matches the
+ * convention used in _design-system/dashboard.html ("KES 12.40M", "USD 286,419").
+ *
+ * Rules:
+ *   - KES >= 1_000_000 → "KES N.NNM" (always 2 decimals, trailing zeros kept)
+ *   - KES 1_000 .. 999_999 → "KES N,NNN" (thousand separators, 0 decimals)
+ *   - KES < 1_000 → "KES N" (integer)
+ *   - USD any value → "USD N,NNN" (thousand separators, 0 decimals — never abbreviated)
+ *   - Negatives → leading minus sign before the prefix ("-KES 1.20M")
+ *   - Zero → "KES 0" / "USD 0"
+ *
+ * Does NOT replace formatCurrency; use that for full-precision call sites.
+ */
+export function formatCompactCurrency(
+  amount: number,
+  currency: 'USD' | 'KES' = 'KES',
+): string {
+  const prefix = currency === 'USD' ? 'USD' : 'KES';
+  const sign = amount < 0 ? '-' : '';
+  const abs = Math.abs(amount);
+
+  let body: string;
+  if (currency === 'KES' && abs >= 1_000_000) {
+    body = (abs / 1_000_000).toFixed(2) + 'M';
+  } else {
+    const locale = currency === 'USD' ? 'en-US' : 'en-KE';
+    body = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(abs);
+  }
+
+  return `${sign}${prefix} ${body}`;
+}
+
+export function formatCompactKES(amount: number): string {
+  return formatCompactCurrency(amount, 'KES');
+}
+
+export function formatCompactUSD(amount: number): string {
+  return formatCompactCurrency(amount, 'USD');
+}
+
 export function formatPercent(value: number, decimals = 1): string {
   return `${value.toFixed(decimals)}%`;
 }
