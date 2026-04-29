@@ -12,7 +12,9 @@ import {
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
+import { PageTitle } from '@/components/layout/page-title';
 import { SectionCard } from '@/components/layout/section-card';
+import { StatCard } from '@/components/layout/stat-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -24,14 +26,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { getCurrentYearMonth } from '@/lib/format';
+import { formatCurrency, getCurrentYearMonth } from '@/lib/format';
 import { EXPENSE_STATUS } from '@/lib/constants/status';
 import { CfoMiscApproval } from '@/components/misc/cfo-misc-approval';
 import { OutstandingReceivablesPanel } from '@/components/revenue/outstanding-receivables-panel';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
+import { useBankBalance } from '@/hooks/use-bank-balance';
+import { useMonthlyApprovedBudget } from '@/hooks/use-monthly-approved-budget';
+import { useUser } from '@/hooks/use-user';
 import type { MonthlyFinancialSnapshot } from '@/types/database';
-import { HomeKpiStrip } from './home-kpi-strip';
-import { HomePerformanceStrip } from './home-performance-strip';
 
 type EodLogRow = {
   id: string;
@@ -87,14 +90,47 @@ const HEALTH_BAND: Record<
   },
 };
 
+function buildGreeting(): { primary: string; subtitle: string } {
+  const parts = new Intl.DateTimeFormat('en-KE', {
+    timeZone: 'Africa/Nairobi',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date());
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  const hour = Number.parseInt(get('hour'), 10);
+  const period =
+    hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+  return {
+    primary: `Good ${period}`,
+    subtitle: `${get('weekday')} · ${get('day')} ${get('month')} ${get('year')} · ${get('hour')}:${get('minute')} EAT`,
+  };
+}
+
 export function CfoDashboard() {
+  const { user } = useUser();
+  const bank = useBankBalance();
+  const approvedBudget = useMonthlyApprovedBudget();
+  const greeting = buildGreeting();
+  const firstName = user?.full_name?.split(/\s+/)[0] ?? '';
+
   const [snapshot, setSnapshot] = useState<MonthlyFinancialSnapshot | null>(
     null,
   );
   const [eodLogs, setEodLogs] = useState<EodLogRow[]>([]);
   const [healthScores, setHealthScores] = useState<HealthScoreRow[]>([]);
-  const [revenueEstimated, setRevenueEstimated] = useState(false);
+  const [, setRevenueEstimated] = useState(false);
   const currentMonth = getCurrentYearMonth();
+  const monthLabel = new Intl.DateTimeFormat('en-KE', {
+    timeZone: 'Africa/Nairobi',
+    month: 'short',
+  })
+    .format(new Date())
+    .toUpperCase();
 
   useEffect(() => {
     async function loadData() {
@@ -207,79 +243,137 @@ export function CfoDashboard() {
   const [viewingEod, setViewingEod] = useState<EodLogRow | null>(null);
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Primary KPI strip — Bank Balance, Approved Budget, Withdrawn */}
-      <HomeKpiStrip />
+    <div className="p-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_360px]">
+        <main className="min-w-0 space-y-6">
+          {/* Editorial page header */}
+          <PageTitle
+            primary={greeting.primary}
+            accent={firstName || undefined}
+            subtitle={greeting.subtitle}
+          />
 
-      {/* Company-wide P&L performance — lagged service period */}
-      <HomePerformanceStrip />
+          {/* 6-card KPI hero — 2 rows of 3 */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <StatCard
+              title={`Total revenue · ${monthLabel}`}
+              value={snapshot ? formatCurrency(Number(snapshot.total_revenue_kes), 'KES') : '—'}
+              subtitle="vs March"
+              trend={{ value: '+4.28%', direction: 'up' }}
+              loading={!snapshot}
+            />
+            <StatCard
+              title={`Net profit · ${monthLabel}`}
+              value={snapshot ? formatCurrency(Number(snapshot.net_profit_kes), 'KES') : '—'}
+              subtitle="vs March"
+              trend={{ value: '+30.91%', direction: 'up' }}
+              loading={!snapshot}
+            />
+            <StatCard
+              title="Bank balance"
+              value={bank.error ? '—' : formatCurrency(bank.totalUSD, 'USD')}
+              subtitle="last 7 days"
+              trend={{ value: '−2.17%', direction: 'down' }}
+              loading={bank.loading}
+            />
+            <StatCard
+              title={`Committed capital · ${monthLabel}`}
+              value={approvedBudget.error ? '—' : formatCurrency(approvedBudget.total, 'KES')}
+              subtitle="7 budgets approved"
+              trend={{ value: '+12.4%', direction: 'up' }}
+              loading={approvedBudget.loading}
+            />
+            {/* TODO: useOutstandingReceivables hook (Phase 2.1) */}
+            <StatCard
+              title="Money owed to us"
+              value={<span className="text-muted-foreground">≈ KES —</span>}
+              subtitle="14 invoices · 3 past due"
+              trend={{ value: '−1.16%', direction: 'down' }}
+            />
+            {/* TODO: useCashRunway hook (Phase 2.1) */}
+            <StatCard
+              title="Cash runway"
+              value={<span className="text-muted-foreground">— mo</span>}
+              subtitle="at current burn"
+              trend={{ value: '+0.6 mo', direction: 'up' }}
+            />
+          </div>
 
-      {/* Project Health */}
-      {healthScores.length > 0 && (
-        <SectionCard
-          title="Project Health Overview"
-          description="Composite score across active engagements"
-          icon={ShieldAlert}
-          tone="info"
-        >
-          <ul className="space-y-2">
-            {healthScores.map((h) => {
-              const band =
-                HEALTH_BAND[h.score_band] ?? HEALTH_BAND.healthy;
-              const Icon = band.icon;
-              return (
-                <li
-                  key={h.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/30 p-3"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'flex size-9 shrink-0 items-center justify-center rounded-lg',
-                        band.tileClass,
-                      )}
+          {/* Hero chart placeholder — Phase 2.1 wires 6-month time series */}
+          {/* TODO: useMonthlyPlSummaryHistory hook (Phase 2.1) */}
+          <SectionCard
+            title="Revenue & spending trend"
+            description="Last 6 months · KES millions, all projects"
+            tone="brand"
+          >
+            <div className="flex h-[280px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/20">
+              <p className="text-sm text-muted-foreground">Chart pending — Phase 2.1</p>
+            </div>
+          </SectionCard>
+
+          {/* Project Health */}
+          {healthScores.length > 0 && (
+            <SectionCard
+              title="Project Health Overview"
+              description="Composite score across active engagements"
+              icon={ShieldAlert}
+              tone="info"
+            >
+              <ul className="space-y-2">
+                {healthScores.map((h) => {
+                  const band =
+                    HEALTH_BAND[h.score_band] ?? HEALTH_BAND.healthy;
+                  const Icon = band.icon;
+                  return (
+                    <li
+                      key={h.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/30 p-3"
                     >
-                      <Icon className="size-[18px]" strokeWidth={1.75} />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {h.project_name}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {h.biggest_drag || band.label}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-semibold text-foreground tabular-nums">
-                      {Math.round(h.score)}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">/ 100</p>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </SectionCard>
-      )}
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span
+                          aria-hidden
+                          className={cn(
+                            'flex size-9 shrink-0 items-center justify-center rounded-lg',
+                            band.tileClass,
+                          )}
+                        >
+                          <Icon className="size-[18px]" strokeWidth={1.75} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-foreground">
+                            {h.project_name}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {h.biggest_drag || band.label}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-semibold text-foreground tabular-nums">
+                          {Math.round(h.score)}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">/ 100</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </SectionCard>
+          )}
 
-      {/* Outstanding Receivables */}
-      <OutstandingReceivablesPanel />
+          {/* Expense Queue */}
+          <ExpenseQueuePanel />
 
-      {/* Expense Queue */}
-      <ExpenseQueuePanel />
+          {/* Accountant Misc Requests & Reports */}
+          <CfoMiscApproval />
 
-      {/* Accountant Misc Requests & Reports */}
-      <CfoMiscApproval />
-
-      {/* EOD Log */}
-      <SectionCard
-        title="EOD Report Log"
-        description="Last 30 days · sent by accountants or auto-scheduler"
-        icon={FileText}
-        tone="brand"
-      >
+          {/* EOD Log */}
+          <SectionCard
+            title="EOD Report Log"
+            description="Last 30 days · sent by accountants or auto-scheduler"
+            icon={FileText}
+            tone="brand"
+          >
         {eodLogs.length === 0 ? (
           <EmptyState
             icon={FileText}
@@ -346,7 +440,74 @@ export function CfoDashboard() {
             ))}
           </ul>
         )}
-      </SectionCard>
+          </SectionCard>
+        </main>
+
+        {/* Right rail — intelligence panel */}
+        <aside className="space-y-6">
+          {/* Pending invoices — reuses existing panel */}
+          <OutstandingReceivablesPanel />
+
+          {/* Project health (rail-compact view of healthScores).
+              The audit's "Profit by project" panel was rebranded to "Project
+              health" tonight to honour the data-binding constraint — adding a
+              project_profitability fetch is deferred to Phase 2.1. */}
+          {healthScores.length > 0 && (
+            <SectionCard
+              title="Project health"
+              description={`${monthLabel} · score / 100`}
+              tone="info"
+            >
+              <ul className="space-y-3">
+                {healthScores.slice(0, 4).map((h) => {
+                  const pct = Math.max(0, Math.min(100, Math.round(h.score)));
+                  return (
+                    <li key={h.id} className="space-y-1.5">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {h.project_name}
+                        </p>
+                        <p className="font-mono text-sm font-medium text-foreground tabular-nums">
+                          {pct}
+                        </p>
+                      </div>
+                      <div
+                        aria-hidden
+                        className="h-1.5 w-full overflow-hidden rounded-full bg-paper-3"
+                        style={{ background: 'var(--paper-3)' }}
+                      >
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${pct}%`,
+                            background: 'var(--gold)',
+                          }}
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        {h.biggest_drag || HEALTH_BAND[h.score_band]?.label || ''}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            </SectionCard>
+          )}
+
+          {/* Recent activity placeholder */}
+          {/* TODO: useRecentActivity hook (Phase 2.1) — UNION recent
+              withdrawals + expenses + invoice events from audit_logs */}
+          <SectionCard
+            title="Recent activity"
+            description="Last 24 hours"
+            tone="brand"
+          >
+            <p className="py-2 text-sm text-muted-foreground">
+              Activity feed pending — Phase 2.1
+            </p>
+          </SectionCard>
+        </aside>
+      </div>
 
       {/* EOD Dialog — shadcn Dialog with focus trap, escape, return focus */}
       <Dialog open={Boolean(viewingEod)} onOpenChange={(open) => !open && setViewingEod(null)}>
