@@ -1,16 +1,25 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
-import { PageHeader } from '@/components/layout/page-header';
+import { useVariance } from '@/hooks/use-variance';
+import { PageTitle } from '@/components/layout/page-title';
+import { StatCard } from '@/components/layout/stat-card';
+import { HeadlineStatCard } from '@/components/finance/headline-stat-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
+import {
+  formatCurrency,
+  formatCompactKES,
+  getCurrentYearMonth,
+  formatYearMonth,
+} from '@/lib/format';
 import { toast } from 'sonner';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -121,13 +130,28 @@ function aggregateBy(
 
 // ---- Component ----
 
+const ALLOWED_ROLES = new Set(['cfo', 'accountant', 'project_manager']);
+
 export default function VarianceDashboardPage() {
   const { user } = useUser();
+  const router = useRouter();
   const [items, setItems] = useState<PendingExpenseRow[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
   const [loading, setLoading] = useState(true);
   const [recomputing, setRecomputing] = useState(false);
   const [trendData, setTrendData] = useState<TrendPoint[]>([]);
+
+  // Route-level role gate (D5 amended): allow CFO, accountant, PM. Redirect
+  // TL and dept-head with a toast. PM access is unscoped — no project filter.
+  useEffect(() => {
+    if (!user?.role) return;
+    if (!ALLOWED_ROLES.has(user.role)) {
+      toast.error('Variance dashboard is restricted');
+      router.push('/expenses');
+    }
+  }, [user?.role, router]);
+
+  const variance = useVariance(selectedMonth);
 
   const months = Array.from({ length: 12 }, (_, i) => {
     const d = new Date();
@@ -401,25 +425,113 @@ export default function VarianceDashboardPage() {
     );
   }
 
+  // ---- KPI strip data (sourced from useVariance.summary) ----
+  const summary = variance.summary;
+  const headlineTone: 'bad' | 'good' | 'neutral' =
+    summary.netVarianceKes > 0 ? 'bad' : summary.netVarianceKes < 0 ? 'good' : 'neutral';
+  const headlineSign = summary.netVarianceKes >= 0 ? '+ ' : '− ';
+  const headlineValue = `KES ${headlineSign}${Math.abs(summary.netVarianceKes).toLocaleString('en-KE', { maximumFractionDigits: 0 })}`;
+
   return (
     <div>
-      <PageHeader title="Variance Dashboard" description="Budget vs actual expense variance analysis">
-        <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
-          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {months.map((ym) => (
-              <SelectItem key={ym} value={ym}>{formatYearMonth(ym)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {user?.role === 'cfo' && (
-          <Button onClick={handleRecompute} disabled={recomputing} variant="outline">
-            {recomputing ? 'Recomputing...' : 'Recompute Variances'}
-          </Button>
-        )}
-      </PageHeader>
+      <div className="border-b border-border/70 bg-background px-6 py-6">
+        <PageTitle
+          primary="Variance"
+          accent="dashboard"
+          subtitle={`${formatYearMonth(selectedMonth)} · month-to-date · ${summary.totalActiveBudgets} active budgets · ${summary.overToleranceCount} over tolerance · tracking against ${formatCompactKES(summary.planKes)} approved plan`}
+          action={
+            <div className="flex items-center gap-2">
+              <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map((ym) => (
+                    <SelectItem key={ym} value={ym}>
+                      {formatYearMonth(ym)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {user?.role === 'cfo' && (
+                <Button
+                  onClick={handleRecompute}
+                  disabled={recomputing}
+                  variant="outline"
+                  size="sm"
+                >
+                  {recomputing ? 'Recomputing…' : 'Recompute variances'}
+                </Button>
+              )}
+            </div>
+          }
+        />
+      </div>
 
-      <div className="p-6">
+      <div className="space-y-6 p-6">
+        {/* New 4-card KPI strip */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <HeadlineStatCard
+            eyebrow={`Net variance · ${summary.monthLabel}`}
+            value={headlineValue}
+            tone={headlineTone}
+            sub={
+              summary.netVariancePct === 0 ? (
+                <>0% variance · all budgets in tolerance</>
+              ) : (
+                <>
+                  {summary.netVariancePct >= 0 ? '+ ' : '− '}
+                  {Math.abs(summary.netVariancePct).toFixed(2)}% {summary.netVarianceKes >= 0 ? 'over' : 'under'} plan
+                  {summary.concentrationTopN > 0 && summary.concentrationShare > 0 && (
+                    <>
+                      {' · '}
+                      {summary.concentrationTopN} budgets driving {summary.concentrationShare.toFixed(0)}% of overage
+                    </>
+                  )}
+                </>
+              )
+            }
+            loading={variance.loading}
+          />
+          <StatCard
+            title="Spent vs plan"
+            value={formatCompactKES(summary.spentKes)}
+            subtitle={`of ${formatCompactKES(summary.planKes)} planned · ${summary.periodElapsedPct.toFixed(0)}% of period elapsed`}
+            loading={variance.loading}
+            tone="brand"
+          />
+          <StatCard
+            title="Over tolerance"
+            value={
+              summary.overToleranceCount === 1 ? '1 budget' : `${summary.overToleranceCount} budgets`
+            }
+            subtitle={
+              summary.overToleranceCount === 0
+                ? 'All within tolerance'
+                : summary.overToleranceCluster
+                  ? `5% threshold · ${summary.overToleranceCluster}`
+                  : '5% threshold breached'
+            }
+            loading={variance.loading}
+            tone={summary.overToleranceCount > 0 ? 'danger' : 'success'}
+          />
+          <StatCard
+            title="Underspending"
+            value={
+              summary.underspendingCount === 1 ? '1 budget' : `${summary.underspendingCount} budgets`
+            }
+            subtitle={
+              summary.underspendingCount === 0
+                ? 'No projected savings'
+                : summary.underspendingLeader
+                  ? `− ${formatCompactKES(summary.underspendingProjectedSavingsKes)} projected · ${summary.underspendingLeader} leading`
+                  : `− ${formatCompactKES(summary.underspendingProjectedSavingsKes)} projected savings`
+            }
+            loading={variance.loading}
+            tone={summary.underspendingCount > 0 ? 'success' : 'info'}
+          />
+        </div>
+
         <Tabs defaultValue="by-project">
           <TabsList>
             <TabsTrigger value="by-project">By Project</TabsTrigger>
