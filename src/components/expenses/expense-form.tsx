@@ -31,13 +31,18 @@ import type { Project } from '@/types/database';
  * way to attach a receipt for now.
  */
 
+export type ExpenseTypeKind = 'project_expense' | 'shared_expense';
+
 export type ExpenseFormState = {
+  expense_type: ExpenseTypeKind;
   description: string;
   amount_kes: number;
   expense_date: string;
   project_id: string;
   selected_budget_idx: string;
   expense_category_id: string;
+  /** Selected overhead category FK — only used when expense_type='shared_expense'. */
+  overhead_category_id: string;
   vendor: string;
   receipt_reference: string;
 };
@@ -46,6 +51,10 @@ export type ExpenseFormOptions = {
   approvedBudgets: ApprovedBudgetOption[];
   projects: Project[];
   categories: CategoryOption[];
+  /** Overhead categories list (rent, utilities, software, etc.) — sourced
+   *  from the `overhead_categories` table. Used as the Category select
+   *  source when `expense_type === 'shared_expense'`. */
+  overheadCategories: CategoryOption[];
   loading: boolean;
 };
 
@@ -55,6 +64,11 @@ type ExpenseFormProps = {
     field: K,
     value: ExpenseFormState[K],
   ): void;
+  /** Toggle between project_expense and shared_expense. The page route
+   *  uses this to clear stale state from the previous mode (project_id,
+   *  budget selection, the inactive category) so submit only carries
+   *  what's relevant. */
+  onTypeChange(next: ExpenseTypeKind): void;
   options: ExpenseFormOptions;
   submitting: boolean;
   onDiscard(): void;
@@ -65,24 +79,40 @@ type ExpenseFormProps = {
 export function ExpenseForm({
   formState,
   onChange,
+  onTypeChange,
   options,
   submitting,
   onDiscard,
   onSubmit,
   className,
 }: ExpenseFormProps) {
-  const projectBudgets = formState.project_id
-    ? options.approvedBudgets.filter(
-        (b) => b.project_id === formState.project_id,
-      )
-    : options.approvedBudgets;
+  const isShared = formState.expense_type === 'shared_expense';
+
+  // Budget options — for project mode, narrow to the selected project's
+  // approved budgets. For shared mode, show all approved budgets for the
+  // month regardless of project (matches the dialog's behavior — shared
+  // expenses still need a budget linkage but it can be a department-level
+  // one).
+  const filteredBudgets = isShared
+    ? options.approvedBudgets
+    : formState.project_id
+      ? options.approvedBudgets.filter(
+          (b) => b.project_id === formState.project_id,
+        )
+      : options.approvedBudgets;
+
+  const categorySource = isShared
+    ? options.overheadCategories
+    : options.categories;
 
   const canSubmit =
     !submitting &&
     formState.description.trim().length > 0 &&
     formState.amount_kes > 0 &&
-    formState.project_id.length > 0 &&
-    formState.selected_budget_idx.length > 0;
+    formState.selected_budget_idx.length > 0 &&
+    (isShared
+      ? formState.overhead_category_id.length > 0
+      : formState.project_id.length > 0);
 
   return (
     <div className={cn('space-y-6', className)}>
@@ -161,6 +191,45 @@ export function ExpenseForm({
         </header>
 
         <div className="space-y-4">
+          {/* Type toggle — Project / Shared */}
+          <Field label="Expense type" required>
+            <div
+              role="group"
+              aria-label="Expense type"
+              className="inline-flex rounded-full border border-border bg-card p-0.5"
+            >
+              <button
+                type="button"
+                onClick={() => onTypeChange('project_expense')}
+                className={cn(
+                  'h-8 rounded-full px-3.5 text-[12px] font-medium transition-colors',
+                  !isShared
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                Project expense
+              </button>
+              <button
+                type="button"
+                onClick={() => onTypeChange('shared_expense')}
+                className={cn(
+                  'h-8 rounded-full px-3.5 text-[12px] font-medium transition-colors',
+                  isShared
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                Shared expense
+              </button>
+            </div>
+            {isShared && (
+              <p className="text-[11.5px] text-muted-foreground">
+                Shared overhead — rent, utilities, software. No project link.
+              </p>
+            )}
+          </Field>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Amount (KES)" required>
               <Input
@@ -174,56 +243,66 @@ export function ExpenseForm({
                 className="font-mono tabular-nums"
               />
             </Field>
-            <Field label="Project" required>
-              <Select
-                value={formState.project_id || undefined}
-                onValueChange={(v) => {
-                  if (!v) return;
-                  onChange('project_id', v);
-                  // Reset budget when project changes — current selection
-                  // may belong to a different project.
-                  onChange('selected_budget_idx', '');
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {options.projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+            {!isShared && (
+              <Field label="Project" required>
+                <Select
+                  value={formState.project_id || undefined}
+                  onValueChange={(v) => {
+                    if (!v) return;
+                    onChange('project_id', v);
+                    // Reset budget when project changes — current selection
+                    // may belong to a different project.
+                    onChange('selected_budget_idx', '');
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {options.projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
           </div>
 
           <Field
             label="Approved budget"
             required
             help={
-              formState.project_id && projectBudgets.length === 0
+              !isShared && formState.project_id && filteredBudgets.length === 0
                 ? 'No approved budgets for this project this month'
-                : undefined
+                : isShared && filteredBudgets.length === 0
+                  ? 'No approved budgets for this month'
+                  : undefined
             }
           >
             <Select
               value={formState.selected_budget_idx || undefined}
               onValueChange={(v) => v && onChange('selected_budget_idx', v)}
-              disabled={!formState.project_id || projectBudgets.length === 0}
+              disabled={
+                isShared
+                  ? filteredBudgets.length === 0
+                  : !formState.project_id || filteredBudgets.length === 0
+              }
             >
               <SelectTrigger>
                 <SelectValue
                   placeholder={
-                    formState.project_id
+                    isShared
                       ? 'Select an approved budget'
-                      : 'Pick a project first'
+                      : formState.project_id
+                        ? 'Select an approved budget'
+                        : 'Pick a project first'
                   }
                 />
               </SelectTrigger>
               <SelectContent>
-                {projectBudgets.map((b) => {
+                {filteredBudgets.map((b) => {
                   // Index reference must point into the unfiltered options
                   // array so the page route's verbatim insert resolves
                   // the correct budget on submit.
@@ -240,16 +319,29 @@ export function ExpenseForm({
             </Select>
           </Field>
 
-          <Field label="Category">
+          <Field
+            label={isShared ? 'Overhead category' : 'Category'}
+            required={isShared}
+          >
             <Select
-              value={formState.expense_category_id || undefined}
-              onValueChange={(v) => v && onChange('expense_category_id', v)}
+              value={
+                isShared
+                  ? formState.overhead_category_id || undefined
+                  : formState.expense_category_id || undefined
+              }
+              onValueChange={(v) => {
+                if (!v) return;
+                if (isShared) onChange('overhead_category_id', v);
+                else onChange('expense_category_id', v);
+              }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Optional…" />
+                <SelectValue
+                  placeholder={isShared ? 'Select…' : 'Optional…'}
+                />
               </SelectTrigger>
               <SelectContent>
-                {options.categories.map((c) => (
+                {categorySource.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
                   </SelectItem>

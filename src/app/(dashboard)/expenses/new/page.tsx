@@ -16,6 +16,7 @@ import { getUserErrorMessage } from '@/lib/errors';
 import {
   ExpenseForm,
   type ExpenseFormState,
+  type ExpenseTypeKind,
 } from '@/components/expenses/expense-form';
 
 const NAIROBI_TZ = 'Africa/Nairobi';
@@ -30,12 +31,14 @@ function todayInNairobi(): string {
 }
 
 const INITIAL_STATE: ExpenseFormState = {
+  expense_type: 'project_expense',
   description: '',
   amount_kes: 0,
   expense_date: todayInNairobi(),
   project_id: '',
   selected_budget_idx: '',
   expense_category_id: '',
+  overhead_category_id: '',
   vendor: '',
   receipt_reference: '',
 };
@@ -63,11 +66,29 @@ export default function NewExpensePage() {
     setFormState((prev) => ({ ...prev, [field]: value }));
   }
 
-  // Submit handler — body preserved verbatim from
-  // src/components/expenses/expense-form-dialog.tsx lines 110–156.
-  // The form is project-expense-only in the new full-page surface, so
-  // expense_type / overhead_category_id resolve to fixed values; the
-  // shape and column names of the insert are otherwise unchanged.
+  // Toggle expense type and clear stale fields from the previous mode so
+  // the submit payload only carries values relevant to the new mode.
+  function onTypeChange(next: ExpenseTypeKind) {
+    setFormState((prev) => ({
+      ...prev,
+      expense_type: next,
+      project_id: '',
+      selected_budget_idx: '',
+      expense_category_id: '',
+      overhead_category_id: '',
+    }));
+  }
+
+  // Submit handler — branches on expense_type to match the legacy
+  // ExpenseFormDialog's exact insert shape (see expense-form-dialog.tsx
+  // lines 129–145):
+  //   project_expense  → project_id set, overhead_category_id null,
+  //                      expense_category_id from the category select.
+  //   shared_expense   → project_id null, overhead_category_id from the
+  //                      category select, expense_category_id null
+  //                      (the dialog allowed a secondary expense_category
+  //                      pick in shared mode; the redesigned single
+  //                      Category select drops that affordance).
   async function handleSave() {
     if (!formState.description.trim()) {
       toast.error('Description is required');
@@ -85,8 +106,15 @@ export default function NewExpensePage() {
       return;
     }
 
-    if (!formState.project_id) {
+    if (formState.expense_type === 'project_expense' && !formState.project_id) {
       toast.error('Project is required for project expenses');
+      return;
+    }
+    if (
+      formState.expense_type === 'shared_expense' &&
+      !formState.overhead_category_id
+    ) {
+      toast.error('Overhead category is required for shared expenses');
       return;
     }
 
@@ -98,13 +126,17 @@ export default function NewExpensePage() {
     setSubmitting(true);
     const supabase = createClient();
 
+    const isShared = formState.expense_type === 'shared_expense';
+
     const { error } = await supabase.from('expenses').insert({
       budget_id: budget.budget_id,
       budget_version_id: budget.budget_version_id,
-      expense_type: 'project_expense',
-      project_id: formState.project_id,
-      overhead_category_id: null,
-      expense_category_id: formState.expense_category_id || null,
+      expense_type: formState.expense_type,
+      project_id: isShared ? null : formState.project_id,
+      overhead_category_id: isShared ? formState.overhead_category_id : null,
+      expense_category_id: isShared
+        ? null
+        : formState.expense_category_id || null,
       description: formState.description,
       amount_usd: 0,
       amount_kes: formState.amount_kes,
@@ -135,12 +167,14 @@ export default function NewExpensePage() {
       approvedBudgets: options.approvedBudgets,
       projects: options.projects,
       categories: options.categories,
+      overheadCategories: options.overheadCategories,
       loading: options.loading,
     }),
     [
       options.approvedBudgets,
       options.projects,
       options.categories,
+      options.overheadCategories,
       options.loading,
     ],
   );
@@ -159,6 +193,7 @@ export default function NewExpensePage() {
         <ExpenseForm
           formState={formState}
           onChange={onChange}
+          onTypeChange={onTypeChange}
           options={formOptions}
           submitting={submitting}
           onDiscard={handleDiscard}
