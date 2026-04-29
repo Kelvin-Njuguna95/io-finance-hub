@@ -25,8 +25,19 @@ import { cn } from '@/lib/utils';
 type VarianceBulletProps = {
   planKes: number;
   actualKes: number;
-  /** 0..100. Where today sits in the month. */
+  /** 0..100. Where today sits in the month. Ignored in `mode='margin'`. */
   periodElapsedPct: number;
+  /**
+   * Visual semantic.
+   *   `variance` (default): the original 5-layer vocabulary — track,
+   *     ink/red actual bar, red over-bar extension when actual > plan,
+   *     gold period-elapsed tick, ink plan-end tick.
+   *   `margin`: re-purposed for revenue → margin display. The actual
+   *     bar fills gold (the retained portion); over-bar and period
+   *     tick are suppressed; plan-end stays at 100% as the revenue
+   *     boundary. Use with `planKes=revenue`, `actualKes=grossProfit`.
+   */
+  mode?: 'variance' | 'margin';
   className?: string;
 };
 
@@ -88,9 +99,11 @@ export function VarianceBullet({
   planKes,
   actualKes,
   periodElapsedPct,
+  mode = 'variance',
   className,
 }: VarianceBulletProps) {
   const geom = computeGeometry(planKes, actualKes, periodElapsedPct);
+  const isMargin = mode === 'margin';
 
   return (
     <div
@@ -100,17 +113,23 @@ export function VarianceBullet({
       )}
       role="presentation"
     >
-      {/* 2. Actual bar — ink, or red when over plan */}
+      {/* 2. Actual bar — ink/red when variance, gold when margin */}
       <div
         aria-hidden
         className={cn(
           'absolute inset-y-0 left-0 rounded-l-[var(--radius-sm)]',
-          geom.isOver ? 'bg-[var(--danger)]' : 'bg-foreground',
+          isMargin
+            ? 'bg-[var(--gold)]'
+            : geom.isOver
+              ? 'bg-[var(--danger)]'
+              : 'bg-foreground',
         )}
         style={{ width: `${geom.actualBarPct}%` }}
       />
-      {/* 3. Over-bar extension past plan-end (only when over plan) */}
-      {geom.overBarWidth > 0 && (
+      {/* 3. Over-bar extension past plan-end (only when over plan in
+          variance mode; suppressed in margin mode — gross profit can
+          never exceed revenue). */}
+      {!isMargin && geom.overBarWidth > 0 && (
         <div
           aria-hidden
           className="absolute inset-y-0 rounded-r-[var(--radius-sm)] border-l-2 border-background bg-[var(--danger)]"
@@ -120,19 +139,23 @@ export function VarianceBullet({
           }}
         />
       )}
-      {/* 4. Period-elapsed tick — gold hairline */}
-      <span
-        aria-hidden
-        className="absolute -top-1 -bottom-1 w-[2px] rounded-[1px] bg-[var(--gold)] shadow-[0_0_0_3px_var(--paper)]"
-        style={{ left: `${geom.targetPct}%` }}
-        title="Period elapsed"
-      />
-      {/* 5. Plan-end tick — ink hairline */}
+      {/* 4. Period-elapsed tick — gold hairline. Suppressed in margin
+          mode (no period concept for a fait-accompli profit). */}
+      {!isMargin && (
+        <span
+          aria-hidden
+          className="absolute -top-1 -bottom-1 w-[2px] rounded-[1px] bg-[var(--gold)] shadow-[0_0_0_3px_var(--paper)]"
+          style={{ left: `${geom.targetPct}%` }}
+          title="Period elapsed"
+        />
+      )}
+      {/* 5. Plan-end tick — ink hairline (variance) or revenue
+          boundary (margin). Always shown. */}
       <span
         aria-hidden
         className="absolute -top-0.5 -bottom-0.5 w-[1.5px] rounded-[1px] bg-foreground"
         style={{ left: `${geom.planEndPct}%` }}
-        title="End of plan"
+        title={isMargin ? 'Total revenue' : 'End of plan'}
       />
     </div>
   );

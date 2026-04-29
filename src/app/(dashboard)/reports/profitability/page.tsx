@@ -1,201 +1,459 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { PageHeader } from '@/components/layout/page-header';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency, formatExecutivePercent } from '@/components/reports/executive-kit';
-import { getCurrentYearMonth, formatYearMonth } from '@/lib/format';
-import { getUnifiedServicePeriodLabel } from '@/lib/report-utils';
-import { FileDown } from 'lucide-react';
-import { exportSimpleReportPdf } from '@/lib/pdf-export';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Download } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  CartesianGrid,
+  ReferenceLine,
+  ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+  ZAxis,
+} from 'recharts';
 
-interface ProjectRow {
-  project_name: string;
-  revenue: number;
-  direct_costs: number;
-  overhead: number;
-  gross_profit: number;
-  margin: number;
-  revenueEstimated: boolean;
+import { useUser } from '@/hooks/use-user';
+import {
+  useProfitability,
+  type ProfitabilityRow,
+} from '@/hooks/use-profitability';
+import { PageTitle } from '@/components/layout/page-title';
+import { StatCard } from '@/components/layout/stat-card';
+import { HeadlineStatCard } from '@/components/finance/headline-stat-card';
+import { VarianceBullet } from '@/components/finance/variance-bullet';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ChartTheme, CustomTooltip } from '@/lib/charts/chart-theme';
+import {
+  formatCompactKES,
+  formatCurrency,
+  formatYearMonth,
+  getCurrentYearMonth,
+} from '@/lib/format';
+import { cn } from '@/lib/utils';
+
+const ALLOWED_ROLES = new Set(['cfo', 'accountant']);
+const DEFAULT_VISIBLE_ROWS = 5;
+
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) return (sorted[mid - 1] + sorted[mid]) / 2;
+  return sorted[mid];
+}
+
+function formatDeltaPts(pts: number): string {
+  const sign = pts >= 0 ? '+ ' : '− ';
+  return `${sign}${Math.abs(pts).toFixed(1)} pts`;
 }
 
 export default function ProfitabilityPage() {
-  const [data, setData] = useState<ProjectRow[]>([]);
+  const { user } = useUser();
+  const router = useRouter();
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
-  const [loading, setLoading] = useState(true);
-  const [revenueSourceMonth, setRevenueSourceMonth] = useState('');
-  const [isHistorical, setIsHistorical] = useState(false);
-  const [overheadAvailable, setOverheadAvailable] = useState(true);
-  const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
+  const [showAll, setShowAll] = useState(false);
 
+  // Route-level role gate — books-of-record surface, CFO + accountant only.
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      const supabase = createClient();
-
-      // Detect if this is a historical (seeded) month — use direct matching instead of lag
-      const { data: snapshot } = await supabase
-        .from('monthly_financial_snapshots')
-        .select('data_source')
-        .eq('year_month', selectedMonth)
-        .single();
-
-      const historical = !!(snapshot?.data_source && snapshot.data_source.startsWith('historical_seed'));
-      setIsHistorical(historical);
-
-      // Revenue source: same month for historical, previous month for live
-      let revMonth: string;
-      if (historical) {
-        revMonth = selectedMonth;
-      } else {
-        const prevDate = new Date(parseInt(selectedMonth.split('-')[0]), parseInt(selectedMonth.split('-')[1]) - 2, 1);
-        revMonth = prevDate.getFullYear() + '-' + String(prevDate.getMonth() + 1).padStart(2, '0');
-      }
-      setRevenueSourceMonth(revMonth);
-
-      // Get all active projects
-      const { data: projects } = await supabase.from('projects').select('id, name').eq('is_active', true).order('name');
-
-      // Get lagged revenue by project for the expense month
-      const { data: laggedRows } = await supabase
-        .from('lagged_revenue_by_project_month')
-        .select('project_id, lagged_revenue_kes, revenue_kes_estimated')
-        .eq('expense_month', selectedMonth);
-
-      // Get direct expenses (current month) for all projects
-      const { data: expenses } = await supabase.from('expenses').select('project_id, amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense').eq('lifecycle_status', 'confirmed');
-
-      // Get allocated overhead from project_profitability (populated by the recompute pipeline)
-      const { data: profRows } = await supabase
-        .from('project_profitability')
-        .select('project_id, allocated_overhead_kes')
-        .eq('year_month', selectedMonth);
-
-      // Build per-project map
-      const invMap = new Map<string, { amount: number; estimated: boolean }>();
-      (laggedRows || []).forEach((row: { project_id: string; lagged_revenue_kes: number | null; revenue_kes_estimated: boolean | null }) => {
-        const existing = invMap.get(row.project_id) || { amount: 0, estimated: false };
-        invMap.set(row.project_id, {
-          amount: existing.amount + Number(row.lagged_revenue_kes || 0),
-          estimated: existing.estimated || Boolean(row.revenue_kes_estimated),
-        });
-      });
-
-      const expMap = new Map<string, number>();
-      (expenses || []).forEach((e: /* // */ any) => {
-        expMap.set(e.project_id, (expMap.get(e.project_id) || 0) + Number(e.amount_kes));
-      });
-
-      const overheadMap = new Map<string, number>();
-      (profRows || []).forEach((p: { project_id: string; allocated_overhead_kes: number | null }) => {
-        overheadMap.set(p.project_id, Number(p.allocated_overhead_kes || 0));
-      });
-      setOverheadAvailable((profRows || []).length > 0);
-
-      // Build rows — only include projects that have revenue or expenses
-      const rows: ProjectRow[] = (projects || [])
-        .map((p: /* // */ any) => {
-          const revenue = invMap.get(p.id)?.amount || 0;
-          const directCosts = expMap.get(p.id) || 0;
-          const overhead = overheadMap.get(p.id) || 0;
-          const grossProfit = revenue - directCosts;
-          const margin = revenue > 0 ? (grossProfit / revenue * 100) : 0;
-          return { project_name: p.name, revenue, direct_costs: directCosts, overhead, gross_profit: grossProfit, margin, revenueEstimated: invMap.get(p.id)?.estimated || false };
-        })
-        .filter(r => r.revenue > 0 || r.direct_costs > 0)
-        .sort((a, b) => b.gross_profit - a.gross_profit);
-
-      setData(rows);
-      setLoading(false);
+    if (!user?.role) return;
+    if (!ALLOWED_ROLES.has(user.role)) {
+      toast.error('Profitability is restricted to CFO and accountants');
+      router.push('/');
     }
-    load();
-  }, [selectedMonth]);
+  }, [user?.role, router]);
 
-  const totalRevenue = data.reduce((s, r) => s + r.revenue, 0);
-  const totalCosts = data.reduce((s, r) => s + r.direct_costs, 0);
-  const totalProfit = data.reduce((s, r) => s + r.gross_profit, 0);
-  const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue * 100) : 0;
-  const MIN_REVENUE_FOR_BEST_MARGIN_KES = 50_000;
-  const bestMarginProject = [...data]
-    .filter((r) => r.revenue >= MIN_REVENUE_FOR_BEST_MARGIN_KES)
-    .sort((a, b) => b.margin - a.margin)[0]
-    ?? [...data].sort((a, b) => b.margin - a.margin)[0];
+  const profitability = useProfitability(selectedMonth);
 
-  async function exportPdf() {
-    await exportSimpleReportPdf(
-      'Project Profitability',
-      isHistorical ? `Historical month ${selectedMonth}` : servicePeriodLabel,
-      data.slice(0, 120).map((r) => `${r.project_name} | revenue ${r.revenue.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | costs ${r.direct_costs.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | overhead ${r.overhead.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | margin ${r.margin.toFixed(1)}%`),
-      `IO_Project_Profitability_${selectedMonth}.pdf`,
-    );
-  }
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  const summary = profitability.summary;
+  const headlineTone: 'good' | 'bad' | 'neutral' =
+    summary.blendedMarginPct >= 25
+      ? 'good'
+      : summary.blendedMarginPct >= 10
+        ? 'neutral'
+        : 'bad';
+
+  const visibleProjects = useMemo(() => {
+    return showAll
+      ? profitability.projects
+      : profitability.projects.slice(0, DEFAULT_VISIBLE_ROWS);
+  }, [profitability.projects, showAll]);
+
+  const totalProjects = profitability.projects.length;
+  const hiddenCount = Math.max(0, totalProjects - DEFAULT_VISIBLE_ROWS);
+
+  // Quadrant medians for the scatter.
+  const medianRevenue = useMemo(
+    () => median(profitability.scatter.map((p) => p.revenueKes)),
+    [profitability.scatter],
+  );
+  const medianMargin = useMemo(
+    () => median(profitability.scatter.map((p) => p.marginPct)),
+    [profitability.scatter],
+  );
+
+  // Scatter point z-axis (headcount) drives Recharts circle size.
+  // Points without an `agent_counts` row fall back to a default value
+  // so they render at a reasonable radius.
+  const scatterData = useMemo(
+    () =>
+      profitability.scatter.map((p) => ({
+        ...p,
+        z: p.headcount ?? 8,
+      })),
+    [profitability.scatter],
+  );
 
   return (
     <div>
-      <PageHeader title="Project Profitability" description={isHistorical ? 'Revenue & Expenses from ' + formatYearMonth(selectedMonth) + ' (historical data)' : servicePeriodLabel}>
-        <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
-          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {Array.from({ length: 12 }, (_, i) => {
-              const d = new Date(); d.setMonth(d.getMonth() - i);
-              const ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-              return <SelectItem key={ym} value={ym}>{formatYearMonth(ym)}</SelectItem>;
-            })}
-          </SelectContent>
-        </Select>
-        <Button variant="outline" size="sm" onClick={exportPdf}>
-          <FileDown className="h-4 w-4 mr-1" /> Export PDF
-        </Button>
-      </PageHeader>
+      <div className="border-b border-border/70 bg-background px-6 py-6">
+        <PageTitle
+          primary="Per-project"
+          accent="profitability"
+          subtitle={
+            profitability.loading
+              ? `${formatYearMonth(selectedMonth)} · loading…`
+              : `${formatYearMonth(selectedMonth)} · ${summary.projectCount} ${
+                  summary.projectCount === 1 ? 'project' : 'projects'
+                } · ${formatCompactKES(summary.totalRevenueKes)} revenue · ${summary.blendedMarginPct.toFixed(1)}% blended margin`
+          }
+          action={
+            <div className="flex items-center gap-2">
+              <Select
+                value={selectedMonth}
+                onValueChange={(v) => v && setSelectedMonth(v)}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map((ym) => (
+                    <SelectItem key={ym} value={ym}>
+                      {formatYearMonth(ym)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled
+                className="gap-1"
+                title="Coming soon — PDF export"
+              >
+                <Download className="size-4" /> Export PDF
+              </Button>
+            </div>
+          }
+        />
+      </div>
 
-      <div className="p-6 space-y-6">
-        <ExecutiveInsightPanel lines={[
-          `Gross profit: ${formatCompactCurrency(totalProfit, 'KES')}.`,
-          data.length <= 1 ? 'All profit concentrated in 1 project — diversify.' : '',
-          `Margin benchmark set at 40%; ${data.filter((r) => r.margin >= 40).length} project(s) are above target.`,
-        ]} />
-
+      <div className="space-y-6 p-6">
+        {/* KPI strip */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <ExecutiveKpiCard label="Gross Profit" value={formatCompactCurrency(totalProfit, 'KES')} />
-          <ExecutiveKpiCard label="Gross Margin" value={formatExecutivePercent(totalMargin)} trend={totalMargin >= 40 ? '↑ Above target' : '↓ Below target'} positive={totalMargin >= 40} />
-          <ExecutiveKpiCard label="Active Projects" value={String(data.length)} />
-          <ExecutiveKpiCard label="Best Margin Project" value={bestMarginProject ? `${bestMarginProject.project_name} ${formatExecutivePercent(bestMarginProject.margin)}` : 'N/A'} trend="Highest margin %" />
+          <HeadlineStatCard
+            eyebrow={`Blended margin · ${summary.monthLabel}`}
+            value={`${summary.blendedMarginPct.toFixed(1)}%`}
+            tone={headlineTone}
+            sub={
+              summary.projectCount === 0
+                ? 'No projects with revenue this month'
+                : `${formatCompactKES(summary.totalGrossProfitKes)} gross profit across ${summary.projectCount} ${summary.projectCount === 1 ? 'project' : 'projects'}`
+            }
+            loading={profitability.loading}
+          />
+          <StatCard
+            title="Total revenue"
+            value={formatCompactKES(summary.totalRevenueKes)}
+            subtitle="Lagged invoiced revenue"
+            loading={profitability.loading}
+            tone="brand"
+          />
+          <StatCard
+            title="Total gross profit"
+            value={formatCompactKES(summary.totalGrossProfitKes)}
+            subtitle={`${formatCompactKES(summary.totalExpensesKes)} confirmed direct cost`}
+            loading={profitability.loading}
+            tone={summary.totalGrossProfitKes >= 0 ? 'success' : 'danger'}
+          />
+          <StatCard
+            title="Top project"
+            value={
+              summary.topProject
+                ? `${summary.topProject.marginPct.toFixed(1)}%`
+                : '—'
+            }
+            subtitle={
+              summary.topProject ? summary.topProject.name : 'No projects with revenue'
+            }
+            loading={profitability.loading}
+            tone="success"
+          />
         </div>
 
-        {!loading && !overheadAvailable && (
-          <p className="text-xs text-muted-foreground">
-            Allocated overhead shown as KES 0.00 — recompute required for {formatYearMonth(selectedMonth)} to populate.
-          </p>
-        )}
+        {/* Per-project margin bars */}
+        <section className="rounded-lg border border-border bg-card p-6">
+          <header className="mb-5 flex items-baseline justify-between gap-3">
+            <div>
+              <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Margin · {summary.monthLabel}
+              </p>
+              <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
+                Per-project{' '}
+                <em className="not-italic italic text-[var(--gold-lo)]">margin bars</em>
+              </h3>
+              <p className="mt-1 text-[12.5px] text-[var(--warm-grey-3)]">
+                Gold fill is the share of revenue retained as gross profit. Sorted by margin descending.
+              </p>
+            </div>
+            {hiddenCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAll((v) => !v)}
+              >
+                {showAll
+                  ? `Show top ${DEFAULT_VISIBLE_ROWS}`
+                  : `Show all ${totalProjects}`}
+              </Button>
+            )}
+          </header>
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          {(loading ? [] : data).map((r) => (
-            <Card key={r.project_name} className="border-border">
-              <CardContent className="pt-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-base font-semibold">{r.revenueEstimated ? `≈ ${r.project_name}` : r.project_name}</p>
-                  <Badge className={r.margin >= 40 ? 'bg-success-soft text-success-soft-foreground' : r.margin >= 25 ? 'bg-warning-soft text-warning-soft-foreground' : 'bg-danger-soft text-danger-soft-foreground'}>
-                    {r.margin >= 40 ? 'On Track' : r.margin >= 25 ? 'Watch' : 'Action Needed'}
-                  </Badge>
-                </div>
-                <div className="h-3 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full bg-primary" style={{ width: `${Math.min(100, (r.revenue <= 0 ? 0 : (r.gross_profit / r.revenue) * 100))}%` }} />
-                </div>
-                <div className="flex items-center justify-between text-sm text-foreground/80">
-                  <span>Revenue <span className="font-mono tabular-nums">{formatCompactCurrency(r.revenue, 'KES')}</span></span>
-                  <span>Costs <span className="font-mono tabular-nums">{formatCompactCurrency(r.direct_costs, 'KES')}</span></span>
-                </div>
-                <p className="text-sm text-foreground/80">Allocated Overhead <span className="font-mono tabular-nums">{formatCompactCurrency(r.overhead, 'KES')}</span></p>
-                <p className="text-sm font-medium">Margin: {formatExecutivePercent(r.margin)} <span className="text-muted-foreground">| Target: 40%</span></p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+          {profitability.loading ? (
+            <div className="px-2 py-12 text-center text-sm text-muted-foreground">
+              Loading per-project margins…
+            </div>
+          ) : visibleProjects.length === 0 ? (
+            <div className="px-2 py-12 text-center text-sm text-muted-foreground">
+              No projects with revenue for {formatYearMonth(selectedMonth)}
+            </div>
+          ) : (
+            <ul className="space-y-4">
+              {visibleProjects.map((row) => (
+                <ProfitabilityMarginRow key={row.id} row={row} />
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* Margin × Revenue scatter */}
+        <section className="rounded-lg border border-border bg-card p-6">
+          <header className="mb-4">
+            <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Volume × margin · {summary.monthLabel}
+            </p>
+            <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
+              Where the{' '}
+              <em className="not-italic italic text-[var(--gold-lo)]">profitable volume</em>{' '}
+              lives
+            </h3>
+            <p className="mt-1 text-[12.5px] text-[var(--warm-grey-3)]">
+              Each project plotted by revenue (x) and margin (y). Circle size scales with headcount when known. Quadrant lines mark median revenue and margin.
+            </p>
+          </header>
+          <div className="h-[360px] w-full">
+            {profitability.loading ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                Loading scatter…
+              </div>
+            ) : scatterData.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                No projects with revenue this month
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 16, right: 28, left: 8, bottom: 28 }}>
+                  <CartesianGrid
+                    stroke={ChartTheme.gridStroke}
+                    strokeOpacity={ChartTheme.gridStrokeOpacity}
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="revenueKes"
+                    type="number"
+                    name="Revenue"
+                    stroke={ChartTheme.axisStroke}
+                    tick={ChartTheme.axisNumStyle}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v) =>
+                      formatCompactKES(Number(v)).replace('KES ', '')
+                    }
+                    label={{
+                      value: 'Revenue (KES)',
+                      position: 'insideBottom',
+                      offset: -16,
+                      style: ChartTheme.axisLabelStyle,
+                    }}
+                  />
+                  <YAxis
+                    dataKey="marginPct"
+                    type="number"
+                    name="Margin"
+                    stroke={ChartTheme.axisStroke}
+                    tick={ChartTheme.axisNumStyle}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
+                    label={{
+                      value: 'Margin %',
+                      angle: -90,
+                      position: 'insideLeft',
+                      offset: 16,
+                      style: ChartTheme.axisLabelStyle,
+                    }}
+                  />
+                  <ZAxis
+                    dataKey="z"
+                    type="number"
+                    range={[60, 360]}
+                    name="Headcount"
+                  />
+                  {medianRevenue > 0 && (
+                    <ReferenceLine
+                      x={medianRevenue}
+                      stroke={ChartTheme.gridStroke}
+                      strokeDasharray="3 3"
+                      strokeOpacity={0.6}
+                      label={{
+                        value: 'median revenue',
+                        position: 'top',
+                        style: { ...ChartTheme.axisLabelStyle, fontSize: 9.5 },
+                      }}
+                    />
+                  )}
+                  {Number.isFinite(medianMargin) && scatterData.length > 0 && (
+                    <ReferenceLine
+                      y={medianMargin}
+                      stroke={ChartTheme.gridStroke}
+                      strokeDasharray="3 3"
+                      strokeOpacity={0.6}
+                      label={{
+                        value: 'median margin',
+                        position: 'right',
+                        style: { ...ChartTheme.axisLabelStyle, fontSize: 9.5 },
+                      }}
+                    />
+                  )}
+                  <Tooltip
+                    cursor={{ strokeDasharray: '3 3', stroke: 'var(--paper-4)' }}
+                    content={(props) => (
+                      <CustomTooltip
+                        {...props}
+                        formatValue={(value, name) => {
+                          if (name === 'Revenue')
+                            return formatCurrency(Number(value), 'KES');
+                          if (name === 'Margin')
+                            return `${Number(value).toFixed(1)}%`;
+                          if (name === 'Headcount')
+                            return `${Number(value)} agents`;
+                          return String(value);
+                        }}
+                        periodLabel="Project profitability"
+                      />
+                    )}
+                  />
+                  <Scatter
+                    name="Projects"
+                    data={scatterData}
+                    fill={ChartTheme.series.secondary}
+                    fillOpacity={0.85}
+                    stroke="var(--ink)"
+                    strokeWidth={1.25}
+                  />
+                </ScatterChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </section>
       </div>
     </div>
+  );
+}
+
+function ProfitabilityMarginRow({ row }: { row: ProfitabilityRow }) {
+  const marginTone =
+    row.marginPct >= 25
+      ? 'text-success-soft-foreground'
+      : row.marginPct >= 10
+        ? 'text-foreground'
+        : row.marginPct >= 0
+          ? 'text-[var(--warm-grey-3)]'
+          : 'text-[var(--danger)]';
+
+  return (
+    <li className="grid grid-cols-[1.4fr_1fr_120px_120px] items-center gap-4">
+      <div className="min-w-0">
+        <p className="truncate text-[14px] font-medium leading-tight text-foreground">
+          <span
+            aria-hidden
+            className="mr-2 inline-flex size-5 items-center justify-center rounded-full bg-[var(--paper-2)] font-mono text-[10.5px] tabular-nums text-muted-foreground"
+          >
+            {row.marginRank}
+          </span>
+          {row.name}
+        </p>
+        <p className="mt-1 truncate font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
+          <span className={cn('font-medium', marginTone)}>
+            {row.marginPct.toFixed(1)}% margin
+          </span>
+          {Math.abs(row.momMarginDeltaPts) >= 0.05 && (
+            <>
+              {' · '}
+              <span
+                className={cn(
+                  row.momMarginDeltaPts >= 0
+                    ? 'text-success-soft-foreground'
+                    : 'text-[var(--danger)]',
+                )}
+              >
+                {formatDeltaPts(row.momMarginDeltaPts)} MoM
+              </span>
+            </>
+          )}
+          {row.headcount !== undefined && (
+            <>
+              {' · '}
+              <span>
+                {row.headcount} {row.headcount === 1 ? 'agent' : 'agents'}
+              </span>
+            </>
+          )}
+        </p>
+      </div>
+      <VarianceBullet
+        mode="margin"
+        planKes={row.revenueKes}
+        actualKes={row.grossProfitKes}
+        periodElapsedPct={100}
+      />
+      <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+        {formatCompactKES(row.revenueKes)}
+      </span>
+      <span
+        className={cn(
+          'text-right font-mono text-[13px] tabular-nums',
+          row.grossProfitKes >= 0 ? 'text-foreground' : 'text-[var(--danger)]',
+        )}
+      >
+        {formatCompactKES(row.grossProfitKes)}
+      </span>
+    </li>
   );
 }
