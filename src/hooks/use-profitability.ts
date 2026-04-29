@@ -75,7 +75,6 @@ type LaggedProjectRow = {
   expense_month: string;
   lagged_revenue_kes: number | string | null;
   current_expenses_kes: number | string | null;
-  projects: { name?: string | null } | { name?: string | null }[] | null;
 };
 
 type ExpenseRow = {
@@ -122,14 +121,6 @@ function lookbackMonths(yearMonth: string, count: number): string[] {
   return out;
 }
 
-function firstName<T extends { name?: string | null }>(
-  rel: T | T[] | null,
-): string | null {
-  if (!rel) return null;
-  if (Array.isArray(rel)) return rel[0]?.name ?? null;
-  return rel.name ?? null;
-}
-
 function marginPctFor(revenueKes: number, expensesKes: number): number {
   if (revenueKes <= 0) return 0;
   return ((revenueKes - expensesKes) / revenueKes) * 100;
@@ -168,18 +159,20 @@ export function useProfitability(yearMonth: string) {
         trailingRevenueRes,
         trailingExpensesRes,
         agentCountsRes,
+        projectsRes,
       ] = await Promise.all([
+        // The lagged view has no FK declared on projects — supabase-js
+        // can't auto-resolve a projects(name) embed against it, and the
+        // failed embed silently returns 0 rows. Query the view without
+        // the embed and resolve names via a separate projects fetch
+        // below.
         supabase
           .from('lagged_revenue_by_project_month')
-          .select(
-            'project_id, expense_month, lagged_revenue_kes, current_expenses_kes, projects(name)',
-          )
+          .select('project_id, expense_month, lagged_revenue_kes, current_expenses_kes')
           .eq('expense_month', yearMonth),
         supabase
           .from('lagged_revenue_by_project_month')
-          .select(
-            'project_id, expense_month, lagged_revenue_kes, current_expenses_kes, projects(name)',
-          )
+          .select('project_id, expense_month, lagged_revenue_kes, current_expenses_kes')
           .eq('expense_month', prev),
         supabase
           .from('expenses')
@@ -195,9 +188,7 @@ export function useProfitability(yearMonth: string) {
           .not('project_id', 'is', null),
         supabase
           .from('lagged_revenue_by_project_month')
-          .select(
-            'project_id, expense_month, lagged_revenue_kes, current_expenses_kes, projects(name)',
-          )
+          .select('project_id, expense_month, lagged_revenue_kes, current_expenses_kes')
           .in('expense_month', trail),
         supabase
           .from('expenses')
@@ -209,6 +200,10 @@ export function useProfitability(yearMonth: string) {
           .from('agent_counts')
           .select('project_id, agent_count')
           .eq('year_month', yearMonth),
+        // Direct projects fetch — name resolution. Same pattern as the
+        // variance hook (which reads pending_expenses, a table with
+        // declared FKs, and works).
+        supabase.from('projects').select('id, name'),
       ]);
 
       const currentRevenue = (currentRevenueRes.data ?? []) as LaggedProjectRow[];
@@ -221,6 +216,18 @@ export function useProfitability(yearMonth: string) {
         project_id: string | null;
         agent_count: number | string | null;
       }>;
+      const projectsList = (projectsRes.data ?? []) as Array<{
+        id: string;
+        name: string | null;
+      }>;
+
+      // ---- Project-name resolver ----
+      const projectNameById = new Map<string, string>();
+      for (const p of projectsList) {
+        if (p.id) projectNameById.set(p.id, p.name ?? 'Unattributed');
+      }
+      const nameFor = (id: string): string =>
+        projectNameById.get(id) ?? 'Unattributed';
 
       // ---- Per-project current month rollup ----
       const currentByProject = new Map<
@@ -229,14 +236,12 @@ export function useProfitability(yearMonth: string) {
       >();
       for (const r of currentRevenue) {
         if (!r.project_id) continue;
-        const name = firstName(r.projects) ?? 'Unattributed';
         const existing = currentByProject.get(r.project_id) ?? {
-          name,
+          name: nameFor(r.project_id),
           revenueKes: 0,
           expensesKes: 0,
         };
         existing.revenueKes += Number(r.lagged_revenue_kes ?? 0);
-        if (!existing.name || existing.name === 'Unattributed') existing.name = name;
         currentByProject.set(r.project_id, existing);
       }
       // The lagged view's current_expenses_kes folds in confirmed
@@ -246,7 +251,7 @@ export function useProfitability(yearMonth: string) {
       for (const e of currentExpenses) {
         if (!e.project_id) continue;
         const existing = currentByProject.get(e.project_id) ?? {
-          name: 'Unattributed',
+          name: nameFor(e.project_id),
           revenueKes: 0,
           expensesKes: 0,
         };
@@ -365,9 +370,8 @@ export function useProfitability(yearMonth: string) {
       >();
       for (const r of trailingRevenue) {
         if (!r.project_id) continue;
-        const name = firstName(r.projects) ?? 'Unattributed';
         const proj = trendByProject.get(r.project_id) ?? {
-          name,
+          name: nameFor(r.project_id),
           byMonth: new Map<string, { revenueKes: number; expensesKes: number }>(),
         };
         const monthRec = proj.byMonth.get(r.expense_month) ?? {
@@ -376,13 +380,12 @@ export function useProfitability(yearMonth: string) {
         };
         monthRec.revenueKes += Number(r.lagged_revenue_kes ?? 0);
         proj.byMonth.set(r.expense_month, monthRec);
-        if (!proj.name || proj.name === 'Unattributed') proj.name = name;
         trendByProject.set(r.project_id, proj);
       }
       for (const e of trailingExpenses) {
         if (!e.project_id) continue;
         const proj = trendByProject.get(e.project_id) ?? {
-          name: 'Unattributed',
+          name: nameFor(e.project_id),
           byMonth: new Map<string, { revenueKes: number; expensesKes: number }>(),
         };
         const monthRec = proj.byMonth.get(e.year_month) ?? {
