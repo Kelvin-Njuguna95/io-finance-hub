@@ -8,6 +8,10 @@ import { useVariance } from '@/hooks/use-variance';
 import { PageTitle } from '@/components/layout/page-title';
 import { StatCard } from '@/components/layout/stat-card';
 import { HeadlineStatCard } from '@/components/finance/headline-stat-card';
+import { VarianceBullet } from '@/components/finance/variance-bullet';
+import { VarianceDriversList } from '@/components/finance/variance-drivers-list';
+import { VarianceDivergenceChart } from '@/components/finance/variance-divergence-chart';
+import { VarianceWaterfall } from '@/components/finance/variance-waterfall';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -139,7 +143,6 @@ export default function VarianceDashboardPage() {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
   const [loading, setLoading] = useState(true);
   const [recomputing, setRecomputing] = useState(false);
-  const [trendData, setTrendData] = useState<TrendPoint[]>([]);
 
   // Route-level role gate (D5 amended): allow CFO, accountant, PM. Redirect
   // TL and dept-head with a toast. PM access is unscoped — no project filter.
@@ -182,86 +185,18 @@ export default function VarianceDashboardPage() {
     load();
   }, [selectedMonth]);
 
-  // Load accuracy trend (last 6 months)
-  useEffect(() => {
-    async function loadTrend() {
-      const supabase = createClient();
-      const trendMonths = Array.from({ length: 6 }, (_, i) => {
-        const d = new Date();
-        d.setMonth(d.getMonth() - i);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      }).reverse();
-
-      const results: TrendPoint[] = [];
-
-      for (const m of trendMonths) {
-        const { data } = await supabase
-          .from('pending_expenses')
-          .select('budgeted_amount_kes, actual_amount_kes')
-          .eq('year_month', m);
-
-        const totalBudgeted = (data || []).reduce((s, r) => s + Number(r.budgeted_amount_kes), 0);
-        const totalActual = (data || []).reduce((s, r) => s + Number(r.actual_amount_kes || 0), 0);
-        const pct = totalBudgeted === 0 ? 0 : ((totalActual - totalBudgeted) / totalBudgeted) * 100;
-
-        results.push({
-          month: m,
-          label: formatYearMonth(m),
-          accuracyScore: Math.round(calcAccuracy(pct) * 100) / 100,
-        });
-      }
-
-      setTrendData(results);
-    }
-    loadTrend();
-  }, []);
-
-  // Aggregations
+  // Aggregations — kept for the legacy By Project / By Category tab
+  // content that ships unchanged this commit (Commit 3 replaces them).
   const projectItems = items.filter((i) => i.project_id !== null);
-  const sharedItems = items.filter((i) => i.project_id === null);
 
   const byProject = aggregateBy(projectItems, (i) => i.projects?.name ?? null);
-  const byDepartment = aggregateBy(sharedItems, (i) => i.departments?.name ?? null);
   const byCategory = aggregateBy(items, (i) => i.category);
 
-  // Company overview
-  const totalBudgeted = items.reduce((s, i) => s + Number(i.budgeted_amount_kes), 0);
-  const totalActual = items.reduce((s, i) => s + Number(i.actual_amount_kes || 0), 0);
-  const netVariance = totalActual - totalBudgeted;
-  const overallPct = totalBudgeted === 0 ? 0 : (netVariance / totalBudgeted) * 100;
-  const allGrouped = [...byProject, ...byDepartment];
-  const avgAccuracy = allGrouped.length > 0
-    ? allGrouped.reduce((s, r) => s + r.accuracyScore, 0) / allGrouped.length
-    : 0;
-  const totalPending = items.filter((i) => i.status !== 'confirmed' && i.status !== 'voided').length;
-  const totalVoided = items.filter((i) => i.status === 'voided').length;
-
-  // Waterfall data for company overview
-  const overspendTotal = Math.max(0, netVariance);
-  const underspendTotal = Math.max(0, -netVariance);
-  const waterfallData = [
-    { name: 'Budgeted', value: totalBudgeted, fill: COLORS.budgeted },
-    { name: 'Overspend', value: overspendTotal, fill: COLORS.overspend },
-    { name: 'Underspend', value: underspendTotal, fill: COLORS.underspend },
-    { name: 'Actual', value: totalActual, fill: COLORS.actual },
-  ];
-
-  // Variance type distribution for PieChart
-  const overspendCount = items.filter((i) => {
-    const pct = Number(i.variance_pct);
-    return pct > 5;
-  }).length;
-  const underspendCount = items.filter((i) => {
-    const pct = Number(i.variance_pct);
-    return pct < -5;
-  }).length;
-  const onTargetCount = items.length - overspendCount - underspendCount;
-  const pieData = [
-    { name: 'Overspend', value: overspendCount },
-    { name: 'Underspend', value: underspendCount },
-    { name: 'On Target', value: onTargetCount },
-  ].filter((d) => d.value > 0);
-
+  // ---- Legacy Company Overview derivations removed in Commit 2 ----
+  // The 6-card KPI block, accuracy trend, and Recharts variance pie are
+  // gone. The page-level KPI strip (Commit 1) and VarianceWaterfall
+  // (this commit) replace them. Keep the placeholder filter so the
+  // rest of this section still type-checks.
   // Recompute handler (CFO only)
   async function handleRecompute() {
     setRecomputing(true);
@@ -532,16 +467,180 @@ export default function VarianceDashboardPage() {
           />
         </div>
 
-        <Tabs defaultValue="by-project">
+        {/* Two-up: divergence chart (1.5fr) + drivers list (1fr top 7) */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr]">
+          <section className="rounded-lg border border-border bg-card p-6">
+            <header className="mb-4">
+              <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Daily burn · {variance.monthLabel} MTD
+              </p>
+              <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
+                Actual is tracking{' '}
+                <em
+                  className="not-italic italic"
+                  style={{ color: 'var(--gold-lo)' }}
+                >
+                  {summary.netVariancePct >= 0 ? 'above plan' : 'below plan'}
+                </em>{' '}
+                month-to-date
+              </h3>
+              <p className="mt-1 text-[12.5px] text-[var(--warm-grey-3)]">
+                Plan is the linear daily target derived from approved budgets. Actual is daily realized confirmed spend. Shaded band is variance — red where actual exceeds plan, green where under.
+              </p>
+            </header>
+            <VarianceDivergenceChart
+              dailyBurn={variance.dailyBurn}
+              daysInMonth={variance.daysInMonth}
+              todayDayIndex={variance.todayDayIndex}
+              planTotalKes={variance.approvedBudgetTotalKes}
+            />
+          </section>
+
+          <section className="rounded-lg border border-border bg-card p-6">
+            <header className="mb-4">
+              <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Variance drivers · {variance.monthLabel} MTD
+              </p>
+              <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
+                Top 7 by impact
+              </h3>
+              <p className="mt-1 text-[12px] text-[var(--warm-grey-3)]">
+                Categories ranked by absolute KES contribution to net variance.
+              </p>
+            </header>
+            <VarianceDriversList drivers={variance.drivers} limit={7} />
+          </section>
+        </div>
+
+        <Tabs defaultValue="by-budget">
           <TabsList>
-            <TabsTrigger value="by-project">By Project</TabsTrigger>
-            <TabsTrigger value="by-department">By Department</TabsTrigger>
-            <TabsTrigger value="company">Company Overview</TabsTrigger>
-            <TabsTrigger value="by-category">By Category</TabsTrigger>
+            <TabsTrigger value="by-budget">
+              By budget
+              <span className="ml-2 inline-flex h-4 min-w-[18px] items-center justify-center rounded-full bg-muted px-1 font-mono text-[10px] tabular-nums">
+                {variance.byBudget.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="by-project">
+              By project
+              <span className="ml-2 inline-flex h-4 min-w-[18px] items-center justify-center rounded-full bg-muted px-1 font-mono text-[10px] tabular-nums">
+                {variance.byProject.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="by-category">
+              By category
+              <span className="ml-2 inline-flex h-4 min-w-[18px] items-center justify-center rounded-full bg-muted px-1 font-mono text-[10px] tabular-nums">
+                {variance.byCategory.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="drivers">
+              Drivers
+              <span className="ml-2 inline-flex h-4 min-w-[18px] items-center justify-center rounded-full bg-danger-soft px-1 font-mono text-[10px] tabular-nums text-danger-soft-foreground">
+                {variance.drivers.length}
+              </span>
+            </TabsTrigger>
           </TabsList>
 
-          {/* Tab 1: By Project */}
-          <TabsContent value="by-project" className="space-y-4">
+          {/* Tab 1: By Budget — bullet table per D1 */}
+          <TabsContent value="by-budget" className="space-y-3 pt-4">
+            <header className="flex items-baseline justify-between gap-3">
+              <div>
+                <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                  By budget · {variance.monthLabel} MTD
+                </p>
+                <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
+                  Plan vs <em className="not-italic italic text-[var(--gold-lo)]">actual</em> across active budgets
+                </h3>
+              </div>
+            </header>
+
+            <div className="overflow-hidden rounded-lg border border-border bg-card">
+              <div className="grid grid-cols-[1.6fr_1fr_1fr_2fr_120px] items-center gap-5 border-b border-border bg-muted/40 px-6 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                <span>Budget · scope</span>
+                <span className="text-right">Plan</span>
+                <span className="text-right">Actual MTD</span>
+                <span>Burn vs plan</span>
+                <span className="text-right">Variance</span>
+              </div>
+              {variance.loading ? (
+                <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+                  Loading…
+                </div>
+              ) : variance.byBudget.length === 0 ? (
+                <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+                  No active budgets for {formatYearMonth(selectedMonth)}
+                </div>
+              ) : (
+                variance.byBudget.map((row) => {
+                  const isOver = row.varianceKes > 0;
+                  const isUnder = row.varianceKes < 0 && Math.abs(row.variancePct) > 2;
+                  const sign = row.varianceKes >= 0 ? '+ ' : '− ';
+                  const subText = row.isOverTolerance
+                    ? `${Math.round(row.actualKes / Math.max(row.planKes, 1) * 100)}% · over 5% tol`
+                    : isUnder
+                      ? `${Math.round(Math.abs(row.variancePct))}% · ahead`
+                      : Math.abs(row.variancePct) < 1
+                        ? 'on plan'
+                        : `${Math.round(row.actualKes / Math.max(row.planKes, 1) * 100)}% · within tol`;
+                  return (
+                    <div
+                      key={row.id}
+                      className="grid grid-cols-[1.6fr_1fr_1fr_2fr_120px] items-center gap-5 border-b border-border-subtle px-6 py-4 last:border-b-0 hover:bg-[var(--paper-2)]"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-[14px] font-medium leading-tight text-foreground">
+                          {row.label}
+                        </p>
+                        <p className="mt-1 truncate font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
+                          {row.meta ?? '—'}
+                        </p>
+                      </div>
+                      <span className="text-right font-mono text-[14px] tabular-nums text-foreground">
+                        {formatCompactKES(row.planKes)}
+                      </span>
+                      <span
+                        className={`text-right font-mono text-[14px] tabular-nums ${isOver ? 'text-[var(--danger)]' : 'text-foreground'}`}
+                      >
+                        {formatCompactKES(row.actualKes)}
+                      </span>
+                      <VarianceBullet
+                        planKes={row.planKes}
+                        actualKes={row.actualKes}
+                        periodElapsedPct={variance.periodElapsedPct}
+                      />
+                      <div className="text-right">
+                        <p
+                          className={`font-mono text-[14px] tabular-nums ${
+                            isOver
+                              ? 'text-[var(--danger)]'
+                              : isUnder
+                                ? 'text-success-soft-foreground'
+                                : 'text-foreground'
+                          }`}
+                        >
+                          {sign}
+                          {formatCompactKES(Math.abs(row.varianceKes)).replace('KES ', '')}
+                        </p>
+                        <p
+                          className={`mt-1 font-mono text-[10.5px] uppercase tracking-[0.10em] ${
+                            row.isOverTolerance
+                              ? 'text-[var(--danger)]'
+                              : isUnder
+                                ? 'text-success-soft-foreground'
+                                : 'text-muted-foreground'
+                          }`}
+                        >
+                          {subText}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Tab 2: By Project — content unchanged from prior page (Commit 3 replaces) */}
+          <TabsContent value="by-project" className="space-y-4 pt-4">
             <Card className="io-card">
               <CardContent className="p-0">
                 {renderVarianceTable(byProject)}
@@ -550,158 +649,8 @@ export default function VarianceDashboardPage() {
             {byProject.length > 0 && renderBarChart(byProject)}
           </TabsContent>
 
-          {/* Tab 2: By Department */}
-          <TabsContent value="by-department" className="space-y-4">
-            <Card className="io-card">
-              <CardContent className="p-0">
-                {renderVarianceTable(byDepartment)}
-              </CardContent>
-            </Card>
-            {byDepartment.length > 0 && renderBarChart(byDepartment)}
-          </TabsContent>
-
-          {/* Tab 3: Company Overview */}
-          <TabsContent value="company" className="space-y-6">
-            {/* Summary cards */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-              <Card className="io-card">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Budgeted</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg font-semibold font-mono">{formatCurrency(totalBudgeted, 'KES')}</p>
-                </CardContent>
-              </Card>
-              <Card className="io-card">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Actual</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg font-semibold font-mono">{formatCurrency(totalActual, 'KES')}</p>
-                </CardContent>
-              </Card>
-              <Card className="io-card">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Net Variance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className={`text-lg font-semibold font-mono ${netVariance > 0 ? 'text-danger-soft-foreground' : netVariance < 0 ? 'text-success-soft-foreground' : ''}`}>
-                    {formatCurrency(netVariance, 'KES')}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{overallPct.toFixed(1)}%</p>
-                </CardContent>
-              </Card>
-              <Card className="io-card">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Avg Accuracy</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg font-semibold font-mono">{avgAccuracy.toFixed(1)}%</p>
-                </CardContent>
-              </Card>
-              <Card className="io-card">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Items Pending</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg font-semibold font-mono text-warning-soft-foreground">{totalPending}</p>
-                </CardContent>
-              </Card>
-              <Card className="io-card">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Items Voided</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg font-semibold font-mono text-danger-soft-foreground">{totalVoided}</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Waterfall chart */}
-            <Card className="io-card">
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Variance Breakdown</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={waterfallData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" tickFormatter={(v) => `${(Number(v) / 1000).toFixed(0)}k`} />
-                    <YAxis type="category" dataKey="name" width={100} />
-                    <Tooltip formatter={(value) => [formatCurrency(Number(value), 'KES'), 'Amount']} />
-                    <Bar dataKey="value" name="Amount">
-                      {waterfallData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              {/* Accuracy Trend */}
-              <Card className="io-card">
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Accuracy Trend (Last 6 Months)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={trendData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                      <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                      <Tooltip formatter={(value) => [`${Number(value).toFixed(1)}%`, 'Accuracy']} />
-                      <Legend />
-                      <Line
-                        type="monotone"
-                        dataKey="accuracyScore"
-                        name="Accuracy Score"
-                        stroke={COLORS.budgeted}
-                        strokeWidth={2}
-                        dot={{ fill: COLORS.budgeted, r: 4 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Variance Type Distribution */}
-              <Card className="io-card">
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Variance Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {pieData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={pieData}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={100}
-                          dataKey="value"
-                          nameKey="name"
-                          label={({ name, value }) => `${name}: ${value}`}
-                        >
-                          {pieData.map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <p className="text-center text-sm text-muted-foreground py-12">No items for this month</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* Tab 4: By Category */}
-          <TabsContent value="by-category" className="space-y-4">
+          {/* Tab 3: By Category — content unchanged from prior page (Commit 3 replaces) */}
+          <TabsContent value="by-category" className="space-y-4 pt-4">
             <Card className="io-card">
               <CardContent className="p-0">
                 {renderVarianceTable(byCategory)}
@@ -725,7 +674,39 @@ export default function VarianceDashboardPage() {
               </Card>
             )}
           </TabsContent>
+
+          {/* Tab 4: Drivers — expanded list */}
+          <TabsContent value="drivers" className="space-y-3 pt-4">
+            <header className="flex items-baseline justify-between gap-3">
+              <div>
+                <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                  Variance drivers · {variance.monthLabel} MTD
+                </p>
+                <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
+                  All drivers, ranked
+                </h3>
+              </div>
+            </header>
+            <section className="rounded-lg border border-border bg-card p-6">
+              <VarianceDriversList drivers={variance.drivers} />
+            </section>
+          </TabsContent>
         </Tabs>
+
+        {/* Waterfall — plan to actual */}
+        <section>
+          <header className="mb-3 flex items-baseline justify-between gap-3">
+            <div>
+              <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Net variance · {variance.monthLabel} MTD
+              </p>
+              <h3 className="mt-1 font-display text-[20px] font-medium leading-tight text-foreground">
+                How we got <em className="not-italic italic text-[var(--gold-lo)]">here</em> — plan to actual waterfall
+              </h3>
+            </div>
+          </header>
+          <VarianceWaterfall data={variance.waterfall} />
+        </section>
       </div>
     </div>
   );
