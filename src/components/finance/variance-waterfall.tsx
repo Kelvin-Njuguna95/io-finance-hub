@@ -22,6 +22,13 @@ import type { WaterfallData, WaterfallSegment } from '@/hooks/use-variance';
 
 type VarianceWaterfallProps = {
   data: WaterfallData;
+  /** Anchor (left) bar bottom label. Defaults to "PLAN". */
+  anchorLabel?: string;
+  /** Terminal (right) bar bottom label. Defaults to "ACTUAL". */
+  terminalLabel?: string;
+  /** Override the bottom callout. When omitted, renders the default
+   *  "NET VARIANCE · {signed} · {pct}% OVER/UNDER PLAN" format. */
+  calloutOverride?: string;
   className?: string;
 };
 
@@ -40,7 +47,13 @@ function signedNum(kes: number): string {
   return `${sign}${compactNum(Math.abs(kes))}`;
 }
 
-export function VarianceWaterfall({ data, className }: VarianceWaterfallProps) {
+export function VarianceWaterfall({
+  data,
+  anchorLabel = 'PLAN',
+  terminalLabel = 'ACTUAL',
+  calloutOverride,
+  className,
+}: VarianceWaterfallProps) {
   const plotW = VIEW_W - M.left - M.right;
   const plotH = VIEW_H - M.top - M.bottom;
 
@@ -84,13 +97,13 @@ export function VarianceWaterfall({ data, className }: VarianceWaterfallProps) {
 
     let cursorX = M.left;
 
-    // Plan anchor.
+    // Plan / anchor bar.
     const planY = yForValue(data.planKes);
     const planHeight = baselineY - planY;
     bars.push({
       kind: 'anchor',
       id: 'plan',
-      label: 'PLAN',
+      label: anchorLabel,
       x: cursorX,
       y: planY,
       height: planHeight,
@@ -140,13 +153,13 @@ export function VarianceWaterfall({ data, className }: VarianceWaterfallProps) {
       cursorX += barWidth + gap;
     }
 
-    // Actual terminal.
+    // Actual / terminal bar.
     const actualY = yForValue(data.actualKes);
     const actualHeight = baselineY - actualY;
     bars.push({
       kind: 'anchor',
       id: 'actual',
-      label: 'ACTUAL',
+      label: terminalLabel,
       x: cursorX,
       y: actualY,
       height: actualHeight,
@@ -163,7 +176,7 @@ export function VarianceWaterfall({ data, className }: VarianceWaterfallProps) {
     });
 
     return { bars, connectors, maxValue, barWidth };
-  }, [data, plotW, plotH]);
+  }, [data, plotW, plotH, anchorLabel, terminalLabel]);
 
   // Suppress unused-var lint for maxValue (returned for parity).
   void maxValue;
@@ -174,7 +187,8 @@ export function VarianceWaterfall({ data, className }: VarianceWaterfallProps) {
     return (plotW - 12 * (totalBars - 1)) / totalBars;
   }, [data.segments.length, plotW]);
 
-  const calloutText = `NET VARIANCE · ${signedNum(data.netVarianceKes)} · ${data.netVariancePct >= 0 ? '+' : '−'}${Math.abs(data.netVariancePct).toFixed(2)}% ${data.netVarianceKes >= 0 ? 'OVER' : 'UNDER'} PLAN`;
+  const defaultCallout = `NET VARIANCE · ${signedNum(data.netVarianceKes)} · ${data.netVariancePct >= 0 ? '+' : '−'}${Math.abs(data.netVariancePct).toFixed(2)}% ${data.netVarianceKes >= 0 ? 'OVER' : 'UNDER'} PLAN`;
+  const calloutText = calloutOverride ?? defaultCallout;
 
   return (
     <div

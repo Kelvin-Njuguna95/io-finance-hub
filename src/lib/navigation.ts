@@ -58,7 +58,7 @@ const cfoNav: NavGroup[] = [
   {
     title: 'Reports & Analysis',
     items: [
-      { title: 'Monthly P&L', href: '/reports/monthly', icon: FileText },
+      { title: 'Monthly P&L', href: '/reports/monthly-pl', icon: FileText },
       { title: 'P&L Reports', href: '/reports/pnl', icon: TrendingUp },
       { title: 'Profitability', href: '/reports/profitability', icon: PieChart },
       { title: 'Trends & Analytics', href: '/reports/trends', icon: LineChart },
@@ -126,7 +126,7 @@ const accountantNav: NavGroup[] = [
   {
     title: 'Reports',
     items: [
-      { title: 'Monthly P&L', href: '/reports/monthly', icon: FileText },
+      { title: 'Monthly P&L', href: '/reports/monthly-pl', icon: FileText },
       { title: 'P&L Reports', href: '/reports/pnl', icon: TrendingUp },
       { title: 'Profitability', href: '/reports/profitability', icon: PieChart },
       { title: 'Trends & Analytics', href: '/reports/trends', icon: LineChart },
@@ -157,7 +157,7 @@ const teamLeaderNav: NavGroup[] = [
   {
     title: 'Reports',
     items: [
-      { title: 'Monthly P&L', href: '/reports/monthly', icon: FileText },
+      { title: 'Monthly P&L', href: '/reports/monthly-pl', icon: FileText },
       { title: 'Profitability', href: '/reports/profitability', icon: PieChart },
       { title: 'Trends & Analytics', href: '/reports/trends', icon: LineChart },
       { title: 'Budget Accuracy', href: '/reports/budget-accuracy', icon: Target },
@@ -184,7 +184,7 @@ const projectManagerNav: NavGroup[] = [
   {
     title: 'Reports',
     items: [
-      { title: 'Monthly P&L', href: '/reports/monthly', icon: FileText },
+      { title: 'Monthly P&L', href: '/reports/monthly-pl', icon: FileText },
       { title: 'P&L Reports', href: '/reports/pnl', icon: TrendingUp },
       { title: 'Profitability', href: '/reports/profitability', icon: PieChart },
       { title: 'Trends & Analytics', href: '/reports/trends', icon: LineChart },
