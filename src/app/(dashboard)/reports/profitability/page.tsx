@@ -131,7 +131,7 @@ export default function ProfitabilityPage() {
               ? `${formatYearMonth(selectedMonth)} · loading…`
               : `${formatYearMonth(selectedMonth)} · ${summary.projectCount} ${
                   summary.projectCount === 1 ? 'project' : 'projects'
-                } · ${formatCompactKES(summary.totalRevenueKes)} revenue · ${summary.blendedMarginPct.toFixed(1)}% blended margin`
+                } · ${formatCompactKES(summary.totalRevenueKes)} revenue · ${summary.blendedMarginPct.toFixed(1)}% blended net margin (fully-loaded)`
           }
           action={
             <div className="flex items-center gap-2">
@@ -168,13 +168,13 @@ export default function ProfitabilityPage() {
         {/* KPI strip */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <HeadlineStatCard
-            eyebrow={`Blended margin · ${summary.monthLabel}`}
+            eyebrow={`Blended net margin · ${summary.monthLabel}`}
             value={`${summary.blendedMarginPct.toFixed(1)}%`}
             tone={headlineTone}
             sub={
               summary.projectCount === 0
                 ? 'No projects with revenue this month'
-                : `${formatCompactKES(summary.totalGrossProfitKes)} gross profit across ${summary.projectCount} ${summary.projectCount === 1 ? 'project' : 'projects'}`
+                : `${formatCompactKES(summary.totalGrossProfitKes)} net profit · fully-loaded across ${summary.projectCount} ${summary.projectCount === 1 ? 'project' : 'projects'}`
             }
             loading={profitability.loading}
           />
@@ -186,9 +186,9 @@ export default function ProfitabilityPage() {
             tone="brand"
           />
           <StatCard
-            title="Total gross profit"
+            title="Total net profit"
             value={formatCompactKES(summary.totalGrossProfitKes)}
-            subtitle={`${formatCompactKES(summary.totalExpensesKes)} confirmed direct cost`}
+            subtitle={`${formatCompactKES(summary.totalDirectCostKes)} direct + ${formatCompactKES(summary.totalAllocatedOverheadKes)} allocated overhead`}
             loading={profitability.loading}
             tone={summary.totalGrossProfitKes >= 0 ? 'success' : 'danger'}
           />
@@ -212,14 +212,14 @@ export default function ProfitabilityPage() {
           <header className="mb-5 flex items-baseline justify-between gap-3">
             <div>
               <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                Margin · {summary.monthLabel}
+                Net margin · {summary.monthLabel}
               </p>
               <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
                 Per-project{' '}
                 <em className="not-italic italic text-[var(--gold-lo)]">margin bars</em>
               </h3>
               <p className="mt-1 text-[12.5px] text-[var(--warm-grey-3)]">
-                Gold fill is the share of revenue retained as gross profit. Sorted by margin descending.
+                Gold fill is the share of revenue retained as net profit, after direct cost <em>and</em> allocated overhead. Sorted by net margin descending.
               </p>
             </div>
             {hiddenCount > 0 && (
@@ -250,6 +250,18 @@ export default function ProfitabilityPage() {
               ))}
             </ul>
           )}
+          {!profitability.loading && summary.unallocatedOverheadKes > 0 && (
+            <p className="mt-4 text-[12px] text-muted-foreground">
+              {formatCompactKES(summary.unallocatedOverheadKes)} overhead unallocated — projects without agent counts excluded from the allocation pool.
+            </p>
+          )}
+          {!profitability.loading &&
+            summary.totalSharedExpensesKes > 0 &&
+            !summary.allocationFromMaterializedTable && (
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                Allocation computed from agent_counts (materialised allocation not yet available for this month).
+              </p>
+            )}
         </section>
 
         {/* Margin × Revenue scatter */}
@@ -388,15 +400,21 @@ export default function ProfitabilityPage() {
 }
 
 function ProfitabilityMarginRow({ row }: { row: ProfitabilityRow }) {
+  // Net margin tone — same thresholds as before but now interpreted
+  // against fully-loaded margin (which will be lower than direct).
   const marginTone =
-    row.marginPct >= 25
+    row.marginPct >= 15
       ? 'text-success-soft-foreground'
-      : row.marginPct >= 10
+      : row.marginPct >= 5
         ? 'text-foreground'
         : row.marginPct >= 0
           ? 'text-[var(--warm-grey-3)]'
           : 'text-[var(--danger)]';
 
+  // Layout choice: keep the existing 4-column grid (name+meta · bullet
+  // · revenue · profit) and tuck direct/overhead breakdown into the
+  // mono meta line. Adding two more numeric columns made the row too
+  // dense at the current widths.
   return (
     <li className="grid grid-cols-[1.4fr_1fr_120px_120px] items-center gap-4">
       <div className="min-w-0">
@@ -411,7 +429,7 @@ function ProfitabilityMarginRow({ row }: { row: ProfitabilityRow }) {
         </p>
         <p className="mt-1 truncate font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
           <span className={cn('font-medium', marginTone)}>
-            {row.marginPct.toFixed(1)}% margin
+            {row.marginPct.toFixed(1)}% net margin
           </span>
           {Math.abs(row.momMarginDeltaPts) >= 0.05 && (
             <>
@@ -432,9 +450,23 @@ function ProfitabilityMarginRow({ row }: { row: ProfitabilityRow }) {
               {' · '}
               <span>
                 {row.headcount} {row.headcount === 1 ? 'agent' : 'agents'}
+                {row.headcountSharePct !== null && (
+                  <> ({row.headcountSharePct.toFixed(0)}% pool)</>
+                )}
               </span>
             </>
           )}
+        </p>
+        <p className="mt-0.5 truncate font-mono text-[10.5px] tracking-[0.05em] text-muted-foreground/80">
+          {formatCompactKES(row.directCostKes)} direct
+          {row.allocatedOverheadKes > 0 && (
+            <>
+              {' + '}
+              {formatCompactKES(row.allocatedOverheadKes)} overhead
+            </>
+          )}
+          {' = '}
+          {formatCompactKES(row.totalCostKes)} cost
         </p>
       </div>
       <VarianceBullet

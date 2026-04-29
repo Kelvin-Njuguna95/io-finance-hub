@@ -9,13 +9,26 @@ import { EXPENSE_STATUS } from '@/lib/constants/status';
  *
  * Per Phase 4 Session A architectural rules:
  *   - Revenue from `lagged_revenue_by_project_month` (per project).
- *   - Expenses from `expenses` filtered to lifecycle_status='confirmed',
- *     grouped by project_id.
- *   - Shared overhead (expenses with project_id IS NULL) is omitted —
- *     no allocation rule exists in schema; surfacing it would require
- *     either a manual allocation key or a heuristic. Deferred.
+ *   - Direct expenses from `expenses` filtered to
+ *     lifecycle_status='confirmed' AND expense_type='project_expense'.
+ *   - Shared overhead allocated to projects by headcount proportion.
+ *     Two-tier source:
+ *       1. Read materialised `overhead_allocations.allocated_amount_kes`
+ *          when rows exist for the month (closed months / post-recompute).
+ *       2. Otherwise compute client-side from
+ *          totalSharedExpensesKes × (projectAgents / totalAgents) —
+ *          mirrors fn_calculate_overhead_allocations' headcount_based
+ *          method. Open months that have not been recomputed land here.
+ *   - We do NOT read `project_profitability` directly: its revenue side
+ *     comes from invoices.billing_period (accrual basis), which
+ *     disagrees with the lagged view that the rest of this page uses.
+ *     Migration 00031 flags this as deferred work (G3).
  *   - Headcount per (project, month) sourced from `agent_counts` for
- *     the scatter chart's circle size.
+ *     the scatter chart's circle size and (now) the allocation pool.
+ *
+ * Trend (6mo) intentionally stays on direct margin — fully-loaded
+ * trend would need 6 months of shared expenses + agent counts and is
+ * deferred (only the current-month rollup is rendered).
  */
 
 const NAIROBI_TZ = 'Africa/Nairobi';
@@ -25,22 +38,59 @@ export type ProfitabilityRow = {
   id: string;
   name: string;
   revenueKes: number;
+  /** Direct project expenses only (lifecycle_status='confirmed',
+   *  expense_type='project_expense'). Same value formerly named
+   *  `expensesKes`; the alias is retained for back-compat. */
+  directCostKes: number;
+  /** Project's share of shared overhead. Materialised when
+   *  overhead_allocations has a row, otherwise headcount-proportional. */
+  allocatedOverheadKes: number;
+  /** Fully-loaded cost = direct + allocated overhead. */
+  totalCostKes: number;
+  /** @deprecated alias for directCostKes — preserved so existing
+   *  callers don't break in the same commit; remove after page
+   *  migrates. */
   expensesKes: number;
+  /** Net profit using fully-loaded cost (revenue - totalCost). */
   grossProfitKes: number;
+  /** Net margin %, fully-loaded. This is what the page now shows. */
   marginPct: number;
+  /** Direct margin %, retained for transparency / future drill-down. */
+  directMarginPct: number;
   marginRank: number;
-  /** Month-over-month delta in margin pts (current - prior). */
+  /** Month-over-month delta in net margin pts (current - prior). */
   momMarginDeltaPts: number;
   /** Headcount for the current month, when known. */
   headcount?: number;
+  /** This project's share of total agents in the allocation pool, e.g.
+   *  48.1 for 50/104. Null when no agents in the pool. */
+  headcountSharePct: number | null;
 };
 
 export type ProfitabilitySummary = {
   monthLabel: string;
   totalRevenueKes: number;
+  /** Direct project expenses across all projects. */
+  totalDirectCostKes: number;
+  /** Total shared overhead this month (regardless of allocation). */
+  totalSharedExpensesKes: number;
+  /** Sum of allocated overhead across projects in the table. Equals
+   *  totalSharedExpensesKes when every project in the pool has a
+   *  headcount; less when some don't. */
+  totalAllocatedOverheadKes: number;
+  /** totalSharedExpensesKes - totalAllocatedOverheadKes. */
+  unallocatedOverheadKes: number;
+  /** Fully-loaded total cost across all projects. */
+  totalCostKes: number;
+  /** @deprecated retained as alias for totalCostKes. */
   totalExpensesKes: number;
+  /** Net profit using fully-loaded cost. */
   totalGrossProfitKes: number;
+  /** Blended net margin (fully-loaded). */
   blendedMarginPct: number;
+  /** Truth: was the per-project allocation read from
+   *  overhead_allocations (true) or computed client-side (false)? */
+  allocationFromMaterializedTable: boolean;
   topProject: { name: string; marginPct: number } | null;
   weakestProject: { name: string; marginPct: number } | null;
   projectCount: number;
@@ -130,9 +180,15 @@ export function useProfitability(yearMonth: string) {
   const [summary, setSummary] = useState<ProfitabilitySummary>(() => ({
     monthLabel: shortMonth(yearMonth),
     totalRevenueKes: 0,
+    totalDirectCostKes: 0,
+    totalSharedExpensesKes: 0,
+    totalAllocatedOverheadKes: 0,
+    unallocatedOverheadKes: 0,
+    totalCostKes: 0,
     totalExpensesKes: 0,
     totalGrossProfitKes: 0,
     blendedMarginPct: 0,
+    allocationFromMaterializedTable: false,
     topProject: null,
     weakestProject: null,
     projectCount: 0,
@@ -160,6 +216,8 @@ export function useProfitability(yearMonth: string) {
         trailingExpensesRes,
         agentCountsRes,
         projectsRes,
+        overheadAllocationsRes,
+        currentSharedExpensesRes,
       ] = await Promise.all([
         // The lagged view has no FK declared on projects — supabase-js
         // can't auto-resolve a projects(name) embed against it, and the
@@ -204,6 +262,26 @@ export function useProfitability(yearMonth: string) {
         // variance hook (which reads pending_expenses, a table with
         // declared FKs, and works).
         supabase.from('projects').select('id, name'),
+        // Materialised per-project overhead allocation. Populated by
+        // fn_calculate_overhead_allocations on month close / recompute.
+        // Empty for never-recomputed months — we fall back to a
+        // client-side headcount split using the next query's totals.
+        supabase
+          .from('overhead_allocations')
+          .select(
+            'project_id, allocated_amount_kes, headcount_share_pct, final_share_pct',
+          )
+          .eq('year_month', yearMonth),
+        // Total shared overhead for the requested month — fallback
+        // input when overhead_allocations is empty. Filtering by
+        // expense_type='shared_expense' is the canonical "is this
+        // overhead?" check (see expense_scope_check on expenses).
+        supabase
+          .from('expenses')
+          .select('amount_kes')
+          .eq('year_month', yearMonth)
+          .eq('lifecycle_status', EXPENSE_STATUS.CONFIRMED)
+          .eq('expense_type', 'shared_expense'),
       ]);
 
       const currentRevenue = (currentRevenueRes.data ?? []) as LaggedProjectRow[];
@@ -219,6 +297,15 @@ export function useProfitability(yearMonth: string) {
       const projectsList = (projectsRes.data ?? []) as Array<{
         id: string;
         name: string | null;
+      }>;
+      const overheadAllocations = (overheadAllocationsRes.data ?? []) as Array<{
+        project_id: string;
+        allocated_amount_kes: number | string | null;
+        headcount_share_pct: number | string | null;
+        final_share_pct: number | string | null;
+      }>;
+      const currentSharedExpenses = (currentSharedExpensesRes.data ?? []) as Array<{
+        amount_kes: number | string | null;
       }>;
 
       // ---- Project-name resolver ----
@@ -290,28 +377,90 @@ export function useProfitability(yearMonth: string) {
         headcountByProject.set(ac.project_id, Number(ac.agent_count ?? 0));
       }
 
-      // ---- Build ProfitabilityRow[] sorted by margin desc ----
+      // ---- Shared overhead allocation ----
+      // Tier 1: materialised overhead_allocations (closed / recomputed
+      // months). Tier 2: client-side headcount split using
+      // sum(shared_expense confirmed) / sum(agent_counts), keyed by
+      // each project's headcount share.
+      const totalSharedExpensesKes = currentSharedExpenses.reduce(
+        (s, e) => s + Number(e.amount_kes ?? 0),
+        0,
+      );
+      const allocatedByProject = new Map<string, number>();
+      let allocationFromMaterializedTable = false;
+      if (overheadAllocations.length > 0) {
+        allocationFromMaterializedTable = true;
+        for (const a of overheadAllocations) {
+          if (!a.project_id) continue;
+          allocatedByProject.set(
+            a.project_id,
+            Number(a.allocated_amount_kes ?? 0),
+          );
+        }
+      } else {
+        const totalAgents = Array.from(headcountByProject.values()).reduce(
+          (s, n) => s + n,
+          0,
+        );
+        if (totalAgents > 0 && totalSharedExpensesKes > 0) {
+          for (const [pid, agents] of headcountByProject) {
+            if (agents <= 0) continue;
+            allocatedByProject.set(
+              pid,
+              totalSharedExpensesKes * (agents / totalAgents),
+            );
+          }
+        }
+      }
+
+      // Total agents in the per-project pool (only projects that
+      // appear in currentByProject + have headcount). Used for the
+      // headcountSharePct field on each row.
+      const poolAgents = Array.from(currentByProject.keys()).reduce(
+        (s, pid) => s + (headcountByProject.get(pid) ?? 0),
+        0,
+      );
+
+      // ---- Build ProfitabilityRow[] sorted by NET margin desc ----
       const unranked: Omit<ProfitabilityRow, 'marginRank'>[] = Array.from(
         currentByProject.entries(),
       ).map(([id, agg]) => {
-        const grossProfitKes = agg.revenueKes - agg.expensesKes;
-        const marginPct = marginPctFor(agg.revenueKes, agg.expensesKes);
+        const directCostKes = agg.expensesKes;
+        const allocatedOverheadKes = allocatedByProject.get(id) ?? 0;
+        const totalCostKes = directCostKes + allocatedOverheadKes;
+        const grossProfitKes = agg.revenueKes - totalCostKes;
+        const marginPct = marginPctFor(agg.revenueKes, totalCostKes);
+        const directMarginPct = marginPctFor(agg.revenueKes, directCostKes);
         const prior = priorByProject.get(id);
+        // Prior delta intentionally compares direct margins (we don't
+        // pull prior-month allocation here; doing so would need
+        // another overhead_allocations fetch and a prior shared-expense
+        // total). Rename to net once prior overhead is sourced.
         const priorMarginPct = prior
           ? marginPctFor(prior.revenueKes, prior.expensesKes)
           : 0;
         const momMarginDeltaPts = prior
-          ? marginPct - priorMarginPct
+          ? directMarginPct - priorMarginPct
           : 0;
+        const agents = headcountByProject.get(id);
+        const headcountSharePct =
+          poolAgents > 0 && agents !== undefined
+            ? (agents / poolAgents) * 100
+            : null;
         return {
           id,
           name: agg.name,
           revenueKes: agg.revenueKes,
-          expensesKes: agg.expensesKes,
+          directCostKes,
+          allocatedOverheadKes,
+          totalCostKes,
+          expensesKes: directCostKes,
           grossProfitKes,
           marginPct,
+          directMarginPct,
           momMarginDeltaPts,
-          headcount: headcountByProject.get(id),
+          headcount: agents,
+          headcountSharePct,
         };
       });
 
@@ -325,8 +474,17 @@ export function useProfitability(yearMonth: string) {
 
       // ---- KPI summary ----
       const totalRevenueKes = sorted.reduce((s, r) => s + r.revenueKes, 0);
-      const totalExpensesKes = sorted.reduce((s, r) => s + r.expensesKes, 0);
-      const totalGrossProfitKes = totalRevenueKes - totalExpensesKes;
+      const totalDirectCostKes = sorted.reduce((s, r) => s + r.directCostKes, 0);
+      const totalAllocatedOverheadKes = sorted.reduce(
+        (s, r) => s + r.allocatedOverheadKes,
+        0,
+      );
+      const unallocatedOverheadKes = Math.max(
+        0,
+        Math.round(totalSharedExpensesKes - totalAllocatedOverheadKes),
+      );
+      const totalCostKes = totalDirectCostKes + totalAllocatedOverheadKes;
+      const totalGrossProfitKes = totalRevenueKes - totalCostKes;
       const blendedMarginPct =
         totalRevenueKes > 0 ? (totalGrossProfitKes / totalRevenueKes) * 100 : 0;
 
@@ -345,9 +503,15 @@ export function useProfitability(yearMonth: string) {
       const newSummary: ProfitabilitySummary = {
         monthLabel: shortMonth(yearMonth),
         totalRevenueKes,
-        totalExpensesKes,
+        totalDirectCostKes,
+        totalSharedExpensesKes,
+        totalAllocatedOverheadKes,
+        unallocatedOverheadKes,
+        totalCostKes,
+        totalExpensesKes: totalCostKes,
         totalGrossProfitKes,
         blendedMarginPct,
+        allocationFromMaterializedTable,
         topProject,
         weakestProject,
         projectCount: sorted.length,
