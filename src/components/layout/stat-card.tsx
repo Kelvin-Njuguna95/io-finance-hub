@@ -62,7 +62,55 @@ type StatCardProps = {
   trend?: StatCardTrendFull | StatCardTrendLegacy;
   loading?: boolean;
   className?: string;
+  /**
+   * Optional right-side mini-chart slot (~64×40). Caller supplies the node
+   * (e.g. a Recharts <Sparkline>). Mutually exclusive with `ring`; if both
+   * are passed, sparkline wins. When provided, the icon tile is hidden.
+   */
+  sparkline?: React.ReactNode;
+  /**
+   * Optional right-side completion ring (48×48). `value/max` drives the
+   * gold filled arc against a paper-3 track. When provided (and sparkline
+   * is not), the icon tile is hidden.
+   */
+  ring?: { value: number; max: number };
 };
+
+function CompletionRing({ value, max }: { value: number; max: number }) {
+  const pct = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
+  const r = 21;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg
+      width={48}
+      height={48}
+      viewBox="0 0 48 48"
+      aria-hidden
+      className="shrink-0"
+    >
+      <circle
+        cx={24}
+        cy={24}
+        r={r}
+        fill="none"
+        stroke="var(--paper-3)"
+        strokeWidth={3}
+      />
+      <circle
+        cx={24}
+        cy={24}
+        r={r}
+        fill="none"
+        stroke="var(--gold)"
+        strokeWidth={3}
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={c * (1 - pct)}
+        transform="rotate(-90 24 24)"
+      />
+    </svg>
+  );
+}
 
 function normalizeTrend(
   trend: StatCardTrendFull | StatCardTrendLegacy,
@@ -127,7 +175,10 @@ export function StatCard({
   trend,
   loading,
   className,
+  sparkline,
+  ring,
 }: StatCardProps) {
+  const rightVisual = sparkline ?? (ring ? <CompletionRing {...ring} /> : null);
   if (loading) {
     return (
       <div
@@ -183,7 +234,14 @@ export function StatCard({
             </div>
           )}
         </div>
-        {Icon && (
+        {rightVisual ? (
+          <span
+            aria-hidden
+            className="flex shrink-0 items-center justify-center self-center pl-2"
+          >
+            {rightVisual}
+          </span>
+        ) : Icon ? (
           <span
             aria-hidden
             className={cn(
@@ -193,7 +251,7 @@ export function StatCard({
           >
             <Icon className="size-5" strokeWidth={1.75} />
           </span>
-        )}
+        ) : null}
       </div>
     </div>
   );
