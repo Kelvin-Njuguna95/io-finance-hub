@@ -35,6 +35,7 @@ import {
 } from '@/lib/format';
 import { BUDGET_STATUS } from '@/lib/constants/status';
 import { BudgetKpiStrip } from '@/components/budgets/budget-kpi-strip';
+import { FilterPill } from '@/components/layout/filter-pill';
 import {
   BudgetsListRow,
   BUDGETS_LIST_GRID,
@@ -416,35 +417,4 @@ export default function BudgetsPage() {
   );
 }
 
-type FilterPillProps = {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick(): void;
-};
-
-function FilterPill({ label, count, active, onClick }: FilterPillProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'inline-flex h-8 items-center gap-2 rounded-full border px-3 text-[12px] font-medium transition-colors',
-        active
-          ? 'border-foreground bg-foreground text-background'
-          : 'border-border bg-card text-foreground hover:bg-muted/40',
-      )}
-    >
-      <span>{label}</span>
-      <span
-        className={cn(
-          'inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums',
-          active ? 'bg-background/15 text-background' : 'bg-muted text-muted-foreground',
-        )}
-      >
-        {count}
-      </span>
-    </button>
-  );
-}
 
