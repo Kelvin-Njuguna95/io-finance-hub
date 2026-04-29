@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
-import { useVariance } from '@/hooks/use-variance';
+import {
+  useVariance,
+  type AggregatedRow as VarianceAggregatedRow,
+} from '@/hooks/use-variance';
 import { PageTitle } from '@/components/layout/page-title';
 import { StatCard } from '@/components/layout/stat-card';
 import { HeadlineStatCard } from '@/components/finance/headline-stat-card';
@@ -12,124 +15,30 @@ import { VarianceBullet } from '@/components/finance/variance-bullet';
 import { VarianceDriversList } from '@/components/finance/variance-drivers-list';
 import { VarianceDivergenceChart } from '@/components/finance/variance-divergence-chart';
 import { VarianceWaterfall } from '@/components/finance/variance-waterfall';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  formatCurrency,
+  VarianceHeatmap,
+  type VarianceHeatmapMode,
+} from '@/components/finance/variance-heatmap';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   formatCompactKES,
   getCurrentYearMonth,
   formatYearMonth,
 } from '@/lib/format';
 import { toast } from 'sonner';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line,
-} from 'recharts';
 
-// ---- Types ----
-
-interface PendingExpenseRow {
-  id: string;
-  budget_id: string;
-  project_id: string | null;
-  department_id: string | null;
-  year_month: string;
-  description: string;
-  category: string | null;
-  budgeted_amount_kes: number;
-  actual_amount_kes: number | null;
-  variance_kes: number;
-  variance_pct: number;
-  status: string;
-  projects: { name: string } | null;
-  departments: { name: string } | null;
-}
-
-interface AggregatedRow {
-  name: string;
-  budgeted: number;
-  actual: number;
-  variance: number;
-  variancePct: number;
-  confirmed: number;
-  pending: number;
-  voided: number;
-  accuracyScore: number;
-}
-
-interface TrendPoint {
-  month: string;
-  label: string;
-  accuracyScore: number;
-}
-
-// ---- Constants ----
-
-const COLORS = {
-  budgeted: 'oklch(0.64 0.19 290)',
-  actual: 'oklch(0.80 0.16 78)',
-  overspend: 'oklch(0.63 0.23 25)',
-  underspend: 'oklch(0.68 0.16 158)',
-  onTarget: 'oklch(0.64 0.19 290)',
-};
-
-const PIE_COLORS = ['oklch(0.63 0.23 25)', 'oklch(0.68 0.16 158)', 'oklch(0.64 0.19 290)'];
-
-// ---- Helpers ----
-
-function varianceBadge(pct: number) {
-  const abs = Math.abs(pct);
-  if (abs <= 5) return <Badge variant="secondary" className="bg-success-soft text-success-soft-foreground">On Target</Badge>;
-  if (abs <= 15) return <Badge variant="secondary" className="bg-warning-soft text-warning-soft-foreground">Warning</Badge>;
-  return <Badge variant="secondary" className="bg-danger-soft text-danger-soft-foreground">{pct > 0 ? 'Overspend' : 'Underspend'}</Badge>;
-}
-
+// Accuracy helper retained — used by the Recompute handler below to
+// populate the materialized `expense_variances` table.
 function calcAccuracy(variancePct: number): number {
   return Math.max(0, 100 - Math.abs(variancePct));
-}
-
-function aggregateBy(
-  items: PendingExpenseRow[],
-  keyFn: (item: PendingExpenseRow) => string | null,
-): AggregatedRow[] {
-  const map = new Map<string, {
-    budgeted: number;
-    actual: number;
-    confirmed: number;
-    pending: number;
-    voided: number;
-  }>();
-
-  for (const item of items) {
-    const key = keyFn(item) || 'Shared Expenses';
-    const existing = map.get(key) || { budgeted: 0, actual: 0, confirmed: 0, pending: 0, voided: 0 };
-    existing.budgeted += Number(item.budgeted_amount_kes);
-    existing.actual += Number(item.actual_amount_kes || 0);
-    if (item.status === 'confirmed') existing.confirmed++;
-    else if (item.status === 'voided') existing.voided++;
-    else existing.pending++;
-    map.set(key, existing);
-  }
-
-  return Array.from(map.entries()).map(([name, data]) => {
-    const variance = data.actual - data.budgeted;
-    const variancePct = data.budgeted === 0 ? 0 : (variance / data.budgeted) * 100;
-    return {
-      name,
-      budgeted: data.budgeted,
-      actual: data.actual,
-      variance,
-      variancePct: Math.round(variancePct * 100) / 100,
-      confirmed: data.confirmed,
-      pending: data.pending,
-      voided: data.voided,
-      accuracyScore: Math.round(calcAccuracy(variancePct) * 100) / 100,
-    };
-  });
 }
 
 // ---- Component ----
@@ -139,10 +48,10 @@ const ALLOWED_ROLES = new Set(['cfo', 'accountant', 'project_manager']);
 export default function VarianceDashboardPage() {
   const { user } = useUser();
   const router = useRouter();
-  const [items, setItems] = useState<PendingExpenseRow[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
-  const [loading, setLoading] = useState(true);
   const [recomputing, setRecomputing] = useState(false);
+  const [heatmapMode, setHeatmapMode] =
+    useState<VarianceHeatmapMode>('pct');
 
   // Route-level role gate (D5 amended): allow CFO, accountant, PM. Redirect
   // TL and dept-head with a toast. PM access is unscoped — no project filter.
@@ -162,41 +71,6 @@ export default function VarianceDashboardPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // Load data for selected month
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      const supabase = createClient();
-
-      const { data, error } = await supabase
-        .from('pending_expenses')
-        .select('*, projects(name), departments(name)')
-        .eq('year_month', selectedMonth);
-
-      if (error) {
-        toast.error('Failed to load variance data');
-        setLoading(false);
-        return;
-      }
-
-      setItems((data || []) as unknown as PendingExpenseRow[]);
-      setLoading(false);
-    }
-    load();
-  }, [selectedMonth]);
-
-  // Aggregations — kept for the legacy By Project / By Category tab
-  // content that ships unchanged this commit (Commit 3 replaces them).
-  const projectItems = items.filter((i) => i.project_id !== null);
-
-  const byProject = aggregateBy(projectItems, (i) => i.projects?.name ?? null);
-  const byCategory = aggregateBy(items, (i) => i.category);
-
-  // ---- Legacy Company Overview derivations removed in Commit 2 ----
-  // The 6-card KPI block, accuracy trend, and Recharts variance pie are
-  // gone. The page-level KPI strip (Commit 1) and VarianceWaterfall
-  // (this commit) replace them. Keep the placeholder filter so the
-  // rest of this section still type-checks.
   // Recompute handler (CFO only)
   async function handleRecompute() {
     setRecomputing(true);
@@ -265,14 +139,7 @@ export default function VarianceDashboardPage() {
       }
 
       toast.success('Variances recomputed successfully');
-
-      // Reload data
-      const { data: refreshed } = await supabase
-        .from('pending_expenses')
-        .select('*, projects(name), departments(name)')
-        .eq('year_month', selectedMonth);
-
-      setItems((refreshed || []) as unknown as PendingExpenseRow[]);
+      await variance.refresh();
     } catch {
       toast.error('Failed to recompute variances');
     } finally {
@@ -280,83 +147,101 @@ export default function VarianceDashboardPage() {
     }
   }
 
-  // ---- Renderers ----
+  // ---- Tab bullet-table renderer (shared by all four tabular tabs) ----
 
-  function renderVarianceTable(rows: AggregatedRow[]) {
+  function renderBulletTable(
+    rows: VarianceAggregatedRow[],
+    emptyLabel: string,
+    headerScopeLabel: string,
+  ) {
     return (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead className="text-right">Budgeted (KES)</TableHead>
-            <TableHead className="text-right">Actual (KES)</TableHead>
-            <TableHead className="text-right">Variance (KES)</TableHead>
-            <TableHead className="text-right">Variance %</TableHead>
-            <TableHead className="text-center">Status Items</TableHead>
-            <TableHead className="text-right">Accuracy</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading ? (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Please wait</TableCell>
-            </TableRow>
-          ) : rows.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                No data for {formatYearMonth(selectedMonth)}
-              </TableCell>
-            </TableRow>
-          ) : (
-            rows.map((r) => (
-              <TableRow key={r.name}>
-                <TableCell className="font-medium">{r.name}</TableCell>
-                <TableCell className="text-right font-mono text-sm">
-                  {formatCurrency(r.budgeted, 'KES')}
-                </TableCell>
-                <TableCell className="text-right font-mono text-sm">
-                  {formatCurrency(r.actual, 'KES')}
-                </TableCell>
-                <TableCell className={`text-right font-mono text-sm ${r.variance > 0 ? 'text-danger-soft-foreground' : r.variance < 0 ? 'text-success-soft-foreground' : ''}`}>
-                  {formatCurrency(r.variance, 'KES')}
-                </TableCell>
-                <TableCell className="text-right">
-                  {varianceBadge(r.variancePct)}
-                  <span className="ml-1 text-xs text-muted-foreground">{r.variancePct.toFixed(1)}%</span>
-                </TableCell>
-                <TableCell className="text-center space-x-1">
-                  <Badge variant="secondary" className="bg-success-soft text-success-soft-foreground text-xs">{r.confirmed}</Badge>
-                  <Badge variant="secondary" className="bg-warning-soft text-warning-soft-foreground text-xs">{r.pending}</Badge>
-                  <Badge variant="secondary" className="bg-danger-soft text-danger-soft-foreground text-xs">{r.voided}</Badge>
-                </TableCell>
-                <TableCell className="text-right font-mono text-sm">
-                  {r.accuracyScore.toFixed(1)}%
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    );
-  }
-
-  function renderBarChart(data: AggregatedRow[]) {
-    return (
-      <Card className="io-card mt-4">
-        <CardContent className="p-4">
-          <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-15} textAnchor="end" height={60} />
-              <YAxis tickFormatter={(v) => `${(Number(v) / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(value) => [formatCurrency(Number(value), 'KES'), '']} />
-              <Legend />
-              <Bar dataKey="budgeted" name="Budgeted" fill={COLORS.budgeted} />
-              <Bar dataKey="actual" name="Actual" fill={COLORS.actual} />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="grid grid-cols-[1.6fr_1fr_1fr_2fr_120px] items-center gap-5 border-b border-border bg-muted/40 px-6 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          <span>{headerScopeLabel}</span>
+          <span className="text-right">Plan</span>
+          <span className="text-right">Actual MTD</span>
+          <span>Burn vs plan</span>
+          <span className="text-right">Variance</span>
+        </div>
+        {variance.loading ? (
+          <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+            Loading…
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+            {emptyLabel}
+          </div>
+        ) : (
+          rows.map((row) => {
+            const isOver = row.varianceKes > 0;
+            const isUnder = row.varianceKes < 0 && Math.abs(row.variancePct) > 2;
+            const sign = row.varianceKes >= 0 ? '+ ' : '− ';
+            const utilizationPct = Math.round(
+              (row.actualKes / Math.max(row.planKes, 1)) * 100,
+            );
+            const subText = row.isOverTolerance
+              ? `${utilizationPct}% · over 5% tol`
+              : isUnder
+                ? `${Math.round(Math.abs(row.variancePct))}% · ahead`
+                : Math.abs(row.variancePct) < 1
+                  ? 'on plan'
+                  : `${utilizationPct}% · within tol`;
+            return (
+              <div
+                key={row.id}
+                className="grid grid-cols-[1.6fr_1fr_1fr_2fr_120px] items-center gap-5 border-b border-border-subtle px-6 py-4 last:border-b-0 hover:bg-[var(--paper-2)]"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-[14px] font-medium leading-tight text-foreground">
+                    {row.label}
+                  </p>
+                  <p className="mt-1 truncate font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
+                    {row.meta ?? `${row.count} ${row.count === 1 ? 'expense' : 'expenses'}`}
+                  </p>
+                </div>
+                <span className="text-right font-mono text-[14px] tabular-nums text-foreground">
+                  {formatCompactKES(row.planKes)}
+                </span>
+                <span
+                  className={`text-right font-mono text-[14px] tabular-nums ${isOver ? 'text-[var(--danger)]' : 'text-foreground'}`}
+                >
+                  {formatCompactKES(row.actualKes)}
+                </span>
+                <VarianceBullet
+                  planKes={row.planKes}
+                  actualKes={row.actualKes}
+                  periodElapsedPct={variance.periodElapsedPct}
+                />
+                <div className="text-right">
+                  <p
+                    className={`font-mono text-[14px] tabular-nums ${
+                      isOver
+                        ? 'text-[var(--danger)]'
+                        : isUnder
+                          ? 'text-success-soft-foreground'
+                          : 'text-foreground'
+                    }`}
+                  >
+                    {sign}
+                    {formatCompactKES(Math.abs(row.varianceKes)).replace('KES ', '')}
+                  </p>
+                  <p
+                    className={`mt-1 font-mono text-[10.5px] uppercase tracking-[0.10em] ${
+                      row.isOverTolerance
+                        ? 'text-[var(--danger)]'
+                        : isUnder
+                          ? 'text-success-soft-foreground'
+                          : 'text-muted-foreground'
+                    }`}
+                  >
+                    {subText}
+                  </p>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
     );
   }
 
@@ -526,6 +411,12 @@ export default function VarianceDashboardPage() {
                 {variance.byProject.length}
               </span>
             </TabsTrigger>
+            <TabsTrigger value="by-department">
+              By department
+              <span className="ml-2 inline-flex h-4 min-w-[18px] items-center justify-center rounded-full bg-muted px-1 font-mono text-[10px] tabular-nums">
+                {variance.byDepartment.length}
+              </span>
+            </TabsTrigger>
             <TabsTrigger value="by-category">
               By category
               <span className="ml-2 inline-flex h-4 min-w-[18px] items-center justify-center rounded-full bg-muted px-1 font-mono text-[10px] tabular-nums">
@@ -540,158 +431,99 @@ export default function VarianceDashboardPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Tab 1: By Budget — bullet table per D1 */}
+          {/* Tab 1: By Budget */}
           <TabsContent value="by-budget" className="space-y-3 pt-4">
-            <header className="flex items-baseline justify-between gap-3">
-              <div>
-                <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                  By budget · {variance.monthLabel} MTD
-                </p>
-                <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
-                  Plan vs <em className="not-italic italic text-[var(--gold-lo)]">actual</em> across active budgets
-                </h3>
-              </div>
+            <header>
+              <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                By budget · {variance.monthLabel} MTD
+              </p>
+              <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
+                Plan vs <em className="not-italic italic text-[var(--gold-lo)]">actual</em> across active budgets
+              </h3>
             </header>
-
-            <div className="overflow-hidden rounded-lg border border-border bg-card">
-              <div className="grid grid-cols-[1.6fr_1fr_1fr_2fr_120px] items-center gap-5 border-b border-border bg-muted/40 px-6 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                <span>Budget · scope</span>
-                <span className="text-right">Plan</span>
-                <span className="text-right">Actual MTD</span>
-                <span>Burn vs plan</span>
-                <span className="text-right">Variance</span>
-              </div>
-              {variance.loading ? (
-                <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-                  Loading…
-                </div>
-              ) : variance.byBudget.length === 0 ? (
-                <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-                  No active budgets for {formatYearMonth(selectedMonth)}
-                </div>
-              ) : (
-                variance.byBudget.map((row) => {
-                  const isOver = row.varianceKes > 0;
-                  const isUnder = row.varianceKes < 0 && Math.abs(row.variancePct) > 2;
-                  const sign = row.varianceKes >= 0 ? '+ ' : '− ';
-                  const subText = row.isOverTolerance
-                    ? `${Math.round(row.actualKes / Math.max(row.planKes, 1) * 100)}% · over 5% tol`
-                    : isUnder
-                      ? `${Math.round(Math.abs(row.variancePct))}% · ahead`
-                      : Math.abs(row.variancePct) < 1
-                        ? 'on plan'
-                        : `${Math.round(row.actualKes / Math.max(row.planKes, 1) * 100)}% · within tol`;
-                  return (
-                    <div
-                      key={row.id}
-                      className="grid grid-cols-[1.6fr_1fr_1fr_2fr_120px] items-center gap-5 border-b border-border-subtle px-6 py-4 last:border-b-0 hover:bg-[var(--paper-2)]"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-[14px] font-medium leading-tight text-foreground">
-                          {row.label}
-                        </p>
-                        <p className="mt-1 truncate font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
-                          {row.meta ?? '—'}
-                        </p>
-                      </div>
-                      <span className="text-right font-mono text-[14px] tabular-nums text-foreground">
-                        {formatCompactKES(row.planKes)}
-                      </span>
-                      <span
-                        className={`text-right font-mono text-[14px] tabular-nums ${isOver ? 'text-[var(--danger)]' : 'text-foreground'}`}
-                      >
-                        {formatCompactKES(row.actualKes)}
-                      </span>
-                      <VarianceBullet
-                        planKes={row.planKes}
-                        actualKes={row.actualKes}
-                        periodElapsedPct={variance.periodElapsedPct}
-                      />
-                      <div className="text-right">
-                        <p
-                          className={`font-mono text-[14px] tabular-nums ${
-                            isOver
-                              ? 'text-[var(--danger)]'
-                              : isUnder
-                                ? 'text-success-soft-foreground'
-                                : 'text-foreground'
-                          }`}
-                        >
-                          {sign}
-                          {formatCompactKES(Math.abs(row.varianceKes)).replace('KES ', '')}
-                        </p>
-                        <p
-                          className={`mt-1 font-mono text-[10.5px] uppercase tracking-[0.10em] ${
-                            row.isOverTolerance
-                              ? 'text-[var(--danger)]'
-                              : isUnder
-                                ? 'text-success-soft-foreground'
-                                : 'text-muted-foreground'
-                          }`}
-                        >
-                          {subText}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </TabsContent>
-
-          {/* Tab 2: By Project — content unchanged from prior page (Commit 3 replaces) */}
-          <TabsContent value="by-project" className="space-y-4 pt-4">
-            <Card className="io-card">
-              <CardContent className="p-0">
-                {renderVarianceTable(byProject)}
-              </CardContent>
-            </Card>
-            {byProject.length > 0 && renderBarChart(byProject)}
-          </TabsContent>
-
-          {/* Tab 3: By Category — content unchanged from prior page (Commit 3 replaces) */}
-          <TabsContent value="by-category" className="space-y-4 pt-4">
-            <Card className="io-card">
-              <CardContent className="p-0">
-                {renderVarianceTable(byCategory)}
-              </CardContent>
-            </Card>
-            {byCategory.length > 0 && (
-              <Card className="io-card">
-                <CardContent className="p-4">
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={byCategory}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis tickFormatter={(v) => `${(Number(v) / 1000).toFixed(0)}k`} />
-                      <Tooltip formatter={(value) => [formatCurrency(Number(value), 'KES'), '']} />
-                      <Legend />
-                      <Bar dataKey="budgeted" name="Budgeted" stackId="a" fill={COLORS.budgeted} />
-                      <Bar dataKey="actual" name="Actual" stackId="b" fill={COLORS.actual} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+            {renderBulletTable(
+              variance.byBudget,
+              `No active budgets for ${formatYearMonth(selectedMonth)}`,
+              'Budget · scope',
             )}
           </TabsContent>
 
-          {/* Tab 4: Drivers — expanded list */}
+          {/* Tab 2: By Project */}
+          <TabsContent value="by-project" className="space-y-3 pt-4">
+            <header>
+              <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                By project · {variance.monthLabel} MTD
+              </p>
+              <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
+                Variance{' '}
+                <em className="not-italic italic text-[var(--gold-lo)]">by project</em>
+              </h3>
+            </header>
+            {renderBulletTable(
+              variance.byProject,
+              `No project-attributed expenses for ${formatYearMonth(selectedMonth)}`,
+              'Project',
+            )}
+          </TabsContent>
+
+          {/* Tab 3: By Department */}
+          <TabsContent value="by-department" className="space-y-3 pt-4">
+            <header>
+              <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                By department · {variance.monthLabel} MTD
+              </p>
+              <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
+                Shared{' '}
+                <em className="not-italic italic text-[var(--gold-lo)]">overhead</em> variance
+              </h3>
+            </header>
+            {renderBulletTable(
+              variance.byDepartment,
+              `No shared / department expenses for ${formatYearMonth(selectedMonth)}`,
+              'Department',
+            )}
+          </TabsContent>
+
+          {/* Tab 4: By Category */}
+          <TabsContent value="by-category" className="space-y-3 pt-4">
+            <header>
+              <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                By category · {variance.monthLabel} MTD
+              </p>
+              <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
+                Variance{' '}
+                <em className="not-italic italic text-[var(--gold-lo)]">by category</em>
+              </h3>
+            </header>
+            {renderBulletTable(
+              variance.byCategory,
+              `No categorised expenses for ${formatYearMonth(selectedMonth)}`,
+              'Category',
+            )}
+          </TabsContent>
+
+          {/* Tab 5: Drivers — expanded list */}
           <TabsContent value="drivers" className="space-y-3 pt-4">
-            <header className="flex items-baseline justify-between gap-3">
-              <div>
-                <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                  Variance drivers · {variance.monthLabel} MTD
-                </p>
-                <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
-                  All drivers, ranked
-                </h3>
-              </div>
+            <header>
+              <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Variance drivers · {variance.monthLabel} MTD
+              </p>
+              <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
+                All drivers, ranked
+              </h3>
             </header>
             <section className="rounded-lg border border-border bg-card p-6">
               <VarianceDriversList drivers={variance.drivers} />
             </section>
           </TabsContent>
         </Tabs>
+
+        {/* Heatmap — project × category */}
+        <VarianceHeatmap
+          heatmap={variance.heatmap}
+          mode={heatmapMode}
+          onModeChange={setHeatmapMode}
+        />
 
         {/* Waterfall — plan to actual */}
         <section>

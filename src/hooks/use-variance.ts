@@ -393,11 +393,33 @@ export function useVariance(yearMonth: string) {
     [items, yearMonth],
   );
 
+  // byProject: only project-attributed items. Shared/department items
+  // moved to byDepartment per the variance redesign Commit 3.
   const byProject = useMemo(
     () =>
       buildAggregated(items, (row) => {
-        const k = projectKeyOf(row);
-        return { id: k.id, label: k.label };
+        if (!row.project_id) return null;
+        const name = row.projects?.name;
+        if (!name) return null;
+        return { id: row.project_id, label: name };
+      }).sort((a, b) => Math.abs(b.varianceKes) - Math.abs(a.varianceKes)),
+    [items],
+  );
+
+  // byDepartment: items with project_id IS NULL, grouped by department.
+  // Items with both project_id NULL AND department_id NULL aggregate
+  // under a synthetic "Unassigned" group.
+  const byDepartment = useMemo(
+    () =>
+      buildAggregated(items, (row) => {
+        if (row.project_id) return null;
+        if (row.department_id && row.departments?.name) {
+          return {
+            id: `dept:${row.department_id}`,
+            label: row.departments.name,
+          };
+        }
+        return { id: '__unassigned__', label: 'Unassigned' };
       }).sort((a, b) => Math.abs(b.varianceKes) - Math.abs(a.varianceKes)),
     [items],
   );
@@ -543,6 +565,7 @@ export function useVariance(yearMonth: string) {
     summary,
     byBudget,
     byProject,
+    byDepartment,
     byCategory,
     drivers,
     heatmap,
