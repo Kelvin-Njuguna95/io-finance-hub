@@ -31,6 +31,7 @@ import { EXPENSE_STATUS } from '@/lib/constants/status';
 import { CfoMiscApproval } from '@/components/misc/cfo-misc-approval';
 import { PendingInvoicesRail } from '@/components/revenue/pending-invoices-rail';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
+import { RevenueSpendingTrendChart } from './revenue-spending-trend';
 import { useBankBalance } from '@/hooks/use-bank-balance';
 import { useMonthlyApprovedBudget } from '@/hooks/use-monthly-approved-budget';
 import { useUser } from '@/hooks/use-user';
@@ -299,16 +300,12 @@ export function CfoDashboard() {
             />
           </div>
 
-          {/* Hero chart placeholder — Phase 2.1 wires 6-month time series */}
-          {/* TODO: useMonthlyPlSummaryHistory hook (Phase 2.1) */}
           <SectionCard
             title="Revenue & spending trend"
-            description="Last 6 months · KES millions, all projects"
+            description="Last 12 months · KES millions, all projects"
             tone="brand"
           >
-            <div className="flex h-[280px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/20">
-              <p className="text-sm text-muted-foreground">Chart pending — Phase 2.1</p>
-            </div>
+            <RevenueSpendingTrendChart />
           </SectionCard>
 
           {/* Project Health */}
