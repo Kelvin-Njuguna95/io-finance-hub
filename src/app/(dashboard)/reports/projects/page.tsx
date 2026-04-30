@@ -1,341 +1,320 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { PageHeader } from '@/components/layout/page-header';
-import { StatCard } from '@/components/layout/stat-card';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ExecutiveInsightPanel, formatCompactCurrency } from '@/components/reports/executive-kit';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import { formatCurrency, formatPercent, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
-import { getLaggedMonth, getUnifiedServicePeriodLabel, getProjectColor } from '@/lib/report-utils';
-import {
-  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer, Legend, Tooltip,
-} from 'recharts';
-import { BarChart3, TrendingUp, Users, DollarSign } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { FileDown } from 'lucide-react';
-import { exportSimpleReportPdf } from '@/lib/pdf-export';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Download } from 'lucide-react';
+import { toast } from 'sonner';
 
-interface ProjectComparison {
-  name: string;
-  revenue: number;
-  directExpenses: number;
-  grossProfit: number;
-  grossMargin: number;
-  overheadAllocated: number;
-  distributableProfit: number;
-  netMargin: number;
-  agentCount: number;
-  revenuePerAgent: number;
-  costPerAgent: number;
-  director: string;
-  // Radar scores (0-100)
-  radarGrossMargin: number;
-  radarBudgetUtil: number;
-  radarRevPerAgent: number;
-  radarCostEff: number;
-  revenueEstimated: boolean;
+import { useUser } from '@/hooks/use-user';
+import {
+  useProfitability,
+  type ProfitabilityRow,
+} from '@/hooks/use-profitability';
+import { PageTitle } from '@/components/layout/page-title';
+import { StatCard } from '@/components/layout/stat-card';
+import { HeadlineStatCard } from '@/components/finance/headline-stat-card';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  formatCompactKES,
+  formatYearMonth,
+  getCurrentYearMonth,
+} from '@/lib/format';
+import { cn } from '@/lib/utils';
+
+const ALLOWED_ROLES = new Set(['cfo', 'accountant']);
+
+function marginToneClass(marginPct: number): string {
+  if (marginPct >= 15) return 'text-success-soft-foreground';
+  if (marginPct >= 5) return 'text-foreground';
+  if (marginPct >= 0) return 'text-[var(--warm-grey-3)]';
+  return 'text-[var(--danger)]';
 }
 
 export default function ProjectComparisonPage() {
+  const { user } = useUser();
+  const router = useRouter();
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<ProjectComparison[]>([]);
-  const [userRole, setUserRole] = useState('');
-  const [showMoreColumns, setShowMoreColumns] = useState(false);
 
-  const [revenueSourceMonth, setRevenueSourceMonth] = useState(getLaggedMonth(selectedMonth));
-  const [isHistorical, setIsHistorical] = useState(false);
-  const [overheadAvailable, setOverheadAvailable] = useState(true);
-  const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
-
+  // Route-level role gate — same as Profitability.
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      const supabase = createClient();
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
-        const role = profile?.role || '';
-        setUserRole(role);
-        if (!['cfo', 'accountant'].includes(role)) {
-          setData([]);
-          setLoading(false);
-          return;
-        }
-      }
-
-      // Detect historical months — use direct matching
-      const { data: snapshot } = await supabase
-        .from('monthly_financial_snapshots')
-        .select('data_source')
-        .eq('year_month', selectedMonth)
-        .single();
-      const historical = !!(snapshot?.data_source && snapshot.data_source.startsWith('historical_seed'));
-      setIsHistorical(historical);
-      const revMonth = historical ? selectedMonth : getLaggedMonth(selectedMonth);
-      setRevenueSourceMonth(revMonth);
-
-      const [projRes, laggedRes, projExpRes, profRes, agentRes, budRes] = await Promise.all([
-        supabase.from('projects').select('id, name, director_tag').eq('is_active', true),
-        supabase.from('lagged_revenue_by_project_month').select('project_id, lagged_revenue_kes, revenue_kes_estimated').eq('expense_month', selectedMonth),
-        supabase.from('expenses').select('project_id, amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense').eq('lifecycle_status', 'confirmed'),
-        supabase.from('project_profitability').select('project_id, allocated_overhead_kes').eq('year_month', selectedMonth),
-        supabase.from('agent_counts').select('project_id, agent_count').eq('year_month', selectedMonth),
-        supabase.from('budgets').select('id, project_id, budget_versions(total_amount_kes, status)').eq('year_month', selectedMonth),
-      ]);
-
-      const projects = projRes.data || [];
-      const laggedRows = laggedRes.data || [];
-      const projExpenses = projExpRes.data || [];
-      const profitabilityRows = profRes.data || [];
-      const agents = agentRes.data || [];
-      const budgets = budRes.data || [];
-
-      const overheadMap = new Map<string, number>();
-      profitabilityRows.forEach((p: { project_id: string; allocated_overhead_kes: number | null }) => {
-        overheadMap.set(p.project_id, Number(p.allocated_overhead_kes || 0));
-      });
-      setOverheadAvailable(profitabilityRows.length > 0);
-
-      const directorLabels: Record<string, string> = { kelvin: 'Kelvin', evans: 'Evans', dan: 'Dan', gidraph: 'Gidraph', victor: 'Victor' };
-
-      // Revenue map
-      const revMap = new Map<string, { amount: number; estimated: boolean }>();
-      laggedRows.forEach((row: { project_id: string; lagged_revenue_kes: number | null; revenue_kes_estimated: boolean | null }) => {
-        const existing = revMap.get(row.project_id) || { amount: 0, estimated: false };
-        revMap.set(row.project_id, {
-          amount: existing.amount + Number(row.lagged_revenue_kes || 0),
-          estimated: existing.estimated || Boolean(row.revenue_kes_estimated),
-        });
-      });
-
-      // Expense map
-      const expMap = new Map<string, number>();
-      projExpenses.forEach((e: /* // */ any) => {
-        expMap.set(e.project_id, (expMap.get(e.project_id) || 0) + Number(e.amount_kes));
-      });
-
-      // Agent map
-      const agentMap = new Map<string, number>();
-      agents.forEach((a: /* // */ any) => { agentMap.set(a.project_id, Number(a.agent_count)); });
-
-      // Budget util map
-      const budgetMap = new Map<string, number>();
-      budgets.forEach((b: /* // */ any) => {
-        if (!b.project_id) return;
-        const approved = (b.budget_versions || []).find((v: { status: string | null }) => v.status === 'approved');
-        const amt = Number(approved?.total_amount_kes || 0);
-        budgetMap.set(b.project_id, (budgetMap.get(b.project_id) || 0) + amt);
-      });
-
-      const rows: ProjectComparison[] = projects
-        .filter(p => revMap.has(p.id) || expMap.has(p.id) || agentMap.has(p.id))
-        .map(p => {
-          const revenue = revMap.get(p.id)?.amount || 0;
-          const directExpenses = expMap.get(p.id) || 0;
-          const grossProfit = revenue - directExpenses;
-          const grossMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
-          const overheadAllocated = overheadMap.get(p.id) || 0;
-          const distributableProfit = grossProfit - overheadAllocated;
-          const netMargin = revenue > 0 ? (distributableProfit / revenue) * 100 : 0;
-          const agentCount = agentMap.get(p.id) || 0;
-          const revenuePerAgent = agentCount > 0 ? revenue / agentCount : 0;
-          const costPerAgent = agentCount > 0 ? directExpenses / agentCount : 0;
-          const budgetAmt = budgetMap.get(p.id) || 0;
-          const budgetUtil = budgetAmt > 0 ? (directExpenses / budgetAmt) * 100 : 0;
-
-          return {
-            name: p.name,
-            revenue,
-            directExpenses,
-            grossProfit,
-            grossMargin,
-            overheadAllocated,
-            distributableProfit,
-            netMargin,
-            agentCount,
-            revenuePerAgent,
-            costPerAgent,
-            director: directorLabels[p.director_tag] || p.director_tag,
-            radarGrossMargin: Math.min(100, Math.max(0, grossMargin)),
-            radarBudgetUtil: Math.min(100, Math.max(0, budgetUtil > 85 ? 100 - Math.abs(budgetUtil - 85) : budgetUtil)),
-            radarRevPerAgent: 0, // normalized below
-            radarCostEff: 0,
-            revenueEstimated: revMap.get(p.id)?.estimated || false,
-          };
-        })
-        .sort((a, b) => b.distributableProfit - a.distributableProfit);
-
-      // Normalize radar scores
-      const maxRevPA = Math.max(...rows.map(r => r.revenuePerAgent), 1);
-      const maxCostPA = Math.max(...rows.map(r => r.costPerAgent), 1);
-      rows.forEach(r => {
-        r.radarRevPerAgent = (r.revenuePerAgent / maxRevPA) * 100;
-        r.radarCostEff = (1 - r.costPerAgent / maxCostPA) * 100;
-      });
-
-      setData(rows);
-      setLoading(false);
+    if (!user?.role) return;
+    if (!ALLOWED_ROLES.has(user.role)) {
+      toast.error('Project Comparison is restricted to CFO and accountants');
+      router.push('/');
     }
-    load();
-  }, [selectedMonth]);
+  }, [user?.role, router]);
 
-  const totalRevenue = data.reduce((s, r) => s + r.revenue, 0);
-  const totalExpenses = data.reduce((s, r) => s + r.directExpenses, 0);
-  const totalProfit = data.reduce((s, r) => s + r.distributableProfit, 0);
-  const totalAgents = data.reduce((s, r) => s + r.agentCount, 0);
+  const profitability = useProfitability(selectedMonth);
+  const summary = profitability.summary;
 
-  async function exportPdf() {
-    await exportSimpleReportPdf(
-      'Project Comparison',
-      isHistorical ? `Historical month ${selectedMonth}` : servicePeriodLabel,
-      data.slice(0, 120).map((r) => `${r.name} | revenue ${r.revenue.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | direct ${r.directExpenses.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | overhead ${r.overheadAllocated.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | distributable ${r.distributableProfit.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
-      `IO_Project_Comparison_${selectedMonth}.pdf`,
-    );
-  }
+  const months = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, i) => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      }),
+    [],
+  );
 
-  // Radar data
-  const radarDimensions = ['Gross Margin', 'Budget Util', 'Rev/Agent', 'Cost Eff'];
-  const radarData = radarDimensions.map((dim, i) => {
-    const point: /* // */ any = { dimension: dim };
-    data.forEach(p => {
-      point[p.name] = [p.radarGrossMargin, p.radarBudgetUtil, p.radarRevPerAgent, p.radarCostEff][i];
-    });
-    return point;
-  });
+  const totalAgents = useMemo(
+    () =>
+      profitability.projects.reduce(
+        (s, r) => s + (r.headcount ?? 0),
+        0,
+      ),
+    [profitability.projects],
+  );
 
   return (
     <div>
-      {userRole && !['cfo', 'accountant'].includes(userRole) ? (
-        <div>
-          <PageHeader title="Project Comparison" description="Access restricted" />
-          <div className="p-6 text-sm text-muted-foreground">
-            Only CFO and Accountant roles can access project comparison analytics.
-          </div>
-        </div>
-      ) : (
-      <>
-      <PageHeader title="Project Comparison" description={isHistorical ? `Revenue & Expenses from ${formatYearMonth(selectedMonth)} (historical)` : servicePeriodLabel}>
-        <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
-          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {Array.from({ length: 12 }, (_, i) => {
-              const d = new Date(); d.setMonth(d.getMonth() - i);
-              const ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-              return <SelectItem key={ym} value={ym}>{formatYearMonth(ym)}</SelectItem>;
-            })}
-          </SelectContent>
-        </Select>
-        <Button variant="outline" size="sm" onClick={exportPdf}>
-          <FileDown className="h-4 w-4 mr-1" /> Export PDF
-        </Button>
-      </PageHeader>
-
-      <div className="p-6 space-y-6">
-        <ExecutiveInsightPanel lines={[
-          data[0] ? `${data[0].name} leads with ${formatPercent(data[0].grossMargin)} margin.` : '',
-          `Revenue per agent is ${totalAgents > 0 ? formatCompactCurrency(totalRevenue / totalAgents, 'KES') : 'KES 0.0'}.`,
-          `${data.filter((p) => p.revenue === 0 && p.directExpenses === 0).length} inactive project(s) this period.`,
-        ]} />
-
-        {/* Summary cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard title="Total Revenue" value={formatCurrency(totalRevenue, 'KES')} icon={DollarSign} />
-          <StatCard title="Total Expenses" value={formatCurrency(totalExpenses, 'KES')} icon={BarChart3} />
-          <StatCard title="Net Distributable" value={formatCurrency(totalProfit, 'KES')} icon={TrendingUp} />
-          <StatCard title="Total Agents" value={String(totalAgents)} icon={Users} />
-        </div>
-
-        {/* Comparison table */}
-        <Card className="io-card">
-          <CardContent className="p-0 overflow-x-auto">
-            {!loading && !overheadAvailable && (
-              <p className="px-4 pt-4 text-xs text-muted-foreground">
-                Allocated overhead shown as KES 0.00 — recompute required for {formatYearMonth(selectedMonth)} to populate.
-              </p>
-            )}
-            <div className="p-3 border-b flex justify-end">
-              <Button size="sm" variant="outline" onClick={() => setShowMoreColumns((v) => !v)}>
-                {showMoreColumns ? 'Show less' : 'Show more'}
+      <div className="border-b border-border/70 bg-background px-6 py-6">
+        <PageTitle
+          primary="Project"
+          accent="comparison"
+          subtitle={
+            profitability.loading
+              ? `${formatYearMonth(selectedMonth)} · loading…`
+              : `${formatYearMonth(selectedMonth)} · ${summary.projectCount} ${
+                  summary.projectCount === 1 ? 'project' : 'projects'
+                } · ${formatCompactKES(summary.totalRevenueKes)} revenue · ${summary.blendedMarginPct.toFixed(1)}% blended net margin`
+          }
+          action={
+            <div className="flex items-center gap-2">
+              <Select
+                value={selectedMonth}
+                onValueChange={(v) => v && setSelectedMonth(v)}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map((ym) => (
+                    <SelectItem key={ym} value={ym}>
+                      {formatYearMonth(ym)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled
+                className="gap-1"
+                title="Coming soon — PDF export"
+              >
+                <Download className="size-4" /> Export PDF
               </Button>
             </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Project</TableHead>
-                  <TableHead className="text-right">Revenue</TableHead>
-                  <TableHead className="text-right">Gross Profit</TableHead>
-                  <TableHead className="text-right">Margin</TableHead>
-                  <TableHead className="text-right">Rev/Agent</TableHead>
-                  {showMoreColumns && <TableHead className="text-right">Direct Costs</TableHead>}
-                  {showMoreColumns && <TableHead className="text-right">Overhead</TableHead>}
-                  {showMoreColumns && <TableHead className="text-right">Dist. Profit</TableHead>}
-                  {showMoreColumns && <TableHead className="text-right">Net Margin</TableHead>}
-                  {showMoreColumns && <TableHead className="text-right">Agents</TableHead>}
-                  {showMoreColumns && <TableHead className="text-right">Cost/Agent</TableHead>}
-                  {showMoreColumns && userRole === 'cfo' && <TableHead>Director</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">Please wait</TableCell></TableRow>
-                ) : data.length === 0 ? (
-                  <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">No data</TableCell></TableRow>
-                ) : (
-                  <>
-                    {data.map(r => (
-                      <TableRow key={r.name} className={r.revenue === 0 && r.directExpenses === 0 ? 'opacity-50' : r.distributableProfit > 0 ? 'bg-success-soft/50' : r.distributableProfit < 0 ? 'bg-danger-soft/50' : ''}>
-                  <TableCell className="font-medium">{r.revenueEstimated ? `≈ ${r.name}` : r.name}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{formatCurrency(r.revenue, 'KES')}</TableCell>
-                        <TableCell className={`text-right font-mono text-sm ${r.grossProfit < 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>{formatCurrency(r.grossProfit, 'KES')}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{formatPercent(r.grossMargin)}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{formatCurrency(r.revenuePerAgent, 'KES')}</TableCell>
-                        {showMoreColumns && <TableCell className="text-right font-mono text-sm text-danger-soft-foreground">{formatCurrency(r.directExpenses, 'KES')}</TableCell>}
-                        {showMoreColumns && <TableCell className="text-right font-mono text-sm text-warning-soft-foreground">{formatCurrency(r.overheadAllocated, 'KES')}</TableCell>}
-                        {showMoreColumns && <TableCell className={`text-right font-mono text-sm font-semibold ${r.distributableProfit < 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>{formatCurrency(r.distributableProfit, 'KES')}</TableCell>}
-                        {showMoreColumns && <TableCell className={`text-right font-mono text-sm ${r.netMargin < 10 ? 'text-warning-soft-foreground' : ''}`}>{formatPercent(r.netMargin)}</TableCell>}
-                        {showMoreColumns && <TableCell className="text-right font-mono text-sm">{r.agentCount}</TableCell>}
-                        {showMoreColumns && <TableCell className="text-right font-mono text-sm">{formatCurrency(r.costPerAgent, 'KES')}</TableCell>}
-                        {showMoreColumns && userRole === 'cfo' && <TableCell className="text-sm">{r.director}</TableCell>}
-                      </TableRow>
-                    ))}
-                  </>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+          }
+        />
+      </div>
 
-        {/* Radar Chart */}
-        {!loading && data.length > 0 && (
-          <Card className="io-card">
-            <CardHeader><CardTitle className="text-base">Project Health Comparison</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
-                <RadarChart data={radarData}>
-                  <PolarGrid stroke="oklch(0.80 0 0 / 0.15)" />
-                  <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 12 }} />
-                  <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 10 }} />
-                  {data.map(p => (
-                    <Radar key={p.name} name={p.name} dataKey={p.name} stroke={getProjectColor(p.name)} fill={getProjectColor(p.name)} fillOpacity={0.15} />
-                  ))}
-                  <Legend />
-                  <Tooltip />
-                </RadarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+      <div className="space-y-6 p-6">
+        {/* KPI strip */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <HeadlineStatCard
+            eyebrow={`Total revenue · ${summary.monthLabel}`}
+            value={formatCompactKES(summary.totalRevenueKes)}
+            tone="neutral"
+            sub={
+              summary.projectCount === 0
+                ? 'No active projects'
+                : `${summary.projectCount} active ${summary.projectCount === 1 ? 'project' : 'projects'}`
+            }
+            loading={profitability.loading}
+          />
+          <StatCard
+            title="Total cost · fully-loaded"
+            value={formatCompactKES(summary.totalCostKes)}
+            subtitle={`${formatCompactKES(summary.totalDirectCostKes)} direct + ${formatCompactKES(summary.totalAllocatedOverheadKes)} allocated overhead`}
+            loading={profitability.loading}
+            tone="brand"
+          />
+          <StatCard
+            title="Net profit"
+            value={formatCompactKES(summary.totalGrossProfitKes)}
+            subtitle={`${summary.blendedMarginPct.toFixed(1)}% blended net margin`}
+            loading={profitability.loading}
+            tone={summary.totalGrossProfitKes >= 0 ? 'success' : 'danger'}
+          />
+          <StatCard
+            title="Total agents"
+            value={totalAgents > 0 ? `${totalAgents}` : '—'}
+            subtitle={
+              summary.projectCount === 0
+                ? 'No project pool'
+                : `${summary.projectCount} project pool`
+            }
+            loading={profitability.loading}
+            tone="brand"
+          />
+        </div>
+
+        {/* Per-project comparison table */}
+        <section className="space-y-4">
+          <header>
+            <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Per-project · {summary.monthLabel}
+            </p>
+            <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
+              Project comparison{' '}
+              <em className="not-italic italic text-[var(--gold-lo)]">
+                by net margin
+              </em>
+            </h3>
+            <p className="mt-1 text-[12.5px] text-[var(--warm-grey-3)]">
+              Sorted by fully-loaded margin descending. Direct cost plus
+              allocated overhead. Revenue per agent shown on the right.
+            </p>
+          </header>
+
+          <ComparisonTable
+            rows={profitability.projects}
+            loading={profitability.loading}
+            selectedMonth={selectedMonth}
+          />
+
+          {!profitability.loading && summary.unallocatedOverheadKes > 0 && (
+            <p className="text-[12px] text-muted-foreground">
+              {formatCompactKES(summary.unallocatedOverheadKes)} overhead
+              unallocated — projects without agent counts excluded from the
+              allocation pool.
+            </p>
+          )}
+          {!profitability.loading &&
+            summary.totalSharedExpensesKes > 0 &&
+            !summary.allocationFromMaterializedTable && (
+              <p className="text-[12px] text-muted-foreground">
+                Allocation computed from agent_counts (materialised allocation
+                not yet available for this month).
+              </p>
+            )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function ComparisonTable({
+  rows,
+  loading,
+  selectedMonth,
+}: {
+  rows: ProfitabilityRow[];
+  loading: boolean;
+  selectedMonth: string;
+}) {
+  if (loading) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        Loading project comparison…
+      </div>
+    );
+  }
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        No projects with revenue or expenses for {formatYearMonth(selectedMonth)}
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="grid grid-cols-[1.6fr_1fr_1fr_1fr_1fr_1fr_1fr] gap-4 border-b border-border bg-muted/30 px-6 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        <span>Project</span>
+        <span className="text-right">Revenue</span>
+        <span className="text-right">Cost</span>
+        <span className="text-right">Net profit</span>
+        <span className="text-right">Net margin</span>
+        <span className="text-right">Agents</span>
+        <span className="text-right">Rev / agent</span>
+      </div>
+      <ul>
+        {rows.map((row) => (
+          <ComparisonRow key={row.id} row={row} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ComparisonRow({ row }: { row: ProfitabilityRow }) {
+  const revPerAgent =
+    row.headcount !== undefined && row.headcount > 0
+      ? row.revenueKes / row.headcount
+      : null;
+  const profitTone =
+    row.grossProfitKes >= 0 ? 'text-foreground' : 'text-[var(--danger)]';
+  return (
+    <li className="grid grid-cols-[1.6fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 border-b border-border/60 px-6 py-4 transition-colors hover:bg-muted/30 last:border-b-0">
+      <div className="min-w-0">
+        <p className="truncate text-[14px] font-medium leading-tight text-foreground">
+          <span
+            aria-hidden
+            className="mr-2 inline-flex size-5 items-center justify-center rounded-full bg-[var(--paper-2)] font-mono text-[10.5px] tabular-nums text-muted-foreground"
+          >
+            {row.marginRank}
+          </span>
+          {row.name}
+        </p>
+        {row.allocatedOverheadKes > 0 && (
+          <p className="mt-1 truncate font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
+            {formatCompactKES(row.directCostKes)} direct +{' '}
+            {formatCompactKES(row.allocatedOverheadKes)} overhead
+          </p>
         )}
       </div>
-      </>
-      )}
-    </div>
+      <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+        {formatCompactKES(row.revenueKes)}
+      </span>
+      <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+        {formatCompactKES(row.totalCostKes)}
+      </span>
+      <span
+        className={cn(
+          'text-right font-mono text-[13px] tabular-nums',
+          profitTone,
+        )}
+      >
+        {formatCompactKES(row.grossProfitKes)}
+      </span>
+      <span
+        className={cn(
+          'text-right font-mono text-[13px] tabular-nums',
+          marginToneClass(row.marginPct),
+        )}
+      >
+        {row.marginPct.toFixed(1)}%
+      </span>
+      <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+        {row.headcount !== undefined ? (
+          <>
+            {row.headcount}
+            {row.headcountSharePct !== null && (
+              <span className="ml-1 text-muted-foreground">
+                ({row.headcountSharePct.toFixed(0)}%)
+              </span>
+            )}
+          </>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </span>
+      <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+        {revPerAgent !== null ? (
+          formatCompactKES(revPerAgent)
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </span>
+    </li>
   );
 }
