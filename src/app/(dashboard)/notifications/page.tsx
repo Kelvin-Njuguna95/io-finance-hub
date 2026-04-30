@@ -4,34 +4,34 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { PageHeader } from '@/components/layout/page-header';
+import { PageTitle } from '@/components/layout/page-title';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { Check, Trash2 } from 'lucide-react';
+import { Check, Trash2, ArrowRight } from 'lucide-react';
 import type { Notification } from '@/hooks/use-notifications';
 
+import { FilterPillBar } from '@/app/(dashboard)/misc/_components/FilterPillBar';
+
 const NOTIF_ICONS: Record<string, string> = {
-  budget_submitted: '\uD83D\uDCCB',
-  budget_returned: '\uD83D\uDCCB',
-  budget_approved: '\u2705',
-  budget_rejected: '\u274C',
-  misc_request_pending: '\uD83D\uDCB0',
-  misc_approved: '\u2705',
-  misc_declined: '\u274C',
-  misc_report_submitted: '\uD83D\uDCB0',
-  misc_draw_created: '\uD83D\uDCB0',
-  misc_report_overdue: '\u23F0',
-  eod_sent: '\uD83D\uDCCA',
-  eod_failed: '\u26A0\uFE0F',
-  red_flag_triggered: '\uD83D\uDEA9',
-  month_closed: '\uD83D\uDD12',
-  profit_share_pending: '\uD83D\uDCBC',
-  expense_queue_pending: '\uD83D\uDCDD',
-  agent_count_missing: '\uD83D\uDC65',
-  payment_received: '\uD83D\uDCB3',
-  pm_review_complete: '\u2705',
+  budget_submitted: '📋',
+  budget_returned: '📋',
+  budget_approved: '✅',
+  budget_rejected: '❌',
+  misc_request_pending: '💰',
+  misc_approved: '✅',
+  misc_declined: '❌',
+  misc_report_submitted: '💰',
+  misc_draw_created: '💰',
+  misc_report_overdue: '⏰',
+  eod_sent: '📊',
+  eod_failed: '⚠️',
+  red_flag_triggered: '🚩',
+  month_closed: '🔒',
+  profit_share_pending: '💼',
+  expense_queue_pending: '📝',
+  agent_count_missing: '👥',
+  payment_received: '💳',
+  pm_review_complete: '✅',
 };
 
 const TYPE_CATEGORIES: Record<string, string> = {
@@ -54,6 +54,50 @@ const TYPE_CATEGORIES: Record<string, string> = {
   month_closed: 'system',
   expense_queue_pending: 'finance',
   agent_count_missing: 'system',
+};
+
+type NotifTone = 'alert' | 'warn' | 'success' | 'info';
+
+function toneFor(type: string | null | undefined): NotifTone {
+  if (!type) return 'info';
+  if (
+    type === 'eod_failed' ||
+    type === 'red_flag_triggered' ||
+    type === 'budget_rejected' ||
+    type === 'misc_declined'
+  ) {
+    return 'alert';
+  }
+  if (
+    type === 'misc_report_overdue' ||
+    type === 'misc_request_pending' ||
+    type === 'expense_queue_pending' ||
+    type === 'profit_share_pending' ||
+    type === 'agent_count_missing' ||
+    type === 'budget_submitted' ||
+    type === 'budget_returned' ||
+    type === 'misc_report_submitted'
+  ) {
+    return 'warn';
+  }
+  if (
+    type === 'budget_approved' ||
+    type === 'misc_approved' ||
+    type === 'pm_review_complete' ||
+    type === 'payment_received' ||
+    type === 'eod_sent' ||
+    type === 'month_closed'
+  ) {
+    return 'success';
+  }
+  return 'info';
+}
+
+const TONE_CLASS: Record<NotifTone, string> = {
+  alert: 'bg-danger-soft text-[var(--danger)]',
+  warn: 'bg-[var(--gold-soft)] text-[oklch(0.40_0.15_75)]',
+  success: 'bg-success-soft text-success-soft-foreground',
+  info: 'bg-[var(--paper-3)] text-foreground',
 };
 
 function timeAgo(dateStr: string): string {
@@ -79,14 +123,16 @@ function getDateGroup(dateStr: string): string {
 
   if (d >= today) return 'Today';
   if (d >= yesterday) return 'Yesterday';
-  if (d >= weekAgo) return 'This Week';
+  if (d >= weekAgo) return 'This week';
   return 'Earlier';
 }
+
+type FilterKey = 'all' | 'unread' | 'budget' | 'misc' | 'finance' | 'system';
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('all');
+  const [tab, setTab] = useState<FilterKey>('all');
   const router = useRouter();
 
   const fetchAll = useCallback(async () => {
@@ -157,12 +203,10 @@ export default function NotificationsPage() {
     if (n.link) router.push(n.link);
   }
 
-  // Filter by tab
   let filtered = notifications;
   if (tab === 'unread') filtered = filtered.filter((n) => !n.is_read);
   else if (tab !== 'all') filtered = filtered.filter((n) => n.type && TYPE_CATEGORIES[n.type] === tab);
 
-  // Group by date
   const groups: Record<string, Notification[]> = {};
   for (const n of filtered) {
     const g = getDateGroup(n.created_at);
@@ -172,88 +216,162 @@ export default function NotificationsPage() {
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  return (
-    <div>
-      <PageHeader title="Notifications" description={unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}>
-        <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={markAllRead}>
-          <Check className="h-3.5 w-3.5" /> Mark All Read
-        </Button>
-        <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground" onClick={clearOldRead}>
-          <Trash2 className="h-3.5 w-3.5" /> Clear Old Read
-        </Button>
-      </PageHeader>
+  // Counts for filter pills
+  const counts = {
+    all: notifications.length,
+    unread: unreadCount,
+    budget: notifications.filter((n) => n.type && TYPE_CATEGORIES[n.type] === 'budget').length,
+    misc: notifications.filter((n) => n.type && TYPE_CATEGORIES[n.type] === 'misc').length,
+    finance: notifications.filter((n) => n.type && TYPE_CATEGORIES[n.type] === 'finance').length,
+    system: notifications.filter((n) => n.type && TYPE_CATEGORIES[n.type] === 'system').length,
+  };
 
-      <div className="p-6 space-y-4">
-        {/* Filter tabs */}
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="unread">Unread {unreadCount > 0 && <Badge variant="secondary" className="ml-1 h-5 bg-danger-soft text-danger-soft-foreground">{unreadCount}</Badge>}</TabsTrigger>
-            <TabsTrigger value="budget">Budget</TabsTrigger>
-            <TabsTrigger value="misc">Misc</TabsTrigger>
-            <TabsTrigger value="finance">Finance</TabsTrigger>
-            <TabsTrigger value="system">System</TabsTrigger>
-          </TabsList>
-        </Tabs>
+  const filterPills: { key: FilterKey; label: string; count: number }[] = [
+    { key: 'all', label: 'All', count: counts.all },
+    { key: 'unread', label: 'Unread', count: counts.unread },
+    { key: 'budget', label: 'Budget', count: counts.budget },
+    { key: 'misc', label: 'Misc', count: counts.misc },
+    { key: 'finance', label: 'Finance', count: counts.finance },
+    { key: 'system', label: 'System', count: counts.system },
+  ];
+
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Button variant="ghost" size="sm" className="gap-1.5" onClick={markAllRead}>
+        <Check className="size-3.5" /> Mark all read
+      </Button>
+      <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={clearOldRead}>
+        <Trash2 className="size-3.5" /> Clear old read
+      </Button>
+    </div>
+  );
+
+  const subtitle = unreadCount > 0
+    ? `${unreadCount} unread · ${notifications.length} total`
+    : `All caught up · ${notifications.length} total`;
+
+  return (
+    <div className="p-6">
+      <PageTitle
+        primary="Your"
+        accent="notifications"
+        subtitle={subtitle}
+        action={headerActions}
+      />
+
+      <div className="mt-6 space-y-5">
+        <FilterPillBar
+          pills={filterPills}
+          activeKey={tab}
+          onChange={(k) => setTab(k)}
+        />
 
         {loading ? (
-          <p className="text-sm text-muted-foreground py-8 text-center">Please wait</p>
+          <div className="rounded-[var(--radius-lg)] border border-border bg-card px-5 py-10 text-center text-sm text-muted-foreground">
+            Please wait
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border bg-muted/50 px-4 py-10 text-center">
-            <p className="text-sm font-medium text-foreground/90">You&apos;re all caught up — no new notifications at this time.</p>
-            <p className="mt-1 text-xs text-muted-foreground">New activity from budgets, expenses, and finance workflows will appear here automatically.</p>
+          <div className="rounded-[var(--radius-lg)] border border-dashed border-border bg-[var(--paper-2)] px-5 py-12 text-center">
+            <p className="text-sm font-medium text-foreground">You&apos;re all caught up — no new notifications.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              New activity from budgets, expenses, and finance workflows will appear here automatically.
+            </p>
           </div>
         ) : (
-          Object.entries(groups).map(([group, items]) => (
-            <div key={group}>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">{group}</p>
-              <div className="space-y-1">
+          <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+            {Object.entries(groups).map(([group, items], i) => (
+              <div key={group}>
+                {/* Group separator */}
+                <div
+                  className={cn(
+                    'flex items-baseline justify-between border-y border-border-subtle bg-[var(--paper-2)] px-5 py-2 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground',
+                    i === 0 && 'border-t-0',
+                  )}
+                >
+                  <span className="text-foreground">{group}</span>
+                  <span>{items.length}</span>
+                </div>
                 {items.map((n) => {
-                  const icon = (n.type ? NOTIF_ICONS[n.type] : null) || '\uD83D\uDD14';
+                  const icon = (n.type ? NOTIF_ICONS[n.type] : null) || '🔔';
+                  const tone = toneFor(n.type);
+                  const isClickable = Boolean(n.link);
                   return (
-                    <button
+                    <div
                       key={n.id}
+                      role={isClickable ? 'button' : undefined}
+                      tabIndex={isClickable ? 0 : undefined}
                       onClick={() => handleClick(n)}
+                      onKeyDown={(e) => {
+                        if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault();
+                          handleClick(n);
+                        }
+                      }}
                       className={cn(
-                        'w-full text-left flex gap-3 rounded-lg px-4 py-3 transition-colors',
-                        !n.is_read
-                          ? 'bg-card border border-border border-l-4 border-l-primary shadow-sm'
-                          : 'bg-muted/50 hover:bg-muted',
+                        'group/notif relative grid grid-cols-[36px_1fr_120px] items-start gap-4 border-b border-border-subtle px-5 py-4 transition-colors last:border-b-0',
+                        !n.is_read && 'bg-[oklch(0.99_0.02_90)]',
+                        isClickable && 'cursor-pointer hover:bg-[var(--paper-2)]',
                       )}
                     >
-                      <span className="text-lg mt-0.5 shrink-0">{icon}</span>
-                      <div className="min-w-0 flex-1">
-                        <p className={cn(
-                          'text-sm leading-tight',
-                          !n.is_read ? 'font-semibold text-foreground' : 'text-foreground/80',
-                        )}>
+                      {/* Icon tile */}
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[16px]',
+                          TONE_CLASS[tone],
+                        )}
+                      >
+                        {icon}
+                      </span>
+
+                      {/* Body */}
+                      <div className="min-w-0">
+                        <p
+                          className={cn(
+                            'text-[13.5px] leading-[1.5] text-foreground',
+                            !n.is_read && 'font-medium',
+                          )}
+                        >
                           {n.title}
                         </p>
                         {n.body && (
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>
+                          <p className="mt-1 line-clamp-2 max-w-[620px] text-[12px] leading-[1.45] text-muted-foreground">
+                            {n.body}
+                          </p>
                         )}
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] text-muted-foreground/60">{timeAgo(n.created_at)}</span>
-                          {n.link && (
-                            <span className="text-[10px] text-blue-500">View &rarr;</span>
-                          )}
-                        </div>
+                        {n.link && (
+                          <span className="mt-1.5 inline-flex items-center gap-1 font-mono text-[10.5px] uppercase tracking-[0.10em] text-foreground/70">
+                            View <ArrowRight className="size-3" strokeWidth={2} />
+                          </span>
+                        )}
                       </div>
-                      {!n.is_read && (
-                        <div className="shrink-0 mt-1">
-                          <div className="h-2 w-2 rounded-full bg-blue-500" />
-                        </div>
-                      )}
-                    </button>
+
+                      {/* Timestamp */}
+                      <div
+                        className={cn(
+                          'text-right font-mono text-[10.5px] uppercase tracking-[0.04em] text-muted-foreground',
+                        )}
+                      >
+                        {!n.is_read && (
+                          <span
+                            aria-hidden
+                            className="mr-1.5 inline-block size-[7px] rounded-full bg-[var(--gold)] align-middle"
+                          />
+                        )}
+                        {timeAgo(n.created_at)}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
 
-        <p className="text-center text-xs text-muted-foreground/60 pt-4">
-          <Link href="/settings" className="text-blue-500 hover:underline">Manage notification preferences</Link>
+        <p className="pt-2 text-center text-[11px] text-muted-foreground">
+          <Link href="/settings" className="text-foreground/70 underline-offset-2 hover:text-foreground hover:underline">
+            Manage notification preferences
+          </Link>
         </p>
       </div>
     </div>
