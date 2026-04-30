@@ -3,19 +3,17 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
-import { PageHeader } from '@/components/layout/page-header';
+import { PageTitle } from '@/components/layout/page-title';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
 import { getCurrentYearMonth, formatYearMonth, formatDateTime } from '@/lib/format';
 import { Save, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { getUserErrorMessage } from '@/lib/errors';
 import { canManageAgentCounts } from '@/lib/permissions';
+
+import { cn } from '@/lib/utils';
 
 interface AgentRow {
   project_id: string;
@@ -25,6 +23,8 @@ interface AgentRow {
   record_id: string | null;
   updated_at: string | null;
 }
+
+const ROW_GRID = 'grid grid-cols-[1.6fr_140px_120px_1fr_60px] items-center gap-4';
 
 export default function AgentCountsPage() {
   const { user } = useUser();
@@ -111,7 +111,6 @@ export default function AgentCountsPage() {
       if (row.is_locked) continue;
       const count = editValues[row.project_id];
       if (count === undefined || count < 0) continue;
-      // Only save if changed
       if (count === row.agent_count) continue;
 
       if (row.record_id) {
@@ -147,110 +146,164 @@ export default function AgentCountsPage() {
 
   if (user && !canManage) {
     return (
-      <div>
-        <PageHeader title="Agent Counts" description="Access restricted" />
-        <div className="p-6">
-          <p className="text-sm text-muted-foreground">Only CFO, Accountant, and Team Leader roles can manage agent counts.</p>
+      <div className="p-6">
+        <PageTitle primary="Agent" accent="counts" subtitle="Access restricted" />
+        <div className="mt-6 rounded-[var(--radius-lg)] border border-border bg-card px-5 py-10 text-center text-sm text-muted-foreground">
+          Only CFO, Accountant, and Team Leader roles can manage agent counts.
         </div>
       </div>
     );
   }
 
+  const monthSelect = (
+    <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
+      <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+      <SelectContent>
+        {Array.from({ length: 12 }, (_, i) => {
+          const d = new Date(); d.setMonth(d.getMonth() - i);
+          const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          return <SelectItem key={ym} value={ym}>{formatYearMonth(ym)}</SelectItem>;
+        })}
+      </SelectContent>
+    </Select>
+  );
+
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      {monthSelect}
+      {canManage && hasChanges && (
+        <Button size="sm" onClick={handleSaveAll} disabled={savingAll} className="gap-1">
+          <Save className="h-4 w-4" /> {savingAll ? 'Saving...' : 'Save All Changes'}
+        </Button>
+      )}
+    </div>
+  );
+
+  const subtitle = `${formatYearMonth(selectedMonth)} · ${totalAgents} agent${totalAgents === 1 ? '' : 's'} across ${rows.length} project${rows.length === 1 ? '' : 's'}`;
+
   return (
-    <div>
-      <PageHeader title="Agent Counts" description="Update the number of agents per project as staffing changes">
-        <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
-          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {Array.from({ length: 12 }, (_, i) => {
-              const d = new Date(); d.setMonth(d.getMonth() - i);
-              const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-              return <SelectItem key={ym} value={ym}>{formatYearMonth(ym)}</SelectItem>;
-            })}
-          </SelectContent>
-        </Select>
-        {canManage && hasChanges && (
-          <Button size="sm" onClick={handleSaveAll} disabled={savingAll} className="gap-1">
-            <Save className="h-4 w-4" /> {savingAll ? 'Saving...' : 'Save All Changes'}
-          </Button>
-        )}
-      </PageHeader>
+    <div className="p-6">
+      <PageTitle
+        primary="Agent"
+        accent="counts"
+        subtitle={subtitle}
+        action={headerActions}
+      />
 
-      <div className="p-6">
-        <div className="mb-4 flex items-center gap-4">
-          <p className="text-sm text-muted-foreground">
-            Total agents across all projects: <strong className="text-foreground text-base">{totalAgents}</strong>
-          </p>
+      <div className="mt-6">
+        <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+          {/* List head */}
+          <div
+            className={cn(
+              ROW_GRID,
+              'border-b border-border bg-[var(--paper-2)] px-5 py-3',
+              'font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground',
+            )}
+          >
+            <div>Project</div>
+            <div>Agent count</div>
+            <div>Status</div>
+            <div>Last updated</div>
+            <div />
+          </div>
+
+          {/* Rows */}
+          {rows.length === 0 ? (
+            <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+              No projects available for {formatYearMonth(selectedMonth)}.
+            </div>
+          ) : (
+            rows.map((r) => {
+              const changed = editValues[r.project_id] !== undefined && editValues[r.project_id] !== r.agent_count;
+              return (
+                <div
+                  key={r.project_id}
+                  className={cn(
+                    ROW_GRID,
+                    'border-b border-border-subtle px-5 py-3.5 transition-colors last:border-b-0',
+                    changed && 'bg-info-soft/30',
+                  )}
+                >
+                  {/* Project */}
+                  <div className="min-w-0">
+                    <div className="truncate text-[14px] font-medium text-foreground">
+                      {r.project_name}
+                    </div>
+                  </div>
+
+                  {/* Agent count input */}
+                  <div>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={editValues[r.project_id] ?? ''}
+                      onChange={(e) =>
+                        setEditValues((v) => ({
+                          ...v,
+                          [r.project_id]: parseInt(e.target.value) || 0,
+                        }))
+                      }
+                      disabled={r.is_locked || !canManage}
+                      className="h-8 w-24 font-mono tabular-nums"
+                    />
+                  </div>
+
+                  {/* Status */}
+                  <div className="font-mono text-[10.5px] uppercase tracking-[0.10em]">
+                    {r.is_locked ? (
+                      <span className="text-muted-foreground">Locked</span>
+                    ) : changed ? (
+                      <span className="text-info-soft-foreground">Unsaved</span>
+                    ) : r.agent_count !== null ? (
+                      <span className="inline-flex items-center gap-1 text-success-soft-foreground">
+                        <CheckCircle className="size-3" /> Set
+                      </span>
+                    ) : (
+                      <span className="text-warning-soft-foreground">Not set</span>
+                    )}
+                  </div>
+
+                  {/* Last updated */}
+                  <div className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                    {r.updated_at ? formatDateTime(r.updated_at) : '—'}
+                  </div>
+
+                  {/* Per-row save action */}
+                  <div className="flex justify-end">
+                    {!r.is_locked && changed && canManage && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-[11px]"
+                        onClick={() => handleSave(r.project_id)}
+                        title="Save this project"
+                      >
+                        <Save className="size-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+
+          {/* Footer total */}
+          {rows.length > 0 && (
+            <div
+              className={cn(
+                ROW_GRID,
+                'border-t border-border bg-[var(--paper-2)] px-5 py-3',
+                'font-mono text-[11px] uppercase tracking-[0.14em]',
+              )}
+            >
+              <div className="text-muted-foreground">Total · {rows.length} project{rows.length === 1 ? '' : 's'}</div>
+              <div className="text-[14px] tabular-nums text-foreground">{totalAgents}</div>
+              <div />
+              <div />
+              <div />
+            </div>
+          )}
         </div>
-
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Project</TableHead>
-                  <TableHead className="w-[140px]">Agent Count</TableHead>
-                  <TableHead className="w-[100px]">Status</TableHead>
-                  <TableHead>Last Updated</TableHead>
-                  <TableHead className="w-[80px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((r) => {
-                  const changed = editValues[r.project_id] !== undefined && editValues[r.project_id] !== r.agent_count;
-                  return (
-                    <TableRow key={r.project_id} className={changed ? 'bg-blue-50/50' : ''}>
-                      <TableCell className="font-medium">{r.project_name}</TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={editValues[r.project_id] ?? ''}
-                          onChange={(e) =>
-                            setEditValues((v) => ({
-                              ...v,
-                              [r.project_id]: parseInt(e.target.value) || 0,
-                            }))
-                          }
-                          disabled={r.is_locked || !canManage}
-                          className="w-24"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {r.is_locked ? (
-                          <span className="text-xs text-muted-foreground">Locked</span>
-                        ) : changed ? (
-                          <span className="text-xs text-blue-600 font-medium">Unsaved</span>
-                        ) : r.agent_count !== null ? (
-                          <span className="flex items-center gap-1 text-xs text-success-soft-foreground">
-                            <CheckCircle className="h-3 w-3" /> Set
-                          </span>
-                        ) : (
-                          <span className="text-xs text-warning-soft-foreground">Not set</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {r.updated_at ? formatDateTime(r.updated_at) : '—'}
-                      </TableCell>
-                      <TableCell>
-                        {!r.is_locked && changed && canManage && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleSave(r.project_id)}
-                            title="Save this project"
-                          >
-                            <Save className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
