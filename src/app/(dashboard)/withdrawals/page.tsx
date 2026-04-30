@@ -1,23 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
-import { PageHeader } from '@/components/layout/page-header';
+import { PageTitle } from '@/components/layout/page-title';
 import { StatCard } from '@/components/layout/stat-card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { WithdrawalFormDialog } from '@/components/withdrawals/withdrawal-form-dialog';
-import { formatCurrency, formatDate, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
+import { formatCompactKES, formatCurrency, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
 import { getTotalPaidUsd } from '@/lib/cash-balance';
-import { Plus, ArrowDownToLine, TrendingUp, AlertTriangle, Wallet, FileText, DollarSign, Receipt, Pencil } from 'lucide-react';
+import { Plus, Wallet, FileText, ArrowDownToLine, TrendingUp, Pencil } from 'lucide-react';
 import type { Withdrawal } from '@/types/database';
+
+import { FilterPillBar } from '@/app/(dashboard)/misc/_components/FilterPillBar';
+import { WithdrawalRow, WithdrawalRowHead } from './_components/WithdrawalRow';
+import { OverBudgetBanner } from './_components/OverBudgetBanner';
 
 interface BudgetSummaryRow {
   scope: string;
@@ -33,30 +35,80 @@ interface InvoiceSummary {
   total_pending_usd: number;
 }
 
+type WithdrawalRowData = Withdrawal & { projects?: { name: string } | null };
+
+type TypeFilter = 'all' | 'director_payout' | 'operations';
+
+function startOfTodayNairobi(): Date {
+  const isoDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Nairobi',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  return new Date(`${isoDate}T00:00:00+03:00`);
+}
+
+type DayGroup = { key: string; label: string; rows: WithdrawalRowData[] };
+
+function groupWithdrawalsByDay(rows: WithdrawalRowData[]): DayGroup[] {
+  const today = startOfTodayNairobi();
+  const ms = 24 * 60 * 60 * 1000;
+  const todayMs = today.getTime();
+  const startOfWeekMs = todayMs - 6 * ms; // last 7 days, ending today
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).getTime();
+
+  const buckets: Record<string, DayGroup> = {
+    today: { key: 'today', label: 'Today', rows: [] },
+    week: { key: 'week', label: 'Earlier this week', rows: [] },
+    month: { key: 'month', label: 'Earlier this month', rows: [] },
+    earlier: { key: 'earlier', label: 'Earlier', rows: [] },
+  };
+
+  const sorted = [...rows].sort((a, b) =>
+    (b.withdrawal_date || '').localeCompare(a.withdrawal_date || ''),
+  );
+
+  for (const row of sorted) {
+    const ts = new Date(row.withdrawal_date).getTime();
+    if (Number.isNaN(ts)) {
+      buckets.earlier!.rows.push(row);
+      continue;
+    }
+    if (ts >= todayMs) buckets.today!.rows.push(row);
+    else if (ts >= startOfWeekMs) buckets.week!.rows.push(row);
+    else if (ts >= startOfMonth) buckets.month!.rows.push(row);
+    else buckets.earlier!.rows.push(row);
+  }
+
+  return [buckets.today!, buckets.week!, buckets.month!, buckets.earlier!].filter(
+    (g) => g.rows.length > 0,
+  );
+}
+
 export default function WithdrawalsPage() {
   const { user } = useUser();
-  const [withdrawals, setWithdrawals] = useState<(Withdrawal & { projects?: { name: string } | null })[]>([]);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRowData[]>([]);
   const [budgetSummaries, setBudgetSummaries] = useState<BudgetSummaryRow[]>([]);
   const [invoiceSummary, setInvoiceSummary] = useState<InvoiceSummary>({ total_invoiced_usd: 0, total_paid_usd: 0, total_pending_usd: 0 });
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
   const [showDialog, setShowDialog] = useState(false);
-  const [editingWithdrawal, setEditingWithdrawal] = useState<(Withdrawal & { projects?: { name: string } | null }) | null>(null);
+  const [editingWithdrawal, setEditingWithdrawal] = useState<WithdrawalRowData | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [bankBalance, setBankBalance] = useState(0);
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
 
   useEffect(() => {
     async function load() {
       const supabase = createClient();
 
-      // Load withdrawals (join projects for company_operations rows)
       const { data: wData } = await supabase
         .from('withdrawals')
         .select('*, projects(name)')
         .eq('year_month', selectedMonth)
         .order('withdrawal_date', { ascending: false });
-      setWithdrawals((wData || []) as (Withdrawal & { projects?: { name: string } | null })[]);
+      setWithdrawals((wData || []) as WithdrawalRowData[]);
 
-      // Load budgets
       const { data: bData } = await supabase
         .from('budgets')
         .select(`
@@ -80,7 +132,6 @@ export default function WithdrawalsPage() {
       });
       setBudgetSummaries(summaries);
 
-      // Load ALL invoices up to and including selected month (cumulative view)
       const { data: allInvoices } = await supabase
         .from('invoices')
         .select('id, amount_usd, status, billing_period, payments(amount_usd)')
@@ -95,8 +146,7 @@ export default function WithdrawalsPage() {
         total_pending_usd: totalInvoiced - totalPaid,
       });
 
-      // `bank_balance_usd` is a seed/starting balance from before this app tracked movements.
-      // Current balance = seed + all paid invoice cash-in - all withdrawals (all-time).
+      // Bank balance: seed + all-time payments received - all-time withdrawals.
       const { data: balSetting } = await supabase.from('system_settings').select('value').eq('key', 'bank_balance_usd').single();
       const seedBalance = parseFloat(balSetting?.value || '0');
       const { data: allWd } = await supabase.from('withdrawals').select('amount_usd');
@@ -114,19 +164,38 @@ export default function WithdrawalsPage() {
   const totalReceivedKes = withdrawals.reduce((s, w) => s + Number(w.amount_kes), 0);
   const totalVariance = withdrawals.reduce((s, w) => s + Number(w.variance_kes || 0), 0);
 
-  // Approved budget totals (KES)
-  const approvedBudgets = budgetSummaries.filter(b => b.status === 'approved');
+  const approvedBudgets = budgetSummaries.filter((b) => b.status === 'approved');
   const totalApprovedKes = approvedBudgets.reduce((s, b) => s + b.total_kes, 0);
-
-  // Pending withdrawal in KES = approved budget KES - already received KES
   const pendingWithdrawalKes = totalApprovedKes - totalReceivedKes;
 
-  // Average exchange rate
   const avgRate = withdrawals.length > 0
     ? withdrawals.reduce((s, w) => s + Number(w.exchange_rate), 0) / withdrawals.length
     : 0;
 
   const canCreate = user?.role === 'cfo' || user?.role === 'accountant';
+  const isCfo = user?.role === 'cfo';
+
+  const directorPayoutCount = withdrawals.filter((w) => w.withdrawal_type === 'director_payout').length;
+  const operationsCount = withdrawals.filter((w) => w.withdrawal_type === 'operations').length;
+
+  const typeFilterPills = [
+    { key: 'all' as const, label: 'All', count: withdrawals.length },
+    { key: 'director_payout' as const, label: 'Director Payout', count: directorPayoutCount },
+    { key: 'operations' as const, label: 'Operations', count: operationsCount },
+  ];
+
+  const filteredWithdrawals = useMemo(
+    () =>
+      typeFilter === 'all'
+        ? withdrawals
+        : withdrawals.filter((w) => w.withdrawal_type === typeFilter),
+    [withdrawals, typeFilter],
+  );
+
+  const grouped = useMemo(
+    () => groupWithdrawalsByDay(filteredWithdrawals),
+    [filteredWithdrawals],
+  );
 
   const statusColors: Record<string, string> = {
     draft: 'bg-muted text-foreground/90',
@@ -136,26 +205,43 @@ export default function WithdrawalsPage() {
     rejected: 'bg-danger-soft text-danger-soft-foreground',
   };
 
+  const monthSelect = (
+    <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
+      <SelectTrigger className="w-[180px]">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {Array.from({ length: 12 }, (_, i) => {
+          const d = new Date();
+          d.setMonth(d.getMonth() - i);
+          const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          return <SelectItem key={ym} value={ym}>{formatYearMonth(ym)}</SelectItem>;
+        })}
+      </SelectContent>
+    </Select>
+  );
+
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      {monthSelect}
+      {canCreate && (
+        <Button size="sm" className="gap-1" onClick={() => setShowDialog(true)}>
+          <Plus className="h-4 w-4" /> Request withdrawal
+        </Button>
+      )}
+    </div>
+  );
+
+  const subtitle = `${formatYearMonth(selectedMonth)} · ${withdrawals.length} recorded · ${formatCompactKES(totalReceivedKes)} drawn`;
+
   return (
-    <div>
-      <PageHeader title="Withdrawals" description="USD withdrawals and forex tracking">
-        <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
-          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {Array.from({ length: 12 }, (_, i) => {
-              const d = new Date();
-              d.setMonth(d.getMonth() - i);
-              const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-              return <SelectItem key={ym} value={ym}>{formatYearMonth(ym)}</SelectItem>;
-            })}
-          </SelectContent>
-        </Select>
-        {canCreate && (
-          <Button size="sm" className="gap-1" onClick={() => setShowDialog(true)}>
-            <Plus className="h-4 w-4" /> New Withdrawal
-          </Button>
-        )}
-      </PageHeader>
+    <div className="p-6">
+      <PageTitle
+        primary="Withdrawals &"
+        accent="director draws"
+        subtitle={subtitle}
+        action={headerActions}
+      />
 
       <WithdrawalFormDialog
         open={showDialog}
@@ -176,250 +262,192 @@ export default function WithdrawalsPage() {
         editData={editingWithdrawal}
       />
 
-      <div className="p-6 space-y-6">
-        {/* Bank balance + Budget & Withdrawal stats */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-6 space-y-6">
+        {/* 4-card KPI strip */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            title="Bank Balance"
-            value={formatCurrency(bankBalance, 'USD')}
-            subtitle={'This month withdrawn: ' + formatCurrency(totalWithdrawnUsd, 'USD')}
-            icon={Wallet}
-          />
-          <StatCard
-            title="Approved Budget"
-            value={formatCurrency(totalApprovedKes, 'KES')}
-            subtitle="Total approved for this month"
-            icon={FileText}
-          />
-          <StatCard
-            title="Pending Withdrawal"
-            value={formatCurrency(Math.max(pendingWithdrawalKes, 0), 'KES')}
-            subtitle={pendingWithdrawalKes < 0 ? 'Over-withdrawn!' : 'Remaining to withdraw'}
-            icon={Wallet}
-          />
-          <StatCard
-            title="Withdrawn (USD)"
-            value={formatCurrency(totalWithdrawnUsd, 'USD')}
-            subtitle={`Received: ${formatCurrency(totalReceivedKes, 'KES')}`}
+            title={`Drawn · ${formatYearMonth(selectedMonth)}`}
+            value={formatCompactKES(totalReceivedKes)}
+            subtitle={`${withdrawals.length} withdrawal${withdrawals.length === 1 ? '' : 's'} · ${formatCurrency(totalWithdrawnUsd, 'USD')}${avgRate > 0 ? ` · avg ${avgRate.toFixed(2)}` : ''}`}
             icon={ArrowDownToLine}
+            tone="brand"
           />
           <StatCard
-            title="Avg Exchange Rate"
-            value={avgRate > 0 ? new Intl.NumberFormat('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(avgRate) : '—'}
-            subtitle={avgRate > 0 ? 'USD 1 = KES ' + new Intl.NumberFormat('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(avgRate) : 'No withdrawals yet'}
+            title="Approved budget"
+            value={formatCompactKES(totalApprovedKes)}
+            subtitle={`${approvedBudgets.length} approved · ${budgetSummaries.length} total`}
+            icon={FileText}
+            tone="brand"
+          />
+          <StatCard
+            title="Pending withdrawal"
+            value={
+              pendingWithdrawalKes < 0
+                ? formatCompactKES(Math.abs(pendingWithdrawalKes))
+                : formatCompactKES(Math.max(0, pendingWithdrawalKes))
+            }
+            subtitle={pendingWithdrawalKes < 0 ? 'Over budget' : 'Remaining headroom'}
             icon={TrendingUp}
+            tone={pendingWithdrawalKes < 0 ? 'danger' : 'warning'}
+          />
+          <StatCard
+            title="Bank balance"
+            value={formatCurrency(bankBalance, 'USD')}
+            subtitle={avgRate > 0 ? `≈ ${formatCompactKES(bankBalance * avgRate)}` : 'After withdrawals'}
+            icon={Wallet}
+            tone="brand"
           />
         </div>
 
-        {/* Invoice summary row */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatCard
-            title="Total Invoiced (USD)"
-            value={formatCurrency(invoiceSummary.total_invoiced_usd, 'USD')}
-            icon={Receipt}
-          />
-          <StatCard
-            title="Invoices Paid (USD)"
-            value={formatCurrency(invoiceSummary.total_paid_usd, 'USD')}
-            icon={DollarSign}
-          />
-          <StatCard
-            title="Invoices Pending (USD)"
-            value={formatCurrency(invoiceSummary.total_pending_usd, 'USD')}
-            subtitle={invoiceSummary.total_pending_usd > 0 ? 'Awaiting payment' : ''}
-            icon={AlertTriangle}
-          />
-        </div>
-
-        {/* Over budget warning */}
         {pendingWithdrawalKes < 0 && (
-          <Card className="border-danger/30 bg-danger-soft/50">
-            <CardContent className="flex items-center gap-3 p-4">
-              <AlertTriangle className="h-5 w-5 text-danger-soft-foreground shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-danger-soft-foreground">Over Budget Warning</p>
-                <p className="text-sm text-danger-soft-foreground">
-                  Withdrawals exceed approved budgets by {formatCurrency(Math.abs(pendingWithdrawalKes), 'KES')}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <OverBudgetBanner
+            overByKes={Math.abs(pendingWithdrawalKes)}
+            approvedBudgetKes={totalApprovedKes}
+            drawnKes={totalReceivedKes}
+          />
         )}
 
-        {/* Budget Summary */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Budget Summary — {formatYearMonth(selectedMonth)}</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
+        {/* Type filter pills */}
+        <FilterPillBar
+          pills={typeFilterPills}
+          activeKey={typeFilter}
+          onChange={(k) => setTypeFilter(k)}
+        />
+
+        {/* Withdrawal list */}
+        <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+          <WithdrawalRowHead />
+          {filteredWithdrawals.length === 0 ? (
+            <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+              {typeFilter === 'all'
+                ? `No withdrawals for ${formatYearMonth(selectedMonth)}.`
+                : `No ${typeFilterPills.find((p) => p.key === typeFilter)?.label.toLowerCase() || ''} withdrawals for this month.`}
+            </div>
+          ) : (
+            grouped.map((group) => {
+              const groupTotalKes = group.rows.reduce((s, r) => s + Number(r.amount_kes || 0), 0);
+              return (
+                <Fragment key={group.key}>
+                  <div className="flex items-baseline gap-3 border-y border-border-subtle bg-[var(--paper-2)] px-5 py-2 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    <span className="text-foreground">{group.label}</span>
+                    <span aria-hidden>—</span>
+                    <span className="tabular-nums text-foreground">{formatCompactKES(groupTotalKes)}</span>
+                    <span className="ml-auto">
+                      {group.rows.length} withdrawal{group.rows.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  {group.rows.map((w) => (
+                    <WithdrawalRow
+                      key={w.id}
+                      withdrawal={w}
+                      actions={
+                        isCfo ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-[11px]"
+                            onClick={() => {
+                              setEditingWithdrawal(w);
+                              setShowEditDialog(true);
+                            }}
+                          >
+                            <Pencil className="mr-1 size-3" />
+                            Edit
+                          </Button>
+                        ) : null
+                      }
+                    />
+                  ))}
+                </Fragment>
+              );
+            })
+          )}
+        </div>
+
+        {/* List footer total — variance roll-up */}
+        {filteredWithdrawals.length > 0 && (
+          <div className="flex items-center justify-between rounded-[var(--radius-sm)] border border-border-subtle bg-[var(--paper-2)] px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.10em] text-muted-foreground">
+            <span>
+              Showing {filteredWithdrawals.length} of {withdrawals.length} · variance{' '}
+              <span className={totalVariance !== 0 ? 'text-[var(--danger)]' : 'text-foreground'}>
+                {formatCompactKES(totalVariance)}
+              </span>
+            </span>
+            <span className="tabular-nums text-foreground">{formatCompactKES(totalReceivedKes)}</span>
+          </div>
+        )}
+
+        {/* Budget Summary — kept; lightly rethemed */}
+        <section className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+          <div className="border-b border-border bg-[var(--paper-2)] px-5 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            Budget Summary · {formatYearMonth(selectedMonth)}
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Scope</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Amount (KES)</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {budgetSummaries.length === 0 ? (
                 <TableRow>
-                  <TableHead>Scope</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Amount (KES)</TableHead>
+                  <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                    No budgets submitted for {formatYearMonth(selectedMonth)}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {budgetSummaries.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
-                      No budgets submitted for {formatYearMonth(selectedMonth)}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  <>
-                    {budgetSummaries.map((b, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="font-medium">{b.scope}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{capitalize(b.scope_type)}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className={statusColors[b.status] || ''}>
-                            {capitalize(b.status)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatCurrency(b.total_kes, 'KES')}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="font-semibold bg-muted/50">
-                      <TableCell colSpan={3} className="text-right">Total (All Budgets)</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatCurrency(budgetSummaries.reduce((s, b) => s + b.total_kes, 0), 'KES')}
+              ) : (
+                <>
+                  {budgetSummaries.map((b, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-medium">{b.scope}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{capitalize(b.scope_type)}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={statusColors[b.status] || ''}>
+                          {capitalize(b.status)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        {formatCurrency(b.total_kes, 'KES')}
                       </TableCell>
                     </TableRow>
-                    <TableRow className="font-semibold text-success-soft-foreground bg-success-soft/50">
-                      <TableCell colSpan={3} className="text-right">Approved Only</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(totalApprovedKes, 'KES')}</TableCell>
-                    </TableRow>
-                  </>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Separator />
-
-        {/* Withdrawal History */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Withdrawal History</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Purpose</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">USD</TableHead>
-                  <TableHead className="text-right">Rate</TableHead>
-                  <TableHead className="text-right">KES Received</TableHead>
-                  <TableHead>Bureau</TableHead>
-                  <TableHead>Reference</TableHead>
-                  <TableHead className="text-right">Variance (KES)</TableHead>
-                  {user?.role === 'cfo' && <TableHead className="w-[80px]">Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {withdrawals.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={user?.role === 'cfo' ? 11 : 10} className="text-center py-8 text-muted-foreground">
-                      No withdrawals for {formatYearMonth(selectedMonth)}
+                  ))}
+                  <TableRow className="bg-muted/50 font-semibold">
+                    <TableCell colSpan={3} className="text-right">Total (All Budgets)</TableCell>
+                    <TableCell className="text-right font-mono">
+                      {formatCurrency(budgetSummaries.reduce((s, b) => s + b.total_kes, 0), 'KES')}
                     </TableCell>
                   </TableRow>
-                ) : (
-                  <>
-                    {withdrawals.map((w) => (
-                      <TableRow key={w.id}>
-                        <TableCell>{formatDate(w.withdrawal_date)}</TableCell>
-                  <TableCell>
-                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                      w.withdrawal_type === 'operations' || w.purpose === 'company_operations'
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'bg-violet-soft/50 text-violet-soft-foreground'
-                    }`}>
-                      {w.withdrawal_type === 'operations' || w.purpose === 'company_operations'
-                        ? (w.projects?.name || 'Company Ops')
-                        : (w.director_name || w.director_tag || 'Director')}
-                    </span>
-                  </TableCell>
-                        <TableCell>
-                          {w.withdrawal_type === 'director_payout' ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-warning-soft text-warning-soft-foreground border border-warning/30">
-                              Director Payout
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-                              Operations
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {w.withdrawal_type === 'director_payout' ? (
-                            <div>
-                              <p className="font-medium text-sm">{w.director_name || 'Director'} — Profit Share Payout</p>
-                              <p className="text-xs text-muted-foreground">
-                                {w.payout_type === 'full' ? 'Full payout' : 'Partial payout'} · {formatYearMonth(w.withdrawal_date.slice(0, 7))}
-                              </p>
-                            </div>
-                          ) : (
-                            w.purpose === 'company_operations'
-                              ? w.projects?.name || 'Company Ops'
-                              : capitalize(w.director_tag || '')
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatCurrency(Number(w.amount_usd), 'USD')}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {new Intl.NumberFormat('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(w.exchange_rate))}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatCurrency(Number(w.amount_kes), 'KES')}
-                        </TableCell>
-                        <TableCell className="text-sm">{w.forex_bureau || '—'}</TableCell>
-                        <TableCell className="text-sm">{w.reference_id || '—'}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {w.variance_kes ? formatCurrency(Number(w.variance_kes), 'KES') : '—'}
-                        </TableCell>
-                        {user?.role === 'cfo' && (
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                              onClick={() => {
-                                setEditingWithdrawal(w);
-                                setShowEditDialog(true);
-                              }}
-                            >
-                              <Pencil className="h-3 w-3 mr-1" />
-                              Edit
-                            </Button>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                    <TableRow className="font-semibold bg-muted/50">
-                      <TableCell colSpan={3} className="text-right">Totals</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(totalWithdrawnUsd, 'USD')}</TableCell>
-                      <TableCell className="text-right font-mono text-sm">{avgRate > 0 ? `Avg: ${new Intl.NumberFormat('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(avgRate)}` : ''}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(totalReceivedKes, 'KES')}</TableCell>
-                      <TableCell colSpan={2}></TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(totalVariance, 'KES')}</TableCell>
-                      {user?.role === 'cfo' && <TableCell />}
-                    </TableRow>
-                  </>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                  <TableRow className="bg-success-soft/50 font-semibold text-success-soft-foreground">
+                    <TableCell colSpan={3} className="text-right">Approved Only</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(totalApprovedKes, 'KES')}</TableCell>
+                  </TableRow>
+                </>
+              )}
+            </TableBody>
+          </Table>
+        </section>
+
+        {/* Invoice summary footnote — kept compact, since the invoice cumulative
+            fetch still informs Bank Balance. Detailed breakdown lives on /revenue. */}
+        {invoiceSummary.total_invoiced_usd > 0 && (
+          <div className="grid grid-cols-1 gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-[var(--paper-2)] px-5 py-3 text-[12px] text-muted-foreground sm:grid-cols-3">
+            <div>
+              <span className="font-mono uppercase tracking-[0.10em]">Invoiced (cum.) </span>
+              <span className="font-mono tabular-nums text-foreground">{formatCurrency(invoiceSummary.total_invoiced_usd, 'USD')}</span>
+            </div>
+            <div>
+              <span className="font-mono uppercase tracking-[0.10em]">Paid </span>
+              <span className="font-mono tabular-nums text-foreground">{formatCurrency(invoiceSummary.total_paid_usd, 'USD')}</span>
+            </div>
+            <div>
+              <span className="font-mono uppercase tracking-[0.10em]">Open </span>
+              <span className="font-mono tabular-nums text-foreground">{formatCurrency(invoiceSummary.total_pending_usd, 'USD')}</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
