@@ -190,7 +190,6 @@ const projectManagerNav: NavGroup[] = [
       { title: 'Trends & Analytics', href: '/reports/trends', icon: LineChart },
       { title: 'Budget Accuracy', href: '/reports/budget-accuracy', icon: Target },
       { title: 'Budget vs Actual', href: '/reports/budget-vs-actual', icon: ClipboardList },
-      { title: 'Profit Share', href: '/profit-share', icon: PieChart },
     ],
   },
   {

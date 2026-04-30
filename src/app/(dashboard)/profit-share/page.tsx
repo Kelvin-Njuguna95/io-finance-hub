@@ -1,593 +1,481 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
-import { useUser } from '@/hooks/use-user';
-import { PageHeader } from '@/components/layout/page-header';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { PayoutDialog, type PayoutRecordOption } from '@/components/common/payout-dialog';
-import { formatCurrency, getCurrentYearMonth, formatYearMonth, capitalize, formatDate } from '@/lib/format';
-import { formatKES } from '@/lib/utils/currency';
-import { cn } from '@/lib/utils';
-import { getUserErrorMessage } from '@/lib/errors';
-import { Check, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { CheckCircle2, Download, FileSignature } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface PayoutWithdrawal {
-  id: string;
-  payout_type: 'full' | 'partial' | null;
-  amount_usd: number;
-  amount_kes: number;
-  withdrawal_date: string;
-  users?: { full_name: string | null } | null;
-}
+import { useUser } from '@/hooks/use-user';
+import {
+  useProfitShare,
+  type DirectorShare,
+  type ProfitShareHistoryRow,
+  type ProfitShareStatus,
+} from '@/hooks/use-profit-share';
+import { PageTitle } from '@/components/layout/page-title';
+import { StatCard } from '@/components/layout/stat-card';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  formatCompactKES,
+  formatYearMonth,
+  getCurrentYearMonth,
+} from '@/lib/format';
+import { cn } from '@/lib/utils';
 
-interface ProjectShare {
-  project_id?: string;
-  project_name: string;
-  director_tag: string;
-  revenue: number;
-  direct_costs: number;
-  distributable_profit: number;
-  director_share: number;
-  company_share: number;
-  source: 'live' | 'record';
-  record_id?: string;
-  record_status?: string;
-  total_paid_out?: number;
-  balance_remaining?: number;
-  payout_status?: 'unpaid' | 'partial' | 'paid';
-  revenueEstimated?: boolean;
-}
+const ALLOWED_ROLES = new Set(['cfo']);
 
-function PayoutStatusBadge({ status }: { status: string }) {
-  const styles = {
-    unpaid: 'bg-muted text-muted-foreground',
-    partial: 'bg-warning-soft text-warning-soft-foreground',
-    paid: 'bg-success-soft text-success-soft-foreground',
-  };
-  const labels = {
-    unpaid: 'Not Paid',
-    partial: 'Partial',
-    paid: 'Fully Paid',
-  };
-  return (
-    <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', styles[status as keyof typeof styles] ?? styles.unpaid)}>
-      {labels[status as keyof typeof labels] ?? status}
-    </span>
-  );
+const STATUS_LABEL: Record<ProfitShareStatus, string> = {
+  approved: 'Approved',
+  pending_review: 'Pending review',
+  disputed: 'Disputed',
+  draft: 'Draft',
+};
+
+const STATUS_TONE: Record<ProfitShareStatus, string> = {
+  approved: 'bg-success-soft text-success-soft-foreground',
+  pending_review: 'bg-warning-soft text-warning-soft-foreground',
+  disputed: 'bg-danger-soft text-danger-soft-foreground',
+  draft: 'bg-[var(--paper-3)] text-foreground',
+};
+
+function formatDeltaPct(pct: number | null): string {
+  if (pct === null) return '—';
+  const sign = pct >= 0 ? '+ ' : '− ';
+  return `${sign}${Math.abs(pct).toFixed(1)}%`;
 }
 
 export default function ProfitSharePage() {
   const { user } = useUser();
-  const [shares, setShares] = useState<ProjectShare[]>([]);
+  const router = useRouter();
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
-  const [disputeTarget, setDisputeTarget] = useState<ProjectShare | null>(null);
-  const [disputeReason, setDisputeReason] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [payoutDialogOpen, setPayoutDialogOpen] = useState(false);
-  const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
-  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
-  const [payoutHistory, setPayoutHistory] = useState<Record<string, PayoutWithdrawal[]>>({});
-  const [monthClosureStatus, setMonthClosureStatus] = useState<string>('open');
-  const [recomputing, setRecomputing] = useState(false);
-  const [showRecomputeConfirm, setShowRecomputeConfirm] = useState(false);
 
-  const prevDate = new Date(parseInt(selectedMonth.split('-')[0]), parseInt(selectedMonth.split('-')[1]) - 2, 1);
-  const revenueSourceMonth = prevDate.getFullYear() + '-' + String(prevDate.getMonth() + 1).padStart(2, '0');
-
-  useEffect(() => { load(); }, [selectedMonth]);
-
-  async function loadPayoutHistory(recordId: string) {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from('withdrawals')
-      .select('id, payout_type, amount_usd, amount_kes, withdrawal_date, users:recorded_by(full_name)')
-      .eq('profit_share_record_id', recordId)
-      .eq('withdrawal_type', 'director_payout')
-      .order('withdrawal_date', { ascending: false });
-
-    setPayoutHistory((prev) => ({ ...prev, [recordId]: (data || []) as PayoutWithdrawal[] }));
-  }
-
-  async function toggleExpanded(recordId: string) {
-    if (expandedRecordId === recordId) {
-      setExpandedRecordId(null);
-      return;
-    }
-    setExpandedRecordId(recordId);
-    if (!payoutHistory[recordId]) {
-      await loadPayoutHistory(recordId);
-    }
-  }
-
-  async function getAuthHeaders(): Promise<Record<string, string>> {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    return session ? { 'Authorization': `Bearer ${session.access_token}` } : {};
-  }
-
-  async function load() {
-    setLoading(true);
-    const supabase = createClient();
-
-    const { data: mc } = await supabase
-      .from('month_closures')
-      .select('status')
-      .eq('year_month', selectedMonth)
-      .maybeSingle();
-    setMonthClosureStatus(mc?.status ?? 'open');
-
-    const { data: existingRecords } = await supabase
-      .from('profit_share_records')
-      .select('*, projects(name)')
-      .eq('year_month', selectedMonth)
-      .order('director_tag');
-
-    if (existingRecords && existingRecords.length > 0) {
-      const projectIds = existingRecords
-        .map((r: { project_id?: string | null }) => r.project_id)
-        .filter((id): id is string => Boolean(id));
-
-      const { data: profRows } = await supabase
-        .from('project_profitability')
-        .select('project_id, revenue_kes, direct_expenses_kes, allocated_overhead_kes')
-        .eq('year_month', selectedMonth)
-        .in('project_id', projectIds);
-
-      const profMap = new Map<string, { revenue: number; total_expenses: number }>();
-      (profRows || []).forEach((p: { project_id: string; revenue_kes: number | null; direct_expenses_kes: number | null; allocated_overhead_kes: number | null }) => {
-        profMap.set(p.project_id, {
-          revenue: Number(p.revenue_kes || 0),
-          total_expenses: Number(p.direct_expenses_kes || 0) + Number(p.allocated_overhead_kes || 0),
-        });
-      });
-
-      setShares(existingRecords.map((r: {
-        projects?: { name?: string } | null;
-        project_id?: string | null;
-        director_tag: string;
-        distributable_profit_kes: number;
-        director_share_kes: number;
-        company_share_kes: number;
-        id: string;
-        status: string;
-        total_paid_out?: number | null;
-        balance_remaining?: number | null;
-        payout_status?: 'unpaid' | 'partial' | 'paid' | null;
-      }) => ({
-        project_id: r.project_id || undefined,
-        project_name: r.projects?.name || '—',
-        director_tag: r.director_tag,
-        revenue: profMap.get(r.project_id || '')?.revenue ?? 0,
-        direct_costs: profMap.get(r.project_id || '')?.total_expenses ?? 0,
-        distributable_profit: Number(r.distributable_profit_kes),
-        director_share: Number(r.director_share_kes),
-        company_share: Number(r.company_share_kes),
-        source: 'record' as const,
-        record_id: r.id,
-        record_status: r.status,
-        total_paid_out: Number(r.total_paid_out || 0),
-        balance_remaining: Number(r.balance_remaining ?? r.director_share_kes ?? 0),
-        payout_status: (r.payout_status || 'unpaid') as 'unpaid' | 'partial' | 'paid',
-      })));
-      setLoading(false);
-      return;
-    }
-
-    const { data: projects } = await supabase.from('projects').select('id, name, director_tag').eq('is_active', true);
-    const { data: laggedRows } = await supabase
-      .from('lagged_revenue_by_project_month')
-      .select('project_id, lagged_revenue_kes, revenue_kes_estimated')
-      .eq('expense_month', selectedMonth);
-    const { data: expenses } = await supabase.from('expenses').select('project_id, amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense').eq('lifecycle_status', 'confirmed');
-
-    const invMap = new Map<string, { amount: number; estimated: boolean }>();
-    (laggedRows || []).forEach((i: { project_id: string; lagged_revenue_kes: number | null; revenue_kes_estimated: boolean | null }) => {
-      const existing = invMap.get(i.project_id) || { amount: 0, estimated: false };
-      invMap.set(i.project_id, {
-        amount: existing.amount + Number(i.lagged_revenue_kes || 0),
-        estimated: existing.estimated || Boolean(i.revenue_kes_estimated),
-      });
-    });
-
-    const expMap = new Map<string, number>();
-    (expenses || []).forEach((e: { project_id: string; amount_kes: number }) => {
-      expMap.set(e.project_id, (expMap.get(e.project_id) || 0) + Number(e.amount_kes));
-    });
-
-    const rows: ProjectShare[] = (projects || [])
-      .map((p: { id: string; name: string; director_tag: string }) => {
-        const revenue = invMap.get(p.id)?.amount || 0;
-        const directCosts = expMap.get(p.id) || 0;
-        const distributable = revenue - directCosts;
-        const directorShare = distributable > 0 ? Math.round(distributable * 0.70 * 100) / 100 : 0;
-        const companyShare = distributable > 0 ? Math.round(distributable * 0.30 * 100) / 100 : 0;
-        return {
-          project_id: p.id,
-          project_name: p.name,
-          director_tag: p.director_tag,
-          revenue,
-          direct_costs: directCosts,
-          distributable_profit: distributable,
-          director_share: directorShare,
-          company_share: companyShare,
-          source: 'live' as const,
-          revenueEstimated: invMap.get(p.id)?.estimated || false,
-        };
-      })
-      .filter(r => r.revenue > 0 || r.direct_costs > 0)
-      .sort((a, b) => b.distributable_profit - a.distributable_profit);
-
-    setShares(rows);
-    setLoading(false);
-  }
-
-  async function handleApprove(recordId: string) {
-    const supabase = createClient();
-    await supabase.from('profit_share_records').update({
-      status: 'approved',
-      approved_by: user?.id,
-      approved_at: new Date().toISOString(),
-    }).eq('id', recordId);
-    toast.success('Profit share approved');
-    load();
-  }
-
-  async function handleDispute() {
-    if (!disputeTarget?.record_id || !disputeReason.trim()) return;
-    const supabase = createClient();
-    await supabase.from('profit_share_records').update({
-      status: 'disputed',
-      dispute_reason: disputeReason,
-    }).eq('id', disputeTarget.record_id);
-    setDisputeTarget(null);
-    setDisputeReason('');
-    toast.success('Profit share disputed');
-    load();
-  }
-
-  async function handleRecompute() {
-    setRecomputing(true);
-    try {
-      const headers = await getAuthHeaders();
-      const res = await fetch('/api/profit-share/recompute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers },
-        body: JSON.stringify({ year_month: selectedMonth }),
-      });
-      const payload = await res.json();
-      if (!res.ok) {
-        toast.error(getUserErrorMessage(payload?.error));
-        return;
-      }
-      const verb = recordsExist ? 'Recomputed' : 'Generated';
-      const rows = Number(payload.rows_created ?? 0);
-      toast.success(
-        `${verb} ${rows} profit share row${rows === 1 ? '' : 's'} for ${formatYearMonth(selectedMonth)}`,
-      );
-      const losses = Number(payload.loss_making_projects ?? 0);
-      if (losses > 0) {
-        toast.warning(
-          `${losses} project${losses === 1 ? ' was' : 's were'} loss-making this month — director shares are signed negative`,
-        );
-      }
-      setShowRecomputeConfirm(false);
-      await load();
-    } catch (err) {
-      toast.error(getUserErrorMessage(err));
-    } finally {
-      setRecomputing(false);
-    }
-  }
-
-  async function handleInitiatePayout() {
-    setPayoutDialogOpen(true);
-  }
-
-  const userRole = user?.role ?? null;
-  const isCfo = userRole === 'cfo';
-  const totalDirectorShare = shares.reduce((s, r) => s + r.director_share, 0);
-  const totalCompanyShare = shares.reduce((s, r) => s + r.company_share, 0);
-  const totalDistributable = shares.reduce((s, r) => s + (r.distributable_profit > 0 ? r.distributable_profit : 0), 0);
-  const isLiveData = shares.length > 0 && shares[0].source === 'live';
-  const recordsExist = !isLiveData && shares.length > 0;
-  const canRecomputeForMonth = monthClosureStatus !== 'closed' && monthClosureStatus !== 'locked';
-  const recomputeLabel = recordsExist ? 'Recompute' : 'Generate';
-  const payoutRecords: PayoutRecordOption[] = (() => {
-    const directorMap = new Map<string, { id: string; director_name: string; balance_remaining: number }>();
-
-    shares
-      .filter((share) => Boolean(share.record_id))
-      .forEach((share) => {
-        const tag = share.director_tag;
-        const existing = directorMap.get(tag);
-
-        if (existing) {
-          existing.balance_remaining += Number(share.balance_remaining ?? share.director_share ?? 0);
-        } else {
-          directorMap.set(tag, {
-            id: share.record_id!,
-            director_name: capitalize(tag),
-            balance_remaining: Number(share.balance_remaining ?? share.director_share ?? 0),
-          });
-        }
-      });
-
-    return Array.from(directorMap.values()).filter((record) => record.balance_remaining > 0);
-  })();
+  // Route-level role gate — CFO ONLY (most sensitive financial surface).
   useEffect(() => {
-    if (!pendingDialogOpen || loading) return;
-
-    if (payoutRecords.length > 0) {
-      setPayoutDialogOpen(true);
-    } else {
-      toast.error('No directors have payout balances for this period.');
+    if (!user?.role) return;
+    if (!ALLOWED_ROLES.has(user.role)) {
+      toast.error('Profit Share is restricted to CFO');
+      router.push('/');
     }
-    setPendingDialogOpen(false);
-  }, [pendingDialogOpen, payoutRecords, loading]);
+  }, [user?.role, router]);
 
-  const statusColors: Record<string, string> = {
-    pending_review: 'bg-warning-soft text-warning-soft-foreground',
-    approved: 'bg-success-soft text-success-soft-foreground',
-    disputed: 'bg-danger-soft text-danger-soft-foreground',
-  };
+  const ps = useProfitShare(selectedMonth);
+  const summary = ps.summary;
+
+  const months = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, i) => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      }),
+    [],
+  );
 
   return (
     <div>
-      <PageHeader title="Profit Share" description={'70/30 distribution — revenue from ' + formatYearMonth(revenueSourceMonth) + ' invoice'}>
-        {userRole === 'cfo' && (
-          <div className="flex items-center gap-2">
-            <Button onClick={handleInitiatePayout}>
-              + Initiate Payout
-            </Button>
-            <Link href="/profit-share/payouts">
-              <Button variant="ghost" size="sm">
-                View All Payouts
+      <div className="border-b border-border/70 bg-background px-6 py-6">
+        <PageTitle
+          primary="Director"
+          accent="distribution"
+          subtitle={
+            ps.loading
+              ? `${formatYearMonth(selectedMonth)} · loading…`
+              : `${formatYearMonth(selectedMonth)} · 70/30 split · ${formatCompactKES(summary.totalDistributablePoolKes)} pool across ${summary.directorCount} ${summary.directorCount === 1 ? 'director' : 'directors'} · ${STATUS_LABEL[summary.distributionStatus].toLowerCase()}`
+          }
+          action={
+            <div className="flex items-center gap-2">
+              <Select
+                value={selectedMonth}
+                onValueChange={(v) => v && setSelectedMonth(v)}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map((ym) => (
+                    <SelectItem key={ym} value={ym}>
+                      {formatYearMonth(ym)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled
+                className="gap-1"
+                title="Coming soon — export ledger"
+              >
+                <Download className="size-4" /> Export ledger
               </Button>
-            </Link>
-          </div>
-        )}
-        {isCfo && (
-          <Button
-            variant="outline"
-            onClick={() => setShowRecomputeConfirm(true)}
-            disabled={recomputing || !canRecomputeForMonth}
-            title={!canRecomputeForMonth ? 'Month is closed or locked. Reopen it first.' : undefined}
-          >
-            {recomputing ? (recordsExist ? 'Recomputing…' : 'Generating…') : recomputeLabel}
-          </Button>
-        )}
-        <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
-          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {Array.from({ length: 12 }, (_, i) => {
-              const d = new Date(); d.setMonth(d.getMonth() - i);
-              const ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-              return <SelectItem key={ym} value={ym}>{formatYearMonth(ym)}</SelectItem>;
-            })}
-          </SelectContent>
-        </Select>
-      </PageHeader>
-
-      <div className="p-6 space-y-4">
-        {isLiveData && (
-          <div className="alert-info rounded-lg p-3 text-sm">
-            These figures are computed live from current data. They will be finalized when the month is closed.
-          </div>
-        )}
-
-        <div className="flex gap-6 text-sm">
-          <span>Distributable Profit: <strong>{formatCurrency(totalDistributable, 'KES')}</strong></span>
-          <span>Director Share (70%): <strong className="text-success-soft-foreground">{formatCurrency(totalDirectorShare, 'KES')}</strong></span>
-          <span>Company Share (30%): <strong>{formatCurrency(totalCompanyShare, 'KES')}</strong></span>
-        </div>
-
-        <Card className="io-card">
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Director</TableHead>
-                  <TableHead className="text-right">Revenue (KES)</TableHead>
-                  <TableHead className="text-right">Expenses (KES)</TableHead>
-                  <TableHead className="text-right">Distributable</TableHead>
-                  <TableHead className="text-right">Director (70%)</TableHead>
-                  <TableHead className="text-right">Company (30%)</TableHead>
-                  {!isLiveData && <TableHead className="text-right">Paid Out</TableHead>}
-                  {!isLiveData && <TableHead className="text-right">Remaining</TableHead>}
-                  {!isLiveData && <TableHead>Payout Status</TableHead>}
-                  {!isLiveData && <TableHead>Status</TableHead>}
-                  {isCfo && !isLiveData && <TableHead className="w-[180px]">Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">Please wait</TableCell>
-                  </TableRow>
-                ) : shares.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
-                      No profit share data for {formatYearMonth(selectedMonth)}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  <>
-                    {shares.map((r, i) => (
-                      <TableRow key={`row-${r.record_id || i}`}>
-                        <TableCell className="font-medium">{r.revenueEstimated ? `≈ ${r.project_name}` : r.project_name}</TableCell>
-                        <TableCell>{capitalize(r.director_tag)}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{formatCurrency(r.revenue, 'KES')}</TableCell>
-                        <TableCell className="text-right font-mono text-sm text-danger-soft-foreground">{formatCurrency(r.direct_costs, 'KES')}</TableCell>
-                        <TableCell className={`text-right font-mono text-sm font-semibold ${r.distributable_profit < 0 ? 'text-danger-soft-foreground' : ''}`}>
-                          {formatCurrency(r.distributable_profit, 'KES')}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm text-success-soft-foreground">
-                          {r.director_share > 0 ? formatCurrency(r.director_share, 'KES') : '—'}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {r.company_share > 0 ? formatCurrency(r.company_share, 'KES') : '—'}
-                        </TableCell>
-                        {!isLiveData && (
-                          <>
-                            <TableCell className="text-right font-mono text-sm">{formatKES(r.total_paid_out || 0)}</TableCell>
-                            <TableCell className="text-right font-mono text-sm">{formatKES(r.balance_remaining ?? r.director_share)}</TableCell>
-                            <TableCell><PayoutStatusBadge status={r.payout_status || 'unpaid'} /></TableCell>
-                            <TableCell>
-                              <Badge variant="secondary" className={statusColors[r.record_status || 'pending_review']}>
-                                {capitalize(r.record_status || 'pending_review')}
-                              </Badge>
-                            </TableCell>
-                          </>
-                        )}
-                        {isCfo && !isLiveData && (
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {r.record_status === 'pending_review' && r.record_id && (
-                                <>
-                                  <Button variant="ghost" size="icon" onClick={() => handleApprove(r.record_id!)} title="Approve">
-                                    <Check className="h-4 w-4 text-success-soft-foreground" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" onClick={() => setDisputeTarget(r)} title="Dispute">
-                                    <X className="h-4 w-4 text-danger-soft-foreground" />
-                                  </Button>
-                                </>
-                              )}
-                              {r.record_id && (
-                                <Button variant="ghost" size="sm" onClick={() => toggleExpanded(r.record_id!)}>
-                                  {expandedRecordId === r.record_id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                </Button>
-                              )}
-                              {r.record_id && r.payout_status !== 'paid' && (
-                                <Button
-                                  variant="link"
-                                  className="text-xs text-warning-soft-foreground hover:text-warning-soft-foreground font-medium p-0"
-                                  onClick={() => {
-                                    window.location.href = `/withdrawals?type=director_payout&profit_share_record_id=${r.record_id}`;
-                                  }}
-                                >
-                                  Record Payout →
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                    {shares.map((r, i) => (
-                      expandedRecordId === r.record_id ? (
-                        <TableRow key={r.record_id || i}>
-                            <TableCell colSpan={12} className="bg-warning-soft/50 p-4">
-                              <p className="text-xs font-medium text-warning-soft-foreground mb-2">Payout History</p>
-                              {(payoutHistory[r.record_id || ''] || []).length === 0 ? (
-                                <p className="text-xs text-muted-foreground">No payouts recorded yet.</p>
-                              ) : (
-                                <table className="text-xs w-full">
-                                  <thead>
-                                    <tr className="text-muted-foreground">
-                                      <th className="text-left">Date</th>
-                                      <th className="text-left">Type</th>
-                                      <th className="text-right">Amount (USD)</th>
-                                      <th className="text-right">Amount (KES)</th>
-                                      <th className="text-left">Recorded by</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {(payoutHistory[r.record_id || ''] || []).map((w) => (
-                                      <tr key={w.id}>
-                                        <td>{formatDate(w.withdrawal_date)}</td>
-                                        <td className="capitalize">{w.payout_type || '—'}</td>
-                                        <td className="text-right">USD {Number(w.amount_usd || 0).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                        <td className="text-right">{formatKES(Number(w.amount_kes || 0))}</td>
-                                        <td>{w.users?.full_name || '—'}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                      ) : null
-                    ))}
-                    <TableRow className="font-semibold bg-muted/50">
-                      <TableCell colSpan={4} className="text-right">Total</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(totalDistributable, 'KES')}</TableCell>
-                      <TableCell className="text-right font-mono text-success-soft-foreground">{formatCurrency(totalDirectorShare, 'KES')}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(totalCompanyShare, 'KES')}</TableCell>
-                      {!isLiveData && <TableCell></TableCell>}
-                      {!isLiveData && <TableCell></TableCell>}
-                      {!isLiveData && <TableCell></TableCell>}
-                      {!isLiveData && <TableCell></TableCell>}
-                      {isCfo && !isLiveData && <TableCell></TableCell>}
-                    </TableRow>
-                  </>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Dialog open={!!disputeTarget} onOpenChange={() => setDisputeTarget(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Dispute Profit Share</DialogTitle>
-            </DialogHeader>
-            <Textarea
-              placeholder="Reason for dispute (required)..."
-              value={disputeReason}
-              onChange={(e) => setDisputeReason(e.target.value)}
-            />
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDisputeTarget(null)}>Cancel</Button>
-              <Button variant="destructive" onClick={handleDispute} disabled={!disputeReason.trim()}>
-                Submit Dispute
+              <Button
+                variant="default"
+                size="sm"
+                disabled
+                className="gap-1"
+                title="Coming soon — approve distribution"
+              >
+                <FileSignature className="size-4" /> Approve distribution
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={showRecomputeConfirm} onOpenChange={setShowRecomputeConfirm}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{recordsExist ? 'Recompute' : 'Generate'} profit share</DialogTitle>
-              <DialogDescription>
-                {recordsExist
-                  ? `This will replace ${shares.length} existing record${shares.length === 1 ? '' : 's'} for ${formatYearMonth(selectedMonth)}. Calculations use lagged revenue and confirmed expenses.`
-                  : `This will create profit share records for ${formatYearMonth(selectedMonth)} from the current calculation. Calculations use lagged revenue and confirmed expenses.`}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowRecomputeConfirm(false)} disabled={recomputing}>
-                Cancel
-              </Button>
-              <Button onClick={handleRecompute} disabled={recomputing}>
-                {recomputing ? 'Working…' : (recordsExist ? 'Recompute' : 'Generate')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <PayoutDialog
-          open={payoutDialogOpen}
-          onOpenChange={setPayoutDialogOpen}
-          selectedMonth={selectedMonth}
-          records={payoutRecords}
-          onCreated={load}
+            </div>
+          }
         />
       </div>
+
+      <div className="space-y-6 p-6">
+        {/* Hero pool card */}
+        <PoolCard
+          loading={ps.loading}
+          totalNetProfitKes={summary.totalNetProfitKes}
+          totalPoolKes={summary.totalDistributablePoolKes}
+          totalCompanyKes={summary.totalCompanyShareKes}
+          status={summary.distributionStatus}
+          fromMaterialisedTable={summary.fromMaterialisedTable}
+          monthLabel={summary.periodLabel}
+        />
+
+        {/* KPI strip */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            title="Recipients"
+            value={summary.directorCount > 0 ? `${summary.directorCount}` : '—'}
+            subtitle={
+              summary.directorCount === 0
+                ? 'No projects with profit'
+                : `${summary.directorCount} of 5 directors received a share`
+            }
+            loading={ps.loading}
+            tone="brand"
+          />
+          <StatCard
+            title="Largest share"
+            value={
+              summary.largestShare
+                ? formatCompactKES(summary.largestShare.shareKes)
+                : '—'
+            }
+            subtitle={
+              summary.largestShare
+                ? `${summary.largestShare.directorName} · ${summary.largestShare.sharePct.toFixed(1)}% of pool`
+                : 'No directors with share'
+            }
+            loading={ps.loading}
+            tone="success"
+          />
+          <StatCard
+            title="Smallest share"
+            value={
+              summary.smallestShare
+                ? formatCompactKES(summary.smallestShare.shareKes)
+                : '—'
+            }
+            subtitle={
+              summary.smallestShare
+                ? `${summary.smallestShare.directorName} · ${summary.smallestShare.sharePct.toFixed(1)}% of pool`
+                : 'No directors with share'
+            }
+            loading={ps.loading}
+            tone="brand"
+          />
+          <StatCard
+            title="vs prior period"
+            value={formatDeltaPct(summary.priorPeriodDeltaPct)}
+            subtitle={
+              summary.priorPeriodDeltaPct === null
+                ? 'No prior records to compare'
+                : `${formatCompactKES(summary.totalDistributablePoolKes)} this period`
+            }
+            loading={ps.loading}
+            tone={
+              summary.priorPeriodDeltaPct !== null && summary.priorPeriodDeltaPct >= 0
+                ? 'success'
+                : 'danger'
+            }
+          />
+        </div>
+
+        {/* Tabs */}
+        <Tabs defaultValue="allocation">
+          <TabsList>
+            <TabsTrigger value="allocation">Allocation</TabsTrigger>
+            <TabsTrigger value="history">History · 8 months</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="allocation" className="pt-4">
+            <AllocationTab
+              directors={ps.directors}
+              poolKes={summary.totalDistributablePoolKes}
+              companyKes={summary.totalCompanyShareKes}
+              loading={ps.loading}
+            />
+          </TabsContent>
+
+          <TabsContent value="history" className="pt-4">
+            <HistoryTable rows={ps.history} loading={ps.loading} />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Pool card ----------
+
+function PoolCard({
+  loading,
+  totalNetProfitKes,
+  totalPoolKes,
+  totalCompanyKes,
+  status,
+  fromMaterialisedTable,
+  monthLabel,
+}: {
+  loading: boolean;
+  totalNetProfitKes: number;
+  totalPoolKes: number;
+  totalCompanyKes: number;
+  status: ProfitShareStatus;
+  fromMaterialisedTable: boolean;
+  monthLabel: string;
+}) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-foreground bg-foreground p-6 text-background">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-[var(--gold)]">
+            Distributable pool · {monthLabel}
+          </p>
+          <h2
+            className="mt-1 font-display text-[36px] font-normal leading-[1.05] tracking-tight tabular-nums"
+            style={{ fontVariationSettings: '"opsz" 72' }}
+          >
+            {loading ? '—' : formatCompactKES(totalPoolKes)}
+          </h2>
+          <p className="mt-2 max-w-2xl text-[12.5px] text-background/65">
+            70% of net profit allocated by project director_tag. 30%
+            retained by company. Net profit ={' '}
+            {loading ? '—' : formatCompactKES(totalNetProfitKes)} (revenue from
+            lagged view, fully-loaded cost).
+          </p>
+        </div>
+        <span
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em]',
+            STATUS_TONE[status],
+          )}
+        >
+          <CheckCircle2 className="size-3.5" /> {STATUS_LABEL[status]}
+        </span>
+      </div>
+      {!fromMaterialisedTable && !loading && totalPoolKes > 0 && (
+        <p className="mt-4 max-w-2xl text-[11px] text-background/55">
+          Pool computed from current data — profit_share_records will land
+          on month closure / recompute.
+        </p>
+      )}
+      {/* 70/30 split bar */}
+      <div className="mt-5">
+        <div className="flex h-3 overflow-hidden rounded-full bg-background/15">
+          <span
+            aria-hidden
+            className="bg-[var(--gold)]"
+            style={{ width: '70%' }}
+          />
+          <span
+            aria-hidden
+            className="bg-background/55"
+            style={{ width: '30%' }}
+          />
+        </div>
+        <div className="mt-2 flex items-center justify-between font-mono text-[10.5px] tracking-[0.06em] text-background/65">
+          <span>
+            <span className="font-semibold text-[var(--gold)]">70%</span>{' '}
+            directors · {loading ? '—' : formatCompactKES(totalPoolKes)}
+          </span>
+          <span>
+            <span className="font-semibold text-background">30%</span> company ·{' '}
+            {loading ? '—' : formatCompactKES(totalCompanyKes)}
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------- Allocation tab ----------
+
+function AllocationTab({
+  directors,
+  poolKes,
+  companyKes,
+  loading,
+}: {
+  directors: DirectorShare[];
+  poolKes: number;
+  companyKes: number;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        Loading allocation…
+      </div>
+    );
+  }
+  if (directors.every((d) => d.shareKes === 0)) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        No distributable profit this period — directors share 70% of net
+        profit when net profit is positive.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="grid grid-cols-[1.6fr_1fr_1fr_1fr_1.6fr] gap-4 border-b border-border bg-muted/30 px-6 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          <span>Director</span>
+          <span className="text-right">Share</span>
+          <span className="text-right">% of pool</span>
+          <span className="text-right">Projects</span>
+          <span>Pool position</span>
+        </div>
+        <ul>
+          {directors.map((d) => (
+            <DirectorRow key={d.directorTag} d={d} />
+          ))}
+        </ul>
+      </div>
+      <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-6 py-3 font-mono text-[11px] text-muted-foreground">
+        Pool {formatCompactKES(poolKes)} = sum of director shares ·{' '}
+        {formatCompactKES(companyKes)} retained by company
+      </div>
+    </div>
+  );
+}
+
+function DirectorRow({ d }: { d: DirectorShare }) {
+  const isLeader = d.sharePct >= 25;
+  return (
+    <li className="grid grid-cols-[1.6fr_1fr_1fr_1fr_1.6fr] items-center gap-4 border-b border-border/60 px-6 py-4 last:border-b-0">
+      <div className="min-w-0">
+        <p className="truncate text-[14px] font-medium leading-tight text-foreground">
+          {d.directorName}
+        </p>
+        <p className="mt-1 truncate font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
+          {d.directorTag}
+          {d.projectCount > 0 && (
+            <>
+              {' · '}
+              {d.projectNames.slice(0, 2).join(' · ')}
+              {d.projectNames.length > 2 && ` +${d.projectNames.length - 2}`}
+            </>
+          )}
+        </p>
+      </div>
+      <span
+        className={cn(
+          'text-right font-mono text-[14px] tabular-nums',
+          d.shareKes > 0 ? 'text-foreground' : 'text-muted-foreground',
+        )}
+      >
+        {formatCompactKES(d.shareKes)}
+      </span>
+      <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+        {d.sharePct.toFixed(1)}%
+      </span>
+      <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+        {d.projectCount}
+      </span>
+      <div className="flex items-center gap-2">
+        <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-[var(--paper-3)]">
+          <div
+            aria-hidden
+            className={cn(
+              'absolute inset-y-0 left-0',
+              isLeader ? 'bg-[var(--gold)]' : 'bg-foreground/70',
+            )}
+            style={{ width: `${Math.min(100, d.sharePct)}%` }}
+          />
+        </div>
+      </div>
+    </li>
+  );
+}
+
+// ---------- History tab ----------
+
+function HistoryTable({
+  rows,
+  loading,
+}: {
+  rows: ProfitShareHistoryRow[];
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        Loading history…
+      </div>
+    );
+  }
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        No history available
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="grid grid-cols-[140px_1fr_1fr_1fr_140px] gap-4 border-b border-border bg-muted/30 px-6 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        <span>Period</span>
+        <span className="text-right">Net profit</span>
+        <span className="text-right">Distributable · 70%</span>
+        <span className="text-right">Company · 30%</span>
+        <span>Status</span>
+      </div>
+      <ul>
+        {rows.map((r) => (
+          <li
+            key={r.yearMonth}
+            className="grid grid-cols-[140px_1fr_1fr_1fr_140px] items-center gap-4 border-b border-border/60 px-6 py-4 last:border-b-0"
+          >
+            <span className="font-mono text-[12px] uppercase tracking-[0.12em] text-foreground">
+              {r.label}
+            </span>
+            <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+              {formatCompactKES(r.totalNetProfitKes)}
+            </span>
+            <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+              {formatCompactKES(r.distributableKes)}
+            </span>
+            <span className="text-right font-mono text-[13px] tabular-nums text-muted-foreground">
+              {formatCompactKES(r.totalNetProfitKes - r.distributableKes)}
+            </span>
+            <span>
+              <span
+                className={cn(
+                  'inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10.5px] font-semibold tracking-[0.06em]',
+                  STATUS_TONE[r.status],
+                )}
+              >
+                {STATUS_LABEL[r.status]}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
