@@ -1,330 +1,662 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { PageHeader } from '@/components/layout/page-header';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency } from '@/components/reports/executive-kit';
-import { formatCurrency, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
-import { getLaggedMonth, getUnifiedServicePeriodLabel } from '@/lib/report-utils';
-import { Badge } from '@/components/ui/badge';
-import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { FileDown } from 'lucide-react';
-import { exportSimpleReportPdf } from '@/lib/pdf-export';
-import { EXPENSE_STATUS } from '@/lib/constants/status';
-import { getTotalPaidUsd } from '@/lib/cash-balance';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowRight, CheckCircle2, Download, FilePlus } from 'lucide-react';
+import { toast } from 'sonner';
 
-function PnlLine({ label, kes, bold, negative }: {
-  label: string; kes: number; bold?: boolean; negative?: boolean;
-}) {
+import { useUser } from '@/hooks/use-user';
+import {
+  usePLReports,
+  type AnnualReport,
+  type MonthlyReport,
+  type PLStatus,
+  type QuarterlyReport,
+} from '@/hooks/use-pl-reports';
+import { PageTitle } from '@/components/layout/page-title';
+import { StatCard } from '@/components/layout/stat-card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatCompactKES } from '@/lib/format';
+import { cn } from '@/lib/utils';
+
+const ALLOWED_ROLES = new Set(['cfo', 'accountant']);
+
+const STATUS_LABEL: Record<PLStatus, string> = {
+  signed: 'Signed',
+  in_review: 'In review',
+  draft: 'Draft',
+};
+
+const STATUS_TONE: Record<PLStatus, string> = {
+  signed: 'bg-success-soft text-success-soft-foreground',
+  in_review: 'bg-warning-soft text-warning-soft-foreground',
+  draft: 'bg-[var(--paper-3)] text-foreground',
+};
+
+function formatTimestamp(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return new Intl.DateTimeFormat('en-KE', {
+    timeZone: 'Africa/Nairobi',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(d);
+}
+
+export default function PLReportsPage() {
+  const { user } = useUser();
+  const router = useRouter();
+
+  // Route-level role gate.
+  useEffect(() => {
+    if (!user?.role) return;
+    if (!ALLOWED_ROLES.has(user.role)) {
+      toast.error('P&L Reports is restricted to CFO and accountants');
+      router.push('/');
+    }
+  }, [user?.role, router]);
+
+  const pl = usePLReports();
+  const summary = pl.summary;
+
   return (
-    <div className={`flex items-center justify-between py-2 ${bold ? 'font-semibold' : ''}`}>
-      <span className="text-sm">{label}</span>
-      <span className={`text-sm font-mono ${negative ? 'text-danger-soft-foreground' : ''}`}>
-        {formatCurrency(kes, 'KES')}
-      </span>
+    <div>
+      <div className="border-b border-border/70 bg-background px-6 py-6">
+        <PageTitle
+          primary="P&L"
+          accent="archive"
+          subtitle={
+            pl.loading
+              ? 'Loading reports archive…'
+              : `${summary.archivedCount} archived · ${summary.signedOffThisFiscalCount} signed off this fiscal · quarterly & annual rollups`
+          }
+          action={
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled
+                className="gap-1"
+                title="Coming soon — bulk export"
+              >
+                <Download className="size-4" /> Bulk export
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                disabled
+                className="gap-1"
+                title="Coming soon — generate report"
+              >
+                <FilePlus className="size-4" /> Generate report
+              </Button>
+            </div>
+          }
+        />
+      </div>
+
+      <div className="space-y-6 p-6">
+        {/* Featured: current period */}
+        <CurrentPeriodSection
+          loading={pl.loading}
+          current={summary.current}
+        />
+
+        {/* KPI strip */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            title="Archived statements"
+            value={`${summary.archivedCount}`}
+            subtitle="Signed off · monthly snapshots"
+            loading={pl.loading}
+            tone="brand"
+          />
+          <StatCard
+            title="Signed this fiscal"
+            value={`${summary.signedOffThisFiscalCount}`}
+            subtitle="Calendar-year-to-date"
+            loading={pl.loading}
+            tone="success"
+          />
+          <StatCard
+            title="Current period revenue"
+            value={
+              summary.current
+                ? formatCompactKES(summary.current.revenueMtdKes)
+                : '—'
+            }
+            subtitle={
+              summary.current ? 'MTD · live snapshot' : 'No current snapshot'
+            }
+            loading={pl.loading}
+            tone="brand"
+          />
+          <StatCard
+            title="Current period margin"
+            value={
+              summary.current
+                ? `${summary.current.marginPct.toFixed(1)}%`
+                : '—'
+            }
+            subtitle={
+              summary.current
+                ? `${formatCompactKES(summary.current.netProfitKes)} net profit`
+                : 'No current snapshot'
+            }
+            loading={pl.loading}
+            tone={
+              summary.current && summary.current.marginPct >= 10
+                ? 'success'
+                : 'danger'
+            }
+          />
+        </div>
+
+        {/* Tabs */}
+        <Tabs defaultValue="monthly">
+          <TabsList>
+            <TabsTrigger value="monthly">
+              Monthly{' '}
+              <span className="ml-1.5 font-mono text-[10.5px] text-muted-foreground">
+                {pl.monthly.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="quarterly">
+              Quarterly{' '}
+              <span className="ml-1.5 font-mono text-[10.5px] text-muted-foreground">
+                {pl.quarterly.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="annual">
+              Annual{' '}
+              <span className="ml-1.5 font-mono text-[10.5px] text-muted-foreground">
+                {pl.annual.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="drafts">
+              Drafts{' '}
+              <span className="ml-1.5 font-mono text-[10.5px] text-muted-foreground">
+                {pl.drafts.length}
+              </span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="monthly" className="pt-4">
+            <MonthlyTable rows={pl.monthly} loading={pl.loading} />
+          </TabsContent>
+
+          <TabsContent value="quarterly" className="pt-4">
+            <QuarterlyTable rows={pl.quarterly} loading={pl.loading} />
+          </TabsContent>
+
+          <TabsContent value="annual" className="pt-4">
+            <AnnualTable rows={pl.annual} loading={pl.loading} />
+          </TabsContent>
+
+          <TabsContent value="drafts" className="pt-4">
+            <MonthlyTable rows={pl.drafts} loading={pl.loading} />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
 
-interface PnlData {
-  revenue: number;
-  directCosts: number;
-  grossProfit: number;
-  sharedOverhead: number;
-  operatingProfit: number;
-  netProfit: number;
-  agents: number;
-  revenueUsd: number;
-  revenueEstimated: boolean;
+// ---------- Featured current period section ----------
+
+function CurrentPeriodSection({
+  loading,
+  current,
+}: {
+  loading: boolean;
+  current: PLReportsCurrentParam;
+}) {
+  return (
+    <section>
+      <header className="mb-3">
+        <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          In progress
+        </p>
+        <h2 className="mt-1 font-display text-[20px] font-medium leading-tight text-foreground">
+          Current period{current ? <> · <em className="not-italic italic text-[var(--gold-lo)]">{current.label}</em></> : ''}
+        </h2>
+      </header>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr_1fr]">
+        <CurrentPeriodInkCard loading={loading} current={current} />
+        <ProjectionCard
+          title="By project"
+          accent="snapshot"
+          description="Per-project P&L for active projects. Includes overhead allocation by headcount."
+          href="/reports/profitability"
+          countLabel="Active projects"
+        />
+        <ProjectionCard
+          title="By department"
+          accent="snapshot"
+          description="Department-scoped expenses against shared overhead."
+          href="/reports/budget-vs-actual"
+          countLabel="Operations · IT · sales · …"
+        />
+      </div>
+    </section>
+  );
 }
 
-export default function PnLReportPage() {
-  const [pnl, setPnl] = useState<PnlData | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
-  const [reportMode, setReportMode] = useState<'accrual' | 'cash'>('accrual');
-  const [loading, setLoading] = useState(true);
-  const [cashBalance, setCashBalance] = useState(0);
-
-  const [revenueSourceMonth, setRevenueSourceMonth] = useState(
-    getLaggedMonth(selectedMonth)
-  );
-  const [isHistorical, setIsHistorical] = useState(false);
-  const servicePeriodLabel = getUnifiedServicePeriodLabel(selectedMonth);
-
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      const supabase = createClient();
-
-      // 1. Try snapshot first
-      const { data: snapshot } = await supabase
-        .from('monthly_financial_snapshots')
-        .select('*')
-        .eq('year_month', selectedMonth)
-        .single();
-
-      // Detect historical months — use direct matching instead of lag
-      const historical = !!(snapshot?.data_source && snapshot.data_source.startsWith('historical_seed'));
-      setIsHistorical(historical);
-      let revMonth: string;
-      if (historical) {
-        revMonth = selectedMonth;
-      } else {
-        const prevDate = new Date(parseInt(selectedMonth.split('-')[0]), parseInt(selectedMonth.split('-')[1]) - 2, 1);
-        revMonth = prevDate.getFullYear() + '-' + String(prevDate.getMonth() + 1).padStart(2, '0');
-      }
-      setRevenueSourceMonth(revMonth);
-
-      // Fetch cash balance: seed + all-time invoice cash-in - all-time withdrawals.
-      const [balRes, wdRes, allInvoicesRes] = await Promise.all([
-        supabase.from('system_settings').select('value').eq('key', 'bank_balance_usd').single(),
-        supabase.from('withdrawals').select('amount_usd'),
-        supabase.from('invoices').select('amount_usd, status, payments(amount_usd)'),
-      ]);
-      const seedBalance = parseFloat(balRes.data?.value || '0');
-      const totalWithdrawn = (wdRes.data || []).reduce((s: number, w: /* // */ any) => s + Number(w.amount_usd), 0);
-      const totalPaid = getTotalPaidUsd(allInvoicesRes.data || []);
-      setCashBalance(seedBalance + totalPaid - totalWithdrawn);
-
-      if (snapshot && Number(snapshot.total_revenue_kes) > 0) {
-        // Always get live agent counts — snapshots may have stale or missing agent data
-        const { data: agentData } = await supabase
-          .from('agent_counts')
-          .select('agent_count')
-          .eq('year_month', selectedMonth);
-        const liveAgents = (agentData || []).reduce((s: number, a: /* // */ any) => s + Number(a.agent_count || 0), 0);
-
-        setPnl({
-          revenue: snapshot.total_revenue_kes,
-          directCosts: snapshot.total_direct_costs_kes,
-          grossProfit: snapshot.gross_profit_kes,
-          sharedOverhead: snapshot.total_shared_overhead_kes,
-          operatingProfit: snapshot.operating_profit_kes,
-          netProfit: snapshot.net_profit_kes,
-          agents: liveAgents > 0 ? liveAgents : snapshot.total_agents,
-          revenueUsd: snapshot.total_revenue_usd,
-          revenueEstimated: false,
-        });
-        setLoading(false);
-        return;
-      }
-
-      // F-15: bound the payments query to the selected month at the DB
-      // level instead of fetching the entire table and filtering in JS.
-      const monthStart = `${selectedMonth}-01`;
-      const [y, m] = selectedMonth.split('-').map(Number);
-      const nextMonth = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
-      const monthEnd = `${nextMonth}-01`;
-
-      // 2. Compute live from invoices + expenses
-      const [laggedRevenueRes, invRes, projExpRes, sharedExpRes, agentRes, rateRes, payRes] = await Promise.all([
-        // Accrual mode source of truth
-        supabase
-          .from('lagged_revenue_company_month')
-          .select('total_revenue_kes, total_revenue_usd, revenue_kes_estimated')
-          .eq('expense_month', selectedMonth)
-          .maybeSingle(),
-        // Cash mode uses invoice/payment activity
-        supabase.from('invoices').select('amount_usd, amount_kes').eq('billing_period', selectedMonth),
-        // Direct project expenses this month
-        supabase.from('expenses').select('amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'project_expense').eq('lifecycle_status', EXPENSE_STATUS.CONFIRMED),
-        // Shared overhead this month
-        supabase.from('expenses').select('amount_kes').eq('year_month', selectedMonth).eq('expense_type', 'shared_expense').eq('lifecycle_status', EXPENSE_STATUS.CONFIRMED),
-        // Agent count
-        supabase.from('agent_counts').select('agent_count').eq('year_month', selectedMonth),
-        // Exchange rate
-        supabase.from('system_settings').select('value').eq('key', 'standard_exchange_rate').single(),
-        // Cash mode: payments received this month (date range bounded at DB)
-        supabase.from('payments').select('amount_usd, payment_date').gte('payment_date', monthStart).lt('payment_date', monthEnd),
-      ]);
-
-      const stdRate = parseFloat(rateRes.data?.value || '129.5');
-
-      let revenue = 0;
-      let revenueUsd = 0;
-
-      if (reportMode === 'accrual') {
-        const lagged = Number(laggedRevenueRes.data?.total_revenue_kes || 0);
-        revenue = lagged > 0 ? lagged : 0;
-        revenueUsd = Number(laggedRevenueRes.data?.total_revenue_usd || 0) || (invRes.data || []).reduce((s: number, i: /* // */ any) => s + Number(i.amount_usd), 0);
-      } else {
-        // Cash mode: payments received in this month — already filtered at DB
-        if (payRes.error) {
-          console.error('[reports/pnl] cash-mode payments query failed:', payRes.error, { selectedMonth });
-        }
-        revenueUsd = (payRes.data || []).reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd), 0);
-        revenue = Math.round(revenueUsd * stdRate * 100) / 100;
-      }
-
-      const directCosts = (projExpRes.data || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
-      const sharedOverhead = (sharedExpRes.data || []).reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
-      const grossProfit = revenue - directCosts;
-      const operatingProfit = grossProfit - sharedOverhead;
-      const agents = (agentRes.data || []).reduce((s: number, a: /* // */ any) => s + Number(a.agent_count || 0), 0);
-
-      setPnl({
-        revenue,
-        directCosts,
-        grossProfit,
-        sharedOverhead,
-        operatingProfit,
-        netProfit: operatingProfit,
-        agents,
-        revenueUsd,
-        revenueEstimated: reportMode === 'accrual' ? Boolean(laggedRevenueRes.data?.revenue_kes_estimated) : false,
-      });
-      setLoading(false);
+type PLReportsCurrentParam =
+  | {
+      yearMonth: string;
+      label: string;
+      revenueMtdKes: number;
+      netProfitKes: number;
+      marginPct: number;
+      status: PLStatus;
     }
-    load();
-  }, [selectedMonth, reportMode]);
+  | null;
 
-  async function exportPdf() {
-    if (!pnl) return;
-    await exportSimpleReportPdf(
-      'Profit & Loss',
-      reportMode === 'accrual' ? servicePeriodLabel : 'Cash basis',
-      [
-        `Revenue: ${formatCurrency(pnl.revenue, 'KES')}`,
-        `Direct costs: ${formatCurrency(pnl.directCosts, 'KES')}`,
-        `Gross profit: ${formatCurrency(pnl.grossProfit, 'KES')}`,
-        `Overhead: ${formatCurrency(pnl.sharedOverhead, 'KES')}`,
-        `Operating profit: ${formatCurrency(pnl.operatingProfit, 'KES')}`,
-        `Net profit: ${formatCurrency(pnl.netProfit, 'KES')}`,
-      ],
-      `IO_PnL_${selectedMonth}.pdf`,
+function CurrentPeriodInkCard({
+  loading,
+  current,
+}: {
+  loading: boolean;
+  current: PLReportsCurrentParam;
+}) {
+  if (loading) {
+    return (
+      <div className="rounded-lg border border-foreground bg-foreground p-6 text-background">
+        <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--gold)]">
+          Loading…
+        </p>
+      </div>
     );
   }
+  if (!current) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-6 py-8 text-sm text-muted-foreground">
+        No snapshot for the current month yet — it'll appear here once
+        monthly_financial_snapshots is populated.
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-lg border border-foreground bg-foreground p-6 text-background">
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-[var(--gold)]">
+          Draft · {current.label} · MTD
+        </p>
+        <span
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em]',
+            STATUS_TONE[current.status],
+          )}
+        >
+          {STATUS_LABEL[current.status]}
+        </span>
+      </div>
+      <h3
+        className="mt-2 font-display text-[22px] font-normal leading-[1.15] tracking-tight text-background"
+        style={{ fontVariationSettings: '"opsz" 32' }}
+      >
+        Monthly P&L ·{' '}
+        <em className="not-italic italic text-[var(--gold)]">
+          {current.label}
+        </em>
+      </h3>
+      <div className="mt-5 grid grid-cols-2 gap-3 border-y border-background/10 py-4">
+        <Metric label="Revenue MTD" value={formatCompactKES(current.revenueMtdKes)} />
+        <Metric
+          label="Net profit"
+          value={formatCompactKES(current.netProfitKes)}
+          gold
+        />
+        <Metric label="Margin" value={`${current.marginPct.toFixed(1)}%`} />
+        <Metric label="Status" value={STATUS_LABEL[current.status]} />
+      </div>
+      <div className="mt-4 flex items-center justify-end">
+        <Link
+          href="/reports/monthly-pl"
+          className="inline-flex h-9 items-center gap-1 rounded-md bg-[var(--gold)] px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-[var(--gold)]/90"
+        >
+          Open draft <ArrowRight className="size-4" />
+        </Link>
+      </div>
+    </div>
+  );
+}
 
+function Metric({
+  label,
+  value,
+  gold,
+}: {
+  label: string;
+  value: string;
+  gold?: boolean;
+}) {
   return (
     <div>
-      <PageHeader title="Profit & Loss" description={reportMode === 'accrual' ? servicePeriodLabel : "Company P&L statement"}>
-        <Tabs value={reportMode} onValueChange={(v) => setReportMode(v as 'accrual' | 'cash')}>
-          <TabsList>
-            <TabsTrigger value="accrual">Accrual</TabsTrigger>
-            <TabsTrigger value="cash">Cash</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
-          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {Array.from({ length: 12 }, (_, i) => {
-              const d = new Date(); d.setMonth(d.getMonth() - i);
-              const ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-              return <SelectItem key={ym} value={ym}>{formatYearMonth(ym)}</SelectItem>;
-            })}
-          </SelectContent>
-        </Select>
-        <Button variant="outline" size="sm" onClick={exportPdf}>
-          <FileDown className="h-4 w-4 mr-1" /> Export PDF
-        </Button>
-      </PageHeader>
-
-      <div className="p-6 space-y-6">
-        {!!pnl && <ExecutiveInsightPanel lines={[
-          'Revenue recognition lag in accrual mode reflects prior-month invoicing.',
-          `Expenses are ${(pnl.directCosts / Math.max(pnl.revenue, 1) * 100).toFixed(1)}% of revenue — healthy.`,
-          `Operating profit: ${formatCompactCurrency(pnl.operatingProfit, 'KES')}.`,
-        ]} />}
-
-        {!!pnl && (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <ExecutiveKpiCard label="Revenue" value={`${pnl.revenueEstimated ? '≈ ' : ''}${formatCompactCurrency(pnl.revenue, 'KES')}`} trend="↑ +7.2%" />
-            <ExecutiveKpiCard label="Direct Costs" value={formatCompactCurrency(pnl.directCosts, 'KES')} trend="↓ -1.9%" />
-            <ExecutiveKpiCard label="Net Profit" value={formatCompactCurrency(pnl.netProfit, 'KES')} trend={pnl.netProfit >= 0 ? '↑ +6.0%' : '↓ -6.0%'} positive={pnl.netProfit >= 0} />
-            <ExecutiveKpiCard label="Cash Balance (USD)" value={formatCompactCurrency(cashBalance, 'USD')} trend="On liquidity watch" />
-          </div>
-        )}
-
-        <Card className="io-card">
-          <CardHeader>
-            <div>
-              <CardTitle className="text-base">
-                {reportMode === 'accrual' ? `${servicePeriodLabel} — Accrual (Lagged)` : `${formatYearMonth(selectedMonth)} — Cash Basis`}
-              </CardTitle>
-              {reportMode === 'accrual' ? (
-                <p className="text-xs text-muted-foreground mt-1">{isHistorical ? `Revenue & expenses from ${formatYearMonth(selectedMonth)}.` : `Revenue and expenses are both matched to ${formatYearMonth(revenueSourceMonth)} service period. Revenue from ${formatYearMonth(revenueSourceMonth)} invoices. Expenses paid in ${formatYearMonth(selectedMonth)}.`}</p>
-              ) : (
-                <p className="text-xs text-muted-foreground mt-1">Cash mode: showing revenue received in {formatYearMonth(selectedMonth)}</p>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">Please wait</p>
-            ) : !pnl ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">
-                No financial data for {formatYearMonth(selectedMonth)}
-              </p>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-success-soft text-success-soft-foreground">On Track</Badge>
-                  <span className="text-xs text-muted-foreground">Revenue recognition lag: revenue is booked from prior month invoices.</span>
-                </div>
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={[
-                      { step: 'Revenue', value: pnl.revenue },
-                      { step: 'Direct Costs', value: -pnl.directCosts },
-                      { step: 'Gross Profit', value: pnl.grossProfit },
-                      { step: 'Overhead', value: -pnl.sharedOverhead },
-                      { step: 'Net Profit', value: pnl.netProfit },
-                    ]}>
-                      <XAxis dataKey="step" tick={{ fontSize: 11 }} />
-                      <YAxis tickFormatter={(v) => formatCompactCurrency(Number(v), 'KES')} />
-                      <Tooltip formatter={(v: unknown) => formatCompactCurrency(Number(v || 0), 'KES')} />
-                      <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                        {[0, 1, 2, 3, 4].map((i) => <Cell key={i} fill={['oklch(0.68 0.16 158)', 'oklch(0.63 0.23 25)', 'oklch(0.78 0.18 210)', 'oklch(0.80 0.16 78)', 'oklch(0.68 0.16 158)'][i]} />)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-                <details>
-                  <summary className="cursor-pointer text-sm font-medium text-foreground/90 underline">Show numeric breakdown</summary>
-                <PnlLine label={reportMode === 'accrual' ? (isHistorical ? 'Revenue' : `Revenue — ${formatYearMonth(revenueSourceMonth)} invoice`) : 'Revenue (cash received)'} kes={pnl.revenue} bold />
-                {pnl.revenueUsd > 0 && (
-                  <p className="text-xs text-muted-foreground -mt-1 mb-1 text-right">USD {pnl.revenueUsd.toLocaleString()} × standard rate</p>
-                )}
-                <PnlLine label={reportMode === 'accrual' ? `Expenses — ${formatYearMonth(selectedMonth)} actuals (${formatYearMonth(revenueSourceMonth)} service period)` : 'Direct Costs'} kes={-pnl.directCosts} negative />
-                <Separator className="my-1" />
-                <PnlLine label={reportMode === 'accrual' ? `Gross Profit — ${formatYearMonth(revenueSourceMonth)} service period` : 'Gross Profit'} kes={pnl.grossProfit} bold />
-                <PnlLine label="Shared Overhead" kes={-pnl.sharedOverhead} negative />
-                <Separator className="my-1" />
-                <PnlLine label="Operating Profit" kes={pnl.operatingProfit} bold />
-                <Separator className="my-1" />
-                <PnlLine label="Net Profit" kes={pnl.netProfit} bold />
-
-                <Separator className="my-3" />
-                <div className="flex items-center justify-between py-2">
-                  <span className="text-sm font-semibold">Cash Balance (USD)</span>
-                  <span className="text-sm font-mono font-semibold text-success-soft-foreground">
-                    {formatCurrency(cashBalance, 'USD')}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground -mt-1 mb-2 text-right">
-                  Standing balance − withdrawals + payments received
-                </p>
-
-                {pnl.revenue === 0 && (
-                  <div className="mt-4 alert-warning rounded-lg p-3 text-sm">
-                    No invoice found for {reportMode === 'accrual' ? formatYearMonth(revenueSourceMonth) : formatYearMonth(selectedMonth)}. Revenue is KES 0.
-                  </div>
-                )}
-
-                <div className="mt-4 text-xs text-muted-foreground">
-                  Total agents: {pnl.agents}
-                </div>
-                </details>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <div className="font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-background/55">
+        {label}
       </div>
+      <div
+        className={cn(
+          'mt-1 font-mono text-[18px] font-medium tabular-nums tracking-tight',
+          gold ? 'text-[var(--gold)]' : 'text-background',
+        )}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ProjectionCard({
+  title,
+  accent,
+  description,
+  href,
+  countLabel,
+}: {
+  title: string;
+  accent: string;
+  description: string;
+  href: string;
+  countLabel: string;
+}) {
+  return (
+    <div className="flex flex-col rounded-lg border border-border bg-card p-6">
+      <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        Drill-down
+      </p>
+      <h3 className="mt-1 font-display text-[18px] font-medium leading-tight text-foreground">
+        {title}{' '}
+        <em className="not-italic italic text-[var(--gold-lo)]">{accent}</em>
+      </h3>
+      <p className="mt-2 flex-1 text-[12.5px] leading-snug text-[var(--warm-grey-3)]">
+        {description}
+      </p>
+      <div className="mt-4 flex items-center justify-between">
+        <span className="font-mono text-[11px] uppercase tracking-[0.10em] text-muted-foreground">
+          {countLabel}
+        </span>
+        <Link
+          href={href}
+          className="inline-flex h-8 items-center rounded-md px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+        >
+          Open
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Tables ----------
+
+function StatusPill({ status }: { status: PLStatus }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10.5px] font-semibold tracking-[0.06em]',
+        STATUS_TONE[status],
+      )}
+    >
+      {status === 'signed' && <CheckCircle2 className="size-3" />}
+      {STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+function MonthlyTable({
+  rows,
+  loading,
+}: {
+  rows: MonthlyReport[];
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        Loading reports…
+      </div>
+    );
+  }
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        No reports in this view yet — monthly_financial_snapshots will populate
+        as months are closed.
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="grid grid-cols-[220px_1fr_1fr_1fr_1fr_1.4fr_110px] gap-4 border-b border-border bg-muted/30 px-6 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        <span>Period</span>
+        <span>Status</span>
+        <span className="text-right">Revenue</span>
+        <span className="text-right">Net profit</span>
+        <span className="text-right">Margin</span>
+        <span>Signed off by</span>
+        <span className="text-right">Actions</span>
+      </div>
+      <ul>
+        {rows.map((r) => (
+          <li
+            key={r.yearMonth}
+            className="grid grid-cols-[220px_1fr_1fr_1fr_1fr_1.4fr_110px] items-center gap-4 border-b border-border/60 px-6 py-4 last:border-b-0"
+          >
+            <div>
+              <div className="font-mono text-[11px] uppercase tracking-[0.10em] text-muted-foreground">
+                {r.reportId}
+              </div>
+              <div className="text-[14px] font-medium text-foreground">
+                {r.label}
+              </div>
+            </div>
+            <span>
+              <StatusPill status={r.status} />
+            </span>
+            <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+              {formatCompactKES(r.revenueKes)}
+            </span>
+            <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+              {formatCompactKES(r.netProfitKes)}
+            </span>
+            <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+              {r.marginPct.toFixed(1)}%
+            </span>
+            <span className="min-w-0">
+              {r.signedOffByName ? (
+                <>
+                  <div className="truncate text-[13px] text-foreground">
+                    {r.signedOffByName}
+                  </div>
+                  {r.signedOffAt && (
+                    <div className="truncate font-mono text-[10.5px] text-muted-foreground">
+                      {formatTimestamp(r.signedOffAt)}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <span className="font-mono text-[11px] text-muted-foreground">—</span>
+              )}
+            </span>
+            <div className="text-right">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled
+                className="h-7 px-2 font-mono text-[10.5px]"
+                title="Coming soon — open report"
+              >
+                Open
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function QuarterlyTable({
+  rows,
+  loading,
+}: {
+  rows: QuarterlyReport[];
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        Loading quarterly rollups…
+      </div>
+    );
+  }
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        No quarterly data
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="grid grid-cols-[180px_1fr_1fr_1fr_1fr_120px_110px] gap-4 border-b border-border bg-muted/30 px-6 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        <span>Quarter</span>
+        <span>Status</span>
+        <span className="text-right">Revenue</span>
+        <span className="text-right">Net profit</span>
+        <span className="text-right">Margin</span>
+        <span>Months</span>
+        <span className="text-right">Actions</span>
+      </div>
+      <ul>
+        {rows.map((r) => (
+          <li
+            key={r.yearQuarter}
+            className="grid grid-cols-[180px_1fr_1fr_1fr_1fr_120px_110px] items-center gap-4 border-b border-border/60 px-6 py-4 last:border-b-0"
+          >
+            <div>
+              <div className="font-mono text-[11px] uppercase tracking-[0.10em] text-muted-foreground">
+                PL · {r.yearQuarter}
+              </div>
+              <div className="text-[14px] font-medium text-foreground">
+                {r.label}
+              </div>
+            </div>
+            <span>
+              <StatusPill status={r.status} />
+            </span>
+            <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+              {formatCompactKES(r.revenueKes)}
+            </span>
+            <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+              {formatCompactKES(r.netProfitKes)}
+            </span>
+            <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+              {r.marginPct.toFixed(1)}%
+            </span>
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {r.monthCount} {r.monthCount === 1 ? 'month' : 'months'}
+            </span>
+            <div className="text-right">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled
+                className="h-7 px-2 font-mono text-[10.5px]"
+                title="Coming soon"
+              >
+                Open
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function AnnualTable({
+  rows,
+  loading,
+}: {
+  rows: AnnualReport[];
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        Loading annual rollups…
+      </div>
+    );
+  }
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        No annual data
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="grid grid-cols-[180px_1fr_1fr_1fr_1fr_120px_110px] gap-4 border-b border-border bg-muted/30 px-6 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        <span>Year</span>
+        <span>Status</span>
+        <span className="text-right">Revenue</span>
+        <span className="text-right">Net profit</span>
+        <span className="text-right">Margin</span>
+        <span>Months</span>
+        <span className="text-right">Actions</span>
+      </div>
+      <ul>
+        {rows.map((r) => (
+          <li
+            key={r.year}
+            className="grid grid-cols-[180px_1fr_1fr_1fr_1fr_120px_110px] items-center gap-4 border-b border-border/60 px-6 py-4 last:border-b-0"
+          >
+            <div>
+              <div className="font-mono text-[11px] uppercase tracking-[0.10em] text-muted-foreground">
+                PL · {r.year}
+              </div>
+              <div className="text-[14px] font-medium text-foreground">
+                {r.label}
+              </div>
+            </div>
+            <span>
+              <StatusPill status={r.status} />
+            </span>
+            <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+              {formatCompactKES(r.revenueKes)}
+            </span>
+            <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+              {formatCompactKES(r.netProfitKes)}
+            </span>
+            <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+              {r.marginPct.toFixed(1)}%
+            </span>
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {r.monthCount} {r.monthCount === 1 ? 'month' : 'months'}
+            </span>
+            <div className="text-right">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled
+                className="h-7 px-2 font-mono text-[10.5px]"
+                title="Coming soon"
+              >
+                Open
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
