@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { InvoiceFormDialog } from '@/components/revenue/invoice-form-dialog';
 import { PaymentFormDialog } from '@/components/revenue/payment-form-dialog';
-import { formatCompactKES, formatCurrency, formatDate, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
+import { formatCompactKES, formatCurrency, formatDate, formatYearMonth } from '@/lib/format';
 import { Plus, FileText, CreditCard } from 'lucide-react';
 import { getAgingBucket, isBackdated } from '@/lib/backdated-utils';
 import { getTotalPaidUsd } from '@/lib/cash-balance';
@@ -79,7 +79,11 @@ function formatInvoiceKesAmount(invoice: RevenueInvoice): string {
 export default function RevenuePage() {
   const { user } = useUser();
   const [invoices, setInvoices] = useState<RevenueInvoice[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<'all' | string>(getCurrentYearMonth());
+  // Default to 'all' so the page lands on a populated state. Filtering by a
+  // specific month uses billing_period (preserved from pre-retheme), which
+  // typically excludes invoices billed for prior months — defaulting to 'all'
+  // avoids the empty-state contradiction with the Outstanding KPI.
+  const [selectedMonth, setSelectedMonth] = useState<'all' | string>('all');
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [bankBalance, setBankBalance] = useState(0);
