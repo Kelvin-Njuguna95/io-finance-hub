@@ -4,27 +4,27 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
-import { PageHeader } from '@/components/layout/page-header';
+import { PageTitle } from '@/components/layout/page-title';
 import { StatCard } from '@/components/layout/stat-card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
 import { InvoiceFormDialog } from '@/components/revenue/invoice-form-dialog';
 import { PaymentFormDialog } from '@/components/revenue/payment-form-dialog';
-import { formatCurrency, formatDate, formatYearMonth, capitalize } from '@/lib/format';
-import { getStatusBadgeClass } from '@/lib/status';
-import { getAgingBucket } from '@/lib/backdated-utils';
+import { formatCompactKES, formatCurrency, formatDate, formatYearMonth } from '@/lib/format';
+import { getAgingBucket, isBackdated } from '@/lib/backdated-utils';
 import { toast } from 'sonner';
 import { DollarSign, FileText, AlertTriangle, Plus, CreditCard } from 'lucide-react';
-import { getAllInvoices, getInvoiceOutstandingTotal, getInvoicesByMonth } from '@/lib/queries/invoices';
+import { getAllInvoices, getInvoicesByMonth, getInvoiceOutstandingTotal, getInvoicePaidTotal } from '@/lib/queries/invoices';
 import { INVOICE_STATUS, OUTSTANDING_INVOICE_STATUSES } from '@/lib/constants/status';
 
-type InvoiceRow = {
+import { FilterPillBar } from '@/app/(dashboard)/misc/_components/FilterPillBar';
+import { InvoiceRow, InvoiceRowHead } from '@/app/(dashboard)/revenue/_components/InvoiceRow';
+import type { InvoiceStatusKind } from '@/app/(dashboard)/revenue/_components/InvoiceStatusPill';
+import { computeAgingPill, type AgingPillVariant } from '@/app/(dashboard)/revenue/_components/AgingPill';
+import { type DueBarVariant } from '@/app/(dashboard)/revenue/_components/DueBar';
+import { AgingBucketsPanel, type AgingBuckets } from '@/app/(dashboard)/revenue/_components/AgingBucketsPanel';
+
+type InvoiceRowData = {
   id: string;
   invoice_number: string;
   project_id: string;
@@ -32,18 +32,108 @@ type InvoiceRow = {
   due_date: string | null;
   billing_period: string;
   amount_usd: number;
+  amount_kes?: number | null;
   status: string;
   description: string | null;
   projects?: { name?: string | null };
-  payments?: { amount_usd: number }[];
+  payments?: { id?: string; amount_usd: number; payment_date?: string | null }[];
 };
+
+type InvoiceFilter = 'all' | 'outstanding' | 'open' | 'overdue' | 'partial' | 'paid' | 'pending';
+type NormalizedStatus = Exclude<InvoiceFilter, 'all' | 'outstanding'>;
+
+function normalizeStatus(row: InvoiceRowData): NormalizedStatus {
+  const rawStatus = (row.status || '').toLowerCase();
+  const paidUsd = (row.payments || []).reduce((s, p) => s + Number(p.amount_usd || 0), 0);
+  const outstanding = Math.max(0, Number(row.amount_usd || 0) - paidUsd);
+  const dueDate = row.due_date ? new Date(row.due_date) : null;
+  const today = new Date();
+  if (dueDate) today.setHours(0, 0, 0, 0);
+
+  if (rawStatus === 'paid' || outstanding <= 0) return 'paid';
+  if (rawStatus === 'partially_paid' || (paidUsd > 0 && outstanding > 0)) return 'partial';
+  if (rawStatus === 'overdue') return 'overdue';
+  if (dueDate && dueDate < today) return 'overdue';
+  if (rawStatus === 'draft' || rawStatus === 'pending') return 'pending';
+  return 'open';
+}
+
+function statusKindFor(status: NormalizedStatus): InvoiceStatusKind {
+  return status;
+}
+
+function formatInvoiceKesAmount(row: InvoiceRowData): string {
+  const kes = Number(row.amount_kes || 0);
+  if (kes > 0) return formatCurrency(kes, 'KES');
+  const usd = Number(row.amount_usd || 0);
+  if (usd > 0) return `≈ ${formatCurrency(usd * 128.5, 'KES')}`;
+  return '—';
+}
+
+function buildInvoiceRowProps(row: InvoiceRowData) {
+  const normalized = normalizeStatus(row);
+  const paidUsd = getInvoicePaidTotal(row);
+  const outstandingUsd = getInvoiceOutstandingTotal(row);
+  const isPaid = normalized === 'paid';
+  const lastPayment = isPaid
+    ? [...(row.payments ?? [])].sort((a, b) => (b.payment_date || '').localeCompare(a.payment_date || ''))[0]
+    : null;
+  const aging = computeAgingPill({
+    dueDate: row.due_date,
+    isPaid,
+    paidDate: lastPayment?.payment_date,
+    hasIssued: Boolean(row.invoice_date),
+  });
+  let dueBarVariant: DueBarVariant | null = null;
+  let dueBarPct: number | undefined;
+  let outstandingLabel: string | null = null;
+  if (normalized === 'paid') {
+    dueBarVariant = 'paid';
+    dueBarPct = 100;
+  } else if (normalized === 'overdue') {
+    dueBarVariant = 'over';
+    dueBarPct = 100;
+  } else if (normalized === 'partial') {
+    const totalUsd = Number(row.amount_usd ?? 0);
+    dueBarVariant = 'default';
+    dueBarPct = totalUsd > 0 ? (paidUsd / totalUsd) * 100 : 0;
+    const proportionalOutstandingKes =
+      totalUsd > 0 && Number(row.amount_kes) > 0
+        ? (outstandingUsd / totalUsd) * Number(row.amount_kes)
+        : outstandingUsd;
+    outstandingLabel = `${formatCompactKES(proportionalOutstandingKes)} outstanding`;
+  } else if (normalized === 'open' || normalized === 'pending') {
+    dueBarVariant = 'default';
+    dueBarPct = 0;
+  }
+  return {
+    invoiceNumber: row.invoice_number,
+    invoiceTitle:
+      (row.description || '').replace(/\[BACKDATED\][^\s]*\s*/g, '').trim() ||
+      row.projects?.name ||
+      '—',
+    invoiceSub: row.projects?.name && row.projects.name !== row.invoice_number ? row.projects.name : undefined,
+    clientName: row.projects?.name || null,
+    issuedDateLabel: row.invoice_date ? formatDate(row.invoice_date) : null,
+    dueDateLabel: row.due_date ? formatDate(row.due_date) : null,
+    ageVariant: aging.variant as AgingPillVariant,
+    ageLabel: aging.label,
+    amountKes: Number(row.amount_kes || 0),
+    amountKesFallback: formatInvoiceKesAmount(row),
+    outstandingLabel,
+    dueBarVariant,
+    dueBarPct,
+    status: statusKindFor(normalized),
+    isBackdated: isBackdated(row.description),
+  };
+}
 
 export default function InvoicesPage() {
   const { user } = useUser();
   const [selectedMonth, setSelectedMonth] = useState<'all' | string>('all');
 
-  const [rows, setRows] = useState<InvoiceRow[]>([]);
-  const [tab, setTab] = useState<'all' | 'outstanding'>('all');
+  const [rows, setRows] = useState<InvoiceRowData[]>([]);
+  const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>('all');
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
@@ -58,33 +148,102 @@ export default function InvoicesPage() {
       toast.error('Failed to load invoices');
       return;
     }
-    setRows((data || []) as InvoiceRow[]);
+    setRows((data || []) as InvoiceRowData[]);
   }, [selectedMonth]);
 
   useEffect(() => {
     loadInvoices();
   }, [loadInvoices]);
 
-  const viewRows = useMemo(() => {
-    if (tab === 'all') return rows;
-    return rows.filter((row) => row.status !== 'paid' && getInvoiceOutstandingTotal(row) > 0 && OUTSTANDING_INVOICE_STATUSES.includes(row.status as /* // */ any));
-  }, [rows, tab]);
+  const filterCounts = useMemo(() => {
+    const map: Record<NormalizedStatus, number> = {
+      open: 0, overdue: 0, partial: 0, paid: 0, pending: 0,
+    };
+    for (const row of rows) {
+      map[normalizeStatus(row)] += 1;
+    }
+    return map;
+  }, [rows]);
+
+  const outstandingCount = filterCounts.open + filterCounts.overdue + filterCounts.partial;
+
+  const filteredRows = useMemo(() => {
+    if (invoiceFilter === 'all') return rows;
+    if (invoiceFilter === 'outstanding') {
+      return rows.filter((row) => {
+        const ns = normalizeStatus(row);
+        if (ns === 'open' || ns === 'overdue' || ns === 'partial') return true;
+        // Defensive: keep parity with previous OUTSTANDING_INVOICE_STATUSES check.
+        return row.status !== 'paid'
+          && getInvoiceOutstandingTotal(row) > 0
+          && OUTSTANDING_INVOICE_STATUSES.includes(row.status as /* // */ any);
+      });
+    }
+    return rows.filter((row) => normalizeStatus(row) === invoiceFilter);
+  }, [rows, invoiceFilter]);
 
   const totals = useMemo(() => {
     const totalInvoiced = rows.reduce((s, r) => s + Number(r.amount_usd || 0), 0);
-    const totalPaid = rows.reduce((s, r) => {
-      const paymentSum = (r.payments || []).reduce((ps, p) => ps + Number(p.amount_usd || 0), 0);
-      return s + (r.status === 'paid' ? Math.max(Number(r.amount_usd || 0), paymentSum) : paymentSum);
+    const totalOutstandingUsd = rows.reduce((s, r) => s + getInvoiceOutstandingTotal(r), 0);
+    const totalOutstandingKes = rows.reduce((s, r) => {
+      const totalUsd = Number(r.amount_usd ?? 0);
+      const totalKes = Number(r.amount_kes ?? 0);
+      const outstandingUsd = getInvoiceOutstandingTotal(r);
+      if (outstandingUsd <= 0) return s;
+      const proportional = totalUsd > 0 ? (outstandingUsd / totalUsd) * totalKes : 0;
+      return s + Math.max(0, proportional);
     }, 0);
-    const totalOutstanding = Math.max(0, totalInvoiced - totalPaid);
-    const overdueCount = rows.filter((r) => {
-      const paid = (r.payments || []).reduce((s, p) => s + Number(p.amount_usd || 0), 0);
-      const outstanding = Number(r.amount_usd) - paid;
-      if (outstanding <= 0) return false;
+    const overdueRows = rows.filter((r) => {
+      if (getInvoiceOutstandingTotal(r) <= 0) return false;
+      const dueDate = r.due_date ? new Date(r.due_date) : null;
+      const today = new Date();
+      if (dueDate) today.setHours(0, 0, 0, 0);
+      if (dueDate && dueDate < today) return true;
       return getAgingBucket(r.invoice_date).days > 30;
-    }).length;
-    return { totalInvoiced, totalPaid, totalOutstanding, overdueCount };
+    });
+    return {
+      totalInvoiced,
+      totalOutstandingUsd,
+      totalOutstandingKes,
+      overdueCount: overdueRows.length,
+      overdueAmountKes: overdueRows.reduce((s, r) => {
+        const totalUsd = Number(r.amount_usd ?? 0);
+        const totalKes = Number(r.amount_kes ?? 0);
+        const outstandingUsd = getInvoiceOutstandingTotal(r);
+        const proportional = totalUsd > 0 ? (outstandingUsd / totalUsd) * totalKes : 0;
+        return s + Math.max(0, proportional);
+      }, 0),
+    };
   }, [rows]);
+
+  const agingBuckets: AgingBuckets = useMemo(() => {
+    const result: AgingBuckets = { current: 0, thirty: 0, sixty: 0, ninety: 0 };
+    for (const row of rows) {
+      const outstandingUsd = getInvoiceOutstandingTotal(row);
+      if (outstandingUsd <= 0) continue;
+      const totalUsd = Number(row.amount_usd ?? 0);
+      const totalKes = Number(row.amount_kes ?? 0);
+      const proportionalKes = totalUsd > 0 ? (outstandingUsd / totalUsd) * totalKes : 0;
+      const days = Math.floor(
+        (Date.now() - new Date(row.invoice_date).getTime()) / (1000 * 60 * 60 * 24),
+      );
+      if (days <= 30) result.current += proportionalKes;
+      else if (days <= 60) result.thirty += proportionalKes;
+      else if (days <= 90) result.sixty += proportionalKes;
+      else result.ninety += proportionalKes;
+    }
+    return result;
+  }, [rows]);
+
+  const filterPills = [
+    { key: 'all' as const, label: 'All', count: rows.length },
+    { key: 'outstanding' as const, label: 'Outstanding', count: outstandingCount },
+    { key: 'open' as const, label: 'Open', count: filterCounts.open },
+    { key: 'overdue' as const, label: 'Overdue', count: filterCounts.overdue },
+    { key: 'partial' as const, label: 'Partial', count: filterCounts.partial },
+    { key: 'paid' as const, label: 'Paid', count: filterCounts.paid },
+    { key: 'pending' as const, label: 'Pending', count: filterCounts.pending },
+  ];
 
   async function handleDeleteInvoice(id: string) {
     const supabase = createClient();
@@ -113,38 +272,52 @@ export default function InvoicesPage() {
     loadInvoices();
   }
 
+  const monthSelect = (
+    <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
+      <SelectTrigger className="w-[180px]">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All Months</SelectItem>
+        {Array.from({ length: 12 }, (_, i) => {
+          const d = new Date();
+          d.setMonth(d.getMonth() - i);
+          const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          return <SelectItem key={ym} value={ym}>{formatYearMonth(ym)}</SelectItem>;
+        })}
+      </SelectContent>
+    </Select>
+  );
+
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      {monthSelect}
+      <Link href="/revenue">
+        <Button size="sm" variant="ghost">Go to Revenue Overview</Button>
+      </Link>
+      {canManage && (
+        <>
+          <Button size="sm" className="gap-1" onClick={() => setShowInvoiceDialog(true)}>
+            <Plus className="h-4 w-4" /> New Invoice
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1" onClick={() => setShowPaymentDialog(true)}>
+            <CreditCard className="h-4 w-4" /> Record Payment
+          </Button>
+        </>
+      )}
+    </div>
+  );
+
+  const subtitle = `${rows.length} invoice${rows.length === 1 ? '' : 's'} · ${formatCompactKES(totals.totalOutstandingKes)} outstanding`;
+
   return (
-    <div>
-      <PageHeader title="Invoices" description="Dedicated invoice creation and lifecycle management">
-        <div className="flex gap-2">
-          <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Months</SelectItem>
-
-              {Array.from({ length: 12 }, (_, i) => {
-                const d = new Date();
-                d.setMonth(d.getMonth() - i);
-                const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                return <SelectItem key={ym} value={ym}>{formatYearMonth(ym)}</SelectItem>;
-              })}
-            </SelectContent>
-          </Select>
-
-          {canManage && (
-            <>
-              <Button size="sm" className="gap-1" onClick={() => setShowInvoiceDialog(true)}>
-                <Plus className="h-4 w-4" /> New Invoice
-              </Button>
-              <Button size="sm" variant="outline" className="gap-1" onClick={() => setShowPaymentDialog(true)}>
-                <CreditCard className="h-4 w-4" /> Record Payment
-              </Button>
-            </>
-          )}
-        </div>
-      </PageHeader>
+    <div className="p-6">
+      <PageTitle
+        primary="Invoices &"
+        accent="lifecycle"
+        subtitle={subtitle}
+        action={headerActions}
+      />
 
       <InvoiceFormDialog
         open={showInvoiceDialog}
@@ -157,101 +330,94 @@ export default function InvoicesPage() {
         onSaved={() => { setShowPaymentDialog(false); loadInvoices(); }}
       />
 
-      <div className="p-6 space-y-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard title="Total Invoiced" value={formatCurrency(totals.totalInvoiced, 'USD')} icon={FileText} />
-          <StatCard title="Cash Received" value={formatCurrency(totals.totalPaid, 'USD')} icon={DollarSign} />
-          <StatCard title="Outstanding" value={formatCurrency(totals.totalOutstanding, 'USD')} icon={DollarSign} />
-          <StatCard title="Overdue Invoices" value={String(totals.overdueCount)} icon={AlertTriangle} />
+      <div className="mt-6 space-y-6">
+        {/* 4-card KPI strip — Total invoiced / Outstanding · open / Overdue / Aging buckets */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            title="Total invoiced"
+            value={formatCurrency(totals.totalInvoiced, 'USD')}
+            subtitle={`${rows.length} invoice${rows.length === 1 ? '' : 's'}`}
+            icon={FileText}
+            tone="brand"
+          />
+          <StatCard
+            title="Outstanding · open"
+            value={formatCompactKES(totals.totalOutstandingKes)}
+            subtitle={`${outstandingCount} invoice${outstandingCount === 1 ? '' : 's'} · ${formatCurrency(totals.totalOutstandingUsd, 'USD')}`}
+            icon={DollarSign}
+            tone={outstandingCount > 0 ? 'warning' : 'success'}
+          />
+          <StatCard
+            title="Overdue"
+            value={String(totals.overdueCount)}
+            subtitle={totals.overdueCount > 0 ? formatCompactKES(totals.overdueAmountKes) : 'None'}
+            icon={AlertTriangle}
+            tone={totals.overdueCount > 0 ? 'danger' : 'success'}
+          />
+          <div className="relative overflow-hidden rounded-lg border border-border bg-card p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Aging · open invoices
+            </p>
+            <AgingBucketsPanel buckets={agingBuckets} />
+          </div>
         </div>
 
-        <div className="flex items-center justify-between">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as 'all' | 'outstanding')}>
-            <TabsList>
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="outstanding">Outstanding Only</TabsTrigger>
-            </TabsList>
-          </Tabs>
+        {/* Filter pills */}
+        <FilterPillBar
+          pills={filterPills}
+          activeKey={invoiceFilter}
+          onChange={(k) => setInvoiceFilter(k)}
+        />
 
-          <Link href="/revenue">
-            <Button variant="ghost" size="sm">Go to Revenue Overview</Button>
-          </Link>
+        {/* Invoice list */}
+        <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+          <InvoiceRowHead />
+          {filteredRows.length === 0 ? (
+            <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+              {selectedMonth === 'all'
+                ? invoiceFilter === 'all'
+                  ? 'No invoices found.'
+                  : `No ${filterPills.find((p) => p.key === invoiceFilter)?.label.toLowerCase() || ''} invoices found.`
+                : `No invoices found for ${formatYearMonth(selectedMonth)}.`}
+            </div>
+          ) : (
+            filteredRows.map((row) => {
+              const rowProps = buildInvoiceRowProps(row);
+              return (
+                <InvoiceRow
+                  key={row.id}
+                  {...rowProps}
+                  actions={
+                    canManage ? (
+                      <div className="flex items-center gap-1.5">
+                        <Select value={row.status} onValueChange={(v) => v && handleStatusChange(row.id, v)}>
+                          <SelectTrigger className="h-7 w-[110px] text-[11px]" onClick={(e) => e.stopPropagation()}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={INVOICE_STATUS.DRAFT}>Draft</SelectItem>
+                            <SelectItem value={INVOICE_STATUS.SENT}>Sent</SelectItem>
+                            <SelectItem value={INVOICE_STATUS.PARTIALLY_PAID}>Partial</SelectItem>
+                            <SelectItem value={INVOICE_STATUS.PAID}>Paid</SelectItem>
+                            <SelectItem value={INVOICE_STATUS.OVERDUE}>Overdue</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-[11px]"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteInvoice(row.id); }}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    ) : null
+                  }
+                />
+              );
+            })
+          )}
         </div>
-
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Invoice Date</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Amount (USD)</TableHead>
-                  <TableHead className="text-right">Paid (USD)</TableHead>
-                  <TableHead className="text-right">Outstanding</TableHead>
-                  {canManage && <TableHead className="w-[220px]">Management</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {viewRows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={canManage ? 9 : 8} className="py-8 text-center text-sm text-muted-foreground">
-                      {selectedMonth === 'all' ? 'No invoices found.' : `No invoices found for ${formatYearMonth(selectedMonth)}`}
-
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  viewRows.map((row) => {
-                    const paymentSum = (row.payments || []).reduce((s, p) => s + Number(p.amount_usd || 0), 0);
-                    const paidAmount = row.status === 'paid' ? Math.max(Number(row.amount_usd || 0), paymentSum) : paymentSum;
-                    const outstanding = Math.max(0, Number(row.amount_usd || 0) - paidAmount);
-                    return (
-                      <TableRow key={row.id}>
-                        <TableCell className="font-medium">{row.invoice_number}</TableCell>
-                        <TableCell>{row.projects?.name || '—'}</TableCell>
-                        <TableCell>{formatDate(row.invoice_date)}</TableCell>
-                        <TableCell>{row.due_date ? formatDate(row.due_date) : '—'}</TableCell>
-                        <TableCell>
-                          <Badge className={getStatusBadgeClass(row.status)}>{capitalize(row.status)}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(Number(row.amount_usd || 0), 'USD')}</TableCell>
-                        <TableCell className="text-right font-mono text-success-soft-foreground">
-                          {paidAmount > 0 ? formatCurrency(paidAmount, 'USD') : '—'}
-                        </TableCell>
-                        <TableCell className={`text-right font-mono ${outstanding > 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>
-                          {outstanding > 0 ? formatCurrency(outstanding, 'USD') : 'Paid'}
-                        </TableCell>
-                        {canManage && (
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Select value={row.status} onValueChange={(v) => v && handleStatusChange(row.id, v)}>
-                                <SelectTrigger className="h-8 w-[130px]">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value={INVOICE_STATUS.DRAFT}>Draft</SelectItem>
-                                  <SelectItem value={INVOICE_STATUS.SENT}>Sent</SelectItem>
-                                  <SelectItem value={INVOICE_STATUS.PARTIALLY_PAID}>Partially Paid</SelectItem>
-                                  <SelectItem value={INVOICE_STATUS.PAID}>Paid</SelectItem>
-                                  <SelectItem value={INVOICE_STATUS.OVERDUE}>Overdue</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <Button variant="ghost" size="sm" onClick={() => handleDeleteInvoice(row.id)}>
-                                Delete
-                              </Button>
-                            </div>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
