@@ -2,20 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { PageHeader } from '@/components/layout/page-header';
+import { PageTitle } from '@/components/layout/page-title';
+import { StatCard } from '@/components/layout/stat-card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { ExecutiveInsightPanel, ExecutiveKpiCard, formatCompactCurrency } from '@/components/reports/executive-kit';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import { formatCurrency, formatPercent, getCurrentYearMonth, formatYearMonth, capitalize } from '@/lib/format';
+import { formatCompactKES, formatCurrency, formatPercent, getCurrentYearMonth, formatYearMonth } from '@/lib/format';
 import { getLaggedMonth, getUnifiedServicePeriodLabel } from '@/lib/report-utils';
-import { FileDown } from 'lucide-react';
+import { FileDown, AlertTriangle, Wallet, Receipt, TrendingDown, BarChart3 } from 'lucide-react';
 import { exportSimpleReportPdf } from '@/lib/pdf-export';
+
+import { cn } from '@/lib/utils';
 
 interface BvaRow {
   scope: string;
@@ -25,6 +21,8 @@ interface BvaRow {
   variance_kes: number;
   utilization_pct: number;
 }
+
+const ROW_GRID = 'grid grid-cols-[1.6fr_140px_140px_140px_120px] items-center gap-4';
 
 export default function BudgetVsActualPage() {
   const [rows, setRows] = useState<BvaRow[]>([]);
@@ -42,7 +40,6 @@ export default function BudgetVsActualPage() {
       setLoadError(null);
       const supabase = createClient();
       try {
-        // Detect historical months — use direct matching
         const { data: snapshot, error: snapshotError } = await supabase
           .from('monthly_financial_snapshots')
           .select('data_source')
@@ -104,16 +101,7 @@ export default function BudgetVsActualPage() {
   const totalVariance = totalBudget - totalActual;
   const totalUtil = totalBudget > 0 ? (totalActual / totalBudget * 100) : 0;
   const grossProfit = laggedRevenue - totalActual;
-
-  const statusColors: Record<string, string> = {
-    draft: 'bg-muted text-foreground/80',
-    submitted: 'bg-info-soft text-info-soft-foreground',
-    pm_review: 'bg-violet-soft text-violet-soft-foreground',
-    pm_approved: 'bg-teal-soft text-teal-soft-foreground',
-    returned_to_tl: 'bg-warning-soft text-warning-soft-foreground',
-    approved: 'bg-success-soft text-success-soft-foreground',
-    rejected: 'bg-danger-soft text-danger-soft-foreground',
-  };
+  const overBudgetCount = rows.filter((r) => r.utilization_pct > 100).length;
 
   async function exportPdf() {
     await exportSimpleReportPdf(
@@ -124,144 +112,249 @@ export default function BudgetVsActualPage() {
     );
   }
 
-  return (
-    <div>
-      <PageHeader title="Budget vs Actual" description={servicePeriodLabel}>
-        <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
-          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {Array.from({ length: 12 }, (_, i) => {
-              const d = new Date(); d.setMonth(d.getMonth() - i);
-              const ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-              return <SelectItem key={ym} value={ym}>{formatYearMonth(ym)}</SelectItem>;
-            })}
-          </SelectContent>
-        </Select>
-        <Button variant="outline" size="sm" onClick={exportPdf}>
-          <FileDown className="h-4 w-4 mr-1" /> Export PDF
-        </Button>
-      </PageHeader>
+  const monthSelect = (
+    <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
+      <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+      <SelectContent>
+        {Array.from({ length: 12 }, (_, i) => {
+          const d = new Date(); d.setMonth(d.getMonth() - i);
+          const ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+          return <SelectItem key={ym} value={ym}>{formatYearMonth(ym)}</SelectItem>;
+        })}
+      </SelectContent>
+    </Select>
+  );
 
-      <div className="p-6 space-y-6">
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      {monthSelect}
+      <Button variant="outline" size="sm" onClick={exportPdf} className="gap-1.5">
+        <FileDown className="size-3.5" /> Export PDF
+      </Button>
+    </div>
+  );
+
+  const subtitle = `${servicePeriodLabel} · ${rows.length} scope${rows.length === 1 ? '' : 's'}${overBudgetCount > 0 ? ` · ${overBudgetCount} over budget` : ''}`;
+
+  return (
+    <div className="p-6">
+      <PageTitle
+        primary="Budget vs"
+        accent="actual"
+        subtitle={subtitle}
+        action={headerActions}
+      />
+
+      <div className="mt-6 space-y-6">
         {loadError && (
-          <Card className="border-danger/30 bg-danger-soft/50">
-            <CardContent className="flex flex-col gap-3 p-4">
-              <p className="text-sm text-danger-soft-foreground">{loadError}</p>
-              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-                Try Again
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="flex items-start gap-3 rounded-[var(--radius-lg)] border border-danger/30 bg-danger-soft/60 px-5 py-4">
+            <AlertTriangle className="size-5 shrink-0 text-danger-soft-foreground" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-danger-soft-foreground">{loadError}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+              Try again
+            </Button>
+          </div>
         )}
 
-        <ExecutiveInsightPanel lines={[
-          `Expenses are ${formatPercent((totalActual / Math.max(laggedRevenue, 1)) * 100)} of revenue.`,
-          grossProfit >= 0 ? `Profitable — ${formatCompactCurrency(grossProfit, 'KES')} net profit this period.` : 'Lagged P&L is negative this cycle.',
-          rows.filter((r) => r.utilization_pct > 100).length === 0 ? 'All scopes within budget ✓' : `${rows.filter((r) => r.utilization_pct > 100).length} scope(s) over budget.`,
-        ]} />
-
-        {/* Summary stats */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <ExecutiveKpiCard label="Total Budgeted" value={formatCompactCurrency(totalBudget, 'KES')} trend="Budget envelope" />
-          <ExecutiveKpiCard label="Total Spent" value={formatCompactCurrency(totalActual, 'KES')} trend="Current spend" />
-          <ExecutiveKpiCard label="Variance" value={formatCompactCurrency(totalVariance, 'KES')} trend={totalVariance >= 0 ? '✅ Under' : 'Action Needed'} positive={totalVariance >= 0} />
-          <ExecutiveKpiCard label="Budget Utilisation" value={formatPercent(totalUtil)} trend={totalUtil > 100 ? 'Over budget' : 'On Track'} positive={totalUtil <= 100} />
+        {/* KPI strip */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            title="Total budgeted"
+            value={formatCompactKES(totalBudget)}
+            subtitle="Budget envelope"
+            icon={Wallet}
+            tone="brand"
+          />
+          <StatCard
+            title="Total spent"
+            value={formatCompactKES(totalActual)}
+            subtitle="Current spend"
+            icon={Receipt}
+            tone="brand"
+          />
+          <StatCard
+            title="Variance"
+            value={formatCompactKES(totalVariance)}
+            subtitle={totalVariance >= 0 ? 'Under budget' : 'Action needed'}
+            icon={totalVariance >= 0 ? TrendingDown : AlertTriangle}
+            tone={totalVariance >= 0 ? 'success' : 'danger'}
+          />
+          <StatCard
+            title="Budget utilisation"
+            value={formatPercent(totalUtil)}
+            subtitle={totalUtil > 100 ? 'Over budget' : totalUtil > 90 ? 'Watch' : 'On track'}
+            icon={BarChart3}
+            tone={totalUtil > 100 ? 'danger' : totalUtil > 90 ? 'warning' : 'success'}
+          />
         </div>
 
-        {/* Budget table */}
-        <Card className="io-card">
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Scope</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Budget (KES)</TableHead>
-                  <TableHead className="text-right">Actual Expenses (service period)</TableHead>
-                  <TableHead className="text-right">Variance</TableHead>
-                  <TableHead className="text-right">Utilization</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Please wait</TableCell>
-                  </TableRow>
-                ) : rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No budgets for {formatYearMonth(selectedMonth)}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  <>
-                    {rows.map((r, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="font-medium">{r.scope}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className={statusColors[r.status] || 'bg-muted text-foreground/80'}>
-                            {capitalize(r.status.replace(/_/g, ' '))}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatCurrency(r.budget_kes, 'KES')}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatCurrency(r.actual_kes, 'KES')}
-                        </TableCell>
-                        <TableCell className={`text-right font-mono text-sm ${r.variance_kes < 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>
-                          {formatCurrency(r.variance_kes, 'KES')}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="secondary" className={
-                            r.utilization_pct > 100 ? 'bg-danger-soft text-danger-soft-foreground' :
-                            r.utilization_pct > 90 ? 'bg-warning-soft text-warning-soft-foreground' :
-                            'bg-success-soft text-success-soft-foreground'
-                          }>
-                            {formatPercent(r.utilization_pct)}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="font-semibold bg-muted/50">
-                      <TableCell colSpan={2} className="text-right">Total</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(totalBudget, 'KES')}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(totalActual, 'KES')}</TableCell>
-                      <TableCell className={`text-right font-mono ${totalVariance < 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>{formatCurrency(totalVariance, 'KES')}</TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant="secondary" className={totalUtil > 100 ? 'bg-danger-soft text-danger-soft-foreground' : 'bg-success-soft text-success-soft-foreground'}>
-                          {formatPercent(totalUtil)}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  </>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        {/* List-frame: scope rows */}
+        <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+          <div
+            className={cn(
+              ROW_GRID,
+              'border-b border-border bg-[var(--paper-2)] px-5 py-3',
+              'font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground',
+            )}
+          >
+            <div>Scope</div>
+            <div className="text-right">Budget (KES)</div>
+            <div className="text-right">Actual</div>
+            <div className="text-right">Variance</div>
+            <div className="text-right">Utilisation</div>
+          </div>
 
-        {/* Revenue vs expenses summary */}
-        <Card className="io-card max-w-lg">
-          <CardContent className="p-4 space-y-2">
-            <p className="text-sm font-semibold text-foreground/90">P&L Summary (Lagged)</p>
-            <p className="text-xs text-muted-foreground">Expenses recorded in {formatYearMonth(selectedMonth)}, matched to {formatYearMonth(serviceMonth)} service period.</p>
-            <div className="flex justify-between text-sm">
-              <span>Revenue ({formatYearMonth(revenueSourceMonth)} invoice)</span>
-              <span className="font-mono font-semibold">{formatCurrency(laggedRevenue, 'KES')}</span>
+          {loading ? (
+            <div className="px-5 py-10 text-center text-sm text-muted-foreground">Please wait</div>
+          ) : rows.length === 0 ? (
+            <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+              No budgets for {formatYearMonth(selectedMonth)}.
             </div>
-            <div className="flex justify-between text-sm text-danger-soft-foreground">
-              <span>Total Expenses ({formatYearMonth(selectedMonth)})</span>
-              <span className="font-mono">-{formatCurrency(totalActual, 'KES')}</span>
+          ) : (
+            <>
+              {rows.map((r, i) => {
+                const overUtil = r.utilization_pct > 100;
+                const watchUtil = r.utilization_pct > 90 && r.utilization_pct <= 100;
+                return (
+                  <div
+                    key={i}
+                    className={cn(
+                      ROW_GRID,
+                      'border-b border-border-subtle px-5 py-3.5 last:border-b-0',
+                      overUtil && 'bg-danger-soft/30',
+                    )}
+                  >
+                    <div className="min-w-0 truncate text-[14px] font-medium text-foreground">
+                      {r.scope}
+                    </div>
+                    <div className="text-right font-mono text-[13px] tabular-nums text-foreground">
+                      {formatCurrency(r.budget_kes, 'KES')}
+                    </div>
+                    <div className="text-right font-mono text-[13px] tabular-nums text-foreground">
+                      {formatCurrency(r.actual_kes, 'KES')}
+                    </div>
+                    <div
+                      className={cn(
+                        'text-right font-mono text-[13px] tabular-nums',
+                        r.variance_kes < 0
+                          ? 'text-danger-soft-foreground'
+                          : 'text-success-soft-foreground',
+                      )}
+                    >
+                      {formatCurrency(r.variance_kes, 'KES')}
+                    </div>
+                    <div className="text-right">
+                      <span
+                        className={cn(
+                          'inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em]',
+                          overUtil
+                            ? 'bg-danger-soft text-danger-soft-foreground'
+                            : watchUtil
+                              ? 'bg-warning-soft text-warning-soft-foreground'
+                              : 'bg-success-soft text-success-soft-foreground',
+                        )}
+                      >
+                        {formatPercent(r.utilization_pct)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+              {/* Total row */}
+              <div
+                className={cn(
+                  ROW_GRID,
+                  'border-t border-border bg-[var(--paper-2)] px-5 py-3 font-mono',
+                )}
+              >
+                <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+                  Total · {rows.length} scope{rows.length === 1 ? '' : 's'}
+                </div>
+                <div className="text-right text-[14px] font-medium tabular-nums text-foreground">
+                  {formatCurrency(totalBudget, 'KES')}
+                </div>
+                <div className="text-right text-[14px] font-medium tabular-nums text-foreground">
+                  {formatCurrency(totalActual, 'KES')}
+                </div>
+                <div
+                  className={cn(
+                    'text-right text-[14px] font-medium tabular-nums',
+                    totalVariance < 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground',
+                  )}
+                >
+                  {formatCurrency(totalVariance, 'KES')}
+                </div>
+                <div className="text-right">
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-full px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.06em]',
+                      totalUtil > 100
+                        ? 'bg-danger-soft text-danger-soft-foreground'
+                        : 'bg-success-soft text-success-soft-foreground',
+                    )}
+                  >
+                    {formatPercent(totalUtil)}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* P&L Summary panel — lagged */}
+        <section className="max-w-lg overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+          <div className="border-b border-border bg-[var(--paper-2)] px-5 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            P&amp;L summary · lagged
+          </div>
+          <div className="space-y-2.5 px-5 py-4 text-[13px]">
+            <p className="text-[11.5px] text-muted-foreground">
+              Expenses recorded in {formatYearMonth(selectedMonth)}, matched to{' '}
+              {formatYearMonth(serviceMonth)} service period.
+            </p>
+            <Row label={`Revenue · ${formatYearMonth(revenueSourceMonth)}`} value={formatCurrency(laggedRevenue, 'KES')} />
+            <Row
+              label={`Total expenses · ${formatYearMonth(selectedMonth)}`}
+              value={`-${formatCurrency(totalActual, 'KES')}`}
+              tone="danger"
+            />
+            <div className="border-t border-border-subtle pt-2.5">
+              <Row
+                label="Gross profit"
+                value={formatCurrency(grossProfit, 'KES')}
+                tone={grossProfit < 0 ? 'danger' : 'success'}
+                bold
+              />
             </div>
-            <Separator />
-            <div className="flex justify-between text-sm font-semibold">
-              <span>Gross Profit</span>
-              <span className={`font-mono ${grossProfit < 0 ? 'text-danger-soft-foreground' : 'text-success-soft-foreground'}`}>{formatCurrency(grossProfit, 'KES')}</span>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </div>
+    </div>
+  );
+}
+
+function Row({
+  label,
+  value,
+  tone,
+  bold,
+}: {
+  label: string;
+  value: string;
+  tone?: 'danger' | 'success';
+  bold?: boolean;
+}) {
+  const valueClass =
+    tone === 'danger'
+      ? 'text-danger-soft-foreground'
+      : tone === 'success'
+        ? 'text-success-soft-foreground'
+        : 'text-foreground';
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <span className={bold ? 'font-medium text-foreground' : 'text-muted-foreground'}>{label}</span>
+      <span className={cn('font-mono tabular-nums', valueClass, bold && 'font-medium')}>{value}</span>
     </div>
   );
 }
