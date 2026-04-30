@@ -1,10 +1,12 @@
+// Visual spec: _design-system/Misc Draws and Reports.html (.feed > .ev > .marker)
 import {
   CheckCircle2,
   Flag,
-  FileText,
+  FilePlus,
   Send,
   Plus,
-  AlertTriangle,
+  ArrowUpRight,
+  Banknote,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -16,6 +18,8 @@ export type TimelineEventKind =
   | 'reviewed'
   | 'flagged'
   | 'top-up-requested'
+  | 'top-up-approved'
+  | 'standing'
   | 'flag-opened';
 
 export type TimelineEvent = {
@@ -27,50 +31,50 @@ export type TimelineEvent = {
 };
 
 const KIND_ICON: Record<TimelineEventKind, LucideIcon> = {
-  drafted: FileText,
+  drafted: FilePlus,
   submitted: Send,
   reviewed: CheckCircle2,
   flagged: Flag,
   'top-up-requested': Plus,
-  'flag-opened': AlertTriangle,
+  'top-up-approved': ArrowUpRight,
+  standing: Banknote,
+  'flag-opened': Flag,
 };
 
-const KIND_TONE: Record<TimelineEventKind, string> = {
-  drafted: 'bg-muted text-muted-foreground ring-border',
-  submitted: 'bg-info-soft text-info-soft-foreground ring-info/25',
-  reviewed: 'bg-success-soft text-success-soft-foreground ring-success/25',
-  flagged: 'bg-warning-soft text-warning-soft-foreground ring-warning/35',
-  'top-up-requested': 'bg-muted text-foreground/70 ring-border',
-  'flag-opened': 'bg-danger-soft text-danger-soft-foreground ring-danger/25',
+// .marker variants from the mockup: default (paper-3), gold (gold-soft), success, danger
+type MarkerTone = 'default' | 'gold' | 'success' | 'danger';
+
+const KIND_TONE: Record<TimelineEventKind, MarkerTone> = {
+  drafted: 'default',
+  submitted: 'gold',
+  reviewed: 'success',
+  flagged: 'danger',
+  'top-up-requested': 'default',
+  'top-up-approved': 'gold',
+  standing: 'default',
+  'flag-opened': 'danger',
 };
 
-function formatRelative(iso: string): string {
-  const now = new Date();
-  const t = new Date(iso);
-  const diffMs = now.getTime() - t.getTime();
-  const mins = Math.floor(diffMs / 60_000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Intl.DateTimeFormat('en-KE', {
-    timeZone: 'Africa/Nairobi',
-    month: 'short',
-    day: '2-digit',
-  }).format(t);
-}
+const TONE_CLASS: Record<MarkerTone, string> = {
+  default: 'bg-[var(--paper-3)] text-muted-foreground',
+  gold: 'bg-[var(--gold-soft)] text-[oklch(0.42_0.10_75)]',
+  success: 'bg-success-soft text-success-soft-foreground',
+  danger: 'bg-danger-soft text-danger-soft-foreground',
+};
 
-function formatAbsolute(iso: string): string {
-  const t = new Date(iso);
+function formatStamp(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
   return new Intl.DateTimeFormat('en-KE', {
     timeZone: 'Africa/Nairobi',
     month: 'short',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(t);
+    hour12: false,
+  })
+    .format(d)
+    .replace(',', ' ·');
 }
 
 type ReportActivityTimelineProps = {
@@ -84,57 +88,45 @@ export function ReportActivityTimeline({
   emptyLabel = 'No activity yet.',
   className,
 }: ReportActivityTimelineProps) {
-  if (events.length === 0) {
-    return (
-      <div className={cn('rounded-lg border border-border bg-card p-4', className)}>
-        <h4 className="font-display text-[14px] font-medium text-foreground">Report activity</h4>
-        <p className="mt-2 text-xs text-muted-foreground">{emptyLabel}</p>
-      </div>
-    );
-  }
-
   return (
-    <div className={cn('rounded-lg border border-border bg-card p-4', className)}>
-      <h4 className="font-display text-[14px] font-medium text-foreground">Report activity</h4>
-      <ol className="mt-3 space-y-3">
-        {events.map((e, i) => {
-          const Icon = KIND_ICON[e.kind];
-          const tone = KIND_TONE[e.kind];
-          const isLast = i === events.length - 1;
-          return (
-            <li key={e.id} className="relative flex gap-3">
-              {!isLast && (
+    <div className={cn('', className)}>
+      <div className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        Report activity
+      </div>
+      {events.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{emptyLabel}</p>
+      ) : (
+        <ol className="flex flex-col gap-3.5">
+          {events.map((e) => {
+            const Icon = KIND_ICON[e.kind];
+            const toneClass = TONE_CLASS[KIND_TONE[e.kind]];
+            return (
+              <li key={e.id} className="grid grid-cols-[24px_1fr] gap-2.5">
                 <span
                   aria-hidden
-                  className="absolute left-3 top-6 -ml-[0.5px] h-[calc(100%-12px)] w-px bg-border"
-                />
-              )}
-              <span
-                className={cn(
-                  'relative z-[1] inline-flex size-6 shrink-0 items-center justify-center rounded-full ring-1 ring-inset',
-                  tone,
-                )}
-              >
-                <Icon className="size-3" strokeWidth={2.25} aria-hidden />
-              </span>
-              <div className="min-w-0 flex-1 pb-1">
-                <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-                  <p className="text-[13px] leading-tight text-foreground">{e.title}</p>
-                  <span
-                    className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground"
-                    title={formatAbsolute(e.timestamp)}
-                  >
-                    {formatRelative(e.timestamp)}
-                  </span>
+                  className={cn(
+                    'inline-flex size-[22px] items-center justify-center rounded-full',
+                    toneClass,
+                  )}
+                >
+                  <Icon className="size-[11px]" strokeWidth={2} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[12.5px] font-normal leading-[1.45] text-foreground">
+                    {e.title}
+                  </p>
+                  {e.detail && (
+                    <p className="mt-0.5 text-[11px] italic text-muted-foreground">{e.detail}</p>
+                  )}
+                  <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.10em] text-muted-foreground">
+                    {formatStamp(e.timestamp)}
+                  </p>
                 </div>
-                {e.detail && (
-                  <p className="mt-0.5 text-xs text-muted-foreground">{e.detail}</p>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </div>
   );
 }

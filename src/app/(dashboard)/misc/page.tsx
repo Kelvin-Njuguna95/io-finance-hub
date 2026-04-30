@@ -33,7 +33,8 @@ import { getMiscDrawsByProjectAndPeriod, getPendingPmMiscDrawsByProjectAndPeriod
 import { MISC_DRAW_STATUS } from '@/lib/constants/status';
 import { MiscStatusPill, type MiscStatusKind } from './_components/MiscStatusPill';
 import { FilterPillBar } from './_components/FilterPillBar';
-import { MiscProjectCard } from './_components/MiscProjectCard';
+import { MiscProjectCard, MiscProjectRowHead } from './_components/MiscProjectCard';
+import { cn } from '@/lib/utils';
 import { ReportActivityTimeline, type TimelineEvent } from './_components/ReportActivityTimeline';
 import { TopUpLimitsPanel } from './_components/TopUpLimitsPanel';
 import { MiscReportDetailPanel } from './_components/MiscReportDetailPanel';
@@ -1643,6 +1644,8 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
     topUpsTotal: number;
     topUpsCount: number;
     flaggedCount: number;
+    itemisedKes: number;
+    itemisedCount: number;
     report: /* // */ any;
     reportStatus: string;
     statusKind: MiscStatusKind;
@@ -1650,7 +1653,9 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
     statusSubtext?: string;
     itemisationPct?: number;
     variance?: number;
-    submittedLabel?: string;
+    varianceState: 'reconciled' | 'within-tolerance' | 'unaccounted';
+    lastActivityDate?: string;
+    lastActivityLabel?: string;
   };
 
   const derivedRows: DerivedProjectRow[] = allProjectsWithActivity.map((p) => {
@@ -1668,11 +1673,42 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
     const reportStatus: string = report?.status || 'not_submitted';
     const claimed = report ? Number(report.total_claimed || 0) : 0;
     const reportDrawn = report ? Number(report.total_drawn || report.total_allocated || 0) : 0;
-    const itemisationPct = reportDrawn > 0 ? (claimed / reportDrawn) * 100 : undefined;
-    const variance = report ? Number(report.variance ?? (Number(report.total_allocated || 0) - claimed)) : undefined;
-    const submittedLabel = report?.submitted_at
-      ? `Sub ${formatDate(report.submitted_at)}`
-      : undefined;
+    const itemisationPct = reportDrawn > 0 ? (claimed / reportDrawn) * 100 : (projDraws.length > 0 ? 0 : undefined);
+    const variance = report ? Number(report.variance ?? (Number(report.total_allocated || 0) - claimed)) : (projDraws.length > 0 ? drawn : undefined);
+
+    // varianceState — drives column color and subtext
+    let varianceState: 'reconciled' | 'within-tolerance' | 'unaccounted' = 'within-tolerance';
+    if (variance == null) {
+      varianceState = 'within-tolerance';
+    } else if (!report && projDraws.length > 0) {
+      varianceState = 'unaccounted';
+    } else if (Math.abs(variance) < 1) {
+      varianceState = 'reconciled';
+    } else if (reportStatus === 'draft' && claimed === 0) {
+      varianceState = 'unaccounted';
+    } else {
+      varianceState = 'within-tolerance';
+    }
+
+    // Last activity — pick the most recent timestamp
+    let lastActivityDate: string | undefined;
+    let lastActivityLabel: string | undefined;
+    if (report?.cfo_reviewed_at) {
+      lastActivityDate = report.cfo_reviewed_at;
+      lastActivityLabel = 'Reviewed';
+    } else if (report?.submitted_at) {
+      lastActivityDate = report.submitted_at;
+      lastActivityLabel = 'Submitted';
+    } else if (reportStatus === 'draft' && report?.updated_at) {
+      lastActivityDate = report.updated_at;
+      lastActivityLabel = 'Draft saved';
+    } else if (projDraws.length > 0) {
+      const latest = [...projDraws].sort((a: /* // */ any, b: /* // */ any) =>
+        (b.created_at || '').localeCompare(a.created_at || ''),
+      )[0];
+      lastActivityDate = latest?.created_at;
+      lastActivityLabel = 'Last draw';
+    }
 
     let statusKind: MiscStatusKind;
     let statusCount: number | undefined;
@@ -1681,6 +1717,10 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
       statusKind = 'flag-open';
       statusCount = flaggedCount;
     } else if (!report && projDraws.length > 0) {
+      statusKind = 'overdue';
+      statusSubtext = 'Blocking budgets';
+    } else if (reportStatus === 'draft' && projDraws.length > 0) {
+      // Draft with active draws still counts as overdue per the mockup pattern
       statusKind = 'overdue';
       statusSubtext = 'Blocking budgets';
     } else if (reportStatus === 'cfo_reviewed') {
@@ -1701,6 +1741,8 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
       topUpsTotal,
       topUpsCount,
       flaggedCount,
+      itemisedKes: claimed,
+      itemisedCount: 0, // we don't load report items per project here; defer
       report,
       reportStatus,
       statusKind,
@@ -1708,7 +1750,9 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
       statusSubtext,
       itemisationPct,
       variance,
-      submittedLabel,
+      varianceState,
+      lastActivityDate,
+      lastActivityLabel,
     };
   });
 
@@ -1732,21 +1776,79 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
     { key: 'reviewed', label: 'Reviewed', count: reviewedRows.length },
   ] as const;
 
-  // Page meta line under the page title.
-  const metaCounts = (
-    <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-      {derivedRows.length} project{derivedRows.length === 1 ? '' : 's'}
-      {overdueRows.length > 0 && (
-        <> <span aria-hidden>·</span> <span className="text-danger-soft-foreground">{overdueRows.length} overdue</span></>
-      )}
-      {flaggedRowsList.length > 0 && (
-        <> <span aria-hidden>·</span> <span className="text-warning-soft-foreground">{flaggedRowsList.length} flagged</span></>
-      )}
-      {inReviewRows.length > 0 && (
-        <> <span aria-hidden>·</span> <span className="text-info-soft-foreground">{inReviewRows.length} in review</span></>
-      )}
-    </div>
+  // .page-head .subtitle — mockup pattern with .num spans
+  const submittedRows = derivedRows.filter((r) =>
+    r.reportStatus === 'submitted' || r.reportStatus === 'cfo_reviewed',
   );
+  const subtitleLine = (
+    <p className="max-w-[720px] text-[13.5px] leading-[1.45] text-muted-foreground">
+      Reporting period <span className="font-mono text-foreground">{formatYearMonth(prevMonthStr)}</span>
+      <span aria-hidden className="mx-1.5 text-[var(--paper-4)]">·</span>
+      {derivedRows.length} active project{derivedRows.length === 1 ? '' : 's'}
+      <span aria-hidden className="mx-1.5 text-[var(--paper-4)]">·</span>
+      <span className="font-mono text-foreground">{submittedRows.length}</span> reports submitted
+      {overdueRows.length > 0 && (
+        <>
+          <span aria-hidden className="mx-1.5 text-[var(--paper-4)]">·</span>
+          <span className="font-mono text-foreground">{overdueRows.length}</span> overdue blocking budget approvals
+        </>
+      )}
+    </p>
+  );
+
+  // Gate callout — overdue banner (mockup .gate-callout)
+  const overdueProjectNames = overdueRows.map((r) => r.project.name);
+  const overdueDrawnTotal = overdueRows.reduce((s, r) => s + r.drawn, 0);
+  const gateCallout = overdueRows.length > 0 ? (
+    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4 rounded-[var(--radius-lg)] border border-[oklch(0.78_0.13_30/0.4)] bg-[oklch(0.95_0.07_30)] px-5 py-4">
+      <div className="flex size-[38px] items-center justify-center rounded-[var(--radius)] bg-[oklch(0.92_0.10_30)] text-[var(--danger)]">
+        <AlertTriangle className="size-5" strokeWidth={2} />
+      </div>
+      <div>
+        <div className="font-display text-[14px] font-medium leading-tight tracking-[-0.005em] text-[oklch(0.34_0.13_30)]">
+          {overdueRows.length} {formatYearMonth(prevMonthStr)} misc report{overdueRows.length === 1 ? '' : 's'} overdue · budget approvals are blocked
+        </div>
+        <div className="mt-1 text-[12.5px] text-[oklch(0.42_0.10_30)]">
+          Budget submissions and TL approvals for {formatYearMonth(selectedMonth)} are blocked for{' '}
+          {overdueProjectNames.slice(0, 3).map((n, i) => (
+            <span key={n}>
+              {i > 0 ? ', ' : ''}
+              <span className="font-mono font-medium text-[oklch(0.34_0.13_30)]">{n}</span>
+            </span>
+          ))}
+          {overdueProjectNames.length > 3 && <> and {overdueProjectNames.length - 3} more</>} until their PMs submit prior-month misc reports.
+          {overdueDrawnTotal > 0 && (
+            <> Total drawn but not itemised: <span className="font-mono font-medium text-[oklch(0.34_0.13_30)]">{formatCurrency(overdueDrawnTotal, 'KES')}</span>.</>
+          )}
+        </div>
+      </div>
+      <Button variant="ghost" size="sm" className="shrink-0">
+        Nudge PMs
+      </Button>
+    </div>
+  ) : null;
+
+  // Pending strip — accountant-raised requests waiting on CFO (.pending-strip)
+  const acctPendingTotal = acctPending.reduce((s, r) => s + Number(r.amount_requested || 0), 0);
+  const pendingStrip = acctPending.length > 0 ? (
+    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4 rounded-[var(--radius-lg)] border border-[oklch(0.85_0.10_290/0.3)] bg-[oklch(0.96_0.04_290)] px-5 py-4">
+      <div className="flex size-[38px] items-center justify-center rounded-[var(--radius)] bg-[oklch(0.92_0.07_290)] text-[oklch(0.42_0.16_290)]">
+        <Clock className="size-5" strokeWidth={2} />
+      </div>
+      <div>
+        <div className="font-display text-[14px] font-medium leading-tight tracking-[-0.005em] text-[oklch(0.32_0.16_290)]">
+          {acctPending.length} accountant-raised request{acctPending.length === 1 ? '' : 's'} pending CFO review
+        </div>
+        <div className="mt-1 text-[12.5px] text-[oklch(0.42_0.10_290)]">
+          Total <span className="font-mono font-medium text-[oklch(0.32_0.16_290)]">{formatCurrency(acctPendingTotal, 'KES')}</span>.
+          Approve to release funds; decline with a reason to bounce back to accountant.
+        </div>
+      </div>
+      <Button size="sm" onClick={() => setActiveTab('accountant')} className="shrink-0">
+        Open queue
+      </Button>
+    </div>
+  ) : null;
 
   // Detail dialog: derive timeline events and top-up panel inputs.
   const detailReport = detailProject ? (reports.find((r: /* // */ any) => r.project_id === detailProject.id) as /* // */ any) : null;
@@ -1783,8 +1885,8 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
       topUpSeq += 1;
       timelineEvents.push({
         id: `topup-${d.id}`,
-        kind: 'top-up-requested',
-        title: `Top-up #${topUpSeq} requested · ${formatCurrency(Number(d.amount_approved || 0), 'KES')}`,
+        kind: 'top-up-approved',
+        title: `Top-up #${topUpSeq} approved · ${formatCurrency(Number(d.amount_approved || 0), 'KES')}`,
         detail: d.purpose || undefined,
         timestamp: d.created_at,
       });
@@ -1812,42 +1914,85 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
   const detailRemaining = detailAllocation + detailTopUpAmount - detailDrawnTotal;
 
   return (
-    <div className="space-y-6">
-      {metaCounts}
-      {/* Tab Navigation */}
+    <div className="space-y-5">
+      {subtitleLine}
+      {gateCallout}
+      {pendingStrip}
+      {/* Tab Navigation — gold accent border on active (.page-tabs pattern) */}
       <div className="flex gap-1 border-b border-border">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === t.key
-                ? 'border-foreground text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground/80'
-            }`}
-          >
-            {t.label}
-            {t.count !== null && t.count > 0 && (
-              <span className={`ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-semibold ${
-                t.key === 'redflags' ? 'bg-danger-soft text-danger-soft-foreground' : 'bg-warning-soft text-warning-soft-foreground'
-              }`}>{t.count}</span>
-            )}
-          </button>
-        ))}
+        {tabs.map((t) => {
+          const active = activeTab === t.key;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={cn(
+                'relative px-4 py-2.5 text-[13px] -mb-px border-b-2 transition-colors',
+                active
+                  ? 'border-[var(--gold)] text-foreground font-semibold'
+                  : 'border-transparent text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {t.label}
+              {t.count !== null && t.count > 0 && (
+                <span className={cn(
+                  'ml-1.5 inline-flex h-[18px] min-w-[20px] items-center justify-center rounded-full border px-1.5 font-mono text-[10.5px] font-medium tabular-nums',
+                  active
+                    ? 'border-[var(--gold)] bg-[var(--gold-soft)] text-foreground'
+                    : t.key === 'redflags'
+                      ? 'border-transparent bg-danger-soft text-danger-soft-foreground'
+                      : 'border-transparent bg-[var(--paper-2)] text-muted-foreground',
+                )}>{t.count}</span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* ════════ OVERVIEW TAB ════════ */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* Top Metrics — 2 rows */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <StatCard title="Total Misc Allocated" value={formatCurrency(totalAllocated, 'KES')} subtitle={`${projectsWithAlloc.length} projects`} icon={Wallet} />
-            <StatCard title="Misc Drawn (MTD)" value={formatCurrency(totalDrawn, 'KES')} subtitle={`${allocPct}% of allocation`} icon={DollarSign} />
-            <StatCard title="Top-Up Requests" value={String(topUpCountAll)} subtitle={formatCurrency(topUpTotalAll, 'KES')} icon={TrendingUp} />
-            <StatCard title="Reports Pending" value={String(pendingReportCount)} icon={FileText} className={pendingReportCount > 0 ? 'border-danger/30 bg-danger-soft/50' : ''} />
-            <StatCard title="Overspend" value={overspendTotal > 0 ? formatCurrency(overspendTotal, 'KES') : 'None'} subtitle={`${overspendProjects.length} projects`} icon={AlertTriangle} className={overspendProjects.length > 0 ? 'border-danger/30 bg-danger-soft/50' : ''} />
-            <StatCard title="Flagged / Unrecorded" value={`${flaggedCount} / ${unrecordedCount}`} icon={Flag} className={flaggedCount > 0 ? 'border-warning/30 bg-warning-soft/50' : ''} />
-          </div>
+          {/* 4-card KPI strip — mockup .strip pattern */}
+          {(() => {
+            // Itemisation coverage = sum(claimed) / sum(drawn) across submitted/reviewed reports
+            const submittedReports = reports.filter((r: /* // */ any) => r.status === 'submitted' || r.status === 'cfo_reviewed');
+            const sumClaimed = submittedReports.reduce((s: number, r: /* // */ any) => s + Number(r.total_claimed || 0), 0);
+            const sumDrawn = submittedReports.reduce((s: number, r: /* // */ any) => s + Number(r.total_drawn || r.total_allocated || 0), 0);
+            const itemisationCoverage = sumDrawn > 0 ? (sumClaimed / sumDrawn) * 100 : 0;
+            const flaggedAmount = allDraws.filter((d: /* // */ any) => d.cfo_flagged).reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
+            return (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+                <StatCard
+                  title={`Drawn · ${formatYearMonth(selectedMonth)}`}
+                  value={formatCurrency(totalDrawn, 'KES')}
+                  subtitle={`${allDraws.length} draws · standing ${formatCompactKES(allDraws.filter((d: /* // */ any) => d.draw_type === 'standing').reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0)).replace('KES ', '')} · top-ups ${formatCompactKES(topUpTotalAll).replace('KES ', '')}`}
+                  icon={Wallet}
+                  tone="brand"
+                />
+                <StatCard
+                  title={`Reports submitted · ${formatYearMonth(prevMonthStr)}`}
+                  value={`${submittedReports.length} of ${projectsWithAlloc.length}`}
+                  subtitle={`${pendingReportCount} pending · ${reports.filter((r: /* // */ any) => r.status === 'submitted').length} in CFO review`}
+                  icon={FileText}
+                  tone={pendingReportCount > 0 ? 'warning' : 'success'}
+                />
+                <StatCard
+                  title="Itemisation coverage"
+                  value={`${itemisationCoverage.toFixed(1)}%`}
+                  subtitle={itemisationCoverage >= 80 ? 'Above 80% threshold' : 'Below 80% floor'}
+                  icon={TrendingUp}
+                  tone={itemisationCoverage >= 80 ? 'success' : 'warning'}
+                />
+                <StatCard
+                  title="Flagged draws"
+                  value={flaggedCount > 0 ? `${flaggedCount} item${flaggedCount === 1 ? '' : 's'}` : 'None'}
+                  subtitle={flaggedCount > 0 ? `${formatCompactKES(flaggedAmount)} awaiting PM response` : 'All clear'}
+                  icon={Flag}
+                  tone={flaggedCount > 0 ? 'danger' : 'success'}
+                />
+              </div>
+            );
+          })()}
 
           {/* Company-Wide Expense Summary */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -2026,7 +2171,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
       {/* ════════ PROJECTS TAB ════════ */}
       {activeTab === 'projects' && (
         <div className="space-y-6">
-          {/* Filter pills + project card list */}
+          {/* Filter pills + project list-frame */}
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <FilterPillBar
@@ -2039,31 +2184,38 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
               </span>
             </div>
             {filteredRows.length === 0 ? (
-              <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-[var(--radius-lg)] border border-border bg-card p-6 text-center text-sm text-muted-foreground">
                 No projects match this filter.
               </div>
             ) : (
-              <div className="space-y-2">
-                {filteredRows.map((row) => (
-                  <MiscProjectCard
-                    key={row.project.id}
-                    projectName={row.project.name}
-                    directorTag={row.project.director_tag}
-                    allocation={row.allocation}
-                    totalDrawn={row.drawn}
-                    standingTotal={row.standingTotal}
-                    topUpsTotal={row.topUpsTotal}
-                    topUpsCount={row.topUpsCount}
-                    itemisationPct={row.itemisationPct}
-                    variance={row.variance}
-                    varianceIsReconciled={typeof row.variance === 'number' && Math.abs(row.variance) < 1}
-                    submittedLabel={row.submittedLabel}
-                    status={row.statusKind}
-                    statusCount={row.statusCount}
-                    statusSubtext={row.statusSubtext}
-                    onClick={() => openProjectDetail(row.project)}
-                  />
-                ))}
+              <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+                <MiscProjectRowHead />
+                <div className="group">
+                  {filteredRows.map((row) => (
+                    <MiscProjectCard
+                      key={row.project.id}
+                      projectName={row.project.name}
+                      directorTag={row.project.director_tag}
+                      drawn={row.drawn}
+                      standingTotal={row.standingTotal}
+                      topUpsTotal={row.topUpsTotal}
+                      topUpsCount={row.topUpsCount}
+                      itemisationPct={row.itemisationPct}
+                      itemisationLineCount={row.itemisedCount}
+                      itemisationItemisedKes={row.itemisedKes}
+                      variance={row.variance}
+                      varianceState={row.varianceState}
+                      lastActivityDate={row.lastActivityDate ? formatDate(row.lastActivityDate) : null}
+                      lastActivityLabel={row.lastActivityLabel}
+                      monthlyAllocation={row.allocation}
+                      status={row.statusKind}
+                      statusCount={row.statusCount}
+                      statusSubtext={row.statusSubtext}
+                      isOverdue={row.statusKind === 'overdue'}
+                      onClick={() => openProjectDetail(row.project)}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -2395,7 +2547,7 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-6 px-6 pb-2 lg:grid-cols-[2fr_1fr]">
+          <div className="grid gap-6 px-6 pb-2 lg:grid-cols-[1fr_320px]">
             {/* Left column: report detail panel + current-month draws */}
             <div className="space-y-6 min-w-0">
               <MiscReportDetailPanel
@@ -2403,7 +2555,11 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                 monthLabel={formatYearMonth(prevMonthStr)}
                 status={detailRow?.statusKind ?? 'not-submitted'}
                 statusCount={detailRow?.statusCount}
-                statusSubtext={detailRow?.statusSubtext}
+                inlineStatusDate={
+                  detailReport?.cfo_reviewed_at
+                    ? new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', month: 'short', day: '2-digit' }).format(new Date(detailReport.cfo_reviewed_at))
+                    : undefined
+                }
                 totalDrawn={Number(detailReport?.total_drawn ?? detailReport?.total_allocated ?? 0)}
                 totalItemised={detailReportItems.reduce((s: number, i: /* // */ any) => s + Number(i.amount || 0), 0)}
                 variance={Number(detailReport?.variance ?? (Number(detailReport?.total_allocated || 0) - detailReportItems.reduce((s: number, i: /* // */ any) => s + Number(i.amount || 0), 0)))}
@@ -2413,14 +2569,14 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                         Number(detailReport?.total_drawn || detailReport?.total_allocated || 0)) * 100
                     : 0
                 }
-                submittedByLabel={detailReport?.submitted_at ? `${formatDate(detailReport.submitted_at)}` : undefined}
-                reviewedByLabel={detailReport?.cfo_reviewed_at ? `${formatDate(detailReport.cfo_reviewed_at)}` : undefined}
+                submittedByLabel={detailReport?.submitted_at ? formatDate(detailReport.submitted_at) : undefined}
+                reviewedByLabel={detailReport?.cfo_reviewed_at ? formatDate(detailReport.cfo_reviewed_at) : undefined}
                 draws={detailDraws}
                 items={detailReportItems}
                 actionBar={
                   <>
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => detailDraws[0] && setFlagDraw(detailDraws[0])}
                       disabled={detailDraws.length === 0}
@@ -2428,16 +2584,18 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
                       <Flag className="mr-1.5 size-3.5" /> Flag a draw
                     </Button>
                     {detailReport?.status === 'submitted' && (
-                      <Button size="sm" onClick={() => openReviewReport(detailReport)}>
+                      <Button variant="ghost" size="sm" onClick={() => openReviewReport(detailReport)}>
                         <CheckCircle2 className="mr-1.5 size-3.5" /> Review report
                       </Button>
                     )}
                   </>
                 }
                 actionFootnote={
-                  detailReport?.status === 'cfo_reviewed'
+                  detailReport?.status === 'cfo_reviewed' && detailReport?.cfo_reviewed_at
                     ? `Already reviewed · ${formatDate(detailReport.cfo_reviewed_at)} · changes are audited`
-                    : undefined
+                    : detailReport?.status === 'submitted'
+                      ? 'Awaiting CFO review · changes are audited'
+                      : undefined
                 }
               />
 
@@ -2492,11 +2650,12 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
               </section>
             </div>
 
-            {/* Right rail: timeline + top-up limits */}
-            <aside className="space-y-4">
+            {/* Right rail: timeline + top-up limits (single column, mockup .drill right pane) */}
+            <aside>
               <ReportActivityTimeline events={timelineEvents} />
               <TopUpLimitsPanel
-                monthLabel={formatYearMonth(selectedMonth).split(' ')[0] || formatYearMonth(selectedMonth)}
+                className="mt-5"
+                monthLabel={new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', month: 'long' }).format(new Date(selectedMonth + '-01'))}
                 standing={detailStandingTotal}
                 topUpsCount={detailTopUps.length}
                 topUpsAmount={detailTopUpAmount}

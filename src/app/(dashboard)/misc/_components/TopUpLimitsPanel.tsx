@@ -1,3 +1,4 @@
+// Visual spec: _design-system/Misc Draws and Reports.html (Top-up limits · April block)
 import { cn } from '@/lib/utils';
 import { formatCompactKES } from '@/lib/format';
 
@@ -21,48 +22,32 @@ export function TopUpLimitsPanel({
   className,
 }: TopUpLimitsPanelProps) {
   const remainingTone =
-    remaining < 0 ? 'text-danger-soft-foreground' : 'text-foreground';
+    remaining < 0 ? 'text-[var(--danger)]' : 'text-success-soft-foreground';
 
   return (
-    <div className={cn('rounded-lg border border-border bg-card p-4', className)}>
-      <h4 className="font-display text-[14px] font-medium text-foreground">
-        Top-up limits · <em className="font-normal italic" style={{ color: 'var(--gold-lo)' }}>{monthLabel}</em>
-      </h4>
-      <dl className="mt-3 space-y-2.5 text-[13px]">
-        <Row label="Standing" value={formatCompactKES(standing)} />
-        <Row
-          label="Top-ups used"
-          value={
-            <span>
-              <span className="tabular-nums">{topUpsCount}</span>{' '}
-              <span className="text-muted-foreground">draw{topUpsCount === 1 ? '' : 's'}</span>{' '}
-              <span className="text-muted-foreground">·</span>{' '}
-              <span>{formatCompactKES(topUpsAmount)}</span>
-            </span>
-          }
-        />
-        <Row
-          label="Remaining"
-          value={<span className={cn('tabular-nums', remainingTone)}>{formatCompactKES(remaining)}</span>}
-        />
+    <div className={cn('border-t border-border-subtle pt-4', className)}>
+      <div className="mb-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        Top-up limits · {monthLabel}
+      </div>
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-2 font-mono text-[11.5px] tabular-nums">
+        <dt className="text-muted-foreground">Standing</dt>
+        <dd className="text-right text-foreground">{formatCompactKES(standing)}</dd>
+
+        <dt className="text-muted-foreground">Top-ups used</dt>
+        <dd className="text-right text-foreground">
+          {topUpsCount} draw{topUpsCount === 1 ? '' : 's'} · {formatCompactKES(topUpsAmount).replace('KES ', '')}
+        </dd>
+
+        <dt className="text-muted-foreground">Remaining</dt>
+        <dd className={cn('text-right', remainingTone)}>{formatCompactKES(remaining)}</dd>
+
         {typeof pendingCount === 'number' && pendingCount > 0 && (
-          <Row
-            label="Pending requests"
-            value={<span className="tabular-nums text-warning-soft-foreground">{pendingCount}</span>}
-          />
+          <>
+            <dt className="text-muted-foreground">Pending requests</dt>
+            <dd className="text-right text-warning-soft-foreground">{pendingCount}</dd>
+          </>
         )}
       </dl>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border-subtle pb-2 last:border-b-0 last:pb-0">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="font-mono tabular-nums">{value}</dd>
     </div>
   );
 }

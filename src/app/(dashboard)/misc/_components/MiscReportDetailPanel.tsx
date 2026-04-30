@@ -1,5 +1,6 @@
+// Visual spec: _design-system/Misc Draws and Reports.html (.drill block)
 import { cn } from '@/lib/utils';
-import { formatCompactKES, formatCurrency } from '@/lib/format';
+import { formatCurrency } from '@/lib/format';
 
 import { MiscStatusPill, type MiscStatusKind } from './MiscStatusPill';
 
@@ -25,9 +26,9 @@ type DayBucket = {
   dayKey: string;
   dayLabel: string;
   dayTotal: number;
-  drawCount: number;
-  topUpRefs: string[];
   items: DetailItem[];
+  topUpRefs: number[];
+  unlinkedCount: number;
 };
 
 type MiscReportDetailPanelProps = {
@@ -35,7 +36,7 @@ type MiscReportDetailPanelProps = {
   monthLabel: string;
   status: MiscStatusKind;
   statusCount?: number;
-  statusSubtext?: string;
+  inlineStatusDate?: string;
 
   totalDrawn: number;
   totalItemised: number;
@@ -48,54 +49,53 @@ type MiscReportDetailPanelProps = {
   draws: ReadonlyArray<DetailDraw>;
   items: ReadonlyArray<DetailItem>;
 
-  /** Renders inline below the day-grouped lines (e.g. Flag / Send back / Approve). */
+  /** Renders inline at the action-bar buttons row. */
   actionBar?: React.ReactNode;
-  /** Right-aligned status footnote text inside the action bar. */
+  /** Right-aligned mono uppercase footnote inside the action bar. */
   actionFootnote?: string;
 
   className?: string;
 };
 
-function formatDayKey(date: string): { key: string; label: string } {
+function formatDayKey(date: string): { key: string; label: string; short: string } {
   const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return { key: date, label: date };
+  if (Number.isNaN(d.getTime())) return { key: date, label: date, short: date };
   const key = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Africa/Nairobi',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
   }).format(d);
-  const label = new Intl.DateTimeFormat('en-KE', {
+  // "Mar 28 · Mon" — match mockup .day-sep label
+  const label = (() => {
+    const m = new Intl.DateTimeFormat('en-KE', {
+      timeZone: 'Africa/Nairobi',
+      month: 'short',
+      day: '2-digit',
+    }).format(d);
+    const wd = new Intl.DateTimeFormat('en-KE', {
+      timeZone: 'Africa/Nairobi',
+      weekday: 'short',
+    }).format(d);
+    return `${m} · ${wd}`;
+  })();
+  // "28 Mar" for the per-row date column
+  const short = new Intl.DateTimeFormat('en-KE', {
     timeZone: 'Africa/Nairobi',
-    month: 'short',
     day: '2-digit',
-    weekday: 'short',
-  })
-    .format(d)
-    .toUpperCase();
-  return { key, label };
+    month: 'short',
+  }).format(d);
+  return { key, label, short };
 }
 
-function bucketByDay(items: ReadonlyArray<DetailItem>): DayBucket[] {
-  const map = new Map<string, DayBucket>();
-  for (const item of items) {
-    const { key, label } = formatDayKey(item.expense_date);
-    const bucket =
-      map.get(key) ??
-      { dayKey: key, dayLabel: label, dayTotal: 0, drawCount: 0, topUpRefs: [], items: [] };
-    bucket.items.push(item);
-    bucket.dayTotal += Number(item.amount || 0);
-    map.set(key, bucket);
-  }
-  return Array.from(map.values()).sort((a, b) => a.dayKey.localeCompare(b.dayKey));
-}
+const ITEM_GRID = 'grid grid-cols-[90px_1fr_130px_120px_50px] items-center gap-3.5 px-5 py-3';
 
 export function MiscReportDetailPanel({
   projectName,
   monthLabel,
   status,
   statusCount,
-  statusSubtext,
+  inlineStatusDate,
   totalDrawn,
   totalItemised,
   variance,
@@ -108,9 +108,7 @@ export function MiscReportDetailPanel({
   actionFootnote,
   className,
 }: MiscReportDetailPanelProps) {
-  const buckets = bucketByDay(items);
-
-  // Map draw_id → top-up index (for tagging line items linked to top-ups).
+  // Map draw_id → top-up index
   const topUpIndex = new Map<string, number>();
   let n = 0;
   for (const d of draws) {
@@ -120,110 +118,179 @@ export function MiscReportDetailPanel({
     }
   }
 
+  // Bucket items by day, track linked top-up refs and unlinked count
+  const buckets: DayBucket[] = (() => {
+    const map = new Map<string, DayBucket>();
+    for (const item of items) {
+      const { key, label } = formatDayKey(item.expense_date);
+      const bucket =
+        map.get(key) ?? {
+          dayKey: key,
+          dayLabel: label,
+          dayTotal: 0,
+          items: [] as DetailItem[],
+          topUpRefs: [] as number[],
+          unlinkedCount: 0,
+        };
+      bucket.items.push(item);
+      bucket.dayTotal += Number(item.amount || 0);
+      const idx = item.draw_id ? topUpIndex.get(item.draw_id) : undefined;
+      if (idx && !bucket.topUpRefs.includes(idx)) bucket.topUpRefs.push(idx);
+      if (!item.draw_id) bucket.unlinkedCount += 1;
+      map.set(key, bucket);
+    }
+    return Array.from(map.values()).sort((a, b) => b.dayKey.localeCompare(a.dayKey));
+  })();
+
   const itemisationCapped = Math.max(0, Math.min(100, Math.round(itemisationPct)));
+  const itemisationTone =
+    itemisationCapped >= 95
+      ? 'text-success-soft-foreground'
+      : itemisationCapped < 80
+        ? 'text-[var(--danger)]'
+        : 'text-foreground';
   const varianceTone =
     Math.abs(variance) < 1
       ? 'text-success-soft-foreground'
-      : 'text-danger-soft-foreground';
+      : variance > 0
+        ? 'text-[var(--danger)]'
+        : 'text-foreground';
+
+  const totalEntries = items.length;
 
   return (
-    <section className={cn('flex flex-col gap-5', className)}>
-      {/* Header */}
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="font-display text-[22px] font-medium leading-tight tracking-[-0.005em] text-foreground">
-            {projectName}{' '}
-            <span aria-hidden className="text-muted-foreground/60">·</span>{' '}
-            <em className="font-normal italic" style={{ color: 'var(--gold-lo)' }}>
-              {monthLabel} misc report
-            </em>
-          </h2>
-          <div className="mt-1 flex flex-wrap gap-x-3 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-            {submittedByLabel && <span>Submitted · {submittedByLabel}</span>}
-            {reviewedByLabel && <span>Reviewed · {reviewedByLabel}</span>}
-          </div>
-        </div>
-        <MiscStatusPill kind={status} count={statusCount} subtext={statusSubtext} />
+    <section className={cn('flex flex-col gap-3.5', className)}>
+      {/* Inline header: title + pill on the same baseline */}
+      <header className="flex flex-wrap items-baseline gap-x-3.5 gap-y-2">
+        <h3
+          className="font-display text-[18px] font-medium leading-tight tracking-[-0.005em] text-foreground"
+          style={{ fontVariationSettings: '"opsz" 72' }}
+        >
+          {projectName}
+          <span aria-hidden className="mx-1 text-muted-foreground/70">·</span>
+          <em className="font-normal italic">{monthLabel} misc report</em>
+        </h3>
+        <MiscStatusPill kind={status} count={statusCount} inlineDate={inlineStatusDate} />
       </header>
 
-      {/* 4-stat band */}
-      <div className="grid grid-cols-2 gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-4">
-        <Stat label="Total drawn" value={formatCompactKES(totalDrawn)} />
-        <Stat label="Total itemised" value={formatCompactKES(totalItemised)} />
-        <Stat
-          label="Variance · Unaccounted"
-          value={<span className={varianceTone}>{formatCompactKES(variance)}</span>}
+      {/* paper-2 inset meta-grid: 2 cols × 3 rows */}
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-3.5 rounded-[var(--radius-sm)] border border-border-subtle bg-[var(--paper-2)] px-[18px] py-4">
+        <MetaCell label="Total drawn" value={formatCurrency(totalDrawn, 'KES')} />
+        <MetaCell label="Total itemised" value={formatCurrency(totalItemised, 'KES')} />
+        <MetaCell
+          label="Variance · unaccounted"
+          value={formatCurrency(Math.abs(variance), 'KES')}
+          tone={varianceTone}
         />
-        <Stat
+        <MetaCell
           label="Itemisation"
-          value={
-            <span className={itemisationCapped >= 100 ? 'text-success-soft-foreground' : ''}>
-              {itemisationCapped}%
-            </span>
-          }
-          progress={itemisationCapped}
+          value={`${itemisationCapped.toFixed(1)}%`}
+          tone={itemisationTone}
         />
-      </div>
+        <MetaCell
+          label="Submitted by"
+          value={submittedByLabel || '—'}
+          smallValue
+        />
+        <MetaCell
+          label="Reviewed by"
+          value={reviewedByLabel || '—'}
+          smallValue
+        />
+      </dl>
 
-      {/* Day-grouped items */}
-      <div className="space-y-4">
+      {/* Day-grouped items frame */}
+      <div className="overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle">
         {buckets.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No itemised lines for this report.</p>
+          <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+            No itemised lines for this report.
+          </p>
         ) : (
-          buckets.map((b) => (
-            <div key={b.dayKey} className="space-y-1.5">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-3 border-b border-border-subtle pb-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                <span>
-                  <span className="text-foreground">{b.dayLabel}</span>{' '}
-                  <span aria-hidden>·</span>{' '}
-                  <span className="text-foreground">{formatCompactKES(b.dayTotal)}</span>
-                </span>
-                <span>
-                  {b.items.length} item{b.items.length === 1 ? '' : 's'}
-                </span>
-              </div>
-              <ul className="divide-y divide-border-subtle">
+          <>
+            {buckets.map((b) => (
+              <div key={b.dayKey}>
+                {/* .day-sep */}
+                <div className="flex items-baseline gap-4 border-b border-border-subtle bg-[var(--paper-2)] px-5 py-2.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+                  <span>{b.dayLabel}</span>
+                  <span aria-hidden>—</span>
+                  <span className="tabular-nums text-foreground">
+                    {formatCurrency(b.dayTotal, 'KES')}
+                  </span>
+                  <span className="ml-auto">
+                    {b.items.length} item{b.items.length === 1 ? '' : 's'}
+                    {b.topUpRefs.length === 1 && b.unlinkedCount === 0 && (
+                      <> · linked to Top-up #{b.topUpRefs[0]}</>
+                    )}
+                    {b.unlinkedCount > 0 && (
+                      <> · {b.unlinkedCount} unlinked</>
+                    )}
+                  </span>
+                </div>
                 {b.items.map((item) => {
                   const linkedTopUp = item.draw_id ? topUpIndex.get(item.draw_id) : undefined;
+                  const tagKind = !item.draw_id
+                    ? 'unlinked'
+                    : linkedTopUp
+                      ? 'topup'
+                      : 'standing';
                   return (
-                    <li
+                    <div
                       key={item.id}
-                      className="flex items-baseline justify-between gap-3 py-1.5 text-sm"
+                      className={cn(
+                        ITEM_GRID,
+                        'border-b border-border-subtle text-[13px] last:border-b-0',
+                      )}
                     >
-                      <span className="min-w-0 flex-1 truncate text-foreground">
-                        {item.description}
+                      <span className="font-mono text-[12px] text-muted-foreground">
+                        {formatDayKey(item.expense_date).short}
                       </span>
-                      <span className="shrink-0 font-mono tabular-nums text-foreground">
+                      <div className="min-w-0">
+                        <div className="truncate text-foreground">{item.description}</div>
+                      </div>
+                      <span className="text-right font-mono tabular-nums text-foreground">
                         {formatCurrency(Number(item.amount), 'KES')}
                       </span>
-                      {linkedTopUp ? (
-                        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-foreground/70">
-                          Top-up #{linkedTopUp}
-                        </span>
-                      ) : item.draw_id ? (
-                        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-foreground/70">
-                          Standing
-                        </span>
-                      ) : (
-                        <span className="shrink-0 rounded-full bg-danger-soft px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-danger-soft-foreground">
-                          Unlinked
-                        </span>
-                      )}
-                    </li>
+                      <span>
+                        <DrawTag
+                          kind={tagKind}
+                          label={
+                            tagKind === 'unlinked'
+                              ? 'Unlinked'
+                              : tagKind === 'topup'
+                                ? `Top-up #${linkedTopUp}`
+                                : 'Standing'
+                          }
+                        />
+                      </span>
+                      <span />
+                    </div>
                   );
                 })}
-              </ul>
+              </div>
+            ))}
+            {/* Total row */}
+            <div className={cn(ITEM_GRID, 'bg-[var(--paper-2)] py-3.5 font-mono')}>
+              <span />
+              <span className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+                Total itemised · {totalEntries} entr{totalEntries === 1 ? 'y' : 'ies'}
+              </span>
+              <span className="text-right text-[14px] font-medium tabular-nums text-foreground">
+                {formatCurrency(totalItemised, 'KES')}
+              </span>
+              <span />
+              <span />
             </div>
-          ))
+          </>
         )}
       </div>
 
       {/* Action bar */}
       {(actionBar || actionFootnote) && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-          <div className="flex flex-wrap items-center gap-2">{actionBar}</div>
+        <div className="flex flex-wrap items-center gap-2.5 pt-2">
+          {actionBar}
+          <span className="ml-auto" />
           {actionFootnote && (
-            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
               {actionFootnote}
             </span>
           )}
@@ -233,29 +300,56 @@ export function MiscReportDetailPanel({
   );
 }
 
-function Stat({
+function MetaCell({
   label,
   value,
-  progress,
+  tone,
+  smallValue,
 }: {
   label: string;
   value: React.ReactNode;
-  progress?: number;
+  tone?: string;
+  smallValue?: boolean;
 }) {
   return (
     <div>
-      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+      <div className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </div>
-      <div className="mt-1 font-mono text-xl tabular-nums">{value}</div>
-      {typeof progress === 'number' && (
-        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-foreground/70"
-            style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
-          />
-        </div>
-      )}
+      <div
+        className={cn(
+          'mt-1 font-mono font-medium tabular-nums',
+          smallValue ? 'text-[12px]' : 'text-[14px]',
+          tone || 'text-foreground',
+        )}
+      >
+        {value}
+      </div>
     </div>
+  );
+}
+
+function DrawTag({
+  kind,
+  label,
+}: {
+  kind: 'standing' | 'topup' | 'unlinked';
+  label: string;
+}) {
+  const tone =
+    kind === 'unlinked'
+      ? 'bg-[oklch(0.94_0.06_25)] text-[var(--danger)]'
+      : kind === 'topup'
+        ? 'bg-[var(--gold-soft)] text-[oklch(0.42_0.10_75)]'
+        : 'bg-[var(--paper-3)] text-[var(--ink)]';
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-[var(--radius-sm)] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.08em]',
+        tone,
+      )}
+    >
+      {label}
+    </span>
   );
 }

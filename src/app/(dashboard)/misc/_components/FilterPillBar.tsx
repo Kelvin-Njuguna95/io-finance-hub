@@ -1,3 +1,4 @@
+// Visual spec: _design-system/Misc Draws and Reports.html (.filter-row .pill)
 import { cn } from '@/lib/utils';
 
 export type FilterPill<TKey extends string = string> = {
@@ -29,21 +30,19 @@ export function FilterPillBar<TKey extends string = string>({
             type="button"
             onClick={() => onChange(p.key)}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium transition-colors',
-              'border',
+              // .pill: height 32, padding 0 12, gap 6, radius full, fs 12.5
+              'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12.5px] transition-colors',
               active
                 ? 'border-foreground bg-foreground text-background'
-                : 'border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground hover:bg-muted/40',
+                : 'border-border bg-card text-foreground hover:bg-[var(--paper-2)]',
             )}
           >
             <span>{p.label}</span>
             {typeof p.count === 'number' && (
               <span
                 className={cn(
-                  'inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 font-mono text-[10px] tabular-nums',
-                  active
-                    ? 'bg-background/15 text-background'
-                    : 'bg-muted text-muted-foreground',
+                  'font-mono text-[10.5px] tabular-nums',
+                  active ? 'text-background/60' : 'text-muted-foreground',
                 )}
               >
                 {p.count}
