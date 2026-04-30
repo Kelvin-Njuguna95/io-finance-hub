@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
-import { PageHeader } from '@/components/layout/page-header';
+import { PageTitle } from '@/components/layout/page-title';
 import { StatCard } from '@/components/layout/stat-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
-import { formatCurrency, formatDate, formatYearMonth, getCurrentYearMonth } from '@/lib/format';
+import { formatCompactKES, formatCurrency, formatDate, formatYearMonth, getCurrentYearMonth } from '@/lib/format';
 import {
   Plus, Trash2, Save, Send, AlertTriangle, CheckCircle2, Clock, Flag,
   DollarSign, TrendingUp, FileText, AlertCircle, Wallet, Receipt,
@@ -31,6 +31,12 @@ import { getUserErrorMessage } from '@/lib/errors';
 import { getActiveProjects, getAssignedActiveProjects } from '@/lib/queries/projects';
 import { getMiscDrawsByProjectAndPeriod, getPendingPmMiscDrawsByProjectAndPeriod } from '@/lib/queries/misc';
 import { MISC_DRAW_STATUS } from '@/lib/constants/status';
+import { MiscStatusPill, type MiscStatusKind } from './_components/MiscStatusPill';
+import { FilterPillBar } from './_components/FilterPillBar';
+import { MiscProjectCard } from './_components/MiscProjectCard';
+import { ReportActivityTimeline, type TimelineEvent } from './_components/ReportActivityTimeline';
+import { TopUpLimitsPanel } from './_components/TopUpLimitsPanel';
+import { MiscReportDetailPanel } from './_components/MiscReportDetailPanel';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -79,30 +85,32 @@ export default function MiscPage() {
 
   if (!user) {
     return (
-      <div>
-        <PageHeader title="Misc Draws" description="Please wait" />
-        <div className="p-6 text-center text-muted-foreground">Loading user data...</div>
+      <div className="p-6">
+        <PageTitle primary="Misc draws &" accent="reports" />
+        <div className="mt-6 text-center text-muted-foreground">Loading user data...</div>
       </div>
     );
   }
 
   const role = user.role;
 
+  const monthSelect = (
+    <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
+      <SelectTrigger className="w-[180px]">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {monthOptions.map((o) => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
   return (
-    <div>
-      <PageHeader title="Misc Draws & Reports" description="Miscellaneous project expenditure management">
-        <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {monthOptions.map((o) => (
-              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </PageHeader>
-      <div className="p-6">
+    <div className="p-6">
+      <PageTitle primary="Misc draws &" accent="reports" action={monthSelect} />
+      <div className="mt-6">
         {['project_manager', 'team_leader', 'accountant', 'cfo'].includes(role) && (
           <ProjectMiscLineItemsPanel user={user} selectedMonth={selectedMonth} />
         )}
@@ -1435,6 +1443,9 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
   // Active tab
   const [activeTab, setActiveTab] = useState<'overview' | 'projects' | 'accountant' | 'redflags' | 'feed'>('overview');
 
+  // Projects-tab filter pill
+  const [projectFilter, setProjectFilter] = useState<'all' | 'overdue' | 'flagged' | 'in-review' | 'reviewed'>('all');
+
   const prevMonthStr = getPrevMonth(selectedMonth);
   const FEED_PAGE_SIZE = 20;
 
@@ -1623,17 +1634,195 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
     { key: 'feed', label: 'Activity Feed', count: null },
   ] as const;
 
+  // Per-project derived rows (used by Projects tab card list and filter pills).
+  type DerivedProjectRow = {
+    project: /* // */ any;
+    allocation: number;
+    drawn: number;
+    standingTotal: number;
+    topUpsTotal: number;
+    topUpsCount: number;
+    flaggedCount: number;
+    report: /* // */ any;
+    reportStatus: string;
+    statusKind: MiscStatusKind;
+    statusCount?: number;
+    statusSubtext?: string;
+    itemisationPct?: number;
+    variance?: number;
+    submittedLabel?: string;
+  };
+
+  const derivedRows: DerivedProjectRow[] = allProjectsWithActivity.map((p) => {
+    const allocation = allocations.get(p.id) || 0;
+    const projDraws = allDraws.filter((d: /* // */ any) => d.project_id === p.id);
+    const drawn = projDraws.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
+    const standingTotal = projDraws
+      .filter((d: /* // */ any) => d.draw_type === 'standing')
+      .reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
+    const topUpDrawsP = projDraws.filter((d: /* // */ any) => d.draw_type === 'top_up');
+    const topUpsTotal = topUpDrawsP.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
+    const topUpsCount = topUpDrawsP.length;
+    const flaggedCount = projDraws.filter((d: /* // */ any) => d.cfo_flagged).length;
+    const report = reportMap.get(p.id) as /* // */ any;
+    const reportStatus: string = report?.status || 'not_submitted';
+    const claimed = report ? Number(report.total_claimed || 0) : 0;
+    const reportDrawn = report ? Number(report.total_drawn || report.total_allocated || 0) : 0;
+    const itemisationPct = reportDrawn > 0 ? (claimed / reportDrawn) * 100 : undefined;
+    const variance = report ? Number(report.variance ?? (Number(report.total_allocated || 0) - claimed)) : undefined;
+    const submittedLabel = report?.submitted_at
+      ? `Sub ${formatDate(report.submitted_at)}`
+      : undefined;
+
+    let statusKind: MiscStatusKind;
+    let statusCount: number | undefined;
+    let statusSubtext: string | undefined;
+    if (flaggedCount > 0) {
+      statusKind = 'flag-open';
+      statusCount = flaggedCount;
+    } else if (!report && projDraws.length > 0) {
+      statusKind = 'overdue';
+      statusSubtext = 'Blocking budgets';
+    } else if (reportStatus === 'cfo_reviewed') {
+      statusKind = 'reviewed';
+    } else if (reportStatus === 'submitted') {
+      statusKind = 'in-review';
+    } else if (reportStatus === 'draft') {
+      statusKind = 'draft';
+    } else {
+      statusKind = 'not-submitted';
+    }
+
+    return {
+      project: p,
+      allocation,
+      drawn,
+      standingTotal,
+      topUpsTotal,
+      topUpsCount,
+      flaggedCount,
+      report,
+      reportStatus,
+      statusKind,
+      statusCount,
+      statusSubtext,
+      itemisationPct,
+      variance,
+      submittedLabel,
+    };
+  });
+
+  const overdueRows = derivedRows.filter((r) => r.statusKind === 'overdue');
+  const flaggedRowsList = derivedRows.filter((r) => r.statusKind === 'flag-open');
+  const inReviewRows = derivedRows.filter((r) => r.statusKind === 'in-review');
+  const reviewedRows = derivedRows.filter((r) => r.statusKind === 'reviewed');
+
+  const filteredRows =
+    projectFilter === 'overdue' ? overdueRows
+      : projectFilter === 'flagged' ? flaggedRowsList
+        : projectFilter === 'in-review' ? inReviewRows
+          : projectFilter === 'reviewed' ? reviewedRows
+            : derivedRows;
+
+  const filterPills = [
+    { key: 'all', label: 'All', count: derivedRows.length },
+    { key: 'overdue', label: 'Overdue', count: overdueRows.length },
+    { key: 'flagged', label: 'Flagged', count: flaggedRowsList.length },
+    { key: 'in-review', label: 'In review', count: inReviewRows.length },
+    { key: 'reviewed', label: 'Reviewed', count: reviewedRows.length },
+  ] as const;
+
+  // Page meta line under the page title.
+  const metaCounts = (
+    <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+      {derivedRows.length} project{derivedRows.length === 1 ? '' : 's'}
+      {overdueRows.length > 0 && (
+        <> <span aria-hidden>·</span> <span className="text-danger-soft-foreground">{overdueRows.length} overdue</span></>
+      )}
+      {flaggedRowsList.length > 0 && (
+        <> <span aria-hidden>·</span> <span className="text-warning-soft-foreground">{flaggedRowsList.length} flagged</span></>
+      )}
+      {inReviewRows.length > 0 && (
+        <> <span aria-hidden>·</span> <span className="text-info-soft-foreground">{inReviewRows.length} in review</span></>
+      )}
+    </div>
+  );
+
+  // Detail dialog: derive timeline events and top-up panel inputs.
+  const detailReport = detailProject ? (reports.find((r: /* // */ any) => r.project_id === detailProject.id) as /* // */ any) : null;
+  const detailRow = detailProject ? derivedRows.find((r) => r.project.id === detailProject.id) : null;
+
+  const timelineEvents: TimelineEvent[] = [];
+  if (detailReport?.created_at) {
+    timelineEvents.push({
+      id: `report-created-${detailReport.id}`,
+      kind: 'drafted',
+      title: 'Report drafted',
+      timestamp: detailReport.created_at,
+    });
+  }
+  if (detailReport?.submitted_at) {
+    timelineEvents.push({
+      id: `report-submitted-${detailReport.id}`,
+      kind: 'submitted',
+      title: 'Report submitted for review',
+      timestamp: detailReport.submitted_at,
+    });
+  }
+  if (detailReport?.cfo_reviewed_at) {
+    timelineEvents.push({
+      id: `report-reviewed-${detailReport.id}`,
+      kind: 'reviewed',
+      title: 'Report reviewed and accepted',
+      timestamp: detailReport.cfo_reviewed_at,
+    });
+  }
+  let topUpSeq = 0;
+  for (const d of detailDraws) {
+    if (d.draw_type === 'top_up' && d.created_at) {
+      topUpSeq += 1;
+      timelineEvents.push({
+        id: `topup-${d.id}`,
+        kind: 'top-up-requested',
+        title: `Top-up #${topUpSeq} requested · ${formatCurrency(Number(d.amount_approved || 0), 'KES')}`,
+        detail: d.purpose || undefined,
+        timestamp: d.created_at,
+      });
+    }
+    if (d.cfo_flagged && d.cfo_flagged_at) {
+      timelineEvents.push({
+        id: `flag-${d.id}`,
+        kind: 'flagged',
+        title: 'Draw flagged by CFO',
+        detail: d.cfo_flag_reason || undefined,
+        timestamp: d.cfo_flagged_at,
+      });
+    }
+  }
+  timelineEvents.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+
+  // Top-up panel inputs (current month).
+  const detailStandingTotal = detailDraws
+    .filter((d: /* // */ any) => d.draw_type === 'standing')
+    .reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
+  const detailTopUps = detailDraws.filter((d: /* // */ any) => d.draw_type === 'top_up');
+  const detailTopUpAmount = detailTopUps.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
+  const detailAllocation = detailProject ? (allocations.get(detailProject.id) || 0) : 0;
+  const detailDrawnTotal = detailDraws.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
+  const detailRemaining = detailAllocation + detailTopUpAmount - detailDrawnTotal;
+
   return (
     <div className="space-y-6">
+      {metaCounts}
       {/* Tab Navigation */}
-      <div className="flex gap-1 border-b">
+      <div className="flex gap-1 border-b border-border">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === t.key
-                ? 'border-primary text-foreground'
+                ? 'border-foreground text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground/80'
             }`}
           >
@@ -1837,85 +2026,47 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
       {/* ════════ PROJECTS TAB ════════ */}
       {activeTab === 'projects' && (
         <div className="space-y-6">
-          {/* Project Misc Health Table */}
-          <Card className="io-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Project Misc Health — {formatYearMonth(selectedMonth)}</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Project</TableHead>
-                    <TableHead className="text-right">Allocation</TableHead>
-                    <TableHead className="text-right">Drawn</TableHead>
-                    <TableHead className="text-right">Remaining</TableHead>
-                    <TableHead className="text-center">Top-Ups</TableHead>
-                    <TableHead>Report Status</TableHead>
-                    <TableHead className="text-center">Accountant</TableHead>
-                    <TableHead className="text-center">Flagged</TableHead>
-                    <TableHead className="w-[80px]">Details</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {allProjectsWithActivity.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-6 text-muted-foreground">No projects with misc allocations or activity.</TableCell>
-                    </TableRow>
-                  ) : (
-                    allProjectsWithActivity.map((p) => {
-                      const alloc = allocations.get(p.id) || 0;
-                      const projDraws = allDraws.filter((d) => d.project_id === p.id);
-                      const drawn = projDraws.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
-                      const remaining = alloc - drawn;
-                      const topUps = projDraws.filter((d) => d.draw_type === 'top_up').length;
-                      const report = reportMap.get(p.id);
-                      const reportStatus = report?.status || 'not_submitted';
-                      const allExpensed = projDraws.length > 0 && projDraws.every((d: /* // */ any) => d.expense_id);
-                      const flagged = projDraws.filter((d: /* // */ any) => d.cfo_flagged).length;
-
-                      const isOverspend = remaining < 0;
-                      const isReportOverdue = !report && projDraws.length > 0;
-                      const rowClass = isOverspend || isReportOverdue ? 'bg-danger-soft/50' : reportStatus === 'draft' ? 'bg-warning-soft/50' : '';
-
-                      return (
-                        <TableRow key={p.id} className={rowClass}>
-                          <TableCell className="font-medium">{p.name}</TableCell>
-                          <TableCell className="text-right font-mono text-sm">{alloc > 0 ? formatCurrency(alloc, 'KES') : '—'}</TableCell>
-                          <TableCell className="text-right font-mono text-sm">{formatCurrency(drawn, 'KES')}</TableCell>
-                          <TableCell className={`text-right font-mono text-sm ${remaining < 0 ? 'text-danger-soft-foreground font-semibold' : ''}`}>
-                            {alloc > 0 ? formatCurrency(remaining, 'KES') : '—'}
-                          </TableCell>
-                          <TableCell className="text-center">{topUps}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary" className={
-                              reportStatus === 'submitted' ? 'bg-info-soft text-info-soft-foreground'
-                                : reportStatus === 'cfo_reviewed' ? 'bg-success-soft text-success-soft-foreground'
-                                  : reportStatus === 'draft' ? 'bg-warning-soft text-warning-soft-foreground'
-                                    : 'bg-danger-soft text-danger-soft-foreground'
-                            }>
-                              {reportStatus === 'cfo_reviewed' ? 'Reviewed' : reportStatus === 'not_submitted' ? 'Not Submitted' : reportStatus}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {projDraws.length === 0 ? '—' : allExpensed ? <span className="text-success">✓</span> : <span className="text-warning">⚠</span>}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {flagged > 0 ? <span className="text-danger-soft-foreground font-semibold">{flagged}</span> : '0'}
-                          </TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="sm" className="text-xs" onClick={() => openProjectDetail(p)}>
-                              View
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          {/* Filter pills + project card list */}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <FilterPillBar
+                pills={filterPills}
+                activeKey={projectFilter}
+                onChange={(k) => setProjectFilter(k as typeof projectFilter)}
+              />
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                {filteredRows.length} of {derivedRows.length} projects · {formatYearMonth(selectedMonth)}
+              </span>
+            </div>
+            {filteredRows.length === 0 ? (
+              <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+                No projects match this filter.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filteredRows.map((row) => (
+                  <MiscProjectCard
+                    key={row.project.id}
+                    projectName={row.project.name}
+                    directorTag={row.project.director_tag}
+                    allocation={row.allocation}
+                    totalDrawn={row.drawn}
+                    standingTotal={row.standingTotal}
+                    topUpsTotal={row.topUpsTotal}
+                    topUpsCount={row.topUpsCount}
+                    itemisationPct={row.itemisationPct}
+                    variance={row.variance}
+                    varianceIsReconciled={typeof row.variance === 'number' && Math.abs(row.variance) < 1}
+                    submittedLabel={row.submittedLabel}
+                    status={row.statusKind}
+                    statusCount={row.statusCount}
+                    statusSubtext={row.statusSubtext}
+                    onClick={() => openProjectDetail(row.project)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Overspend / Underspend Tracker */}
           <Card className="io-card">
@@ -2236,94 +2387,125 @@ function CfoMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMont
 
       {/* ════════ PROJECT DETAIL DIALOG ════════ */}
       <Dialog open={!!detailProject} onOpenChange={() => setDetailProject(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Misc Detail — {detailProject?.name}</DialogTitle>
-            <DialogDescription>{formatYearMonth(selectedMonth)} draws + {formatYearMonth(prevMonthStr)} report</DialogDescription>
+        <DialogContent className="max-w-6xl max-h-[88vh] overflow-y-auto p-0">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle className="sr-only">Misc Detail — {detailProject?.name}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {formatYearMonth(selectedMonth)} draws + {formatYearMonth(prevMonthStr)} report
+            </DialogDescription>
           </DialogHeader>
 
-          {/* Draws for current month */}
-          <div className="space-y-4">
-            <h4 className="text-sm font-semibold">Current Month Draws ({formatYearMonth(selectedMonth)})</h4>
-            {detailDraws.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No draws this month.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Purpose</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Expensed</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {detailDraws.map((d: /* // */ any) => (
-                    <TableRow key={d.id} className={d.cfo_flagged ? 'bg-danger-soft/50' : ''}>
-                      <TableCell className="text-sm">{formatDate(d.created_at)}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white text-xs' : 'bg-warning-soft text-warning-soft-foreground text-xs'}>
-                          {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm max-w-[200px] truncate">{d.purpose}</TableCell>
-                      <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(d.amount_approved), 'KES')}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className={
-                          d.cfo_flagged ? 'bg-danger-soft text-danger-soft-foreground' : d.status === 'accounted' ? 'bg-info-soft text-info-soft-foreground' : 'bg-success-soft text-success-soft-foreground'
-                        }>
-                          {d.cfo_flagged ? 'Flagged' : d.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{d.expense_id ? <span className="text-success">✓</span> : <span className="text-warning">⚠</span>}</TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow className="font-semibold bg-muted/50">
-                    <TableCell colSpan={3} className="text-right">Total</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(detailDraws.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0), 'KES')}</TableCell>
-                    <TableCell colSpan={2}></TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            )}
+          <div className="grid gap-6 px-6 pb-2 lg:grid-cols-[2fr_1fr]">
+            {/* Left column: report detail panel + current-month draws */}
+            <div className="space-y-6 min-w-0">
+              <MiscReportDetailPanel
+                projectName={detailProject?.name || ''}
+                monthLabel={formatYearMonth(prevMonthStr)}
+                status={detailRow?.statusKind ?? 'not-submitted'}
+                statusCount={detailRow?.statusCount}
+                statusSubtext={detailRow?.statusSubtext}
+                totalDrawn={Number(detailReport?.total_drawn ?? detailReport?.total_allocated ?? 0)}
+                totalItemised={detailReportItems.reduce((s: number, i: /* // */ any) => s + Number(i.amount || 0), 0)}
+                variance={Number(detailReport?.variance ?? (Number(detailReport?.total_allocated || 0) - detailReportItems.reduce((s: number, i: /* // */ any) => s + Number(i.amount || 0), 0)))}
+                itemisationPct={
+                  Number(detailReport?.total_drawn || detailReport?.total_allocated || 0) > 0
+                    ? (detailReportItems.reduce((s: number, i: /* // */ any) => s + Number(i.amount || 0), 0) /
+                        Number(detailReport?.total_drawn || detailReport?.total_allocated || 0)) * 100
+                    : 0
+                }
+                submittedByLabel={detailReport?.submitted_at ? `${formatDate(detailReport.submitted_at)}` : undefined}
+                reviewedByLabel={detailReport?.cfo_reviewed_at ? `${formatDate(detailReport.cfo_reviewed_at)}` : undefined}
+                draws={detailDraws}
+                items={detailReportItems}
+                actionBar={
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => detailDraws[0] && setFlagDraw(detailDraws[0])}
+                      disabled={detailDraws.length === 0}
+                    >
+                      <Flag className="mr-1.5 size-3.5" /> Flag a draw
+                    </Button>
+                    {detailReport?.status === 'submitted' && (
+                      <Button size="sm" onClick={() => openReviewReport(detailReport)}>
+                        <CheckCircle2 className="mr-1.5 size-3.5" /> Review report
+                      </Button>
+                    )}
+                  </>
+                }
+                actionFootnote={
+                  detailReport?.status === 'cfo_reviewed'
+                    ? `Already reviewed · ${formatDate(detailReport.cfo_reviewed_at)} · changes are audited`
+                    : undefined
+                }
+              />
 
-            <Separator />
+              {/* Current-month draws — kept for behavior parity */}
+              <section className="space-y-2">
+                <h3 className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                  Current month draws · {formatYearMonth(selectedMonth)}
+                </h3>
+                {detailDraws.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No draws this month.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Purpose</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Expensed</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {detailDraws.map((d: /* // */ any) => (
+                        <TableRow key={d.id} className={d.cfo_flagged ? 'bg-danger-soft/50' : ''}>
+                          <TableCell className="text-sm">{formatDate(d.created_at)}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white text-xs' : 'bg-warning-soft text-warning-soft-foreground text-xs'}>
+                              {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm max-w-[200px] truncate">{d.purpose}</TableCell>
+                          <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(d.amount_approved), 'KES')}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className={
+                              d.cfo_flagged ? 'bg-danger-soft text-danger-soft-foreground' : d.status === 'accounted' ? 'bg-info-soft text-info-soft-foreground' : 'bg-success-soft text-success-soft-foreground'
+                            }>
+                              {d.cfo_flagged ? 'Flagged' : d.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{d.expense_id ? <span className="text-success">✓</span> : <span className="text-warning">⚠</span>}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="font-semibold bg-muted/50">
+                        <TableCell colSpan={3} className="text-right">Total</TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrency(detailDraws.reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0), 'KES')}</TableCell>
+                        <TableCell colSpan={2}></TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                )}
+              </section>
+            </div>
 
-            {/* Report items for previous month */}
-            <h4 className="text-sm font-semibold">Previous Month Report Items ({formatYearMonth(prevMonthStr)})</h4>
-            {detailReportItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No report items for previous month.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {detailReportItems.map((item: /* // */ any, idx: number) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="text-muted-foreground text-sm">{idx + 1}</TableCell>
-                      <TableCell className="text-sm">{formatDate(item.expense_date)}</TableCell>
-                      <TableCell className="text-sm">{item.description}</TableCell>
-                      <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(item.amount), 'KES')}</TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow className="font-semibold bg-muted/50">
-                    <TableCell colSpan={3} className="text-right">Total Claimed</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(detailReportItems.reduce((s: number, i: /* // */ any) => s + Number(i.amount || 0), 0), 'KES')}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            )}
+            {/* Right rail: timeline + top-up limits */}
+            <aside className="space-y-4">
+              <ReportActivityTimeline events={timelineEvents} />
+              <TopUpLimitsPanel
+                monthLabel={formatYearMonth(selectedMonth).split(' ')[0] || formatYearMonth(selectedMonth)}
+                standing={detailStandingTotal}
+                topUpsCount={detailTopUps.length}
+                topUpsAmount={detailTopUpAmount}
+                remaining={detailRemaining}
+              />
+            </aside>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="px-6 pb-6">
             <Button variant="outline" onClick={() => setDetailProject(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
