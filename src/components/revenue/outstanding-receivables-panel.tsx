@@ -2,18 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { SectionCard } from '@/components/layout/section-card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { formatCurrency } from '@/lib/format';
+import { formatCompactCurrency, formatCurrency } from '@/lib/format';
 import { getAgingBucket } from '@/lib/backdated-utils';
 import {
   getOutstandingInvoices,
   getInvoiceOutstandingTotal,
 } from '@/lib/queries/invoices';
 import type { InvoiceWithPayments } from '@/types/query-results';
-import { DollarSign, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+
+import { cn } from '@/lib/utils';
 
 interface BucketSummary {
   label: string;
@@ -24,31 +23,41 @@ interface BucketSummary {
 
 const BUCKET_ORDER = ['0-30 days', '31-60 days', '61-90 days', '90+ days'];
 
-const bucketStyles: Record<string, { bg: string; text: string; badge: string }> = {
-  emerald: {
-    bg: 'bg-success-soft',
-    text: 'text-success-soft-foreground',
-    badge: 'bg-success/15 text-success-soft-foreground',
+type BucketTone = 'fresh' | 'due' | 'warn' | 'danger';
+
+const TONE_CLASSES: Record<BucketTone, { wrap: string; label: string; value: string }> = {
+  fresh: {
+    wrap: 'bg-card',
+    label: 'text-foreground',
+    value: 'text-foreground',
   },
-  blue: {
-    bg: 'bg-info-soft',
-    text: 'text-info-soft-foreground',
-    badge: 'bg-info/15 text-info-soft-foreground',
+  due: {
+    wrap: 'bg-card',
+    label: 'text-muted-foreground',
+    value: 'text-foreground',
   },
-  amber: {
-    bg: 'bg-warning-soft',
-    text: 'text-warning-soft-foreground',
-    badge: 'bg-warning/20 text-warning-soft-foreground',
+  warn: {
+    wrap: 'bg-[var(--gold-soft)]',
+    label: 'text-[oklch(0.40_0.15_75)]',
+    value: 'text-[oklch(0.40_0.15_75)]',
   },
-  red: {
-    bg: 'bg-danger-soft',
-    text: 'text-danger-soft-foreground',
-    badge: 'bg-danger/15 text-danger-soft-foreground',
+  danger: {
+    wrap: 'bg-danger-soft',
+    label: 'text-[var(--danger)]',
+    value: 'text-[var(--danger)]',
   },
 };
 
+function toneFor(label: string): BucketTone {
+  if (label.startsWith('0-30')) return 'fresh';
+  if (label.startsWith('31-60')) return 'due';
+  if (label.startsWith('61-90')) return 'warn';
+  return 'danger';
+}
+
 export function OutstandingReceivablesPanel() {
   const [totalOutstanding, setTotalOutstanding] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [buckets, setBuckets] = useState<BucketSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -65,21 +74,22 @@ export function OutstandingReceivablesPanel() {
 
       const bucketMap: Record<string, { amount: number; count: number; color: string }> = {};
 
-      // Initialize all buckets
       for (const b of BUCKET_ORDER) {
         bucketMap[b] = { amount: 0, count: 0, color: '' };
       }
 
       let total = 0;
+      let count = 0;
 
       for (const inv of invoices) {
         const outstanding = getInvoiceOutstandingTotal(
-          inv as unknown as InvoiceWithPayments
+          inv as unknown as InvoiceWithPayments,
         );
         if (outstanding <= 0) continue;
 
         const aging = getAgingBucket(inv.invoice_date);
         total += outstanding;
+        count += 1;
 
         if (!bucketMap[aging.bucket]) {
           bucketMap[aging.bucket] = { amount: 0, count: 0, color: aging.color };
@@ -89,20 +99,20 @@ export function OutstandingReceivablesPanel() {
         bucketMap[aging.bucket].color = aging.color;
       }
 
-      // Assign colors for initialized-but-empty buckets
       const colorOrder = ['emerald', 'blue', 'amber', 'red'];
       BUCKET_ORDER.forEach((b, i) => {
         if (!bucketMap[b].color) bucketMap[b].color = colorOrder[i];
       });
 
       setTotalOutstanding(total);
+      setTotalCount(count);
       setBuckets(
         BUCKET_ORDER.map((label) => ({
           label,
           amount: bucketMap[label].amount,
           count: bucketMap[label].count,
           color: bucketMap[label].color,
-        }))
+        })),
       );
       setLoading(false);
     }
@@ -111,68 +121,90 @@ export function OutstandingReceivablesPanel() {
   }, []);
 
   return (
-    <SectionCard
-      title="Outstanding Receivables"
-      description="Aged invoice exposure across sent, partially paid, and overdue"
-      icon={DollarSign}
-      tone="brand"
-      action={
-        <Link href="/reports/outstanding">
-          <Button variant="ghost" size="sm" className="gap-1">
-            View all <ArrowRight className="size-3.5" aria-hidden />
-          </Button>
+    <section className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+      {/* List-frame header */}
+      <div className="flex items-center justify-between gap-3 border-b border-border bg-[var(--paper-2)] px-5 py-3">
+        <span className="font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          Outstanding receivables{' '}
+          {!loading && totalCount > 0 && (
+            <>
+              <span aria-hidden className="mx-1 text-[var(--paper-4)]">·</span>
+              <span className="text-foreground">
+                {totalCount} invoice{totalCount === 1 ? '' : 's'}
+              </span>
+              <span aria-hidden className="mx-1 text-[var(--paper-4)]">·</span>
+              <span className="text-foreground">
+                {formatCompactCurrency(totalOutstanding, 'USD')}
+              </span>
+            </>
+          )}
+        </span>
+        <Link
+          href="/reports/outstanding"
+          className="inline-flex items-center gap-1 font-mono text-[10.5px] font-medium uppercase tracking-[0.10em] text-muted-foreground transition-colors hover:text-foreground"
+        >
+          View all <ArrowRight className="size-3" strokeWidth={2} aria-hidden />
         </Link>
-      }
-    >
+      </div>
+
+      {/* Body */}
       {loading ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">
-          Loading…
-        </p>
+        <div className="px-5 py-8 text-center text-sm text-muted-foreground">Loading…</div>
+      ) : totalCount === 0 ? (
+        <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+          No outstanding receivables.
+        </div>
       ) : (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-xl bg-teal-soft ring-1 ring-inset ring-teal/25">
-              <DollarSign
-                className="size-5 text-teal-soft-foreground"
-                strokeWidth={1.75}
-              />
-            </div>
-            <div>
-              <p className="text-2xl font-semibold tabular-nums text-foreground">
-                {formatCurrency(totalOutstanding, 'USD')}
-              </p>
-              <p className="text-xs text-muted-foreground">Total outstanding</p>
-            </div>
+        <div className="space-y-4 px-5 py-5">
+          {/* Headline total */}
+          <div>
+            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              Total outstanding
+            </p>
+            <p className="mt-1 font-mono text-[26px] font-medium leading-none tracking-tight text-foreground tabular-nums">
+              <span className="mr-2 text-[11px] tracking-[0.04em] text-muted-foreground">USD</span>
+              {totalOutstanding.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+            </p>
           </div>
 
-          <ul className="space-y-1.5">
+          {/* 4-bucket grid — same .aging-bar grain as /revenue's AgingBucketsPanel,
+              but with USD totals + invoice counts (panel-specific data) */}
+          <div className="mt-2 grid grid-cols-4 gap-px overflow-hidden rounded-[var(--radius-sm)] bg-[var(--border-subtle)]">
             {buckets.map((bucket) => {
-              const styles = bucketStyles[bucket.color] || bucketStyles.emerald;
+              const tone = TONE_CLASSES[toneFor(bucket.label)];
               return (
-                <li
+                <div
                   key={bucket.label}
-                  className={`flex items-center justify-between rounded-lg px-3 py-2 ${styles.bg}`}
+                  className={cn('flex flex-col gap-1 px-3 py-3', tone.wrap)}
                 >
-                  <span className={`text-sm font-medium ${styles.text}`}>
+                  <span
+                    className={cn(
+                      'font-mono text-[9.5px] uppercase tracking-[0.12em]',
+                      tone.label,
+                    )}
+                  >
                     {bucket.label}
                   </span>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`text-sm font-semibold tabular-nums ${styles.text}`}
-                    >
-                      {formatCurrency(bucket.amount, 'USD')}
-                    </span>
-                    <Badge variant="secondary" className={styles.badge}>
-                      {bucket.count}{' '}
-                      {bucket.count === 1 ? 'invoice' : 'invoices'}
-                    </Badge>
-                  </div>
-                </li>
+                  <span className={cn('font-mono text-[13px] font-medium tabular-nums', tone.value)}>
+                    {bucket.amount > 0
+                      ? formatCompactCurrency(bucket.amount, 'USD').replace('USD ', '')
+                      : '—'}
+                  </span>
+                  <span className="font-mono text-[10px] text-muted-foreground">
+                    {bucket.count} invoice{bucket.count === 1 ? '' : 's'}
+                  </span>
+                </div>
               );
             })}
-          </ul>
+          </div>
+
+          {/* Full precision footnote */}
+          <p className="font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
+            Total ·{' '}
+            <span className="text-foreground">{formatCurrency(totalOutstanding, 'USD')}</span>
+          </p>
         </div>
       )}
-    </SectionCard>
+    </section>
   );
 }
