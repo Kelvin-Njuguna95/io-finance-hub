@@ -4,21 +4,18 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import { formatCurrency } from '@/lib/format';
+import { formatCompactKES, formatCurrency } from '@/lib/format';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getUserErrorMessage } from '@/lib/errors';
+
+import { cn } from '@/lib/utils';
 
 const DELETION_MARKER = '[PENDING_DELETE]';
 
@@ -32,8 +29,25 @@ interface MiscRequest {
   created_at: string;
 }
 
+const ROW_GRID = 'grid grid-cols-[130px_1.6fr_120px_120px_50px] items-start gap-4';
+
+const STATUS_TONE: Record<string, string> = {
+  pending: 'bg-warning-soft text-warning-soft-foreground',
+  approved: 'bg-success-soft text-success-soft-foreground',
+  declined: 'bg-danger-soft text-danger-soft-foreground',
+  reported: 'bg-info-soft text-info-soft-foreground',
+};
+
 function isPendingDeletion(r: MiscRequest): boolean {
   return (r.cfo_notes || '').includes(DELETION_MARKER);
+}
+
+function cleanNotes(notes: string | null): string {
+  if (!notes) return '';
+  return notes
+    .replace(/\[PENDING_DELETE\]/g, '')
+    .replace(/\[prev:\w+\]/g, '')
+    .trim();
 }
 
 export function AccountantMiscRequests() {
@@ -46,7 +60,9 @@ export function AccountantMiscRequests() {
   const [deleteTarget, setDeleteTarget] = useState<MiscRequest | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   async function load() {
     const supabase = createClient();
@@ -93,14 +109,14 @@ export function AccountantMiscRequests() {
     if (!deleteTarget) return;
     setDeleting(true);
     const supabase = createClient();
-    // Add deletion marker to cfo_notes — preserve previous status info for restore
     const prevNotes = deleteTarget.cfo_notes || '';
     const meta = `${DELETION_MARKER}[prev:${deleteTarget.status}]`;
     const newNotes = prevNotes ? `${meta} ${prevNotes}` : meta;
 
-    const { error } = await supabase.from('accountant_misc_requests').update({
-      cfo_notes: newNotes,
-    }).eq('id', deleteTarget.id);
+    const { error } = await supabase
+      .from('accountant_misc_requests')
+      .update({ cfo_notes: newNotes })
+      .eq('id', deleteTarget.id);
 
     if (error) {
       toast.error(getUserErrorMessage());
@@ -112,128 +128,157 @@ export function AccountantMiscRequests() {
     setDeleting(false);
   }
 
-  const statusColors: Record<string, string> = {
-    pending: 'bg-warning-soft text-warning-soft-foreground',
-    approved: 'bg-success-soft text-success-soft-foreground',
-    declined: 'bg-danger-soft text-danger-soft-foreground',
-    reported: 'bg-blue-100 text-blue-700',
-  };
-
   const totalApproved = requests
-    .filter(r => (r.status === 'approved' || r.status === 'reported') && !isPendingDeletion(r))
+    .filter((r) => (r.status === 'approved' || r.status === 'reported') && !isPendingDeletion(r))
     .reduce((s, r) => s + Number(r.amount_approved || 0), 0);
 
-  // Clean display of cfo_notes (strip deletion metadata)
-  function cleanNotes(notes: string | null): string {
-    if (!notes) return '—';
-    return notes.replace(/\[PENDING_DELETE\]/g, '').replace(/\[prev:\w+\]/g, '').trim() || '—';
-  }
+  const totalRequested = requests
+    .filter((r) => !isPendingDeletion(r))
+    .reduce((s, r) => s + Number(r.amount_requested || 0), 0);
 
   return (
     <>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">Misc Fund Requests</CardTitle>
+      <section className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+        {/* Header strip */}
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-[var(--paper-2)] px-5 py-3">
+          <span className="font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            Misc fund requests
+            {requests.length > 0 && (
+              <>
+                <span aria-hidden className="mx-1 text-[var(--paper-4)]">·</span>
+                <span className="text-foreground">
+                  {requests.length} this month
+                </span>
+                {totalRequested > 0 && (
+                  <>
+                    <span aria-hidden className="mx-1 text-[var(--paper-4)]">·</span>
+                    <span className="text-foreground">
+                      {formatCompactKES(totalRequested)} requested
+                    </span>
+                  </>
+                )}
+              </>
+            )}
+          </span>
           <Button size="sm" className="gap-1" onClick={() => setShowForm(true)}>
-            <Plus className="h-3 w-3" /> New Request
+            <Plus className="size-3.5" /> New request
           </Button>
-        </CardHeader>
-        <CardContent>
-          {requests.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No misc requests this month</p>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Purpose</TableHead>
-                    <TableHead className="text-right">Requested</TableHead>
-                    <TableHead className="text-right">Approved</TableHead>
-                    <TableHead>CFO Notes</TableHead>
-                    <TableHead className="w-[80px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {requests.map((r) => {
-                    const pendingDelete = isPendingDeletion(r);
-                    return (
-                      <TableRow key={r.id} className={pendingDelete ? 'bg-danger-soft/50' : ''}>
-                        <TableCell>
-                          {pendingDelete ? (
-                            <Badge variant="secondary" className="bg-danger-soft text-danger-soft-foreground">
-                              Pending Delete
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className={statusColors[r.status]}>
-                              {r.status}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-medium">{r.purpose}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatCurrency(r.amount_requested, 'KES')}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {r.amount_approved ? formatCurrency(r.amount_approved, 'KES') : '—'}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{cleanNotes(r.cfo_notes)}</TableCell>
-                        <TableCell>
-                          {pendingDelete ? (
-                            <span className="text-xs text-danger-soft-foreground">Awaiting CFO</span>
-                          ) : r.status !== 'reported' ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => setDeleteTarget(r)}
-                              title="Request deletion"
-                            >
-                              <Trash2 className="h-3.5 w-3.5 text-danger-soft-foreground" />
-                            </Button>
-                          ) : null}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              {totalApproved > 0 && (
-                <div className="mt-2 text-sm text-right">
-                  Total approved this month: <strong>{formatCurrency(totalApproved, 'KES')}</strong>
-                </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Request Deletion</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-foreground/80">
-            Are you sure you want to request deletion of this misc request?
-          </p>
-          <div className="bg-muted/50 rounded-lg p-3 text-sm space-y-1">
-            <p><strong>Purpose:</strong> {deleteTarget?.purpose}</p>
-            <p><strong>Amount:</strong> {formatCurrency(deleteTarget?.amount_requested || 0, 'KES')}</p>
-            <p><strong>Status:</strong> {deleteTarget?.status}</p>
+        {requests.length === 0 ? (
+          <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+            No misc requests this month.
           </div>
-          <p className="text-xs text-warning-soft-foreground">
-            This will send a deletion request to the CFO for final confirmation.
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleRequestDelete} disabled={deleting}>
-              {deleting ? 'Requesting...' : 'Request Deletion'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        ) : (
+          <>
+            {/* Column header row */}
+            <div
+              className={cn(
+                ROW_GRID,
+                'border-b border-border-subtle bg-[var(--paper-2)]/40 px-5 py-2.5',
+                'font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground',
+              )}
+            >
+              <div>Status</div>
+              <div>Purpose · CFO notes</div>
+              <div className="text-right">Requested</div>
+              <div className="text-right">Approved</div>
+              <div />
+            </div>
 
+            {/* Rows */}
+            {requests.map((r) => {
+              const pendingDelete = isPendingDeletion(r);
+              const tone = pendingDelete
+                ? 'bg-danger-soft text-danger-soft-foreground'
+                : STATUS_TONE[r.status] || 'bg-[var(--paper-3)] text-foreground';
+              const label = pendingDelete ? 'Pending delete' : r.status;
+              const note = cleanNotes(r.cfo_notes);
+              return (
+                <div
+                  key={r.id}
+                  className={cn(
+                    ROW_GRID,
+                    'border-b border-border-subtle px-5 py-3.5 last:border-b-0',
+                    pendingDelete && 'bg-danger-soft/30',
+                  )}
+                >
+                  {/* Status pill */}
+                  <div>
+                    <span
+                      className={cn(
+                        'inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em]',
+                        tone,
+                      )}
+                    >
+                      {label}
+                    </span>
+                  </div>
+
+                  {/* Purpose + CFO notes sub */}
+                  <div className="min-w-0">
+                    <div className="truncate text-[13px] font-medium text-foreground">
+                      {r.purpose}
+                    </div>
+                    {note && (
+                      <p className="mt-0.5 line-clamp-2 text-[11.5px] text-muted-foreground">
+                        {note}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Requested */}
+                  <div className="text-right font-mono text-[12.5px] tabular-nums text-foreground">
+                    {formatCurrency(r.amount_requested, 'KES')}
+                  </div>
+
+                  {/* Approved */}
+                  <div className="text-right font-mono text-[12.5px] tabular-nums">
+                    {r.amount_approved ? (
+                      <span className="text-success-soft-foreground">
+                        {formatCurrency(r.amount_approved, 'KES')}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </div>
+
+                  {/* Action */}
+                  <div className="flex justify-end">
+                    {pendingDelete ? (
+                      <span className="font-mono text-[10px] uppercase tracking-[0.10em] text-[var(--danger)]">
+                        Awaiting CFO
+                      </span>
+                    ) : r.status !== 'reported' ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => setDeleteTarget(r)}
+                        title="Request deletion"
+                      >
+                        <Trash2 className="size-3.5 text-[var(--danger)]" />
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Footer total strip */}
+            {totalApproved > 0 && (
+              <div className="flex items-baseline justify-between border-t border-border bg-[var(--paper-2)] px-5 py-2.5 font-mono text-[10.5px] uppercase tracking-[0.10em]">
+                <span className="text-muted-foreground">Total approved this month</span>
+                <span className="text-[12.5px] tabular-nums text-foreground">
+                  {formatCurrency(totalApproved, 'KES')}
+                </span>
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* New-request dialog — preserved */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent>
           <DialogHeader>
@@ -242,16 +287,67 @@ export function AccountantMiscRequests() {
           <div className="space-y-4">
             <div className="space-y-1">
               <Label>Purpose *</Label>
-              <Textarea value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="What is this money needed for?" rows={3} />
+              <Textarea
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                placeholder="What is this money needed for?"
+                rows={3}
+              />
             </div>
             <div className="space-y-1">
               <Label>Amount (KES) *</Label>
-              <Input type="number" step="0.01" min={0} value={amount || ''} onChange={(e) => setAmount(parseFloat(e.target.value) || 0)} />
+              <Input
+                type="number"
+                step="0.01"
+                min={0}
+                value={amount || ''}
+                onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+                className="font-mono tabular-nums"
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={saving}>{saving ? 'Submitting...' : 'Submit Request'}</Button>
+            <Button variant="outline" onClick={() => setShowForm(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} disabled={saving}>
+              {saving ? 'Submitting...' : 'Submit Request'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirm dialog — preserved */}
+      <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Deletion</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-foreground/80">
+            Are you sure you want to request deletion of this misc request?
+          </p>
+          <div className="space-y-1 rounded-[var(--radius-sm)] border border-border-subtle bg-[var(--paper-2)] p-3 text-sm">
+            <p>
+              <strong>Purpose:</strong> {deleteTarget?.purpose}
+            </p>
+            <p>
+              <strong>Amount:</strong>{' '}
+              {formatCurrency(deleteTarget?.amount_requested || 0, 'KES')}
+            </p>
+            <p>
+              <strong>Status:</strong> {deleteTarget?.status}
+            </p>
+          </div>
+          <p className="text-xs text-warning-soft-foreground">
+            This will send a deletion request to the CFO for final confirmation.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleRequestDelete} disabled={deleting}>
+              {deleting ? 'Requesting...' : 'Request Deletion'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
