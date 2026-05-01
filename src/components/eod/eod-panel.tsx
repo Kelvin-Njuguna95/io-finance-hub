@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { formatCurrency } from '@/lib/format';
+import { formatCompactKES, formatCurrency } from '@/lib/format';
 import { Send, Clock, CheckCircle, AlertTriangle, Minus, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+
+import { cn } from '@/lib/utils';
 
 interface EodStatus {
   report_date: string;
@@ -25,6 +25,13 @@ interface EodStatus {
     budget_action_count: number;
   };
 }
+
+const TODAY_LABEL = new Intl.DateTimeFormat('en-KE', {
+  timeZone: 'Africa/Nairobi',
+  weekday: 'short',
+  day: '2-digit',
+  month: 'short',
+}).format(new Date());
 
 export function EodPanel() {
   const [status, setStatus] = useState<EodStatus | null>(null);
@@ -91,8 +98,16 @@ export function EodPanel() {
     if (!status) return;
     setIsResend(resend);
     const lines: string[] = [];
-    lines.push(`IO Finance — End of Day Report`);
-    lines.push(`${new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())}`);
+    lines.push('IO Finance — End of Day Report');
+    lines.push(
+      new Intl.DateTimeFormat('en-KE', {
+        timeZone: 'Africa/Nairobi',
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }).format(new Date()),
+    );
     lines.push('');
     lines.push(`Expenses: ${status.summary.expense_count} entries — ${formatCurrency(status.summary.expense_total_kes || 0, 'KES')}`);
     lines.push(`Withdrawals: ${status.summary.withdrawal_count} entries`);
@@ -108,10 +123,15 @@ export function EodPanel() {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader><CardTitle className="text-sm font-medium">End of Day Report</CardTitle></CardHeader>
-        <CardContent><p className="text-sm text-muted-foreground">Please wait</p></CardContent>
-      </Card>
+      <section className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-[var(--paper-2)] px-5 py-3">
+          <span className="font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            EOD digest <span aria-hidden className="mx-1 text-[var(--paper-4)]">·</span>{' '}
+            <span className="text-foreground">{TODAY_LABEL}</span>
+          </span>
+        </div>
+        <p className="px-5 py-6 text-center text-sm text-muted-foreground">Please wait</p>
+      </section>
     );
   }
 
@@ -120,102 +140,141 @@ export function EodPanel() {
   const hasActivity = s?.has_activity;
 
   // Check if data has changed since last send
-  const existingCounts = sent ? {
-    expenses: s?.existing_report?.expense_count || 0,
-    withdrawals: s?.existing_report?.withdrawal_count || 0,
-    budgets: s?.existing_report?.budget_action_count || 0,
-    cashReceived: s?.existing_report?.cash_received_count || 0,
-  } : null;
+  const existingCounts = sent
+    ? {
+        expenses: s?.existing_report?.expense_count || 0,
+        withdrawals: s?.existing_report?.withdrawal_count || 0,
+        budgets: s?.existing_report?.budget_action_count || 0,
+        cashReceived: s?.existing_report?.cash_received_count || 0,
+      }
+    : null;
   const currentCounts = {
     expenses: s?.summary.expense_count || 0,
     withdrawals: s?.summary.withdrawal_count || 0,
     budgets: s?.summary.budget_action_count || 0,
     cashReceived: s?.summary.cash_received_count || 0,
   };
-  const hasNewActivity = sent && existingCounts && (
-    currentCounts.expenses !== existingCounts.expenses ||
-    currentCounts.withdrawals !== existingCounts.withdrawals ||
-    currentCounts.budgets !== existingCounts.budgets ||
-    currentCounts.cashReceived !== existingCounts.cashReceived
-  );
+  const hasNewActivity =
+    sent &&
+    existingCounts &&
+    (currentCounts.expenses !== existingCounts.expenses ||
+      currentCounts.withdrawals !== existingCounts.withdrawals ||
+      currentCounts.budgets !== existingCounts.budgets ||
+      currentCounts.cashReceived !== existingCounts.cashReceived);
 
-  let statusBadge: React.ReactNode;
+  // Status pill content
+  let statusPillTone: string;
+  let statusPillIcon: React.ReactNode;
+  let statusPillLabel: string;
   if (sent) {
     const time = s?.existing_report?.created_at
-      ? new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(s.existing_report.created_at))
+      ? new Intl.DateTimeFormat('en-KE', {
+          timeZone: 'Africa/Nairobi',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }).format(new Date(s.existing_report.created_at))
       : '--:--';
-    statusBadge = <Badge className="bg-success-soft text-success-soft-foreground"><CheckCircle className="h-3 w-3 mr-1" /> Sent at {time} EAT</Badge>;
+    statusPillTone = 'bg-success-soft text-success-soft-foreground';
+    statusPillIcon = <CheckCircle className="size-3" strokeWidth={2} aria-hidden />;
+    statusPillLabel = `Sent ${time} EAT`;
   } else if (hasActivity) {
-    statusBadge = <Badge className="bg-warning-soft text-warning-soft-foreground"><Clock className="h-3 w-3 mr-1" /> Not Sent</Badge>;
+    statusPillTone = 'bg-warning-soft text-warning-soft-foreground';
+    statusPillIcon = <Clock className="size-3" strokeWidth={2} aria-hidden />;
+    statusPillLabel = 'Not sent';
   } else {
-    statusBadge = <Badge className="bg-muted text-muted-foreground"><Minus className="h-3 w-3 mr-1" /> No Activity Today</Badge>;
+    statusPillTone = 'bg-[var(--paper-3)] text-muted-foreground';
+    statusPillIcon = <Minus className="size-3" strokeWidth={2} aria-hidden />;
+    statusPillLabel = 'No activity';
   }
 
   return (
     <>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">End of Day Report</CardTitle>
-          {statusBadge}
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Expenses logged today</span>
-              <span className="font-medium">{s?.summary.expense_count || 0} entries — {formatCurrency(s?.summary.expense_total_kes || 0, 'KES')}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Withdrawals recorded</span>
-              <span className="font-medium">{s?.summary.withdrawal_count || 0} entries</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Cash received</span>
-              <span className="font-medium">{s?.summary.cash_received_count || 0} entries</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Budget actions</span>
-              <span className="font-medium">{s?.summary.budget_action_count || 0} submissions/reviews</span>
-            </div>
-          </div>
+      <section className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+        {/* Header strip */}
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-[var(--paper-2)] px-5 py-3">
+          <span className="font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            EOD digest
+            <span aria-hidden className="mx-1 text-[var(--paper-4)]">·</span>
+            <span className="text-foreground">{TODAY_LABEL}</span>
+          </span>
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em]',
+              statusPillTone,
+            )}
+          >
+            {statusPillIcon}
+            {statusPillLabel}
+          </span>
+        </div>
 
-          {/* New activity detected since last send */}
+        {/* Body */}
+        <div className="space-y-4 px-5 py-5">
+          {/* 4-row summary list */}
+          <dl className="divide-y divide-border-subtle overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle">
+            <SummaryRow
+              label="Expenses logged"
+              value={`${s?.summary.expense_count || 0} entr${(s?.summary.expense_count || 0) === 1 ? 'y' : 'ies'}`}
+              detail={(s?.summary.expense_total_kes || 0) > 0 ? formatCompactKES(s?.summary.expense_total_kes || 0) : undefined}
+            />
+            <SummaryRow
+              label="Withdrawals recorded"
+              value={`${s?.summary.withdrawal_count || 0} entr${(s?.summary.withdrawal_count || 0) === 1 ? 'y' : 'ies'}`}
+            />
+            <SummaryRow
+              label="Cash received"
+              value={`${s?.summary.cash_received_count || 0} entr${(s?.summary.cash_received_count || 0) === 1 ? 'y' : 'ies'}`}
+            />
+            <SummaryRow
+              label="Budget actions"
+              value={`${s?.summary.budget_action_count || 0} submission${(s?.summary.budget_action_count || 0) === 1 ? '' : 's'}`}
+            />
+          </dl>
+
+          {/* New-activity callout — paper-2 + warning left-rail */}
           {hasNewActivity && (
-            <div className="flex items-center gap-2 rounded-md bg-warning-soft/50 border border-warning/30 p-2 text-sm text-warning-soft-foreground">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
+            <div className="flex items-start gap-2.5 rounded-[var(--radius-sm)] border border-warning/30 border-l-[3px] border-l-[var(--warning)] bg-warning-soft/40 px-3 py-2.5 text-[12.5px] text-warning-soft-foreground">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} aria-hidden />
               <span>New activity recorded since last send. Resend to capture all changes.</span>
             </div>
           )}
 
-          {/* Send button — first time */}
+          {/* Action buttons */}
           {!sent && hasActivity && (
             <Button className="w-full gap-2" onClick={() => handlePreview(false)}>
-              <Send className="h-4 w-4" /> Send EOD Report
+              <Send className="size-4" /> Send EOD report
             </Button>
           )}
-
-          {/* Resend button — when already sent but new activity exists */}
           {sent && hasNewActivity && (
             <Button className="w-full gap-2" variant="outline" onClick={() => handlePreview(true)}>
-              <RefreshCw className="h-4 w-4" /> Resend with Updated Data
+              <RefreshCw className="size-4" /> Resend with updated data
             </Button>
           )}
-
-          {/* Manual resend button — always available when already sent */}
           {sent && !hasNewActivity && (
-            <Button className="w-full gap-2" variant="ghost" size="sm" onClick={() => handlePreview(true)}>
-              <RefreshCw className="h-4 w-4" /> Resend Report
+            <Button
+              className="w-full gap-2"
+              variant="ghost"
+              size="sm"
+              onClick={() => handlePreview(true)}
+            >
+              <RefreshCw className="size-4" /> Resend report
             </Button>
           )}
 
+          {/* Slack failure callout */}
           {sent && s?.existing_report?.slack_status === 'failed' && (
-            <div className="flex items-center gap-2 rounded-md bg-danger-soft/50 p-2 text-sm text-danger-soft-foreground">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              Slack delivery failed: {s.existing_report.error_message}
+            <div className="flex items-start gap-2.5 rounded-[var(--radius-sm)] border border-danger/30 border-l-[3px] border-l-[var(--danger)] bg-danger-soft/40 px-3 py-2.5 text-[12.5px] text-danger-soft-foreground">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} aria-hidden />
+              <span>
+                Slack delivery failed: <span className="font-mono">{s.existing_report.error_message}</span>
+              </span>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
+      {/* Preview dialog — kept untouched */}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -227,18 +286,47 @@ export function EodPanel() {
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[300px]">
-            <pre className="text-xs whitespace-pre-wrap bg-muted/50 rounded-md p-3 font-mono">
+            <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 font-mono text-xs">
               {preview}
             </pre>
           </ScrollArea>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPreview(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowPreview(false)}>
+              Cancel
+            </Button>
             <Button onClick={() => handleSend(isResend)} disabled={sending} className="gap-1">
-              <Send className="h-4 w-4" /> {sending ? 'Sending...' : isResend ? 'Confirm & Resend' : 'Confirm & Send'}
+              <Send className="size-4" /> {sending ? 'Sending...' : isResend ? 'Confirm & Resend' : 'Confirm & Send'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function SummaryRow({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 px-4 py-2.5 text-[13px]">
+      <dt className="font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="flex items-baseline gap-2 font-mono tabular-nums text-foreground">
+        <span>{value}</span>
+        {detail && (
+          <>
+            <span aria-hidden className="text-[var(--paper-4)]">·</span>
+            <span>{detail}</span>
+          </>
+        )}
+      </dd>
+    </div>
   );
 }
