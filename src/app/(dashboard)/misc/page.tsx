@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
+import { useIdempotencyKey } from '@/hooks/use-idempotency-key';
+import { isIdempotencyConflict } from '@/lib/idempotency';
 import { PageTitle } from '@/components/layout/page-title';
 import { StatCard } from '@/components/layout/stat-card';
 import { HeadlineStatCard } from '@/components/finance/headline-stat-card';
@@ -2762,6 +2764,10 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
   // Record expense dialog
   const [recordDraw, setRecordDraw] = useState</* // */ any>(null);
   const [recording, setRecording] = useState(false);
+  // Scoped to the "Record Expense for misc draw" action only. Other
+  // actions on this page (raise, approve, decline, …) hit /api/misc-draws
+  // and will be wired in their own steps with their own scoped keys.
+  const [recordExpenseIdempotencyKey, regenerateRecordExpenseIdempotencyKey] = useIdempotencyKey();
 
   // Raise request state
   const [showRaiseForm, setShowRaiseForm] = useState(false);
@@ -2869,7 +2875,22 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
       year_month: ym,
       vendor: 'Misc Draw',
       created_by: user.id,
+      idempotency_key: recordExpenseIdempotencyKey,
     }).select().single();
+
+    if (expErr && isIdempotencyConflict(expErr)) {
+      // The first attempt already inserted this expense AND ran the
+      // misc_draws.expense_id link UPDATE below. Re-running the UPDATE
+      // would be a no-op on expense_id but would refresh
+      // accountant_notified_at unnecessarily, so skip it on retry.
+      const projectName = (recordDraw.projects as /* // */ any)?.name || 'Unknown';
+      toast.success(`Expense recorded for ${projectName} misc draw.`);
+      regenerateRecordExpenseIdempotencyKey();
+      setRecordDraw(null);
+      setRecording(false);
+      loadData();
+      return;
+    }
 
     if (expErr) {
       toast.error(expErr.message);
@@ -2877,7 +2898,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
       return;
     }
 
-    // Update misc_draws with expense_id
+    // Update misc_draws with expense_id (fresh-insert path only)
     await supabase.from('misc_draws').update({
       expense_id: expense.id,
       accountant_notified_at: new Date().toISOString(),
@@ -2885,6 +2906,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
 
     const projectName = (recordDraw.projects as /* // */ any)?.name || 'Unknown';
     toast.success(`Expense recorded for ${projectName} misc draw.`);
+    regenerateRecordExpenseIdempotencyKey();
     setRecordDraw(null);
     setRecording(false);
     loadData();

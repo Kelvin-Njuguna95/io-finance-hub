@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
+import { useIdempotencyKey } from '@/hooks/use-idempotency-key';
 import {
   useExpenseForm,
   type UseExpenseFormResult,
@@ -13,6 +14,7 @@ import {
 import { PageTitle } from '@/components/layout/page-title';
 import { formatYearMonth } from '@/lib/format';
 import { getUserErrorMessage } from '@/lib/errors';
+import { isIdempotencyConflict } from '@/lib/idempotency';
 import {
   ExpenseForm,
   type ExpenseFormState,
@@ -50,6 +52,9 @@ export default function NewExpensePage() {
 
   const [formState, setFormState] = useState<ExpenseFormState>(INITIAL_STATE);
   const [submitting, setSubmitting] = useState(false);
+  // Page navigates away on success (router.push) so the next visit
+  // remounts and gets a fresh key — no manual regenerate needed.
+  const [idempotencyKey] = useIdempotencyKey();
 
   // Refresh today's date if the user keeps the page open across midnight
   // (Nairobi). Cheap effect — runs once on mount.
@@ -146,14 +151,17 @@ export default function NewExpensePage() {
       receipt_reference: formState.receipt_reference || null,
       notes: null,
       entered_by: user.id,
+      idempotency_key: idempotencyKey,
     });
 
-    if (error) {
+    if (error && !isIdempotencyConflict(error)) {
       toast.error(getUserErrorMessage(error));
       setSubmitting(false);
       return;
     }
 
+    // Either fresh insert succeeded, or a prior attempt with this key
+    // already created the row — same outcome from the user's view.
     toast.success('Expense recorded');
     router.push('/expenses');
   }

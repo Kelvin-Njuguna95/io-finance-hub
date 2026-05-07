@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
+import { useIdempotencyKey } from '@/hooks/use-idempotency-key';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -16,6 +17,7 @@ import { toast } from 'sonner';
 import type { Project, ExpenseType } from '@/types/database';
 import { getUserErrorMessage } from '@/lib/errors';
 import { getActiveProjects } from '@/lib/queries/projects';
+import { isIdempotencyConflict } from '@/lib/idempotency';
 
 interface ExpenseFormDialogProps {
   open: boolean;
@@ -51,6 +53,7 @@ export function ExpenseFormDialog({ open, onClose, onSaved }: ExpenseFormDialogP
   const [receiptRef, setReceiptRef] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [idempotencyKey, regenerateIdempotencyKey] = useIdempotencyKey();
 
   const yearMonth = getCurrentYearMonth();
 
@@ -142,12 +145,16 @@ export function ExpenseFormDialog({ open, onClose, onSaved }: ExpenseFormDialogP
       receipt_reference: receiptRef || null,
       notes: notes || null,
       entered_by: user!.id,
+      idempotency_key: idempotencyKey,
     });
 
-    if (error) {
+    if (error && !isIdempotencyConflict(error)) {
       toast.error(getUserErrorMessage());
     } else {
+      // Either fresh insert succeeded, or a prior attempt with the same
+      // key already created the row — same outcome from the user's view.
       toast.success('Expense recorded');
+      regenerateIdempotencyKey();
       reset();
       onSaved();
       onClose();
