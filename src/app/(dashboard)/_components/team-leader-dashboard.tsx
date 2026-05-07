@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Briefcase, FileText, Plus, Users } from 'lucide-react';
+import { AlertTriangle, Briefcase, FileText, Plus, Users } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/page-header';
 import { StatCard } from '@/components/layout/stat-card';
-import { SectionCard } from '@/components/layout/section-card';
+import { HeadlineStatCard } from '@/components/finance/headline-stat-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -119,6 +119,10 @@ export function TeamLeaderDashboard({ userId }: Props) {
     loadData();
   }, [userId, currentMonth]);
 
+  const atRiskCount = Object.values(healthByProject).filter(
+    (b) => b === 'at_risk',
+  ).length;
+
   return (
     <div>
       <PageHeader
@@ -137,70 +141,102 @@ export function TeamLeaderDashboard({ userId }: Props) {
       </PageHeader>
 
       <div className="p-6 space-y-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <StatCard
-            title="Assigned Projects"
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <HeadlineStatCard
+            eyebrow="Assigned projects"
             value={String(projects.length)}
-            icon={Briefcase}
-            tone="brand"
+            sub={
+              projects.length === 0
+                ? 'Awaiting assignment'
+                : `${projects.length === 1 ? 'Project' : 'Projects'} under your lead`
+            }
             loading={loading}
           />
           <StatCard
-            title="Budgets This Month"
+            title={`Budgets · ${formatYearMonth(currentMonth)}`}
             value={String(budgets.length)}
+            subtitle={budgets.length === 0 ? 'None submitted yet' : 'Submitted this period'}
             icon={FileText}
-            tone="brand"
+            tone={budgets.length === 0 ? 'warning' : 'brand'}
+            loading={loading}
+          />
+          <StatCard
+            title="Projects at risk"
+            value={String(atRiskCount)}
+            subtitle={
+              atRiskCount === 0
+                ? 'All projects healthy'
+                : `Need attention this period`
+            }
+            icon={AlertTriangle}
+            tone={atRiskCount === 0 ? 'success' : atRiskCount <= 2 ? 'warning' : 'danger'}
             loading={loading}
           />
         </div>
 
-        <SectionCard title="My Projects" icon={Users} tone="info">
-          {projects.length === 0 ? (
-            <EmptyState
-              icon={Briefcase}
-              tone="neutral"
-              title="No projects assigned"
-              description="Ask an admin to assign you to a project."
-            />
-          ) : (
-            <ul className="space-y-2">
-              {projects.map((project) => {
-                const band = healthByProject[project.id];
-                const badge = band ? HEALTH_BADGE[band] : null;
-                return (
-                  <li
-                    key={project.id}
-                    className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/30 p-3"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {project.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {project.client_name}
-                      </p>
-                    </div>
-                    {badge ? (
-                      <Badge
-                        variant="secondary"
-                        className={cn('shrink-0', badge.className)}
-                      >
-                        {badge.label}
-                      </Badge>
-                    ) : (
-                      <span
-                        className="text-xs text-muted-foreground tabular-nums"
-                        aria-label="No health score computed for this period"
-                      >
-                        —
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </SectionCard>
+        <section className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+          {/* List-frame header */}
+          <div className="flex items-center justify-between gap-3 border-b border-border bg-[var(--paper-2)] px-5 py-3">
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              <Users className="size-3.5" strokeWidth={1.75} aria-hidden />
+              My projects
+            </span>
+            {projects.length > 0 && (
+              <span className="inline-flex items-center whitespace-nowrap rounded-full bg-card px-2.5 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-foreground tabular-nums">
+                {projects.length} {projects.length === 1 ? 'project' : 'projects'}
+              </span>
+            )}
+          </div>
+
+          {/* Body */}
+          <div className="p-5">
+            {projects.length === 0 ? (
+              <EmptyState
+                icon={Briefcase}
+                tone="neutral"
+                title="No projects assigned"
+                description="Ask an admin to assign you to a project."
+              />
+            ) : (
+              <ul className="space-y-2">
+                {projects.map((project) => {
+                  const band = healthByProject[project.id];
+                  const badge = band ? HEALTH_BADGE[band] : null;
+                  return (
+                    <li
+                      key={project.id}
+                      className="flex items-center justify-between rounded-[var(--radius-sm)] border border-border-subtle bg-[var(--paper-2)] p-3"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {project.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {project.client_name}
+                        </p>
+                      </div>
+                      {badge ? (
+                        <Badge
+                          variant="secondary"
+                          className={cn('shrink-0', badge.className)}
+                        >
+                          {badge.label}
+                        </Badge>
+                      ) : (
+                        <span
+                          className="text-xs text-muted-foreground tabular-nums"
+                          aria-label="No health score computed for this period"
+                        >
+                          —
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </section>
 
         {/* Budget vs Confirmed Expenses — scoped to TL's projects */}
         <TlBudgetVsExpensesPanel projectIds={projectIds} />
