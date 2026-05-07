@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { createNotification } from '@/lib/notifications';
-import { buildEodSections, type TodayActivity } from '@/lib/eod/sections';
+import {
+  buildEodSections,
+  activityFromPersistedPayload,
+  type TodayActivity,
+} from '@/lib/eod/sections';
 import { renderEodSlackMessage } from '@/lib/eod/render-slack';
 
 function createAdminClient() {
@@ -99,6 +103,19 @@ function buildMessage(
   return renderEodSlackMessage(payload, senderName, timeEAT);
 }
 
+function formatLongDate(reportDate: string): string {
+  // Anchor YYYY-MM-DD at Nairobi midnight so en-KE long-form formatting lands
+  // on the same calendar day regardless of server timezone.
+  const d = new Date(`${reportDate}T00:00:00+03:00`);
+  return new Intl.DateTimeFormat('en-KE', {
+    timeZone: 'Africa/Nairobi',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(d);
+}
+
 // GET — check today's EOD status and activity
 export async function GET(request: Request) {
   const authUser = await getAuthUser(request);
@@ -113,10 +130,36 @@ export async function GET(request: Request) {
     .eq('report_date', today)
     .single();
 
-  const { expenses, withdrawals, cashReceipts, budgetActions } = await fetchTodayActivity(admin, today);
-
+  // Live activity drives `summary` and `has_activity` (used by the panel's
+  // new-activity-since-send callout).
+  const liveActivity = await fetchTodayActivity(admin, today);
+  const { expenses, withdrawals, cashReceipts, budgetActions } = liveActivity;
   const totalExpenseKes = expenses.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
   const hasActivity = expenses.length > 0 || withdrawals.length > 0 || cashReceipts.length > 0 || budgetActions.length > 0;
+
+  // `sections` reflects what's about to be sent (un-SENT day) or what was
+  // actually sent (SENT day, sourced from the persisted payload).
+  let sectionsActivity: TodayActivity;
+  let preparedBy: string | null = null;
+  if (existing && existing.payload) {
+    sectionsActivity = activityFromPersistedPayload(existing.payload);
+    if (existing.sent_by) {
+      const { data: senderProfile } = await admin
+        .from('users')
+        .select('full_name')
+        .eq('id', existing.sent_by)
+        .single();
+      preparedBy = senderProfile?.full_name ?? null;
+    }
+  } else {
+    sectionsActivity = liveActivity;
+  }
+
+  const sections = buildEodSections(sectionsActivity, {
+    reportDate: today,
+    reportDateFormatted: formatLongDate(today),
+    preparedBy,
+  });
 
   return NextResponse.json({
     report_date: today,
@@ -130,6 +173,7 @@ export async function GET(request: Request) {
       cash_received_count: cashReceipts.length,
       budget_action_count: budgetActions.length,
     },
+    sections,
   });
 }
 
