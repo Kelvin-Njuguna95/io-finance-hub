@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
+import { useIdempotencyKey } from '@/hooks/use-idempotency-key';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -19,6 +20,7 @@ import type { Project } from '@/types/database';
 import { getUserErrorMessage } from '@/lib/errors';
 import { getActiveProjects } from '@/lib/queries/projects';
 import { INVOICE_STATUS } from '@/lib/constants/status';
+import { isIdempotencyConflict } from '@/lib/idempotency';
 
 interface Props {
   open: boolean;
@@ -40,6 +42,7 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
   const [isBackdated, setIsBackdated] = useState(false);
   const [backdatedReason, setBackdatedReason] = useState('');
   const [saving, setSaving] = useState(false);
+  const [idempotencyKey, regenerateIdempotencyKey] = useIdempotencyKey();
 
   function resetForm() {
     setProjectId('');
@@ -103,12 +106,16 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
       status: INVOICE_STATUS.SENT,
       description: finalDescription,
       created_by: user!.id,
+      idempotency_key: idempotencyKey,
     });
 
-    if (error) {
+    if (error && !isIdempotencyConflict(error)) {
       toast.error(getUserErrorMessage(error, 'Failed to create invoice. Please review the form and try again.'));
     } else {
+      // Either the fresh insert succeeded, or a prior attempt with this
+      // key already created the row — same outcome from the user's view.
       toast.success('Invoice created');
+      regenerateIdempotencyKey();
       resetForm();
       onSaved();
       onClose();
