@@ -12,12 +12,11 @@ import {
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
-import { HeroCard, type HeroStatTone } from '@/components/layout/hero-card';
-import { SectionCard } from '@/components/layout/section-card';
+import { PageTitle } from '@/components/layout/page-title';
+import { StatCard, type StatCardTone } from '@/components/layout/stat-card';
+import { HeadlineStatCard } from '@/components/finance/headline-stat-card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import {
   formatCurrency,
@@ -39,10 +38,10 @@ import {
 } from '@/lib/dashboard-thresholds';
 
 /**
- * Threshold-driven tone for a count-based hero stat (higher = worse).
+ * Threshold-driven tone for a count-based stat (higher = worse).
  * Normal is silent (brand). Abnormal tints via -soft tokens.
  */
-function countTone(value: number, warning: number, danger: number): HeroStatTone {
+function countTone(value: number, warning: number, danger: number): StatCardTone {
   if (value >= danger) return 'danger';
   if (value >= warning) return 'warning';
   return 'brand';
@@ -55,7 +54,7 @@ function marginTone(
   pct: number,
   warningBelow: number,
   dangerBelow: number,
-): HeroStatTone {
+): StatCardTone {
   if (pct < dangerBelow) return 'danger';
   if (pct < warningBelow) return 'warning';
   return 'brand';
@@ -64,7 +63,7 @@ function marginTone(
 /**
  * Threshold-driven tone for a "higher is worse" percentage stat (utilisation).
  */
-function utilTone(pct: number, warningAbove: number, dangerAbove: number): HeroStatTone {
+function utilTone(pct: number, warningAbove: number, dangerAbove: number): StatCardTone {
   if (pct >= dangerAbove) return 'danger';
   if (pct >= warningAbove) return 'warning';
   return 'brand';
@@ -254,188 +253,220 @@ export function ProjectManagerDashboard({ userId }: Props) {
         projectsWithBudget.length
       : 0;
 
+  const aggregateMarginToneHero = marginTone(
+    aggregateMarginPct,
+    PM_AGGREGATE_MARGIN_WARNING_BELOW_PCT,
+    PM_AGGREGATE_MARGIN_DANGER_BELOW_PCT,
+  );
+  const aggregateMarginHeadlineTone: 'bad' | 'good' | 'neutral' =
+    aggregateMarginToneHero === 'brand' ? 'neutral' : 'bad';
+
   return (
-    <div className="p-6 space-y-6">
-      {/*
-        Hero — 3 PM-scoped stats.
-        Per .impeccable.md Q7: "normal is silent; abnormal tints."
-        All three stats are scoped to the PM's own assigned projects;
-        no company-wide stats (bank balance / company revenue / etc.)
-        per the /shape Q4 decision.
-      */}
-      <HeroCard
-        stats={[
-          {
-            label: 'Aggregate Margin',
-            value: formatPercent(aggregateMarginPct),
-            subtitle: `${projects.length} project${projects.length === 1 ? '' : 's'} · ${formatYearMonth(currentMonth)}`,
-            icon: TrendingUp,
-            tone: marginTone(
-              aggregateMarginPct,
-              PM_AGGREGATE_MARGIN_WARNING_BELOW_PCT,
-              PM_AGGREGATE_MARGIN_DANGER_BELOW_PCT,
-            ),
-          },
-          {
-            label: 'Flagged Projects',
-            value: String(flaggedCount),
-            subtitle:
-              flaggedCount === 1
-                ? 'Margin or budget utilisation outside target'
-                : 'Margin or budget utilisation outside target',
-            icon: Flag,
-            tone: countTone(flaggedCount, 1, 3),
-          },
-          {
-            label: 'Avg Budget Utilisation',
-            value: formatPercent(avgBudgetUtilPct),
-            subtitle:
+    <div className="p-6">
+      <PageTitle
+        primary="Project Manager"
+        accent="performance"
+        subtitle={formatYearMonth(currentMonth)}
+      />
+
+      <div className="mt-6 space-y-6">
+        {/*
+          PM-scoped KPI strip — 3 stats derived from the PM's own assigned
+          projects. Per .impeccable.md Q7: "normal is silent; abnormal tints."
+          No company-wide stats here per /shape Q4 decision.
+        */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <HeadlineStatCard
+            eyebrow="Aggregate margin"
+            value={formatPercent(aggregateMarginPct)}
+            sub={`${projects.length} project${projects.length === 1 ? '' : 's'} · ${formatYearMonth(currentMonth)}`}
+            tone={aggregateMarginHeadlineTone}
+          />
+          <StatCard
+            title="Flagged projects"
+            value={String(flaggedCount)}
+            subtitle="Margin or budget utilisation outside target"
+            icon={Flag}
+            tone={countTone(flaggedCount, 1, 3)}
+          />
+          <StatCard
+            title="Avg budget utilisation"
+            value={formatPercent(avgBudgetUtilPct)}
+            subtitle={
               projectsWithBudget.length > 0
                 ? `Across ${projectsWithBudget.length} budgeted project${projectsWithBudget.length === 1 ? '' : 's'}`
-                : 'No budgeted projects this month',
-            icon: Gauge,
-            tone: utilTone(
+                : 'No budgeted projects this month'
+            }
+            icon={Gauge}
+            tone={utilTone(
               avgBudgetUtilPct,
               PM_AVG_BUDGET_UTIL_WARNING_PCT,
               PM_AVG_BUDGET_UTIL_DANGER_PCT,
-            ),
-          },
-        ]}
-      />
-
-      {/* Primary KPI strip — Bank Balance, Approved Budget, Withdrawn */}
-      <HomeKpiStrip />
-
-      {/* Company-wide P&L performance — lagged service period */}
-      <HomePerformanceStrip />
-
-      {totalRevenue > 0 && (
-        <SectionCard
-          title="Company P&L Summary"
-          description={`Revenue from ${formatYearMonth(revenueSourceMonth)}, costs from ${formatYearMonth(currentMonth)}`}
-          icon={TrendingUp}
-          tone="brand"
-          action={
-            <Link href="/reports/pnl">
-              <Button variant="ghost" size="sm" className="gap-1">
-                Full report
-                <ArrowRight className="size-3.5" aria-hidden />
-              </Button>
-            </Link>
-          }
-        >
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-foreground">Revenue</span>
-              <span className="font-mono font-medium text-foreground">
-                {formatCurrency(totalRevenue, 'KES')}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Direct Costs</span>
-              <span className="font-mono text-danger-soft-foreground">
-                -{formatCurrency(totalExpenses, 'KES')}
-              </span>
-            </div>
-            <Separator />
-            <div className="flex justify-between text-sm font-semibold">
-              <span>Gross Profit</span>
-              <span
-                className={cn(
-                  'font-mono tabular-nums',
-                  totalProfit < 0
-                    ? 'text-danger-soft-foreground'
-                    : 'text-success-soft-foreground',
-                )}
-              >
-                {formatCurrency(totalProfit, 'KES')}
-              </span>
-            </div>
-          </div>
-        </SectionCard>
-      )}
-
-      <ExpenseQueuePanel compact />
-
-      <SectionCard
-        title="Project Performance"
-        description="Lagged revenue vs. current-month direct costs"
-        icon={BarChart3}
-        tone="brand"
-        action={
-          <Link href="/reports/profitability">
-            <Button variant="ghost" size="sm" className="gap-1">
-              Details
-              <ArrowRight className="size-3.5" aria-hidden />
-            </Button>
-          </Link>
-        }
-      >
-        {projects.length === 0 ? (
-          <EmptyState
-            icon={PieChart}
-            tone="neutral"
-            title="No project data for this month yet"
-            description="Financials appear once invoices, expenses, or agent counts are recorded."
+            )}
           />
-        ) : (
-          <ul className="space-y-2">
-            {projects.map((p) => (
-              <li
-                key={p.name}
-                className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/30 p-3"
+        </div>
+
+        {/* Primary KPI strip — Bank Balance, Approved Budget, Withdrawn */}
+        <HomeKpiStrip />
+
+        {/* Company-wide P&L performance — lagged service period */}
+        <HomePerformanceStrip />
+
+        {totalRevenue > 0 && (
+          <section className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+            {/* List-frame header */}
+            <div className="flex items-center justify-between gap-3 border-b border-border bg-[var(--paper-2)] px-5 py-3">
+              <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                <TrendingUp className="size-3.5" strokeWidth={1.75} aria-hidden />
+                Company P&amp;L summary
+                <span aria-hidden className="mx-1 text-[var(--paper-4)]">·</span>
+                <span className="text-foreground">
+                  Revenue {formatYearMonth(revenueSourceMonth)}
+                </span>
+                <span aria-hidden className="mx-1 text-[var(--paper-4)]">·</span>
+                <span className="text-foreground">
+                  Costs {formatYearMonth(currentMonth)}
+                </span>
+              </span>
+              <Link
+                href="/reports/pnl"
+                className="inline-flex items-center gap-1 font-mono text-[10.5px] font-medium uppercase tracking-[0.10em] text-muted-foreground transition-colors hover:text-foreground"
               >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {p.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {p.agents > 0 ? `${p.agents} agents` : 'No agents set'}
-                    {p.revenue > 0
-                      ? ` · Revenue: ${formatCurrency(p.revenue, 'KES')}`
-                      : ''}
-                  </p>
+                Full report <ArrowRight className="size-3" strokeWidth={2} aria-hidden />
+              </Link>
+            </div>
+
+            {/* Body */}
+            <div className="p-5">
+              <div className="space-y-2 rounded-[var(--radius-sm)] border border-border-subtle bg-[var(--paper-2)] p-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-foreground">Revenue</span>
+                  <span className="font-mono font-medium tabular-nums text-foreground">
+                    {formatCurrency(totalRevenue, 'KES')}
+                  </span>
                 </div>
-                <div className="text-right">
-                  {p.revenue > 0 || p.expenses > 0 ? (
-                    <>
-                      <p
-                        className={cn(
-                          'font-mono text-sm font-medium tabular-nums',
-                          p.profit < 0
-                            ? 'text-danger-soft-foreground'
-                            : 'text-success-soft-foreground',
-                        )}
-                      >
-                        {formatCurrency(p.profit, 'KES')}
-                      </p>
-                      <Badge
-                        variant="secondary"
-                        className={cn(
-                          p.margin > 30
-                            ? 'bg-success-soft text-success-soft-foreground'
-                            : p.margin > 10
-                              ? 'bg-warning-soft text-warning-soft-foreground'
-                              : 'bg-danger-soft text-danger-soft-foreground',
-                        )}
-                      >
-                        {formatPercent(p.margin)} margin
-                      </Badge>
-                    </>
-                  ) : (
-                    <Badge
-                      variant="secondary"
-                      className="bg-muted text-muted-foreground"
-                    >
-                      {p.budgetStatus !== 'none' ? p.budgetStatus : 'No data'}
-                    </Badge>
-                  )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Direct costs</span>
+                  <span className="font-mono tabular-nums text-danger-soft-foreground">
+                    -{formatCurrency(totalExpenses, 'KES')}
+                  </span>
                 </div>
-              </li>
-            ))}
-          </ul>
+                <div className="flex justify-between border-t border-border-subtle pt-2 text-sm font-semibold">
+                  <span>Gross profit</span>
+                  <span
+                    className={cn(
+                      'font-mono tabular-nums',
+                      totalProfit < 0
+                        ? 'text-danger-soft-foreground'
+                        : 'text-success-soft-foreground',
+                    )}
+                  >
+                    {formatCurrency(totalProfit, 'KES')}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
         )}
-      </SectionCard>
+
+        <ExpenseQueuePanel compact />
+
+        <section className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+          {/* List-frame header */}
+          <div className="flex items-center justify-between gap-3 border-b border-border bg-[var(--paper-2)] px-5 py-3">
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              <BarChart3 className="size-3.5" strokeWidth={1.75} aria-hidden />
+              Project performance
+              {projects.length > 0 && (
+                <>
+                  <span aria-hidden className="mx-1 text-[var(--paper-4)]">·</span>
+                  <span className="text-foreground">
+                    {projects.length} project{projects.length === 1 ? '' : 's'}
+                  </span>
+                </>
+              )}
+              <span aria-hidden className="mx-1 text-[var(--paper-4)]">·</span>
+              <span className="text-foreground">
+                Lagged revenue vs current-month costs
+              </span>
+            </span>
+            <Link
+              href="/reports/profitability"
+              className="inline-flex items-center gap-1 font-mono text-[10.5px] font-medium uppercase tracking-[0.10em] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Details <ArrowRight className="size-3" strokeWidth={2} aria-hidden />
+            </Link>
+          </div>
+
+          {/* Body */}
+          <div className="p-5">
+            {projects.length === 0 ? (
+              <EmptyState
+                icon={PieChart}
+                tone="neutral"
+                title="No project data for this month yet"
+                description="Financials appear once invoices, expenses, or agent counts are recorded."
+              />
+            ) : (
+              <ul className="space-y-2">
+                {projects.map((p) => (
+                  <li
+                    key={p.name}
+                    className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-[var(--paper-2)] p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {p.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {p.agents > 0 ? `${p.agents} agents` : 'No agents set'}
+                        {p.revenue > 0
+                          ? ` · Revenue: ${formatCurrency(p.revenue, 'KES')}`
+                          : ''}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      {p.revenue > 0 || p.expenses > 0 ? (
+                        <>
+                          <p
+                            className={cn(
+                              'font-mono text-sm font-medium tabular-nums',
+                              p.profit < 0
+                                ? 'text-danger-soft-foreground'
+                                : 'text-success-soft-foreground',
+                            )}
+                          >
+                            {formatCurrency(p.profit, 'KES')}
+                          </p>
+                          <Badge
+                            variant="secondary"
+                            className={cn(
+                              p.margin > 30
+                                ? 'bg-success-soft text-success-soft-foreground'
+                                : p.margin > 10
+                                  ? 'bg-warning-soft text-warning-soft-foreground'
+                                  : 'bg-danger-soft text-danger-soft-foreground',
+                            )}
+                          >
+                            {formatPercent(p.margin)} margin
+                          </Badge>
+                        </>
+                      ) : (
+                        <Badge
+                          variant="secondary"
+                          className="bg-muted text-muted-foreground"
+                        >
+                          {p.budgetStatus !== 'none' ? p.budgetStatus : 'No data'}
+                        </Badge>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
