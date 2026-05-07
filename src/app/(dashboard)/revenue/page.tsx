@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
+import { useIdempotencyKey } from '@/hooks/use-idempotency-key';
+import { isIdempotencyConflict } from '@/lib/idempotency';
 import { PageTitle } from '@/components/layout/page-title';
 import { StatCard } from '@/components/layout/stat-card';
 import { HeadlineStatCard } from '@/components/finance/headline-stat-card';
@@ -92,6 +94,7 @@ export default function RevenuePage() {
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentNotes, setPaymentNotes] = useState('');
   const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [paymentIdempotencyKey, regeneratePaymentIdempotencyKey] = useIdempotencyKey();
   const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>('all');
   const [sortKey, setSortKey] = useState<SortKey>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -284,6 +287,9 @@ export default function RevenuePage() {
     setPaymentAmountUsd(outstanding);
     setPaymentDate(new Date().toISOString().split('T')[0]);
     setPaymentNotes('');
+    // Fresh key for each opening — the page stays mounted so the hook's
+    // initial value would otherwise persist across multiple submit cycles.
+    regeneratePaymentIdempotencyKey();
   }
 
   function closePaymentDialog() {
@@ -326,7 +332,20 @@ export default function RevenuePage() {
       amount_kes: 0,
       notes: paymentNotes || null,
       recorded_by: user.id,
+      idempotency_key: paymentIdempotencyKey,
     });
+
+    if (paymentError && isIdempotencyConflict(paymentError)) {
+      // The first attempt with this key already inserted the payment AND
+      // updated the invoice's total_paid / balance_outstanding / status.
+      // Re-running the UPDATE here would double-count, so skip it and
+      // just refresh the page data to show the prior write.
+      await loadData();
+      toast.success(`Payment of ${formatCurrency(paymentAmountUsd, 'USD')} recorded for ${paymentInvoice.invoice_number}`);
+      setSubmittingPayment(false);
+      closePaymentDialog();
+      return;
+    }
 
     if (paymentError) {
       setSubmittingPayment(false);

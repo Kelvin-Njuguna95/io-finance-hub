@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
+import { useIdempotencyKey } from '@/hooks/use-idempotency-key';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -14,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatCurrency } from '@/lib/format';
 import { toast } from 'sonner';
 import { getUserErrorMessage } from '@/lib/errors';
+import { isIdempotencyConflict } from '@/lib/idempotency';
 
 interface InvoiceOption {
   id: string;
@@ -40,6 +42,7 @@ export function PaymentFormDialog({ open, onClose, onSaved }: Props) {
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [idempotencyKey, regenerateIdempotencyKey] = useIdempotencyKey();
 
   useEffect(() => {
     if (!open) return;
@@ -89,12 +92,16 @@ export function PaymentFormDialog({ open, onClose, onSaved }: Props) {
       reference: reference || null,
       notes: notes || null,
       recorded_by: user!.id,
+      idempotency_key: idempotencyKey,
     });
 
-    if (error) {
+    if (error && !isIdempotencyConflict(error)) {
       toast.error(getUserErrorMessage());
     } else {
+      // Either fresh insert succeeded, or a prior attempt with the same
+      // key already created the row — same outcome from the user's view.
       toast.success('Payment recorded');
+      regenerateIdempotencyKey();
       onSaved();
       onClose();
     }
