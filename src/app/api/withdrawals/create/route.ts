@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
+import {
+  isValidUuid,
+  isIdempotencyConflict,
+  fetchExistingByIdempotencyKey,
+  logDuplicateSubmissionBlocked,
+} from '@/lib/idempotency';
+import type { Withdrawal } from '@/types/database';
 
 type WithdrawPayload = {
   withdrawal_type: 'operations' | 'director_payout';
@@ -19,6 +26,7 @@ type WithdrawPayload = {
   variance_kes?: number | null;
   year_month?: string;
   notes?: string | null;
+  idempotency_key: string;
 };
 
 export async function POST(request: Request) {
@@ -40,6 +48,13 @@ export async function POST(request: Request) {
     const withdrawalType = body.withdrawal_type ?? 'operations';
     const withdrawalDate = body.withdrawal_date || new Date().toISOString().split('T')[0];
 
+    if (!isValidUuid(body.idempotency_key)) {
+      return NextResponse.json(
+        { error: 'idempotency_key is required and must be a valid UUID.', code: 'IDEMPOTENCY_KEY_INVALID' },
+        { status: 400 },
+      );
+    }
+
     const { data: withdrawal, error: rpcErr } = await admin.rpc('fn_withdrawal_record', {
       p_withdrawal_type: withdrawalType,
       p_recorded_by: user.id,
@@ -58,7 +73,31 @@ export async function POST(request: Request) {
       p_profit_share_record_id: body.profit_share_record_id ?? null,
       p_director_name: body.director_name ?? null,
       p_payout_type: body.payout_type ?? null,
+      p_idempotency_key: body.idempotency_key,
     });
+
+    if (rpcErr && isIdempotencyConflict(rpcErr)) {
+      // The first attempt with this key already created the withdrawal
+      // (and atomically wrote forex_logs / audit_logs / fired the
+      // profit_share_records totals trigger). Return the original row
+      // so the client treats this as a successful submission.
+      const existing = await fetchExistingByIdempotencyKey<Withdrawal>(
+        admin,
+        'withdrawals',
+        body.idempotency_key,
+      );
+      if (existing) {
+        await logDuplicateSubmissionBlocked(admin, {
+          userId: user.id,
+          tableName: 'withdrawals',
+          recordId: existing.id,
+          idempotencyKey: body.idempotency_key,
+        });
+        return NextResponse.json({ data: existing });
+      }
+      // Conflict raised but the row is unfindable — fall through to the
+      // generic error path so the caller sees a real failure.
+    }
 
     if (rpcErr) {
       return NextResponse.json(

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
+import { useIdempotencyKey } from '@/hooks/use-idempotency-key';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -119,6 +120,10 @@ export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }
   const [payoutRecords, setPayoutRecords] = useState<ProfitShareOption[]>([]);
 
   const [saving, setSaving] = useState(false);
+  // Only used on the create path; ignored when isEdit. Regenerated after
+  // a successful create so a reopened dialog (component stays mounted)
+  // starts a fresh attempt cycle.
+  const [idempotencyKey, regenerateIdempotencyKey] = useIdempotencyKey();
 
   useEffect(() => {
     if (!open) return;
@@ -366,6 +371,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }
           variance_kes: varianceKes !== 0 ? varianceKes : null,
           ...(!isEdit ? { year_month: getCurrentYearMonth() } : {}),
           notes: notes || null,
+          ...(!isEdit ? { idempotency_key: idempotencyKey } : {}),
         }
         : {
           ...(isEdit ? { id: editData.id } : {}),
@@ -383,6 +389,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }
           reference_rate: referenceRate || null,
           variance_kes: varianceKes !== 0 ? varianceKes : null,
           notes: notes || null,
+          ...(!isEdit ? { idempotency_key: idempotencyKey } : {}),
         };
 
       const url = isEdit ? '/api/withdrawals/update' : '/api/withdrawals/create';
@@ -404,6 +411,7 @@ export function WithdrawalFormDialog({ open, onClose, onSaved, editData = null }
       }
 
       toast.success(isEdit ? 'Withdrawal updated' : 'Withdrawal recorded');
+      if (!isEdit) regenerateIdempotencyKey();
       onSaved();
       onClose();
     } catch {
