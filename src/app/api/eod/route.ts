@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { createNotification } from '@/lib/notifications';
+import { buildEodSections, type TodayActivity } from '@/lib/eod/sections';
+import { renderEodSlackMessage } from '@/lib/eod/render-slack';
 
 function createAdminClient() {
   return createClient(
@@ -80,80 +82,21 @@ async function fetchTodayActivity(admin: /* // */ any, today: string) {
   };
 }
 
-/** Build the Slack message text */
+/** Build the Slack message text via the shared section builder + renderer.
+ * Output is byte-identical with the prior inline implementation; verified by
+ * scripts/verify-eod-parity.mts. */
 function buildMessage(
-  expenses: /* // */ /* // */ any[],
-  withdrawals: /* // */ /* // */ any[],
-  cashReceipts: /* // */ /* // */ any[],
-  budgetActions: /* // */ /* // */ any[],
+  activity: TodayActivity,
   senderName: string,
   dateFormatted: string,
   timeEAT: string,
 ): string {
-  const totalExpenseKes = expenses.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
-  const totalCashUsd = cashReceipts.reduce((s: number, p: /* // */ any) => s + Number(p.amount_usd || 0), 0);
-  const totalCashKes = cashReceipts.reduce((s: number, p: /* // */ any) => s + Number(p.amount_kes || 0), 0);
-
-  let msg = `*IO Finance — End of Day Report*\n`;
-  msg += `${dateFormatted} | Prepared by: ${senderName}\n\n`;
-  msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-  msg += `*Expenses Logged*\n`;
-  if (expenses.length === 0) {
-    msg += `_None logged today_\n`;
-  } else {
-    for (const e of expenses) {
-      const scope = (e as /* // */ any).projects?.name || 'Shared';
-      const cat = (e as /* // */ any).expense_categories?.name || '—';
-      msg += `• ${scope} — ${cat} — ${formatKES(Number(e.amount_kes))} — ${e.description}\n`;
-    }
-    msg += `_Total: ${formatKES(totalExpenseKes)}_\n`;
-  }
-  msg += `\n`;
-
-  msg += `*Withdrawals Recorded*\n`;
-  if (withdrawals.length === 0) {
-    msg += `_None recorded today_\n`;
-  } else {
-    const totalWdUsd = withdrawals.reduce((s: number, w: /* // */ any) => s + Number(w.amount_usd), 0);
-    const totalWdKes = withdrawals.reduce((s: number, w: /* // */ any) => s + Number(w.amount_kes), 0);
-    for (const w of withdrawals) {
-      const dir = (w as /* // */ any).director_tag?.charAt(0).toUpperCase() + (w as /* // */ any).director_tag?.slice(1);
-      msg += `• ${dir} — ${formatUSD(Number(w.amount_usd))} @ ${new Intl.NumberFormat('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(w.exchange_rate))} = ${formatKES(Number(w.amount_kes))} — ${w.forex_bureau || '—'}\n`;
-    }
-    msg += `_Total: ${formatUSD(totalWdUsd)} (${formatKES(totalWdKes)})_\n`;
-  }
-  msg += `\n`;
-
-  msg += `*Cash Received*\n`;
-  if (cashReceipts.length === 0) {
-    msg += `_None recorded today_\n`;
-  } else {
-    for (const p of cashReceipts) {
-      const invoiceNumber = (p as /* // */ any).invoices?.invoice_number || 'Unknown invoice';
-      const project = (p as /* // */ any).invoices?.projects?.name || 'Unassigned project';
-      msg += `• ${project} — ${invoiceNumber} — ${formatUSD(Number(p.amount_usd || 0))} (${formatKES(Number(p.amount_kes || 0))}) — Ref: ${p.reference || '—'}\n`;
-    }
-    msg += `_Total: ${formatUSD(totalCashUsd)} (${formatKES(totalCashKes)})_\n`;
-  }
-  msg += `\n`;
-
-  msg += `*Budget Actions*\n`;
-  if (budgetActions.length === 0) {
-    msg += `_None today_\n`;
-  } else {
-    for (const b of budgetActions) {
-      const scope = (b as /* // */ any).budgets?.projects?.name || (b as /* // */ any).budgets?.departments?.name || '—';
-      const status = b.status === 'submitted' ? 'Submitted' : 'Under Review';
-      msg += `• ${scope} — ${status}\n`;
-    }
-  }
-  msg += `\n`;
-
-  msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `Sent by ${senderName} at ${timeEAT} EAT`;
-
-  return msg;
+  const payload = buildEodSections(activity, {
+    reportDate: '',
+    reportDateFormatted: dateFormatted,
+    preparedBy: senderName,
+  });
+  return renderEodSlackMessage(payload, senderName, timeEAT);
 }
 
 // GET — check today's EOD status and activity
@@ -216,7 +159,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'EOD report already sent today. Pass resend: true to update and resend.', report_id: existing.id }, { status: 409 });
   }
 
-  const { expenses, withdrawals, cashReceipts, budgetActions } = await fetchTodayActivity(admin, today);
+  const activity = await fetchTodayActivity(admin, today);
+  const { expenses, withdrawals, cashReceipts, budgetActions } = activity;
   const hasActivity = expenses.length > 0 || withdrawals.length > 0 || cashReceipts.length > 0 || budgetActions.length > 0;
 
   if (!hasActivity) {
@@ -233,7 +177,7 @@ export async function POST(request: Request) {
   const timeEAT = new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
   const dateFormatted = new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(now);
 
-  const msg = buildMessage(expenses, withdrawals, cashReceipts, budgetActions, senderName, dateFormatted, timeEAT);
+  const msg = buildMessage(activity, senderName, dateFormatted, timeEAT);
 
   // Send to Slack
   const webhookUrl = process.env.EOD_SLACK_WEBHOOK_URL;
