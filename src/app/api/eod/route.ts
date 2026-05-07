@@ -16,14 +16,6 @@ function createAdminClient() {
   );
 }
 
-function formatKES(amount: number): string {
-  return 'KES ' + new Intl.NumberFormat('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
-}
-
-function formatUSD(amount: number): string {
-  return `USD ${new Intl.NumberFormat('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)}`;
-}
-
 async function getAuthUser(request: Request) {
   const authHeader = request.headers.get('Authorization');
   const token = authHeader?.replace('Bearer ', '');
