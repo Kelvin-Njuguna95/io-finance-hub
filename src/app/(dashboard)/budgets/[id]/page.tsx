@@ -442,7 +442,12 @@ export default function BudgetDetailPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (i: any) => !i.pm_status || i.pm_status === 'pending',
   ).length;
-  const canCfoApprove = isCfo && activeVersion?.status === 'pm_approved';
+  const canCfoApprove =
+    isCfo &&
+    activeVersion?.status !== undefined &&
+    ['submitted', 'under_review', 'pm_review', 'pm_approved'].includes(
+      activeVersion.status,
+    );
   const canPmReview = isPmOrCfo && activeVersion?.status === 'pm_review';
   const canLineReview =
     canPmReview ||
