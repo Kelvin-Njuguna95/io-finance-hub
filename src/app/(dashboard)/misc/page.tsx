@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { PageTitle } from '@/components/layout/page-title';
 import { StatCard } from '@/components/layout/stat-card';
+import { HeadlineStatCard } from '@/components/finance/headline-stat-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -3003,53 +3004,63 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
 
   return (
     <div className="space-y-6">
-      {/* Header Metric Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* KPI strip — 3-col grid */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
-          title="Draws to Record"
+          title="Draws to record"
           value={String(pendingDraws.length)}
           subtitle={formatCurrency(pendingTotal, 'KES')}
-          icon={AlertCircle}
-          className={pendingDraws.length > 0 ? 'border-warning/30' : ''}
-        />
-        <StatCard
-          title="Total Misc Expensed (MTD)"
-          value={String(recordedDraws.length)}
-          subtitle={formatCurrency(recordedTotal, 'KES')}
           icon={Receipt}
+          tone={pendingDraws.length > 0 ? 'warning' : 'brand'}
+        />
+        <HeadlineStatCard
+          eyebrow="Total misc expensed (MTD)"
+          value={formatCurrency(recordedTotal, 'KES')}
+          sub={`${recordedDraws.length} draw${recordedDraws.length === 1 ? '' : 's'} · ${formatYearMonth(selectedMonth)}`}
+          tone="neutral"
         />
         <StatCard
-          title="Reports Submitted"
-          value={`${reportsSubmitted} of ${totalProjectsWithDraws > 0 ? totalProjectsWithDraws : projects.length}`}
+          title="Reports submitted"
+          value={`${reportsSubmitted}/${totalProjectsWithDraws > 0 ? totalProjectsWithDraws : projects.length}`}
           icon={FileText}
+          tone={
+            reportsSubmitted < (totalProjectsWithDraws > 0 ? totalProjectsWithDraws : projects.length)
+              ? 'warning'
+              : 'success'
+          }
         />
       </div>
 
-      {/* Raise Request Button + My Pending Requests */}
-      <Card className="io-card">
-        <CardHeader className="pb-2 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Plus className="h-4 w-4 text-violet-soft-foreground" />
-            Raise Misc Request (on behalf of PM)
-          </CardTitle>
-          <Button size="sm" className="gap-1 bg-violet hover:bg-violet/90 text-white" onClick={() => setShowRaiseForm(true)}>
-            <Plus className="h-3 w-3" /> Raise Request
+      {/* Raise misc request — list-frame */}
+      <section className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-[var(--paper-2)] px-5 py-3">
+          <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            <Wallet className="size-3.5" strokeWidth={1.75} aria-hidden />
+            Raise misc request
+            <span aria-hidden className="mx-1 text-[var(--paper-4)]">·</span>
+            <span className="text-foreground">on behalf of PM</span>
+          </span>
+          <Button size="sm" variant="outline" className="gap-1" onClick={() => setShowRaiseForm(true)}>
+            <Plus className="size-4" aria-hidden />
+            Raise request
           </Button>
-        </CardHeader>
-        <CardContent>
-          {/* My Pending Requests */}
+        </div>
+        <div className="p-5">
+          {/* My pending requests */}
           {myPendingDraws.length > 0 && (
             <div className="mb-4">
-              <p className="text-xs font-semibold text-violet-soft-foreground mb-2">Pending PM Approval ({myPendingDraws.length})</p>
+              <p className="mb-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.10em] text-muted-foreground">
+                Pending PM approval ({myPendingDraws.length})
+              </p>
               <div className="space-y-2">
                 {myPendingDraws.map((d: /* // */ any) => (
-                  <div key={d.id} className="flex items-center justify-between rounded-lg border border-violet/30 bg-violet-soft/50 p-3 text-sm">
+                  <div key={d.id} className="flex items-center justify-between rounded-[var(--radius-sm)] border border-border-subtle bg-[var(--paper-2)] p-3 text-sm">
                     <div>
-                      <strong>{(d.projects as /* // */ any)?.name}</strong> &mdash; {formatCurrency(Number(d.amount_requested), 'KES')}
-                      <p className="text-xs text-muted-foreground truncate max-w-md">{d.purpose}</p>
+                      <strong>{(d.projects as /* // */ any)?.name}</strong> · {formatCurrency(Number(d.amount_requested), 'KES')}
+                      <p className="max-w-md truncate text-xs text-muted-foreground">{d.purpose}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="bg-violet-soft text-violet-soft-foreground text-xs">Awaiting PM</Badge>
+                      <MiscStatusPill kind="in-review" />
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-danger/60 hover:text-danger" onClick={() => handleAccountantDeleteDraw(d.id)} title="Withdraw request">
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -3060,17 +3071,19 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
             </div>
           )}
 
-          {/* Returned (Declined) Requests */}
+          {/* Returned (declined) requests */}
           {returnedDraws.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-danger-soft-foreground mb-2">Returned Requests ({returnedDraws.length})</p>
+              <p className="mb-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.10em] text-danger-soft-foreground">
+                Returned requests ({returnedDraws.length})
+              </p>
               <div className="space-y-2">
                 {returnedDraws.map((d: /* // */ any) => (
-                  <div key={d.id} className="rounded-lg border border-danger/30 bg-danger-soft/50 p-3 text-sm">
-                    <div className="flex items-center justify-between mb-1">
+                  <div key={d.id} className="rounded-[var(--radius-sm)] border border-danger/30 bg-danger-soft/50 p-3 text-sm">
+                    <div className="mb-1 flex items-center justify-between">
                       <strong>{(d.projects as /* // */ any)?.name}</strong>
                       <div className="flex gap-1">
-                        <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => {
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
                           setReviseDrawId(d.id);
                           setReviseAmount(String(d.amount_requested));
                           setRevisePurpose(d.purpose || '');
@@ -3083,9 +3096,9 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                         </Button>
                       </div>
                     </div>
-                    <p className="text-xs text-foreground/80">{d.purpose} &mdash; {formatCurrency(Number(d.amount_requested), 'KES')}</p>
+                    <p className="text-xs text-foreground/80">{d.purpose} · {formatCurrency(Number(d.amount_requested), 'KES')}</p>
                     {d.pm_decline_reason && (
-                      <p className="text-xs text-danger-soft-foreground mt-1">PM Decline Reason: {d.pm_decline_reason}</p>
+                      <p className="mt-1 text-xs text-danger-soft-foreground">PM Decline Reason: {d.pm_decline_reason}</p>
                     )}
                     {d.revision_count > 0 && (
                       <p className="text-xs text-muted-foreground">Revision #{d.revision_count}</p>
@@ -3097,10 +3110,10 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
           )}
 
           {myPendingDraws.length === 0 && returnedDraws.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">No pending or returned requests. Use the button above to raise a request on behalf of a PM.</p>
+            <p className="py-4 text-center text-sm text-muted-foreground">No pending or returned requests. Use the button above to raise a request on behalf of a PM.</p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* Raise Request Dialog */}
       <Dialog open={showRaiseForm} onOpenChange={setShowRaiseForm}>
@@ -3189,15 +3202,23 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
         </DialogContent>
       </Dialog>
 
-      {/* Draws to Record Table */}
-      <Card className="io-card border-warning/30">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-warning-soft-foreground" />
-            Draws to Record ({pendingDraws.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+      {/* Draws to record — list-frame */}
+      <section className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-[var(--paper-2)] px-5 py-3">
+          <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            <AlertCircle className="size-3.5" strokeWidth={1.75} aria-hidden />
+            Draws to record
+            {pendingDraws.length > 0 && (
+              <>
+                <span aria-hidden className="mx-1 text-[var(--paper-4)]">·</span>
+                <span className="text-foreground">
+                  {pendingDraws.length} pending
+                </span>
+              </>
+            )}
+          </span>
+        </div>
+        <div className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -3213,7 +3234,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
             <TableBody>
               {pendingDraws.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">All draws have been recorded. You are up to date.</TableCell>
+                  <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">All draws have been recorded. You are up to date.</TableCell>
                 </TableRow>
               ) : (
                 pendingDraws.map((d: /* // */ any) => {
@@ -3223,14 +3244,21 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                       <TableCell className="font-medium">{(d.projects as /* // */ any)?.name || '—'}</TableCell>
                       <TableCell className="text-sm">{(d.users as /* // */ any)?.full_name || '—'}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className={d.draw_type === 'standing' ? 'bg-primary text-white' : 'bg-warning-soft text-warning-soft-foreground'}>
+                        <span
+                          className={cn(
+                            'inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.06em]',
+                            d.draw_type === 'standing'
+                              ? 'bg-[var(--paper-3)] text-foreground'
+                              : 'bg-warning-soft text-warning-soft-foreground',
+                          )}
+                        >
                           {d.draw_type === 'standing' ? 'Standing' : 'Top-Up'}
-                        </Badge>
+                        </span>
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(d.amount_approved), 'KES')}</TableCell>
                       <TableCell className="text-sm">{formatDate(d.created_at)}</TableCell>
                       <TableCell className="text-center">
-                        <span className={daysPending > 2 ? 'text-warning-soft-foreground font-semibold' : ''}>{daysPending}d</span>
+                        <span className={daysPending > 2 ? 'font-semibold text-warning-soft-foreground' : ''}>{daysPending}d</span>
                       </TableCell>
                       <TableCell>
                         <Button variant="outline" size="sm" className="text-xs" onClick={() => setRecordDraw(d)}>Record</Button>
@@ -3241,15 +3269,20 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
               )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      {/* Project Reconciliation Table */}
-      <Card className="io-card">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Project Reconciliation &mdash; {formatYearMonth(selectedMonth)}</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+      {/* Project reconciliation — list-frame */}
+      <section className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card">
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-[var(--paper-2)] px-5 py-3">
+          <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            <Receipt className="size-3.5" strokeWidth={1.75} aria-hidden />
+            Project reconciliation
+            <span aria-hidden className="mx-1 text-[var(--paper-4)]">·</span>
+            <span className="text-foreground">{formatYearMonth(selectedMonth)}</span>
+          </span>
+        </div>
+        <div className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -3263,7 +3296,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
             <TableBody>
               {projects.filter((p) => allDrawsByProject.has(p.id)).length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">No draws for this period.</TableCell>
+                  <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">No draws for this period.</TableCell>
                 </TableRow>
               ) : (
                 projects.filter((p) => allDrawsByProject.has(p.id)).map((p) => {
@@ -3272,6 +3305,12 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                   const totalExpensed = projDraws.filter((d: /* // */ any) => d.expense_id).reduce((s: number, d: /* // */ any) => s + Number(d.amount_approved || 0), 0);
                   const report = reports.find((r: /* // */ any) => r.project_id === p.id);
                   const allRecorded = projDraws.every((d: /* // */ any) => d.expense_id);
+                  const reportPillKind: MiscStatusKind =
+                    report?.status === 'cfo_reviewed'
+                      ? 'reviewed'
+                      : report?.status === 'submitted'
+                        ? 'in-review'
+                        : 'not-submitted';
 
                   return (
                     <TableRow key={p.id}>
@@ -3279,13 +3318,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
                       <TableCell className="text-right font-mono text-sm">{formatCurrency(totalDrawnProj, 'KES')}</TableCell>
                       <TableCell className="text-right font-mono text-sm">{formatCurrency(totalExpensed, 'KES')}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className={
-                          report?.status === 'submitted' ? 'bg-info-soft text-info-soft-foreground'
-                            : report?.status === 'cfo_reviewed' ? 'bg-success-soft text-success-soft-foreground'
-                              : 'bg-muted text-foreground/80'
-                        }>
-                          {report ? (report.status === 'cfo_reviewed' ? 'Reviewed' : report.status) : 'No Report'}
-                        </Badge>
+                        <MiscStatusPill kind={reportPillKind} />
                       </TableCell>
                       <TableCell>
                         {allRecorded ? (
@@ -3302,8 +3335,8 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
               )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* Record Expense Dialog */}
       <Dialog open={!!recordDraw} onOpenChange={() => setRecordDraw(null)}>
