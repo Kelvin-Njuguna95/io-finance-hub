@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Check, Plus, X } from 'lucide-react';
+import { Check, Pencil, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { createClient } from '@/lib/supabase/client';
@@ -32,6 +32,13 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { formatCurrency, formatDateTime, capitalize } from '@/lib/format';
 import { getUserErrorMessage } from '@/lib/errors';
 import { BUDGET_EDITABLE_STATUSES } from '@/lib/budgets/status';
@@ -183,6 +190,23 @@ export default function BudgetDetailPage() {
   const [newItemDesc, setNewItemDesc] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
   const [newItemAmount, setNewItemAmount] = useState('');
+
+  // Parent-field inline edit (notes / period / scope). One zone open at
+  // a time; each saves through POST /api/budgets/update.
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [editingYearMonth, setEditingYearMonth] = useState(false);
+  const [editingScope, setEditingScope] = useState(false);
+  const [draftNotes, setDraftNotes] = useState('');
+  const [draftYearMonth, setDraftYearMonth] = useState('');
+  const [draftProjectId, setDraftProjectId] = useState<string | null>(null);
+  const [draftDepartmentId, setDraftDepartmentId] = useState<string | null>(null);
+  const [savingParent, setSavingParent] = useState(false);
+  const [pendingSiblingConfirm, setPendingSiblingConfirm] = useState<{
+    count: number;
+    payload: Record<string, unknown>;
+  } | null>(null);
+  const [projectsList, setProjectsList] = useState<Array<{ id: string; name: string }>>([]);
+  const [departmentsList, setDepartmentsList] = useState<Array<{ id: string; name: string }>>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [savingItem, setSavingItem] = useState(false);
 
@@ -205,6 +229,24 @@ export default function BudgetDetailPage() {
       setCategories((data || []).map((c: any) => c.name));
     }
     loadCats();
+  }, []);
+
+  // Scope-pick options for the parent-edit "Scope" zone.
+  useEffect(() => {
+    async function loadScopeOptions() {
+      const supabase = createClient();
+      const [projRes, deptRes] = await Promise.all([
+        supabase
+          .from('projects')
+          .select('id, name')
+          .eq('is_active', true)
+          .order('name'),
+        supabase.from('departments').select('id, name').order('name'),
+      ]);
+      setProjectsList((projRes.data ?? []) as Array<{ id: string; name: string }>);
+      setDepartmentsList((deptRes.data ?? []) as Array<{ id: string; name: string }>);
+    }
+    loadScopeOptions();
   }, []);
 
   async function getAuthHeaders(): Promise<Record<string, string>> {
@@ -407,6 +449,50 @@ export default function BudgetDetailPage() {
       toast.error(e instanceof Error ? e.message : 'Failed to add item');
     } finally {
       setSavingItem(false);
+    }
+  }
+
+  async function saveParentField(
+    payload: Record<string, unknown>,
+    force = false,
+  ) {
+    if (!budget?.id) return;
+    setSavingParent(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/budgets/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ budget_id: budget.id, ...payload, force }),
+      });
+      const json = await res.json();
+      if (!res.ok || (json && json.success === false)) {
+        toast.error(json?.error || 'Failed to update budget');
+        return;
+      }
+      // 200 with `warnings: ['sibling_exists']` is the deferred-confirm
+      // path — surface a dialog and stop here. The route returns 200
+      // (not 4xx) intentionally so the caller can resubmit with force.
+      if (
+        Array.isArray(json?.warnings) &&
+        json.warnings.includes('sibling_exists') &&
+        !force
+      ) {
+        setPendingSiblingConfirm({
+          count: Number(json.sibling_count ?? 1),
+          payload,
+        });
+        return;
+      }
+      toast.success('Budget updated');
+      setEditingNotes(false);
+      setEditingYearMonth(false);
+      setEditingScope(false);
+      await load();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update budget');
+    } finally {
+      setSavingParent(false);
     }
   }
 
@@ -959,6 +1045,266 @@ export default function BudgetDetailPage() {
                   {pendingLineItems} pending
                 </span>
               </div>
+            )}
+
+            {/* Budget details — pencil-per-field parent edit, gated on
+                canTlEdit (TL/accountant on own budget/CFO + editable
+                status). One zone open at a time. */}
+            {canTlEdit && budget && (
+              <section className="overflow-hidden rounded-lg border border-border bg-card">
+                <header className="flex items-baseline justify-between border-b border-border/70 px-5 py-3">
+                  <h3 className="font-display text-[15px] font-medium text-foreground">
+                    Budget details
+                  </h3>
+                  <span className="font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
+                    Editable
+                  </span>
+                </header>
+                <div className="divide-y divide-border-subtle">
+                  {/* Notes zone */}
+                  <div className="flex items-start justify-between gap-4 px-5 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
+                        Notes
+                      </p>
+                      {editingNotes ? (
+                        <div className="mt-2 space-y-2">
+                          <Textarea
+                            value={draftNotes}
+                            onChange={(e) => setDraftNotes(e.target.value)}
+                            placeholder="Optional notes for reviewers"
+                            rows={3}
+                            disabled={savingParent}
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => saveParentField({ notes: draftNotes })}
+                              disabled={savingParent}
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingNotes(false);
+                                setDraftNotes('');
+                              }}
+                              disabled={savingParent}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="mt-1 whitespace-pre-wrap text-[13px] text-foreground">
+                          {(budget as { notes?: string | null }).notes || (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                    {!editingNotes && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label="Edit notes"
+                        onClick={() => {
+                          setDraftNotes(
+                            (budget as { notes?: string | null }).notes ?? '',
+                          );
+                          setEditingNotes(true);
+                          setEditingYearMonth(false);
+                          setEditingScope(false);
+                        }}
+                        disabled={savingParent}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Period zone */}
+                  <div className="flex items-start justify-between gap-4 px-5 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
+                        Period
+                      </p>
+                      {editingYearMonth ? (
+                        <div className="mt-2 space-y-2">
+                          <Input
+                            type="month"
+                            value={draftYearMonth}
+                            onChange={(e) => setDraftYearMonth(e.target.value)}
+                            disabled={savingParent}
+                            className="w-48"
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                saveParentField({ year_month: draftYearMonth })
+                              }
+                              disabled={
+                                savingParent ||
+                                !/^\d{4}-(0[1-9]|1[0-2])$/.test(draftYearMonth)
+                              }
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingYearMonth(false);
+                                setDraftYearMonth('');
+                              }}
+                              disabled={savingParent}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-[13px] font-medium text-foreground">
+                          {budget.year_month}
+                        </p>
+                      )}
+                    </div>
+                    {!editingYearMonth && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label="Edit period"
+                        onClick={() => {
+                          setDraftYearMonth(budget.year_month);
+                          setEditingYearMonth(true);
+                          setEditingNotes(false);
+                          setEditingScope(false);
+                        }}
+                        disabled={savingParent}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Scope zone */}
+                  <div className="flex items-start justify-between gap-4 px-5 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
+                        Scope
+                      </p>
+                      {editingScope ? (
+                        <div className="mt-2 space-y-3">
+                          <div className="space-y-1">
+                            <Label className="text-[11px] text-muted-foreground">
+                              Project (clears department)
+                            </Label>
+                            <Select
+                              value={draftProjectId ?? ''}
+                              onValueChange={(v) => {
+                                setDraftProjectId(v || null);
+                                if (v) setDraftDepartmentId(null);
+                              }}
+                              disabled={savingParent}
+                            >
+                              <SelectTrigger className="w-full max-w-md">
+                                <SelectValue placeholder="Select project…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {projectsList.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {p.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] text-muted-foreground">
+                              Or department (clears project)
+                            </Label>
+                            <Select
+                              value={draftDepartmentId ?? ''}
+                              onValueChange={(v) => {
+                                setDraftDepartmentId(v || null);
+                                if (v) setDraftProjectId(null);
+                              }}
+                              disabled={savingParent}
+                            >
+                              <SelectTrigger className="w-full max-w-md">
+                                <SelectValue placeholder="Select department…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {departmentsList.map((d) => (
+                                  <SelectItem key={d.id} value={d.id}>
+                                    {d.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                saveParentField({
+                                  project_id: draftProjectId,
+                                  department_id: draftDepartmentId,
+                                })
+                              }
+                              disabled={
+                                savingParent ||
+                                Boolean(draftProjectId) === Boolean(draftDepartmentId)
+                              }
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingScope(false);
+                                setDraftProjectId(null);
+                                setDraftDepartmentId(null);
+                              }}
+                              disabled={savingParent}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-[13px] font-medium text-foreground">
+                          {(budget as { projects?: { name?: string } | null }).projects?.name ??
+                            (budget as { departments?: { name?: string } | null }).departments?.name ?? (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                        </p>
+                      )}
+                    </div>
+                    {!editingScope && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label="Edit scope"
+                        onClick={() => {
+                          setDraftProjectId(budget.project_id);
+                          setDraftDepartmentId(budget.department_id);
+                          setEditingScope(true);
+                          setEditingNotes(false);
+                          setEditingYearMonth(false);
+                        }}
+                        disabled={savingParent}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </section>
             )}
 
             {/* Line items table */}
