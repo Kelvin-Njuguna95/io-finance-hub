@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertTriangle, Info, Plus, Save, Send, Trash2 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
@@ -52,13 +52,33 @@ type ExistingBudgetSummary = {
 
 const MONTH_OPTIONS = 6;
 
+// Mirrors ALLOWED_BUDGET_CREATOR_ROLES at /api/budgets/create/route.ts:5.
+// Anyone outside this set is bounced back to /budgets on mount.
+const ALLOWED_BUDGET_CREATOR_ROLES = [
+  'team_leader',
+  'accountant',
+  'project_manager',
+  'cfo',
+  'department_head',
+] as const;
+
 function generateId() {
   return Math.random().toString(36).substring(2, 15);
 }
 
 export default function NewBudgetPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewBudgetPageInner />
+    </Suspense>
+  );
+}
+
+function NewBudgetPageInner() {
   const { user } = useUser();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const idFromUrl = searchParams.get('id');
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [scopeType, setScopeType] = useState<ScopeKind>('project');
@@ -78,9 +98,94 @@ export default function NewBudgetPage() {
   const [existingBudgets, setExistingBudgets] = useState<ExistingBudgetSummary[]>([]);
   const [miscGateBlocked, setMiscGateBlocked] = useState(false);
   const [miscGateMessage, setMiscGateMessage] = useState('');
+  const [budgetId, setBudgetId] = useState<string | null>(null);
+  const [loadingDraft, setLoadingDraft] = useState<boolean>(!!idFromUrl);
 
   const isAccountant = user?.role === 'accountant';
   const canCreateDepartmentBudget = canSubmitDepartmentBudget(user?.role);
+
+  // Page-level role gate. Mirrors server-side ALLOWED_BUDGET_CREATOR_ROLES
+  // at /api/budgets/create/route.ts:5 — directors and any other role get
+  // bounced back to the list view.
+  useEffect(() => {
+    if (!user) return;
+    if (
+      !ALLOWED_BUDGET_CREATOR_ROLES.includes(
+        user.role as (typeof ALLOWED_BUDGET_CREATOR_ROLES)[number],
+      )
+    ) {
+      router.replace('/budgets');
+    }
+  }, [user, router]);
+
+  // Load existing draft when ?id= is present in the URL. If the budget's
+  // active version is not in 'draft' status, the [id] detail page handles
+  // it — bounce there instead of trying to edit non-draft state.
+  useEffect(() => {
+    if (!idFromUrl) {
+      setLoadingDraft(false);
+      return;
+    }
+    let cancelled = false;
+    async function loadDraft() {
+      const id = idFromUrl as string;
+      const supabase = createClient();
+      const { data: budget, error } = await supabase
+        .from('budgets')
+        .select('id, project_id, department_id, year_month, current_version')
+        .eq('id', id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error || !budget) {
+        toast.error('Draft not found.');
+        router.replace('/budgets/new');
+        return;
+      }
+      const { data: version } = await supabase
+        .from('budget_versions')
+        .select('id, status, notes, version_number')
+        .eq('budget_id', id)
+        .eq('version_number', budget.current_version)
+        .maybeSingle();
+      if (cancelled) return;
+      if (!version) {
+        toast.error('Draft has no active version.');
+        router.replace('/budgets/new');
+        return;
+      }
+      if (version.status !== 'draft') {
+        router.replace(`/budgets/${id}`);
+        return;
+      }
+      const { data: itemRows } = await supabase
+        .from('budget_items')
+        .select('id, description, category, amount_kes')
+        .eq('budget_version_id', version.id)
+        .order('sort_order');
+      if (cancelled) return;
+
+      setBudgetId(id);
+      setScopeType(budget.project_id ? 'project' : 'department');
+      setScopeId(budget.project_id || budget.department_id || '');
+      setYearMonth(budget.year_month);
+      setNotes(version.notes || '');
+      if (itemRows && itemRows.length > 0) {
+        setItems(
+          itemRows.map((r) => ({
+            id: r.id,
+            description: r.description || '',
+            category: r.category || '',
+            amount_kes: Number(r.amount_kes || 0),
+          })),
+        );
+      }
+      setLoadingDraft(false);
+    }
+    loadDraft();
+    return () => {
+      cancelled = true;
+    };
+  }, [idFromUrl, router]);
 
   useEffect(() => {
     async function load() {
@@ -419,9 +524,20 @@ export default function NewBudgetPage() {
         ? submittedStatus === 'pm_review'
           ? 'Budget submitted for PM review'
           : 'Budget submitted to CFO queue'
-        : 'Budget saved as draft';
+        : 'Draft saved';
       toast.success(successMessage);
-      router.push('/budgets');
+
+      if (submit) {
+        router.push('/budgets');
+      } else if (createData?.budget_id) {
+        // First-Save URL swap. Subsequent-save update flow lands in the
+        // next commit; until then the buttons are disabled while a draft
+        // is loaded.
+        setBudgetId(createData.budget_id);
+        router.replace(`/budgets/new?id=${createData.budget_id}`, {
+          scroll: false,
+        });
+      }
     } catch (error) {
       toast.error(
         getUserErrorMessage(
@@ -486,7 +602,11 @@ export default function NewBudgetPage() {
         ? 'border-warning/30 bg-warning-soft/40 text-warning-soft-foreground'
         : 'border-success/30 bg-success-soft/40 text-success-soft-foreground';
 
-  const saveDisabled = saving || validationState === 'red';
+  const editingDraft = !!budgetId;
+  // While editingDraft is true, both buttons stay disabled until commit 5
+  // wires the update + items-sync path. Until then, clicking either would
+  // create a duplicate budget — explicit disable is safer than that.
+  const saveDisabled = saving || validationState === 'red' || editingDraft;
   const submitDisabled = saveDisabled || miscGateBlocked;
 
   return (
@@ -504,8 +624,23 @@ export default function NewBudgetPage() {
       </div>
 
       <div className="p-6">
+        {editingDraft && !loadingDraft && (
+          <div className="mb-6 flex items-center gap-2 rounded-lg border border-info/40 bg-info-soft/40 px-4 py-2.5 text-sm text-info-soft-foreground">
+            <Info className="size-4 shrink-0" strokeWidth={1.75} />
+            <span>Editing draft.</span>
+          </div>
+        )}
+
+        {loadingDraft && (
+          <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+            Loading draft…
+          </div>
+        )}
+
         {/* Two-column form layout: 1.6fr / 1fr on desktop, stack on mobile */}
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.6fr_1fr]">
+        <div
+          className={`grid grid-cols-1 gap-8 lg:grid-cols-[1.6fr_1fr] ${loadingDraft ? 'hidden' : ''}`}
+        >
           {/* Left column — basics + line items */}
           <div className="space-y-6">
             {/* Card 1 — Budget basics */}
