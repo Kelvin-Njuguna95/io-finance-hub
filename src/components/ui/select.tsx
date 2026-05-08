@@ -6,7 +6,61 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+// Base-UI's Select.Value displays the raw value at the trigger by default
+// — unlike Radix, which auto-displays the selected item's children. To
+// preserve the shadcn ergonomic of "the trigger shows the SelectItem's
+// children," the Root wrapper walks its children, collects every
+// <SelectItem value=… >label</SelectItem> pair, and feeds them as the
+// `items` prop. Base-UI's SelectValue then resolves the label off
+// the items array (selectvalue.js → resolveSelectedLabel), independent
+// of whether the popup has been opened (no lazy-mount race).
+//
+// Any consumer that explicitly supplies `items` keeps that prop intact;
+// the auto-derivation only fires when items is unset.
+type DerivedItem = { label: React.ReactNode; value: unknown }
+
+function collectSelectItems(children: React.ReactNode): DerivedItem[] {
+  const collected: DerivedItem[] = []
+  function walk(nodes: React.ReactNode) {
+    React.Children.forEach(nodes, (node) => {
+      if (!React.isValidElement(node)) return
+      if (node.type === SelectItem) {
+        const itemProps = node.props as {
+          value?: unknown
+          children?: React.ReactNode
+        }
+        if (itemProps.value !== undefined) {
+          collected.push({ value: itemProps.value, label: itemProps.children })
+        }
+        return
+      }
+      const inner = (node.props as { children?: React.ReactNode })?.children
+      if (inner !== undefined) walk(inner)
+    })
+  }
+  walk(children)
+  return collected
+}
+
+function Select<Value, Multiple extends boolean | undefined = false>(
+  props: SelectPrimitive.Root.Props<Value, Multiple>,
+) {
+  const derivedItems = React.useMemo(() => {
+    if (props.items !== undefined) return undefined
+    const collected = collectSelectItems(props.children)
+    return collected.length > 0
+      ? (collected as unknown as ReadonlyArray<{
+          label: React.ReactNode
+          value: Value
+        }>)
+      : undefined
+  }, [props.items, props.children])
+
+  if (props.items !== undefined || derivedItems === undefined) {
+    return <SelectPrimitive.Root {...props} />
+  }
+  return <SelectPrimitive.Root {...props} items={derivedItems} />
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
