@@ -32,7 +32,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = (await request.json()) as RecomputePayload;
+    let body: RecomputePayload;
+    try {
+      body = (await request.json()) as RecomputePayload;
+    } catch {
+      return NextResponse.json(
+        { error: 'Request body must be valid JSON.', code: 'INVALID_JSON' },
+        { status: 400 },
+      );
+    }
     const yearMonth = body?.year_month;
 
     if (!yearMonth || !/^\d{4}-(0[1-9]|1[0-2])$/.test(yearMonth)) {
@@ -48,6 +56,20 @@ export async function POST(request: Request) {
     });
 
     if (error) {
+      // PG 23505 = unique-constraint violation on profit_share_records
+      // (project_id, year_month). Should be unreachable now that
+      // migration 00055 added the advisory lock to fn_recompute_profit_share,
+      // but keeping the translation for defense-in-depth: surface as 409
+      // CONCURRENT_RECOMPUTE rather than a generic 500.
+      if (error.code === '23505') {
+        return NextResponse.json(
+          {
+            error: 'Recompute already in progress for this month. Try again in a few seconds.',
+            code: 'CONCURRENT_RECOMPUTE',
+          },
+          { status: 409 },
+        );
+      }
       // Closed-month guard from the RPC body — translate to 409.
       if (error.message?.includes('Cannot recompute profit share for closed month')) {
         return NextResponse.json(
