@@ -293,10 +293,16 @@ export function useProfitShare(yearMonth: string) {
         expensesCurrentRes,
         agentsCurrentRes,
       ] = await Promise.all([
+        // PS-3: don't filter out deactivated projects here. profit_share_records
+        // for historical months legitimately reference projects that were
+        // later deactivated; without these rows in projectDirectorById /
+        // projectNameById the rollup at the for-loop below silently drops
+        // them via `if (!tag) continue;`. Director totals understate.
+        // If a future surface needs only currently-active projects (e.g. a
+        // picker), filter locally at that call site.
         supabase
           .from('projects')
-          .select('id, name, director_tag, director_user_id')
-          .eq('is_active', true),
+          .select('id, name, director_tag, director_user_id'),
         supabase.from('users').select('id, full_name'),
         supabase
           .from('profit_share_records')
@@ -463,7 +469,18 @@ export function useProfitShare(yearMonth: string) {
         };
       }).sort((a, b) => b.shareKes - a.shareKes);
 
-      const directorsWithShare = directorRows.filter((d) => d.shareKes > 0);
+      // PS-4: include directors with NEGATIVE shares too. Migration 00031
+      // dropped the `WHERE distributable > 0` filter from
+      // fn_generate_profit_shares so signed shares (loss months) flow
+      // through to profit_share_records; the hook used to clamp `> 0`
+      // here and undid that. directorCount, largest/smallest, and the
+      // pool position visualisation all derive from this set.
+      //
+      // The directorRows array is sorted descending by shareKes, so:
+      //   directorsWithShare[0]                    → largest (max shareKes)
+      //   directorsWithShare[…length-1]           → smallest (min shareKes,
+      //                                                may be negative)
+      const directorsWithShare = directorRows.filter((d) => d.shareKes !== 0);
       const largestShare =
         directorsWithShare.length > 0
           ? {
