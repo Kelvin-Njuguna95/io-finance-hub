@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, Info, Plus, Save, Send, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Info, Plus, Save, Send, Trash2 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
@@ -447,6 +447,48 @@ export default function NewBudgetPage() {
   const selectedScopeName =
     activeScopeOptions.find((s) => s.id === scopeId)?.name ?? '';
 
+  // Validation traffic-light. Red blocks both Save and Submit; amber lets
+  // them through (handleSave's per-field toasts catch the rest); green
+  // means ready.
+  const itemsAreEmpty =
+    items.length === 0 ||
+    items.every((i) => !i.description.trim() && (i.amount_kes || 0) === 0);
+  const validationIssues: string[] = [];
+  if (!scopeId) {
+    validationIssues.push(
+      scopeType === 'project' ? 'Project not selected' : 'Department not selected',
+    );
+  }
+  if (!yearMonth) validationIssues.push('Period not selected');
+  if (items.some((i) => !i.description.trim())) {
+    validationIssues.push('Some items have no description');
+  }
+  if (items.some((i) => (i.amount_kes || 0) <= 0)) {
+    validationIssues.push('Some items have no amount');
+  }
+  if (miscGateBlocked) validationIssues.push('Misc report gate is blocking');
+
+  const validationState: 'red' | 'amber' | 'green' = itemsAreEmpty
+    ? 'red'
+    : validationIssues.length > 0
+      ? 'amber'
+      : 'green';
+  const validationCopy =
+    validationState === 'red'
+      ? 'Add at least one line item with a description and amount.'
+      : validationState === 'amber'
+        ? validationIssues.join(' · ')
+        : 'Ready to submit.';
+  const validationCardClasses =
+    validationState === 'red'
+      ? 'border-danger/30 bg-danger-soft/40 text-danger-soft-foreground'
+      : validationState === 'amber'
+        ? 'border-warning/30 bg-warning-soft/40 text-warning-soft-foreground'
+        : 'border-success/30 bg-success-soft/40 text-success-soft-foreground';
+
+  const saveDisabled = saving || validationState === 'red';
+  const submitDisabled = saveDisabled || miscGateBlocked;
+
   return (
     <div>
       <div className="border-b border-border/70 bg-background px-6 py-6">
@@ -735,11 +777,9 @@ export default function NewBudgetPage() {
             </section>
           </div>
 
-          {/* Right column — sticky summary placeholder (filled in commit 3) */}
-          <aside className="space-y-6">
-            <section
-              className="rounded-lg border border-border bg-card p-6 lg:sticky lg:top-20"
-            >
+          {/* Right column — sticky summary panel */}
+          <aside>
+            <section className="rounded-lg border border-border bg-card p-6 lg:sticky lg:top-20">
               <header className="mb-3">
                 <h3 className="font-display text-[17px] font-medium text-foreground">
                   Summary
@@ -748,50 +788,62 @@ export default function NewBudgetPage() {
                   Live as you edit.
                 </p>
               </header>
-              <div className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
-                Approved total
+
+              {/* Approved total */}
+              <div className="mt-2">
+                <div className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+                  Approved total
+                </div>
+                <div className="mt-2 font-mono text-[32px] font-medium leading-none tracking-[-0.01em] tabular-nums text-foreground">
+                  <span className="mr-1.5 text-xs text-muted-foreground tracking-[0.04em]">
+                    KES
+                  </span>
+                  {totalKes.toLocaleString('en-KE')}
+                </div>
               </div>
-              <div className="mt-2 font-mono text-[32px] font-medium leading-none tracking-[-0.01em] tabular-nums text-foreground">
-                <span className="mr-1.5 text-xs text-muted-foreground tracking-[0.04em]">KES</span>
-                {totalKes.toLocaleString('en-KE')}
+
+              {/* Item count */}
+              <div className="mt-5 flex items-baseline justify-between border-t border-border-subtle pt-3">
+                <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+                  Line items
+                </span>
+                <span className="font-mono tabular-nums text-foreground">
+                  {items.length} {items.length === 1 ? 'item' : 'items'}
+                </span>
               </div>
-              <p className="mt-4 text-[12.5px] text-[var(--warm-grey-3)]">
-                Summary panel content lands in the next commit.
-              </p>
+
+              {/* Validation card */}
+              <div className={`mt-5 rounded-lg border p-3 text-[12.5px] leading-snug ${validationCardClasses}`}>
+                <div className="flex items-start gap-2">
+                  {validationState === 'green' ? (
+                    <Info className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
+                  ) : (
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
+                  )}
+                  <span>{validationCopy}</span>
+                </div>
+              </div>
+
+              {/* Stacked action buttons */}
+              <div className="mt-5 flex flex-col gap-2 border-t border-border-subtle pt-5">
+                <Button
+                  variant="outline"
+                  onClick={() => handleSave(false)}
+                  disabled={saveDisabled}
+                  className="w-full justify-center gap-1.5"
+                >
+                  <Save className="size-4" /> Save as draft
+                </Button>
+                <Button
+                  onClick={() => handleSave(true)}
+                  disabled={submitDisabled}
+                  className="w-full justify-center gap-1.5"
+                >
+                  <Send className="size-4" /> Submit for PM Review
+                </Button>
+              </div>
             </section>
           </aside>
-        </div>
-
-        {/* Sticky footer — buttons move into the summary panel in commit 3 */}
-        <div className="sticky bottom-0 z-10 -mx-6 mt-6 border-t border-border bg-background/95 px-6 py-3 backdrop-blur">
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push('/budgets')}
-              disabled={saving}
-              className="gap-1"
-            >
-              <X className="size-4" /> Discard
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleSave(false)}
-              disabled={saving}
-              className="gap-1"
-            >
-              <Save className="size-4" /> Save as draft
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => handleSave(true)}
-              disabled={saving || miscGateBlocked}
-              className="gap-1"
-            >
-              <Send className="size-4" /> Submit for approval
-            </Button>
-          </div>
         </div>
       </div>
     </div>
