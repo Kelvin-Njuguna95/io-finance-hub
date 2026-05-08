@@ -297,9 +297,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Only CFO or accountant can modify expenses' }, { status: 403 });
     }
 
-    const { id, actual_amount_kes, modified_reason } = body;
-    if (!id || actual_amount_kes == null || !modified_reason?.trim()) {
-      return NextResponse.json({ success: false, error: 'id, actual_amount_kes, and modified_reason required' }, { status: 400 });
+    // modified_reason is now optional (silent inline edits are allowed
+    // from the queue page). description / category / expense_date are
+    // optional overrides; when omitted the route falls back to the
+    // pending row's existing values (description / category) or today
+    // (expense_date), preserving the prior behavior.
+    const {
+      id,
+      actual_amount_kes,
+      modified_reason,
+      description,
+      category,
+      expense_date,
+    } = body;
+    if (!id || actual_amount_kes == null) {
+      return NextResponse.json({ success: false, error: 'id and actual_amount_kes required' }, { status: 400 });
     }
     if (Number(actual_amount_kes) <= 0) {
       return NextResponse.json({ success: false, error: 'actual_amount_kes must be greater than 0' }, { status: 400 });
@@ -320,16 +332,45 @@ export async function POST(request: Request) {
 
     const now = new Date().toISOString();
 
+    // Snapshot pre-edit values for the audit log.
+    const oldValues = {
+      description: pending.description,
+      category: pending.category,
+      budgeted_amount_kes: pending.budgeted_amount_kes,
+      actual_amount_kes: pending.actual_amount_kes,
+    };
+
+    const effectiveDescription: string = description ?? pending.description;
+    const effectiveCategory: string | null =
+      typeof category === 'string' ? category : (pending.category ?? null);
+    const effectiveExpenseDate: string = expense_date ?? now.split('T')[0];
+
     let expenseCategoryId: string | null = null;
-    if (pending.category) {
-      const { data: cat } = await admin.from('expense_categories').select('id').eq('name', pending.category).maybeSingle();
+    if (effectiveCategory) {
+      const { data: cat } = await admin.from('expense_categories').select('id').eq('name', effectiveCategory).maybeSingle();
       expenseCategoryId = cat?.id || null;
     }
 
     let overheadCategoryId: string | null = null;
-    if (!pending.project_id && pending.department_id && pending.category) {
-      const { data: ohCat } = await admin.from('overhead_categories').select('id').eq('name', pending.category).maybeSingle();
+    if (!pending.project_id && pending.department_id && effectiveCategory) {
+      const { data: ohCat } = await admin.from('overhead_categories').select('id').eq('name', effectiveCategory).maybeSingle();
       overheadCategoryId = ohCat?.id || null;
+    }
+
+    // Fail-loud only when the caller explicitly passed a category override
+    // that resolves to nothing in either lookup table. When `category` is
+    // omitted, pending.category may already be malformed — preserved
+    // existing silent-null behavior for that path.
+    if (typeof category === 'string' && category.length > 0 && !expenseCategoryId && !overheadCategoryId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Category "${category}" not found in expense_categories or overhead_categories.`,
+          code: 'CATEGORY_NOT_FOUND',
+          attempted: category,
+        },
+        { status: 400 },
+      );
     }
 
     const isProjectExpense = !!pending.project_id;
@@ -340,14 +381,16 @@ export async function POST(request: Request) {
       project_id: pending.project_id,
       overhead_category_id: isProjectExpense ? null : overheadCategoryId,
       expense_category_id: expenseCategoryId,
-      description: pending.description,
+      description: effectiveDescription,
       amount_usd: 0,
       amount_kes: actual_amount_kes,
-      expense_date: now.split('T')[0],
+      expense_date: effectiveExpenseDate,
       year_month: pending.year_month,
       vendor: null,
       receipt_reference: null,
-      notes: `Modified & confirmed from pending expense ${id}. Reason: ${modified_reason}`,
+      notes: modified_reason
+        ? `Modified & confirmed from pending expense ${id}. Reason: ${modified_reason}`
+        : `Modified & confirmed from pending expense ${id}.`,
       entered_by: dbUser.id,
     }).select().single();
 
@@ -355,10 +398,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: expErr.message }, { status: 500 });
     }
 
+    // Mirror description/category back onto pending_expenses so the row
+    // stays consistent with the new expenses row. status stays
+    // 'confirmed' to match prior behavior — a pending row's
+    // post-modify life is over from the queue's perspective.
     const { data: updated, error: updErr } = await admin.from('pending_expenses').update({
       status: 'confirmed',
+      description: effectiveDescription,
+      category: effectiveCategory,
       actual_amount_kes,
-      modified_reason,
+      modified_reason: modified_reason ?? null,
       confirmed_by: dbUser.id,
       confirmed_at: now,
       expense_id: expense?.id,
@@ -375,11 +424,27 @@ export async function POST(request: Request) {
       action: 'expense_modified',
       table_name: 'pending_expenses',
       record_id: id,
-      old_values: { status: pending.status, budgeted_amount_kes: pending.budgeted_amount_kes },
-      new_values: { status: 'confirmed', actual_amount_kes, modified_reason, expense_id: expense?.id },
+      old_values: oldValues,
+      new_values: {
+        status: 'confirmed',
+        description: effectiveDescription,
+        category: effectiveCategory,
+        actual_amount_kes,
+        expense_date: effectiveExpenseDate,
+        expense_id: expense?.id,
+        modified_reason: modified_reason ?? null,
+      },
+      reason: modified_reason ?? null,
     });
 
-    await notifyRole(admin, 'cfo', { title: 'Expense modified', message: `Pending expense "${pending.description}" modified to KES ` + actual_amount_kes.toLocaleString() + `. Reason: ${modified_reason}`, link: '/expenses' });
+    await notifyRole(admin, 'cfo', {
+      title: 'Expense modified',
+      message:
+        `Pending expense "${effectiveDescription}" modified to KES ` +
+        Number(actual_amount_kes).toLocaleString() +
+        (modified_reason ? `. Reason: ${modified_reason}` : '.'),
+      link: '/expenses',
+    });
     await recomputeExpenseVariancesForMonth(admin, pending.year_month);
 
     return NextResponse.json({ success: true, data: updated });
