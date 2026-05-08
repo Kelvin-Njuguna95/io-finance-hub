@@ -499,6 +499,10 @@ export default function BudgetDetailPage() {
       budgetSubmittedByRole === 'accountant' &&
       EDITABLE_STATUSES.includes(
         (activeVersion?.status || '') as (typeof BUDGET_EDITABLE_STATUSES)[number],
+      )) ||
+    (isCfo &&
+      EDITABLE_STATUSES.includes(
+        (activeVersion?.status || '') as (typeof BUDGET_EDITABLE_STATUSES)[number],
       ));
 
   const pendingLineItems = items.filter(
