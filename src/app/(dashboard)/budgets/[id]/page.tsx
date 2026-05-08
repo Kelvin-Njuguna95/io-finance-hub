@@ -305,7 +305,21 @@ export default function BudgetDetailPage() {
       });
       const data = await res.json();
       if (data.success) {
-        toast.success('Budget approved — expenses queued');
+        // BUDG-1: route may return non-fatal warnings (e.g. expense
+        // populate failed after the approval RPC committed). Approval
+        // still succeeded — surface the warning so the CFO knows to
+        // retry expense population from the list view.
+        const populateFailed = Array.isArray(data.warnings)
+          && data.warnings.some(
+            (w: { code?: string }) => w?.code === 'expense_populate_failed',
+          );
+        if (populateFailed) {
+          toast.warning(
+            'Budget approved, but expense materialization failed. Open the budgets list and click "Populate expenses" to retry.',
+          );
+        } else {
+          toast.success('Budget approved — expenses queued');
+        }
       } else {
         toast.error(data.error || 'Failed to approve budget');
       }

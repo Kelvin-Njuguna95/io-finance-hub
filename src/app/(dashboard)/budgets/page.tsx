@@ -131,7 +131,21 @@ export default function BudgetsPage() {
     });
     const data = await res.json();
     if (data.success) {
-      toast.success('Budget approved');
+      // BUDG-1: warnings field is non-empty when the approval RPC
+      // committed but expense auto-populate failed. The list view has
+      // a "Populate expenses" action (handlePopulateExpenses below) the
+      // CFO can use to retry — the toast points there.
+      const populateFailed = Array.isArray(data.warnings)
+        && data.warnings.some(
+          (w: { code?: string }) => w?.code === 'expense_populate_failed',
+        );
+      if (populateFailed) {
+        toast.warning(
+          'Budget approved, but expense materialization failed. Use "Populate expenses" to retry.',
+        );
+      } else {
+        toast.success('Budget approved');
+      }
       refresh();
     } else {
       toast.error(data.error || 'Failed to approve budget');

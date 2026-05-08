@@ -56,6 +56,8 @@ export async function POST(request: Request) {
       .single();
 
     if (action === 'approve') {
+      const warnings: Array<{ code: string; detail?: string }> = [];
+
       if (auto_reject_siblings && sibling_budget_ids?.length > 0) {
         for (const sibId of sibling_budget_ids) {
           await admin.rpc('fn_budget_cfo_approve', {
@@ -73,7 +75,40 @@ export async function POST(request: Request) {
         admin,
       );
       if (!populateResult.success) {
-        console.error('Expense auto-populate failed after CFO approval:', populateResult.error);
+        // BUDG-1: surface expense-materialization failure to the caller as
+        // a warning instead of swallowing it as console.error. The RPC
+        // already committed — the budget IS approved — so we don't fail
+        // the whole route. The frontend reads `warnings` and shows a
+        // distinct banner/toast so the CFO knows expense populate needs
+        // a manual retry. Audit row makes it greppable later.
+        console.error(
+          'Expense auto-populate failed after CFO approval:',
+          populateResult.error,
+        );
+        warnings.push({
+          code: 'expense_populate_failed',
+          detail:
+            typeof populateResult.error === 'string'
+              ? populateResult.error
+              : 'Auto-populate did not succeed',
+        });
+        try {
+          await admin.from('audit_logs').insert({
+            user_id: user.id,
+            action: 'expense_populate_failed_post_approval',
+            table_name: 'budgets',
+            record_id: budget_id,
+            new_values: {
+              budget_version_id: newVersionId,
+              error: populateResult.error ?? null,
+            },
+          });
+        } catch (auditErr) {
+          console.error(
+            'Audit log for expense_populate_failed_post_approval also failed:',
+            auditErr,
+          );
+        }
       }
 
       const tlId = (budget as { created_by: string } | null)?.created_by;
@@ -140,7 +175,11 @@ export async function POST(request: Request) {
         }
       }
 
-      return NextResponse.json({ success: true, new_status: newStatus });
+      return NextResponse.json({
+        success: true,
+        new_status: newStatus,
+        ...(warnings.length > 0 ? { warnings } : {}),
+      });
     }
 
     if (action === 'reject') {
