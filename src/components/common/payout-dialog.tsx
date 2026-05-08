@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
+import { useIdempotencyKey } from '@/hooks/use-idempotency-key';
 import { formatYearMonth } from '@/lib/format';
 import { formatKES } from '@/lib/utils/currency';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,11 @@ export function PayoutDialog({
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Fresh idempotency key per dialog open. Form state resets on open
+  // (below), so each open is a new attempt — the key tracks that. The
+  // partial unique index on director_payouts.idempotency_key (migration
+  // 00053) traps double-submits with the same key.
+  const [idempotencyKey, regenerateIdempotencyKey] = useIdempotencyKey();
 
   useEffect(() => {
     if (!open) {
@@ -60,7 +66,8 @@ export function PayoutDialog({
     setPaymentMethod('cash');
     setNotes('');
     setError(null);
-  }, [open]);
+    regenerateIdempotencyKey();
+  }, [open, regenerateIdempotencyKey]);
 
   const selectedRecord = useMemo(
     () => records.find((record) => record.director_name === selectedDirector) ?? null,
@@ -117,6 +124,7 @@ export function PayoutDialog({
           amount_kes: parsedAmount,
           payment_method: paymentMethod,
           notes: notes.trim() || undefined,
+          idempotency_key: idempotencyKey,
         }),
       });
 

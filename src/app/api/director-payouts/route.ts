@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
+import {
+  fetchExistingByIdempotencyKey,
+  isIdempotencyConflict,
+  isValidUuid,
+  logDuplicateSubmissionBlocked,
+} from '@/lib/idempotency';
 
 type CreateDirectorPayoutPayload = {
   director_name: string;
@@ -9,6 +15,7 @@ type CreateDirectorPayoutPayload = {
   amount_kes: number;
   payment_method?: 'cash' | 'withdrawal';
   notes?: string;
+  idempotency_key: string;
 };
 
 function normalizePeriodMonth(periodMonth: string) {
@@ -36,6 +43,17 @@ export async function POST(request: Request) {
     }
 
     const body = (await request.json()) as CreateDirectorPayoutPayload;
+
+    if (!isValidUuid(body.idempotency_key)) {
+      return NextResponse.json(
+        {
+          error: 'idempotency_key is required and must be a valid UUID.',
+          code: 'IDEMPOTENCY_KEY_INVALID',
+        },
+        { status: 400 },
+      );
+    }
+
     const normalizedPeriodMonth = normalizePeriodMonth(body.period_month);
 
     console.log('Director payout POST received:', {
@@ -92,9 +110,31 @@ export async function POST(request: Request) {
         payment_method: body.payment_method ?? 'cash',
         notes: body.notes ?? null,
         initiated_by: user.id,
+        idempotency_key: body.idempotency_key,
       })
       .select('*')
       .single();
+
+    // Duplicate submission protection (migration 00053). On 23505 against
+    // idx_director_payouts_idempotency_key we return the parent that the
+    // first attempt already created — no second row written.
+    if (error && isIdempotencyConflict(error)) {
+      const existing = await fetchExistingByIdempotencyKey<{ id: string } & Record<string, unknown>>(
+        admin,
+        'director_payouts',
+        body.idempotency_key,
+      );
+      if (existing) {
+        await logDuplicateSubmissionBlocked(admin, {
+          userId: user.id,
+          tableName: 'director_payouts',
+          recordId: existing.id,
+          idempotencyKey: body.idempotency_key,
+        });
+        return NextResponse.json({ data: existing });
+      }
+      // Conflict raised but row unfindable — fall through to error path
+    }
 
     if (error) throw error;
 
