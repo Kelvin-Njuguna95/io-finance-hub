@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     }
     const { user, profile, admin } = auth;
 
-    const roleErr = assertRole(profile, ['team_lead', 'accountant', 'project_manager', 'cfo']);
+    const roleErr = assertRole(profile, ['team_leader', 'accountant', 'project_manager', 'cfo']);
     if (roleErr) {
       return NextResponse.json({ error: 'Not authorized to resubmit budgets' }, { status: roleErr.status });
     }
