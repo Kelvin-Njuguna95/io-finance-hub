@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Check, X } from 'lucide-react';
+import { Check, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { createClient } from '@/lib/supabase/client';
@@ -175,6 +175,14 @@ export default function BudgetDetailPage() {
   const [editAmount, setEditAmount] = useState(0);
   const [editDesc, setEditDesc] = useState('');
   const [editCategory, setEditCategory] = useState('');
+
+  // Add-line-item footer state. One row at a time; reused for any
+  // editable budget version. Mirrors the pattern of the per-row inline
+  // edit (editingItem + editDesc/editCategory/editAmount).
+  const [addingItem, setAddingItem] = useState(false);
+  const [newItemDesc, setNewItemDesc] = useState('');
+  const [newItemCategory, setNewItemCategory] = useState('');
+  const [newItemAmount, setNewItemAmount] = useState('');
   const [categories, setCategories] = useState<string[]>([]);
   const [savingItem, setSavingItem] = useState(false);
 
@@ -345,6 +353,61 @@ export default function BudgetDetailPage() {
     }
     toast.success('Line item removed');
     load();
+  }
+
+  async function handleAddItem() {
+    if (!activeVersion?.id) return;
+    if (!newItemDesc.trim() || !newItemCategory.trim() || !newItemAmount) {
+      toast.error('Description, category and amount are required');
+      return;
+    }
+    const amount = Number(newItemAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Amount must be greater than zero');
+      return;
+    }
+    const supabase = createClient();
+    setSavingItem(true);
+    try {
+      const { error: insErr } = await supabase
+        .from('budget_items')
+        .insert({
+          budget_version_id: activeVersion.id,
+          description: newItemDesc.trim(),
+          category: newItemCategory.trim(),
+          amount_kes: amount,
+          unit_cost_kes: amount,
+        });
+      if (insErr) throw insErr;
+
+      // Recompute the version total off the fresh DB state — avoids the
+      // double-count race that would happen if we tried to add `amount`
+      // to a stale local items array.
+      const { data: allItems } = await supabase
+        .from('budget_items')
+        .select('amount_kes')
+        .eq('budget_version_id', activeVersion.id);
+      const newTotal = (allItems || []).reduce(
+        (s: number, i: { amount_kes: number | string | null }) =>
+          s + Number(i.amount_kes ?? 0),
+        0,
+      );
+      await supabase
+        .from('budget_versions')
+        .update({ total_amount_kes: newTotal })
+        .eq('id', activeVersion.id);
+
+      setAddingItem(false);
+      setNewItemDesc('');
+      setNewItemCategory('');
+      setNewItemAmount('');
+      await load();
+      toast.success('Line item added');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to add item');
+    } finally {
+      setSavingItem(false);
+    }
   }
 
   async function handleResubmit() {
@@ -1245,6 +1308,89 @@ export default function BudgetDetailPage() {
                       )}
                       {canLineReview && <TableCell />}
                       {canLineReview && <TableCell />}
+                    </TableRow>
+                  )}
+                  {/* Add-line-item footer row — visible only when the
+                      version is in an editable status and the caller has
+                      TL/accountant/CFO edit rights via canTlEdit. */}
+                  {canTlEdit && (
+                    <TableRow className="border-t border-dashed border-[var(--paper-4)]">
+                      {addingItem ? (
+                        <>
+                          <TableCell>{items.length + 1}</TableCell>
+                          <TableCell>
+                            <Input
+                              value={newItemDesc}
+                              onChange={(e) => setNewItemDesc(e.target.value)}
+                              placeholder="Description"
+                              className="h-8 text-sm"
+                              disabled={savingItem}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={newItemCategory}
+                              onChange={(e) => setNewItemCategory(e.target.value)}
+                              placeholder="Category"
+                              className="h-8 text-sm"
+                              disabled={savingItem}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min={0}
+                              value={newItemAmount}
+                              onChange={(e) => setNewItemAmount(e.target.value)}
+                              placeholder="0.00"
+                              className="ml-auto h-8 w-32 text-right text-sm tabular-nums"
+                              disabled={savingItem}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={handleAddItem}
+                                disabled={savingItem}
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs"
+                                onClick={() => {
+                                  setAddingItem(false);
+                                  setNewItemDesc('');
+                                  setNewItemCategory('');
+                                  setNewItemAmount('');
+                                }}
+                                disabled={savingItem}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </TableCell>
+                          {canLineReview && <TableCell />}
+                          {canLineReview && <TableCell />}
+                          {canLineReview && <TableCell />}
+                          {canLineReview && <TableCell />}
+                        </>
+                      ) : (
+                        <TableCell colSpan={canLineReview ? 9 : 5} className="py-2">
+                          <button
+                            type="button"
+                            className="flex items-center gap-1.5 text-[12px] text-[var(--warm-grey-3)] hover:text-foreground"
+                            onClick={() => setAddingItem(true)}
+                          >
+                            <Plus className="size-3.5" />
+                            Add line item
+                          </button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   )}
                 </TableBody>
