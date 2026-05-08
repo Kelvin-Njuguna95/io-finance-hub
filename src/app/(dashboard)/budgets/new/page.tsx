@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertTriangle, Info, Plus, Save, Send, Trash2 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
+import { useIdempotencyKey } from '@/hooks/use-idempotency-key';
 import { useUser } from '@/hooks/use-user';
 import { PageTitle } from '@/components/layout/page-title';
 import { Button } from '@/components/ui/button';
@@ -79,6 +80,12 @@ function NewBudgetPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const idFromUrl = searchParams.get('id');
+  // One UUID per page load. Both create-paths (handleSave's first save
+  // and handleSubmit's no-budgetId path) carry it so that a duplicate
+  // POST hits the partial unique index instead of writing a second
+  // budget. Page navigates away on submit; on save the URL replaces
+  // and budgetId is set so subsequent saves no longer hit /create.
+  const [idempotencyKey] = useIdempotencyKey();
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [scopeType, setScopeType] = useState<ScopeKind>('project');
@@ -623,6 +630,7 @@ function NewBudgetPageInner() {
               notes: null,
             })),
             submit: false,
+            idempotency_key: idempotencyKey,
           }),
         });
         const createData = await createRes.json();
@@ -693,6 +701,7 @@ function NewBudgetPageInner() {
               notes: null,
             })),
             submit: true,
+            idempotency_key: idempotencyKey,
           }),
         });
         const createData = await createRes.json();

@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
+import {
+  fetchExistingByIdempotencyKey,
+  isIdempotencyConflict,
+  isValidUuid,
+  logDuplicateSubmissionBlocked,
+} from '@/lib/idempotency';
 
 const ALLOWED_BUDGET_CREATOR_ROLES = ['cfo', 'team_leader', 'project_manager', 'accountant', 'department_head'] as const;
 
@@ -23,7 +29,15 @@ export async function POST(request: Request) {
     notes,
     items,
     submit,
+    idempotency_key,
   } = body;
+
+  if (!isValidUuid(idempotency_key)) {
+    return NextResponse.json(
+      { error: 'idempotency_key is required and must be a valid UUID.', code: 'IDEMPOTENCY_KEY_INVALID' },
+      { status: 400 },
+    );
+  }
 
   if (!scope_id || !year_month) {
     return NextResponse.json({ error: 'scope_id and year_month required' }, { status: 400 });
@@ -154,7 +168,12 @@ export async function POST(request: Request) {
   // Calculate total
   const totalKes = items.reduce((sum: number, i: /* // */ any) => sum + (i.quantity || 1) * (i.unit_cost_kes || 0), 0);
 
-  // Create budget
+  // Create budget. The partial unique index on idempotency_key (migration
+  // 00051) traps duplicate submissions: a second attempt with the same
+  // key fails with 23505. Per that migration's header we do NOT rerun
+  // the budget_versions / budget_items inserts on a conflict — we fetch
+  // the parent created on the first successful attempt and return its
+  // ids verbatim.
   const { data: budget, error: budgetError } = await admin
     .from('budgets')
     .insert({
@@ -164,9 +183,40 @@ export async function POST(request: Request) {
       current_version: 1,
       created_by: user.id,
       submitted_by_role: submittedByRole,
+      idempotency_key,
     })
     .select()
     .single();
+
+  if (budgetError && isIdempotencyConflict(budgetError)) {
+    type ExistingBudget = { id: string; current_version: number };
+    const existing = await fetchExistingByIdempotencyKey<ExistingBudget>(
+      admin,
+      'budgets',
+      idempotency_key,
+    );
+    if (existing) {
+      const { data: existingVersion } = await admin
+        .from('budget_versions')
+        .select('id, status')
+        .eq('budget_id', existing.id)
+        .eq('version_number', existing.current_version)
+        .maybeSingle();
+      await logDuplicateSubmissionBlocked(admin, {
+        userId: user.id,
+        tableName: 'budgets',
+        recordId: existing.id,
+        idempotencyKey: idempotency_key,
+      });
+      return NextResponse.json({
+        success: true,
+        budget_id: existing.id,
+        version_id: existingVersion?.id ?? null,
+        status: existingVersion?.status ?? null,
+      });
+    }
+    // Conflict raised but the row is unfindable — fall through to error path
+  }
 
   if (budgetError) {
     return NextResponse.json({ error: `Budget creation failed: ${budgetError.message}` }, { status: 500 });
