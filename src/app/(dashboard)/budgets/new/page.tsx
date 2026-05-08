@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, Info, Save, Send, X } from 'lucide-react';
+import { AlertTriangle, Info, Plus, Save, Send, Trash2, X } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { PageTitle } from '@/components/layout/page-title';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -31,12 +32,15 @@ import {
   getAssignedActiveProjects,
 } from '@/lib/queries/projects';
 import { canSubmitDepartmentBudget } from '@/lib/permissions';
-import {
-  LineItemEditor,
-  type LineItem,
-} from '@/components/budgets/line-item-editor';
 
 type ScopeKind = 'project' | 'department';
+
+type LineItem = {
+  id: string;
+  description: string;
+  category: string;
+  amount_kes: number;
+};
 
 type ExistingBudgetSummary = {
   submitted_by_role: string;
@@ -66,9 +70,7 @@ export default function NewBudgetPage() {
       id: generateId(),
       description: '',
       category: '',
-      quantity: 1,
-      unit_cost_kes: 0,
-      notes: '',
+      amount_kes: 0,
     },
   ]);
   const [saving, setSaving] = useState(false);
@@ -281,9 +283,7 @@ export default function NewBudgetPage() {
         id: generateId(),
         description: '',
         category: '',
-        quantity: 1,
-        unit_cost_kes: 0,
-        notes: '',
+        amount_kes: 0,
       },
     ]);
   }
@@ -299,10 +299,7 @@ export default function NewBudgetPage() {
     );
   }
 
-  const totalKes = items.reduce(
-    (s, i) => s + i.quantity * i.unit_cost_kes,
-    0,
-  );
+  const totalKes = items.reduce((s, i) => s + (i.amount_kes || 0), 0);
 
   async function handleSave(submit: boolean) {
     if (!scopeId) {
@@ -313,10 +310,8 @@ export default function NewBudgetPage() {
       toast.error('All line items must have a description');
       return;
     }
-    if (items.some((i) => i.quantity <= 0 || i.unit_cost_kes <= 0)) {
-      toast.error(
-        'Each line item must have quantity and amount greater than zero.',
-      );
+    if (items.some((i) => i.amount_kes <= 0)) {
+      toast.error('Each line item must have an amount greater than zero.');
       return;
     }
     if (totalKes <= 0) {
@@ -370,9 +365,9 @@ export default function NewBudgetPage() {
           items: items.map((item) => ({
             description: item.description,
             category: item.category || null,
-            quantity: item.quantity,
-            unit_cost_kes: item.unit_cost_kes,
-            notes: item.notes || null,
+            quantity: 1,
+            unit_cost_kes: item.amount_kes,
+            notes: null,
           })),
           submit,
         }),
@@ -639,17 +634,104 @@ export default function NewBudgetPage() {
                   Line items
                 </h3>
                 <p className="mt-1 text-[12.5px] text-[var(--warm-grey-3)]">
-                  Break the budget into categories. Each line is a quantity × unit
-                  cost.
+                  Break the budget into categories. Variance is tracked per line.
                 </p>
               </header>
-              <LineItemEditor
-                items={items}
-                categories={categories}
-                onAdd={addItem}
-                onRemove={removeItem}
-                onUpdate={updateItem}
-              />
+
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr>
+                      <th className="border-b border-border-subtle px-2 py-2.5 text-left font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground w-[36px]">
+                        #
+                      </th>
+                      <th className="border-b border-border-subtle px-2 py-2.5 text-left font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                        Description
+                      </th>
+                      <th className="border-b border-border-subtle px-2 py-2.5 text-left font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground w-[26%]">
+                        Category
+                      </th>
+                      <th className="border-b border-border-subtle px-2 py-2.5 text-right font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground w-[20%]">
+                        Amount · KES
+                      </th>
+                      <th aria-hidden className="border-b border-border-subtle w-[36px] px-2 py-2.5" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item, idx) => (
+                      <tr key={item.id} className="border-b border-border-subtle last:border-b-0">
+                        <td className="px-2 py-2 align-middle font-mono tabular-nums text-[12px] text-muted-foreground">
+                          {String(idx + 1).padStart(2, '0')}
+                        </td>
+                        <td className="px-2 py-2 align-middle">
+                          <Input
+                            value={item.description}
+                            onChange={(e) =>
+                              updateItem(item.id, 'description', e.target.value)
+                            }
+                            placeholder="e.g. Translator licences"
+                            className="h-9"
+                          />
+                        </td>
+                        <td className="px-2 py-2 align-middle">
+                          <Select
+                            value={item.category || undefined}
+                            onValueChange={(v) => v && updateItem(item.id, 'category', v)}
+                          >
+                            <SelectTrigger className="h-9 w-full">
+                              <SelectValue placeholder="Select…" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {categories.map((cat) => (
+                                <SelectItem key={cat} value={cat}>
+                                  {cat}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-2 py-2 align-middle">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            value={item.amount_kes || ''}
+                            onChange={(e) =>
+                              updateItem(
+                                item.id,
+                                'amount_kes',
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            placeholder="0"
+                            className="h-9 text-right font-mono tabular-nums"
+                          />
+                        </td>
+                        <td className="px-2 py-2 align-middle">
+                          <button
+                            type="button"
+                            aria-label="Remove line item"
+                            disabled={items.length <= 1}
+                            onClick={() => removeItem(item.id)}
+                            className="inline-flex size-7 items-center justify-center rounded-[var(--radius)] border border-transparent bg-transparent text-muted-foreground transition-colors hover:border-danger-soft hover:bg-danger-soft hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground disabled:hover:border-transparent"
+                          >
+                            <Trash2 className="size-3.5" strokeWidth={1.75} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <button
+                type="button"
+                onClick={addItem}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-dashed border-[var(--paper-4)] bg-transparent px-3.5 py-2 text-[12.5px] text-[var(--warm-grey-3)] transition-colors hover:border-foreground hover:bg-muted/40 hover:text-foreground"
+              >
+                <Plus className="size-3.5" strokeWidth={1.75} />
+                Add line item
+              </button>
             </section>
           </div>
 
