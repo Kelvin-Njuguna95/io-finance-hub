@@ -42,6 +42,7 @@ import { QueueSummaryBar } from '@/components/expenses/queue-summary-bar';
 import { AgeSpectrum } from '@/components/expenses/age-spectrum';
 import { TriageHeaderRow, TriageSection } from '@/components/expenses/triage-section';
 import { BulkActionBar } from '@/components/expenses/bulk-action-bar';
+import type { CategoryOption } from '@/components/expenses/triage-row';
 
 interface Project {
   id: string;
@@ -127,7 +128,8 @@ export default function ExpenseQueuePage() {
     refresh,
   } = useExpenseQueue(selectedMonth, user?.role ?? null);
 
-  // Categories derived from items (preserved logic).
+  // Categories derived from items (preserved logic — used by the
+  // category filter pill, NOT the inline-edit dropdown).
   const categories = useMemo(
     () =>
       Array.from(
@@ -135,6 +137,36 @@ export default function ExpenseQueuePage() {
       ),
     [items],
   );
+
+  // Canonical category options for the inline-edit dropdown (loaded once
+  // from the master tables — expense_categories for project-scoped rows
+  // and overhead_categories for shared rows).
+  const [categoryOptions, setCategoryOptions] = useState<{
+    expense: CategoryOption[];
+    overhead: CategoryOption[];
+  }>({ expense: [], overhead: [] });
+
+  useEffect(() => {
+    async function loadCategoryOptions() {
+      const [expRes, ohRes] = await Promise.all([
+        supabase
+          .from('expense_categories')
+          .select('id, name')
+          .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('overhead_categories')
+          .select('id, name')
+          .eq('is_active', true)
+          .order('name'),
+      ]);
+      setCategoryOptions({
+        expense: (expRes.data ?? []) as CategoryOption[],
+        overhead: (ohRes.data ?? []) as CategoryOption[],
+      });
+    }
+    loadCategoryOptions();
+  }, []);
 
   // Backfill banner state — preserved.
   useEffect(() => {
@@ -397,6 +429,32 @@ export default function ExpenseQueuePage() {
     }
   }
 
+  async function rowSaveAndApprove(
+    id: string,
+    edits: {
+      actual_amount_kes: number;
+      description: string;
+      category: string;
+      expense_date: string;
+    },
+  ) {
+    try {
+      setProcessing(true);
+      // modified_reason intentionally omitted — silent inline edits are
+      // allowed. The route's audit_logs entry captures the full diff.
+      await callAction('modify', {
+        id,
+        ...edits,
+      });
+      toast.success('Expense updated and approved');
+      await refresh();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Save & Approve failed');
+    } finally {
+      setProcessing(false);
+    }
+  }
+
   // -----------------------------------------------
   // Filtering
   // -----------------------------------------------
@@ -654,6 +712,9 @@ export default function ExpenseQueuePage() {
                       setVoidDialog(row);
                       setVoidReason('');
                     },
+                    onSaveAndApprove: (edits) => rowSaveAndApprove(row.id, edits),
+                    canEdit: canAct,
+                    categories: categoryOptions,
                   })}
                   processing={processing}
                 />
