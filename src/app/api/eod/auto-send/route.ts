@@ -88,14 +88,22 @@ export async function GET(request: Request) {
     });
   }
 
-    // Trigger the EOD report via the main endpoint
+    // Trigger the EOD report via the main endpoint. Forward the cron
+    // secret so /api/eod's 'auto' branch (which used to be unauthenticated
+    // — see EOD-1) accepts the call. CRON_SECRET is the same env var
+    // verifyCronSecret read above; the inner /api/eod call will 401 if
+    // it's missing.
     const appUrl = process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
       : 'https://io-finance-hub.vercel.app';
 
+    const cronSecret = process.env.CRON_SECRET;
     const res = await fetch(`${appUrl}/api/eod`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(cronSecret ? { Authorization: `Bearer ${cronSecret}` } : {}),
+      },
       body: JSON.stringify({ trigger_type: 'auto' }),
     });
 

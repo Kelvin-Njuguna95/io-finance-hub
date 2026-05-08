@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { createNotification } from '@/lib/notifications';
+import { verifyCronSecret } from '@/lib/cron-auth';
 import {
   buildEodSections,
   activityFromPersistedPayload,
@@ -169,6 +170,78 @@ export async function GET(request: Request) {
   });
 }
 
+// EOD-2: reserve today's eod_reports row before Slack so concurrent
+// first-clicks can't double-deliver the Slack message.
+//
+// First send: INSERT a placeholder row with slack_status='pending'.
+//   - Success → caller is the winner, returns ok=true.
+//   - 23505  → another caller already reserved (or finished); on
+//              forceResend we fall through to a status-guarded UPDATE,
+//              otherwise we bail.
+//
+// Resend: the row already exists. We attempt a status-guarded UPDATE
+// that flips slack_status away from 'pending' to 'pending' (matching
+// only rows currently NOT in 'pending' state) so two concurrent resends
+// can't both pass.
+//
+// On either success path the row's slack_status is 'pending' until the
+// RPC UPSERT below overwrites it with the real result. The RPC's
+// ON CONFLICT (report_date) DO UPDATE replaces every column from the
+// EXCLUDED row, so the placeholder's null payload / zero counts are
+// fully overwritten on the success path.
+async function reserveEodSlot(
+  admin: ReturnType<typeof createAdminClient>,
+  today: string,
+  sentBy: string | null,
+  triggerType: string,
+): Promise<
+  | { ok: true }
+  | { ok: false; existingId: string | null; existingStatus: string | null }
+> {
+  const { error: insertErr } = await admin.from('eod_reports').insert({
+    report_date: today,
+    sent_by: sentBy,
+    trigger_type: triggerType,
+    slack_status: 'pending',
+    payload: null,
+    expense_count: 0,
+    withdrawal_count: 0,
+    cash_received_count: 0,
+    budget_action_count: 0,
+    error_message: null,
+  });
+
+  if (!insertErr) return { ok: true };
+
+  if (insertErr.code !== '23505') {
+    // Unrelated insert error — surface as a failed reservation.
+    return { ok: false, existingId: null, existingStatus: null };
+  }
+
+  // Row exists. Try to atomically claim it via status-guarded UPDATE.
+  const { data: claimed } = await admin
+    .from('eod_reports')
+    .update({ slack_status: 'pending', error_message: null })
+    .eq('report_date', today)
+    .neq('slack_status', 'pending')
+    .select('id')
+    .maybeSingle();
+
+  if (claimed) return { ok: true };
+
+  // Another caller is already mid-flight in 'pending'. Bail.
+  const { data: existingRow } = await admin
+    .from('eod_reports')
+    .select('id, slack_status')
+    .eq('report_date', today)
+    .maybeSingle();
+  return {
+    ok: false,
+    existingId: existingRow?.id ?? null,
+    existingStatus: existingRow?.slack_status ?? null,
+  };
+}
+
 // POST — send the EOD report (or resend with fresh data)
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -185,11 +258,24 @@ export async function POST(request: Request) {
     if (!profile || !['cfo', 'accountant'].includes(profile.role)) {
       return NextResponse.json({ error: 'Only CFO or Accountant can send EOD reports' }, { status: 403 });
     }
+  } else if (triggerType === 'auto') {
+    // EOD-1 fix: the 'auto' path was previously unauthenticated. Now it
+    // requires `Authorization: Bearer ${CRON_SECRET}` — same gate the
+    // /api/eod/auto-send cron route uses for itself. The cron caller in
+    // auto-send/route.ts forwards the secret on its inner fetch.
+    // CRON_SECRET must be set in Vercel env; verifyCronSecret returns
+    // 500 if it isn't and 401 if the header doesn't match.
+    const fail = verifyCronSecret(request);
+    if (fail) return fail;
+  } else {
+    return NextResponse.json({ error: 'trigger_type must be manual or auto' }, { status: 400 });
   }
 
   const admin = createAdminClient();
   const today = new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).split('/').reverse().join('-');
 
+  // Fast path for the common "already sent today, not forcing a resend"
+  // case. Avoids fetching activity unnecessarily.
   const { data: existing } = await admin.from('eod_reports').select('id').eq('report_date', today).single();
   if (existing && !forceResend) {
     return NextResponse.json({ error: 'EOD report already sent today. Pass resend: true to update and resend.', report_id: existing.id }, { status: 409 });
@@ -201,6 +287,29 @@ export async function POST(request: Request) {
 
   if (!hasActivity) {
     return NextResponse.json({ error: 'No qualifying activity today', has_activity: false });
+  }
+
+  // EOD-2 fix: reserve the eod_reports row BEFORE Slack to make Slack
+  // delivery race-safe. Two concurrent first-clicks would previously
+  // both observe `existing=null` above, both POST to Slack, then the
+  // RPC's atomic upsert would dedupe the row — but Slack got the
+  // message twice. The reservation flips slack_status to 'pending' on
+  // the row (using either INSERT for first send, or a status-guarded
+  // UPDATE for forceResend) so the losing caller bails out with 409
+  // before reaching Slack. The RPC UPSERT below then overwrites the
+  // placeholder with the real status / payload / counts.
+  const reserved = await reserveEodSlot(admin, today, authUser?.id ?? null, triggerType);
+  if (!reserved.ok) {
+    return NextResponse.json(
+      {
+        error: forceResend
+          ? 'EOD report resend already in progress for today.'
+          : 'EOD report send already in progress for today.',
+        report_id: reserved.existingId,
+        slack_status: reserved.existingStatus,
+      },
+      { status: 409 },
+    );
   }
 
   let senderName = 'System (Auto)';
