@@ -2112,6 +2112,48 @@ export default function BudgetDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Sibling-collision confirm — fired by saveParentField when the
+          /api/budgets/update route returns 200 + warnings:
+          ['sibling_exists']. The user confirms by retrying the same
+          payload with force: true. */}
+      <Dialog
+        open={!!pendingSiblingConfirm}
+        onOpenChange={(open) => {
+          if (!open) setPendingSiblingConfirm(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sibling budget exists</DialogTitle>
+            <DialogDescription>
+              {pendingSiblingConfirm?.count === 1
+                ? '1 other active budget exists for this scope and period.'
+                : `${pendingSiblingConfirm?.count ?? 0} other active budgets exist for this scope and period.`}
+              {' '}Saving this change will leave both active.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPendingSiblingConfirm(null)}
+              disabled={savingParent}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const payload = pendingSiblingConfirm?.payload;
+                setPendingSiblingConfirm(null);
+                if (payload) saveParentField(payload, true);
+              }}
+              disabled={savingParent}
+            >
+              Save anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
