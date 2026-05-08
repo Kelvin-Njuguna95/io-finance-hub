@@ -2,13 +2,29 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AlertTriangle, Info, Save, Send, X } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { PageTitle } from '@/components/layout/page-title';
-import { formatYearMonth, getCurrentYearMonth } from '@/lib/format';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  formatCurrency,
+  formatYearMonth,
+  getCurrentYearMonth,
+} from '@/lib/format';
 import { toast } from 'sonner';
 import type { Department } from '@/types/database';
+import { ROLE_LABELS } from '@/types/database';
 import { getUserErrorMessage } from '@/lib/errors';
 import {
   getActiveProjects,
@@ -16,11 +32,21 @@ import {
 } from '@/lib/queries/projects';
 import { canSubmitDepartmentBudget } from '@/lib/permissions';
 import {
-  BudgetForm,
-  type ExistingBudgetSummary,
-  type ScopeKind,
-} from '@/components/budgets/budget-form';
-import type { LineItem } from '@/components/budgets/line-item-editor';
+  LineItemEditor,
+  type LineItem,
+} from '@/components/budgets/line-item-editor';
+
+type ScopeKind = 'project' | 'department';
+
+type ExistingBudgetSummary = {
+  submitted_by_role: string;
+  submitted_by_name: string;
+  submitted_at: string;
+  total_kes: number;
+  status: string;
+};
+
+const MONTH_OPTIONS = 6;
 
 function generateId() {
   return Math.random().toString(36).substring(2, 15);
@@ -419,6 +445,12 @@ export default function NewBudgetPage() {
     user?.role === 'accountant';
   const showFirstSubmitterNotice =
     isAccountant || user?.role === 'team_leader';
+  const activeScopeOptions =
+    scopeType === 'project'
+      ? projects
+      : departments.map((d) => ({ id: d.id, name: d.name }));
+  const selectedScopeName =
+    activeScopeOptions.find((s) => s.id === scopeId)?.name ?? '';
 
   return (
     <div>
@@ -435,36 +467,250 @@ export default function NewBudgetPage() {
       </div>
 
       <div className="p-6">
-        <BudgetForm
-          scopeOptions={{
-            projects,
-            departments: departments.map((d) => ({ id: d.id, name: d.name })),
-            canCreateDepartment: canCreateDepartmentBudget,
-          }}
-          scope={{ type: scopeType, id: scopeId, yearMonth }}
-          onScopeChange={(next) => {
-            if (next.type !== undefined) setScopeType(next.type);
-            if (next.id !== undefined) setScopeId(next.id);
-            if (next.yearMonth !== undefined) setYearMonth(next.yearMonth);
-          }}
-          notes={notes}
-          onNotesChange={setNotes}
-          items={items}
-          categories={categories}
-          lineItemHandlers={{
-            onAdd: addItem,
-            onRemove: removeItem,
-            onUpdate: updateItem,
-          }}
-          existingBudgets={existingBudgets}
-          miscGateBlocked={miscGateBlocked}
-          miscGateMessage={miscGateMessage}
-          submitting={saving}
-          showScopeTypeToggle={showScopeTypeToggle}
-          showFirstSubmitterNotice={showFirstSubmitterNotice}
-          onDiscard={() => router.push('/budgets')}
-          onSave={handleSave}
-        />
+        {/* Two-column form layout: 1.6fr / 1fr on desktop, stack on mobile */}
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.6fr_1fr]">
+          {/* Left column — basics + line items */}
+          <div className="space-y-6">
+            {/* Card 1 — Budget basics */}
+            <section className="rounded-lg border border-border bg-card p-6">
+              <header className="mb-4">
+                <h3 className="font-display text-[17px] font-medium text-foreground">
+                  Budget basics
+                </h3>
+                <p className="mt-1 text-[12.5px] text-[var(--warm-grey-3)]">
+                  Pick the scope and period. The budget number is generated on submit.
+                </p>
+              </header>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {showScopeTypeToggle && (
+                  <div className="space-y-1.5">
+                    <Label>Scope type</Label>
+                    <Select
+                      value={scopeType}
+                      onValueChange={(v) => {
+                        if (!v) return;
+                        setScopeType(v as ScopeKind);
+                        setScopeId('');
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="project">Project</SelectItem>
+                        {canCreateDepartmentBudget && (
+                          <SelectItem value="department">Department</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <Label>{scopeType === 'project' ? 'Project' : 'Department'} *</Label>
+                  <Select
+                    value={scopeId || undefined}
+                    onValueChange={(v) => v && setScopeId(v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeScopeOptions.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Period</Label>
+                  <Select
+                    value={yearMonth}
+                    onValueChange={(v) => v && setYearMonth(v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: MONTH_OPTIONS }, (_, i) => {
+                        const d = new Date();
+                        d.setMonth(d.getMonth() + i);
+                        const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return (
+                          <SelectItem key={ym} value={ym}>
+                            {formatYearMonth(ym)}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {scopeId && scopeType === 'project' && existingBudgets.length > 0 && (
+                <div className="mt-4 space-y-1 rounded-lg border border-warning/30 bg-warning-soft/40 p-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-warning-soft-foreground">
+                    <AlertTriangle className="size-4" />
+                    {selectedScopeName} — {formatYearMonth(yearMonth)}
+                  </div>
+                  <p className="text-sm text-warning-soft-foreground">
+                    Existing budgets this month:
+                  </p>
+                  {existingBudgets.map((eb, i) => (
+                    <p key={i} className="pl-2 text-sm text-warning-soft-foreground">
+                      — Submitted by <strong>{eb.submitted_by_name}</strong> (
+                      {ROLE_LABELS[eb.submitted_by_role as keyof typeof ROLE_LABELS] ??
+                        eb.submitted_by_role}
+                      )
+                      {eb.status !== 'draft' && (
+                        <>
+                          {' '}
+                          · {formatCurrency(eb.total_kes, 'KES')} · Status: {eb.status}
+                        </>
+                      )}
+                    </p>
+                  ))}
+                  <p className="mt-1 text-xs text-warning-soft-foreground">
+                    Submitting yours will create an additional version. Both will be
+                    visible to the PM for review.
+                  </p>
+                </div>
+              )}
+
+              {scopeId &&
+                scopeType === 'project' &&
+                existingBudgets.length === 0 &&
+                showFirstSubmitterNotice && (
+                  <div className="mt-4 rounded-lg border border-info/40 bg-info-soft/40 p-3">
+                    <div className="flex items-center gap-2 text-sm text-info-soft-foreground">
+                      <Info className="size-4" />
+                      No budget submitted yet for this period. You are the first to
+                      submit.
+                    </div>
+                  </div>
+                )}
+
+              {scopeType === 'department' && scopeId && (
+                <div className="mt-4 rounded-lg border border-info/40 bg-info-soft/40 p-3">
+                  <div className="flex items-center gap-2 text-sm text-info-soft-foreground">
+                    <Info className="size-4" />
+                    Department expenditures are classified as{' '}
+                    <strong>shared costs</strong> and will be distributed across
+                    projects during P&amp;L reporting.
+                  </div>
+                </div>
+              )}
+
+              {miscGateBlocked && (
+                <div className="mt-4 rounded-lg border border-danger/30 bg-danger-soft/40 p-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-danger-soft-foreground">
+                    <AlertTriangle className="size-4" />
+                    Submission blocked
+                  </div>
+                  <p className="mt-1 text-sm text-danger-soft-foreground">
+                    {miscGateMessage}
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-5 space-y-1.5">
+                <Label htmlFor="budget-description">Description</Label>
+                <Textarea
+                  id="budget-description"
+                  placeholder="What this budget pays for, written in sentence case."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                />
+                <p className="text-[11.5px] text-[var(--warm-grey-3)]">
+                  Treasury register. No marketing voice.
+                </p>
+              </div>
+            </section>
+
+            {/* Card 2 — Line items */}
+            <section className="rounded-lg border border-border bg-card p-6">
+              <header className="mb-4">
+                <h3 className="font-display text-[17px] font-medium text-foreground">
+                  Line items
+                </h3>
+                <p className="mt-1 text-[12.5px] text-[var(--warm-grey-3)]">
+                  Break the budget into categories. Each line is a quantity × unit
+                  cost.
+                </p>
+              </header>
+              <LineItemEditor
+                items={items}
+                categories={categories}
+                onAdd={addItem}
+                onRemove={removeItem}
+                onUpdate={updateItem}
+              />
+            </section>
+          </div>
+
+          {/* Right column — sticky summary placeholder (filled in commit 3) */}
+          <aside className="space-y-6">
+            <section
+              className="rounded-lg border border-border bg-card p-6 lg:sticky lg:top-20"
+            >
+              <header className="mb-3">
+                <h3 className="font-display text-[17px] font-medium text-foreground">
+                  Summary
+                </h3>
+                <p className="mt-1 text-[12.5px] text-[var(--warm-grey-3)]">
+                  Live as you edit.
+                </p>
+              </header>
+              <div className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+                Approved total
+              </div>
+              <div className="mt-2 font-mono text-[32px] font-medium leading-none tracking-[-0.01em] tabular-nums text-foreground">
+                <span className="mr-1.5 text-xs text-muted-foreground tracking-[0.04em]">KES</span>
+                {totalKes.toLocaleString('en-KE')}
+              </div>
+              <p className="mt-4 text-[12.5px] text-[var(--warm-grey-3)]">
+                Summary panel content lands in the next commit.
+              </p>
+            </section>
+          </aside>
+        </div>
+
+        {/* Sticky footer — buttons move into the summary panel in commit 3 */}
+        <div className="sticky bottom-0 z-10 -mx-6 mt-6 border-t border-border bg-background/95 px-6 py-3 backdrop-blur">
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/budgets')}
+              disabled={saving}
+              className="gap-1"
+            >
+              <X className="size-4" /> Discard
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleSave(false)}
+              disabled={saving}
+              className="gap-1"
+            >
+              <Save className="size-4" /> Save as draft
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => handleSave(true)}
+              disabled={saving || miscGateBlocked}
+              className="gap-1"
+            >
+              <Send className="size-4" /> Submit for approval
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
