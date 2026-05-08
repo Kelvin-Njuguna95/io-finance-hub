@@ -14,6 +14,15 @@ function createAdminClient() {
   );
 }
 
+/** Add one day to a YYYY-MM-DD string. Africa/Nairobi has no DST so
+ *  UTC arithmetic is safe for incrementing the calendar day. Mirrors
+ *  the helper in /api/eod/route.ts. */
+function nextDayYmd(ymd: string): string {
+  const dt = new Date(`${ymd}T00:00:00Z`);
+  dt.setUTCDate(dt.getUTCDate() + 1);
+  return dt.toISOString().slice(0, 10);
+}
+
 export async function GET(request: Request) {
   const fail = verifyCronSecret(request);
   if (fail) return fail;
@@ -59,18 +68,45 @@ export async function GET(request: Request) {
     return NextResponse.json({ skipped: true, reason: 'Report already sent today' });
   }
 
+  // EOD-6: bound is next-day midnight, not 23:59:59 — Postgres timestamptz
+  // is microsecond precision and the old upper bound dropped any row in
+  // the final second of the day.
+  const tomorrow = nextDayYmd(today);
+  const dayStart = `${today}T00:00:00+03:00`;
+  const dayEnd = `${tomorrow}T00:00:00+03:00`;
+
   // Check for qualifying activity
   const [expRes, wdRes, payRes] = await Promise.all([
     admin.from('expenses').select('id', { count: 'exact', head: true })
-      .gte('created_at', `${today}T00:00:00+03:00`)
-      .lt('created_at', `${today}T23:59:59+03:00`),
+      .gte('created_at', dayStart)
+      .lt('created_at', dayEnd),
     admin.from('withdrawals').select('id', { count: 'exact', head: true })
-      .gte('created_at', `${today}T00:00:00+03:00`)
-      .lt('created_at', `${today}T23:59:59+03:00`),
+      .gte('created_at', dayStart)
+      .lt('created_at', dayEnd),
     admin.from('payments').select('id', { count: 'exact', head: true })
-      .gte('created_at', `${today}T00:00:00+03:00`)
-      .lt('created_at', `${today}T23:59:59+03:00`),
+      .gte('created_at', dayStart)
+      .lt('created_at', dayEnd),
   ]);
+
+  // EOD-7: surface section query failures rather than silently treating
+  // them as zero counts. A failed query previously rolled out as count=0
+  // and auto-send would skip with "no qualifying activity today" —
+  // indistinguishable from a real no-activity day.
+  for (const [name, res] of [
+    ['expenses', expRes],
+    ['withdrawals', wdRes],
+    ['payments', payRes],
+  ] as const) {
+    if (res.error) {
+      return NextResponse.json(
+        {
+          error: `EOD auto-send count query "${name}" failed: ${res.error.message}`,
+          code: 'EOD_AUTO_SEND_QUERY_FAILED',
+        },
+        { status: 500 },
+      );
+    }
+  }
 
   const expenseCount = expRes.count || 0;
   const withdrawalCount = wdRes.count || 0;

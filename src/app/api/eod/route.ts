@@ -26,33 +26,72 @@ async function getAuthUser(request: Request) {
   return user;
 }
 
-/** Fetch all of today's financial activity */
+/** Add one day to a YYYY-MM-DD string. Africa/Nairobi has no DST so
+ *  UTC arithmetic is safe for incrementing the calendar day. */
+function nextDayYmd(ymd: string): string {
+  const dt = new Date(`${ymd}T00:00:00Z`);
+  dt.setUTCDate(dt.getUTCDate() + 1);
+  return dt.toISOString().slice(0, 10);
+}
+
+/** Fetch all of today's financial activity.
+ *
+ * EOD-6: upper bound is next-day midnight (`tomorrow T00:00:00+03:00`),
+ * not `today T23:59:59+03:00`. Postgres timestamptz precision is
+ * microseconds and the old `<23:59:59` bound silently dropped any row
+ * landing in the final second of the day.
+ *
+ * EOD-7: section-query failures are now thrown rather than rolled out
+ * to `[]`. A failed query previously rendered as "no expenses today"
+ * indistinguishable from a real no-activity day; that masked schema
+ * drift, RLS denials, and network blips.
+ */
 async function fetchTodayActivity(admin: /* // */ any, today: string) {
+  const tomorrow = nextDayYmd(today);
+  const dayStart = `${today}T00:00:00+03:00`;
+  const dayEnd = `${tomorrow}T00:00:00+03:00`;
+
   const [expRes, wdByCreated, wdByDate, cashByCreated, cashByDate, budRes] = await Promise.all([
     // Expenses created today
     admin.from('expenses').select('id, description, amount_kes, expense_type, project_id, projects(name), expense_categories(name)')
-      .gte('created_at', `${today}T00:00:00+03:00`)
-      .lt('created_at', `${today}T23:59:59+03:00`),
+      .gte('created_at', dayStart)
+      .lt('created_at', dayEnd),
     // Withdrawals created today
     admin.from('withdrawals').select('id, director_tag, amount_usd, exchange_rate, amount_kes, forex_bureau, withdrawal_date')
-      .gte('created_at', `${today}T00:00:00+03:00`)
-      .lt('created_at', `${today}T23:59:59+03:00`),
+      .gte('created_at', dayStart)
+      .lt('created_at', dayEnd),
     // Withdrawals with withdrawal_date = today (catches entries recorded for today regardless of created_at)
     admin.from('withdrawals').select('id, director_tag, amount_usd, exchange_rate, amount_kes, forex_bureau, withdrawal_date')
       .eq('withdrawal_date', today),
     // Cash received (payments) created today
     admin.from('payments').select('id, amount_usd, amount_kes, payment_date, reference, invoices(invoice_number, projects(name))')
-      .gte('created_at', `${today}T00:00:00+03:00`)
-      .lt('created_at', `${today}T23:59:59+03:00`),
+      .gte('created_at', dayStart)
+      .lt('created_at', dayEnd),
     // Cash received with payment_date = today (captures backfilled entries)
     admin.from('payments').select('id, amount_usd, amount_kes, payment_date, reference, invoices(invoice_number, projects(name))')
       .eq('payment_date', today),
     // Budget actions today
     admin.from('budget_versions').select('id, status, budget_id, budgets(project_id, department_id, projects(name), departments(name))')
       .in('status', ['submitted', 'under_review'])
-      .gte('updated_at', `${today}T00:00:00+03:00`)
-      .lt('updated_at', `${today}T23:59:59+03:00`),
+      .gte('updated_at', dayStart)
+      .lt('updated_at', dayEnd),
   ]);
+
+  const sectionResults: Array<readonly [string, { error?: { message?: string } | null }]> = [
+    ['expenses', expRes],
+    ['withdrawals_by_created', wdByCreated],
+    ['withdrawals_by_date', wdByDate],
+    ['payments_by_created', cashByCreated],
+    ['payments_by_date', cashByDate],
+    ['budget_actions', budRes],
+  ];
+  for (const [name, res] of sectionResults) {
+    if (res.error) {
+      throw new Error(
+        `EOD section query "${name}" failed: ${res.error.message ?? 'unknown error'}`,
+      );
+    }
+  }
 
   // Merge withdrawals from both queries, dedup by id
   const allWd = [...(wdByCreated.data || []), ...(wdByDate.data || [])];
@@ -124,8 +163,21 @@ export async function GET(request: Request) {
     .single();
 
   // Live activity drives `summary` and `has_activity` (used by the panel's
-  // new-activity-since-send callout).
-  const liveActivity = await fetchTodayActivity(admin, today);
+  // new-activity-since-send callout). EOD-7: surface section-query
+  // failures as 500 instead of falsely rendering "no activity today".
+  let liveActivity: TodayActivity;
+  try {
+    liveActivity = await fetchTodayActivity(admin, today);
+  } catch (err) {
+    console.error('EOD GET: section query failed', err);
+    return NextResponse.json(
+      {
+        error: err instanceof Error ? err.message : 'Failed to load EOD activity',
+        code: 'EOD_SECTION_QUERY_FAILED',
+      },
+      { status: 500 },
+    );
+  }
   const { expenses, withdrawals, cashReceipts, budgetActions } = liveActivity;
   const totalExpenseKes = expenses.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
   const hasActivity = expenses.length > 0 || withdrawals.length > 0 || cashReceipts.length > 0 || budgetActions.length > 0;
@@ -281,7 +333,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'EOD report already sent today. Pass resend: true to update and resend.', report_id: existing.id }, { status: 409 });
   }
 
-  const activity = await fetchTodayActivity(admin, today);
+  // EOD-7: bail with 500 on any section-query failure rather than ship a
+  // Slack message that falsely claims "no activity today" when a query
+  // actually errored. Reservation hasn't happened yet, so no compensating
+  // write is needed.
+  let activity: TodayActivity;
+  try {
+    activity = await fetchTodayActivity(admin, today);
+  } catch (err) {
+    console.error('EOD POST: section query failed (pre-reservation)', err);
+    return NextResponse.json(
+      {
+        error: err instanceof Error ? err.message : 'Failed to load EOD activity',
+        code: 'EOD_SECTION_QUERY_FAILED',
+      },
+      { status: 500 },
+    );
+  }
   const { expenses, withdrawals, cashReceipts, budgetActions } = activity;
   const hasActivity = expenses.length > 0 || withdrawals.length > 0 || cashReceipts.length > 0 || budgetActions.length > 0;
 
@@ -369,8 +437,54 @@ export async function POST(request: Request) {
     p_budget_action_count: budgetActions.length,
   });
 
+  let reportId: string | null = (report as { id?: string } | null)?.id ?? null;
+
+  // EOD-8: if the RPC fails AFTER Slack already happened (or after the
+  // reservation was placed), don't leave the row stuck at 'pending'
+  // forever. Compensate with a direct UPDATE on the reserved row so
+  // slack_status reflects the actual delivery outcome. The RPC's audit
+  // and red_flag side effects are lost on this branch — log the gap
+  // for forensic visibility but don't fail the user-facing send when
+  // Slack already delivered.
   if (rpcErr) {
-    return NextResponse.json({ error: rpcErr.message, code: 'EOD_REPORT_SEND_FAILED' }, { status: 500 });
+    console.error(
+      `EOD-8: fn_eod_report_send failed (slack_status=${slackStatus}); ` +
+      `compensating with direct UPDATE on eod_reports. Audit/red_flag ` +
+      `side effects skipped. RPC error: ${rpcErr.message}`,
+    );
+    const { data: updated, error: updErr } = await admin
+      .from('eod_reports')
+      .update({
+        sent_by: authUser?.id ?? null,
+        trigger_type: triggerType,
+        slack_status: slackStatus,
+        error_message: errorMessage,
+        payload,
+        expense_count: expenses.length,
+        withdrawal_count: withdrawals.length,
+        cash_received_count: cashReceipts.length,
+        budget_action_count: budgetActions.length,
+      })
+      .eq('report_date', today)
+      .select('id')
+      .maybeSingle();
+
+    if (updErr || !updated) {
+      // Compensation also failed. Surface the original RPC error and the
+      // fact that the reserved row may be stuck at 'pending'. Slack
+      // delivery state is still correct; only the audit row is the gap.
+      return NextResponse.json(
+        {
+          error: `EOD send: ${rpcErr.message}`,
+          code: 'EOD_REPORT_SEND_FAILED',
+          slack_status: slackStatus,
+          slack_message_sent: slackStatus === 'success',
+          compensating_update_error: updErr?.message ?? 'row not found',
+        },
+        { status: 500 },
+      );
+    }
+    reportId = updated.id;
   }
 
   // Notifications post-RPC (mirrors 00042's notifications-post-RPC pattern).
@@ -397,10 +511,11 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     success: true,
-    report_id: (report as { id: string }).id,
+    report_id: reportId,
     slack_status: slackStatus,
     error_message: errorMessage,
     resent: !!existing,
     preview: msg,
+    ...(rpcErr ? { audit_log_skipped: true } : {}),
   });
 }
