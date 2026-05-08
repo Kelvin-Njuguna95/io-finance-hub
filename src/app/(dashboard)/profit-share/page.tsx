@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Download, FileSignature } from 'lucide-react';
+import { CheckCircle2, Download, FileSignature, History } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useUser } from '@/hooks/use-user';
@@ -23,6 +23,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  PredatedPayoutDialog,
+  type PredatedDirectorOption,
+  type PredatedProjectOption,
+} from '@/components/profit-share/predated-payout-dialog';
+import { createClient } from '@/lib/supabase/client';
 import {
   formatCompactKES,
   formatYearMonth,
@@ -69,6 +75,60 @@ export default function ProfitSharePage() {
   const ps = useProfitShare(selectedMonth);
   const summary = ps.summary;
 
+  // Predated-payout dialog (PRED-3). Loads its own director + project
+  // option lists — useProfitShare exposes DirectorShare aggregates
+  // (rolled up by tag), not the user_id list the dialog needs.
+  const canRecordPredated =
+    user?.role === 'cfo' || user?.role === 'accountant';
+  const [predatedDialogOpen, setPredatedDialogOpen] = useState(false);
+  const [predatedDirectors, setPredatedDirectors] = useState<
+    PredatedDirectorOption[]
+  >([]);
+  const [predatedProjects, setPredatedProjects] = useState<
+    PredatedProjectOption[]
+  >([]);
+
+  useEffect(() => {
+    if (!canRecordPredated) return;
+    const supabase = createClient();
+    let cancelled = false;
+    (async () => {
+      // Distinct director_user_ids from projects (active OR inactive),
+      // then resolve to user names. Predated payouts can target a
+      // historical director who's no longer assigned.
+      const [{ data: projectRows }, { data: usersRows }] = await Promise.all([
+        supabase
+          .from('projects')
+          .select('id, name, is_active, director_user_id')
+          .order('name'),
+        supabase.from('users').select('id, full_name'),
+      ]);
+      if (cancelled) return;
+      const userMap = new Map<string, string>();
+      for (const u of usersRows ?? []) {
+        if (u.id) userMap.set(u.id, u.full_name ?? 'Unknown');
+      }
+      const directorIds = new Set<string>();
+      const projectOpts: PredatedProjectOption[] = [];
+      for (const p of projectRows ?? []) {
+        if (p.director_user_id) directorIds.add(p.director_user_id);
+        projectOpts.push({
+          id: p.id,
+          name: p.name ?? 'Unnamed project',
+          is_active: !!p.is_active,
+        });
+      }
+      const directorOpts: PredatedDirectorOption[] = Array.from(directorIds)
+        .filter((id) => userMap.has(id))
+        .map((id) => ({ id, full_name: userMap.get(id)! }));
+      setPredatedDirectors(directorOpts);
+      setPredatedProjects(projectOpts);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canRecordPredated]);
+
   const months = useMemo(
     () =>
       Array.from({ length: 12 }, (_, i) => {
@@ -107,6 +167,17 @@ export default function ProfitSharePage() {
                   ))}
                 </SelectContent>
               </Select>
+              {canRecordPredated && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => setPredatedDialogOpen(true)}
+                  title="Record a director payout that occurred before the app was adopted"
+                >
+                  <History className="size-4" /> Record predated
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -223,6 +294,16 @@ export default function ProfitSharePage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {canRecordPredated && (
+        <PredatedPayoutDialog
+          open={predatedDialogOpen}
+          onOpenChange={setPredatedDialogOpen}
+          directors={predatedDirectors}
+          projects={predatedProjects}
+          onSuccess={() => ps.refresh?.()}
+        />
+      )}
     </div>
   );
 }
