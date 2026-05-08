@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { EXPENSE_STATUS } from '@/lib/constants/status';
 import type {
@@ -82,6 +82,13 @@ export function useBudgetDetail(budgetId: string | null | undefined) {
   const [userNames, setUserNames] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  // Tracks the budget.current_version observed on the previous load so
+  // we can detect a version-bump (caused by an action handler — resubmit,
+  // cfo-approve, cfo-revert, withdraw, pm-review, etc.) and reset
+  // activeVersionId to the new current. Without this, after an action
+  // load() preserves whatever version the user was viewing and the page
+  // shows stale status + items until a manual refresh.
+  const lastCurrentVersionRef = useRef<number | null>(null);
 
   const load = useCallback(async () => {
     if (!budgetId) {
@@ -132,7 +139,24 @@ export function useBudgetDetail(budgetId: string | null | undefined) {
       const initialActive =
         versionRows.find((v) => v.version_number === b.current_version) ??
         versionRows[0];
-      setActiveVersionId((current) => current ?? initialActive?.id ?? null);
+      setActiveVersionId((current) => {
+        // First mount, or the previously-selected version is gone:
+        // initialise to the current version.
+        const stillExists = current
+          ? versionRows.some((v) => v.id === current)
+          : false;
+        // An action that bumped the parent's current_version since the
+        // last load — flip back to the new current rather than keeping
+        // the user pinned to a now-stale older version.
+        const versionBumped =
+          lastCurrentVersionRef.current !== null &&
+          lastCurrentVersionRef.current !== b.current_version;
+        if (current && stillExists && !versionBumped) {
+          return current;
+        }
+        return initialActive?.id ?? null;
+      });
+      lastCurrentVersionRef.current = b.current_version;
 
       const versionIds = versionRows.map((v) => v.id);
       const approvalsRes =
