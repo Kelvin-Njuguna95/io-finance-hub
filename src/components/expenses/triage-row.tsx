@@ -1,18 +1,48 @@
 'use client';
 
-import { Check, Clock, MessageCircle, Paperclip, Repeat, TrendingUp, X } from 'lucide-react';
+import { useState } from 'react';
+import { Check, Clock, MessageCircle, Paperclip, Pencil, Repeat, TrendingUp, X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { toast } from 'sonner';
 import type { PendingExpenseRow } from '@/hooks/use-expense-queue';
 
 const NAIROBI_TZ = 'Africa/Nairobi';
+
+export type TriageRowEdits = {
+  actual_amount_kes: number;
+  description: string;
+  category: string;
+  expense_date: string;
+};
+
+export type CategoryOption = { id: string; name: string };
 
 export type TriageRowActions = {
   onApprove(): void;
   onAskForChanges(): void;
   onReject(): void;
+  /** When set on a "your turn" row, the row offers an inline-edit Pencil
+   *  affordance that calls this on Save & Approve. */
+  onSaveAndApprove?: (edits: TriageRowEdits) => void;
+  /** Gates the Pencil icon; only true for accountant + CFO. */
+  canEdit?: boolean;
+  /** Category options for the dropdown when editing. The row picks
+   *  expense vs overhead based on its own scope (project_id presence). */
+  categories?: {
+    expense: CategoryOption[];
+    overhead: CategoryOption[];
+  };
 };
 
 type TriageRowProps = {
@@ -98,6 +128,61 @@ export function TriageRow({
   const projectionAddPct = Math.max(0, row.budgetProjectedPct - utilizationPct);
   const projectionVisualPct = Math.min(100 - utilizationPct, projectionAddPct);
 
+  const todayIso = new Date().toISOString().split('T')[0];
+  const [editing, setEditing] = useState(false);
+  const [editDescription, setEditDescription] = useState(row.description);
+  const [editCategory, setEditCategory] = useState(row.category ?? '');
+  const [editAmount, setEditAmount] = useState(String(row.budgetedAmountKes ?? 0));
+  const [editDate, setEditDate] = useState(todayIso);
+
+  const canShowEdit = Boolean(
+    isYourTurn && actions?.canEdit && actions?.onSaveAndApprove,
+  );
+  // Project-scoped rows pick from expense_categories; shared rows from
+  // overhead_categories. Fallback to combined list if scope is ambiguous.
+  const categoryOptions: CategoryOption[] = (() => {
+    const expense = actions?.categories?.expense ?? [];
+    const overhead = actions?.categories?.overhead ?? [];
+    if (row.projectId) return expense;
+    if (row.departmentName) return overhead;
+    return [...expense, ...overhead];
+  })();
+
+  function enterEdit() {
+    setEditDescription(row.description);
+    setEditCategory(row.category ?? '');
+    setEditAmount(String(row.budgetedAmountKes ?? 0));
+    setEditDate(todayIso);
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+  }
+
+  function saveAndApprove() {
+    const amount = Number(editAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Amount must be greater than zero');
+      return;
+    }
+    if (!editDescription.trim()) {
+      toast.error('Description is required');
+      return;
+    }
+    if (!editCategory) {
+      toast.error('Category is required');
+      return;
+    }
+    actions?.onSaveAndApprove?.({
+      actual_amount_kes: amount,
+      description: editDescription.trim(),
+      category: editCategory,
+      expense_date: editDate,
+    });
+    setEditing(false);
+  }
+
   return (
     <div
       className={cn(
@@ -138,18 +223,49 @@ export function TriageRow({
           <span className="text-[var(--paper-4)]">·</span>
           <span>Submitted {submittedAt}</span>
         </p>
-        <p className="mt-1 truncate text-[14px] font-medium leading-snug text-foreground">
-          {row.description}
-        </p>
-        <p className="mt-1 truncate text-[12px] text-[var(--warm-grey-3)]">
-          {row.category && (
-            <>
-              <span className="font-medium text-foreground">{row.category}</span>
-              {' · '}
-            </>
-          )}
-          {STAGE_LABEL[row.status] ?? row.status}
-        </p>
+        {editing ? (
+          <Input
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+            placeholder="Description"
+            className="mt-1 h-8 text-[13px]"
+            disabled={processing}
+          />
+        ) : (
+          <p className="mt-1 truncate text-[14px] font-medium leading-snug text-foreground">
+            {row.description}
+          </p>
+        )}
+        {editing ? (
+          <div className="mt-1.5">
+            <Select
+              value={editCategory || undefined}
+              onValueChange={(v) => v && setEditCategory(v)}
+              disabled={processing}
+            >
+              <SelectTrigger className="h-8 text-[12px]">
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categoryOptions.map((c) => (
+                  <SelectItem key={c.id} value={c.name}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <p className="mt-1 truncate text-[12px] text-[var(--warm-grey-3)]">
+            {row.category && (
+              <>
+                <span className="font-medium text-foreground">{row.category}</span>
+                {' · '}
+              </>
+            )}
+            {STAGE_LABEL[row.status] ?? row.status}
+          </p>
+        )}
         <div className="mt-2 flex flex-wrap gap-1.5">
           {row.budgetIsOver && (
             <Chip tone="danger">
@@ -266,79 +382,155 @@ export function TriageRow({
         </span>
       </div>
 
-      {/* Col 6 — amount + stage */}
+      {/* Col 6 — amount + stage (or amount + date when editing) */}
       <div className="text-right font-mono leading-tight">
-        <div>
-          <span className="mr-1 text-[10px] uppercase tracking-[0.04em] text-muted-foreground">
-            KES
-          </span>
-          <span className="text-[17px] font-medium tabular-nums text-foreground">
-            {row.budgetedAmountKes.toLocaleString('en-KE', {
-              maximumFractionDigits: 0,
-            })}
-          </span>
-        </div>
-        <span className="mt-1.5 block text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-          {row.status === 'pending_auth' ? (
-            <>
-              Next: <strong className="font-medium text-foreground">Confirm</strong>
-            </>
-          ) : (
-            <>
-              At:{' '}
-              <strong className="font-medium text-foreground">
-                {row.status === 'under_review' ? 'Review' : 'Awaiting confirm'}
-              </strong>
-            </>
-          )}
-        </span>
+        {editing ? (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-end gap-1">
+              <span className="text-[10px] uppercase tracking-[0.04em] text-muted-foreground">
+                KES
+              </span>
+              <Input
+                type="number"
+                step="0.01"
+                min={0}
+                value={editAmount}
+                onChange={(e) => setEditAmount(e.target.value)}
+                disabled={processing}
+                className="h-8 w-[110px] text-right text-[13px] tabular-nums"
+              />
+            </div>
+            <Input
+              type="date"
+              value={editDate}
+              onChange={(e) => setEditDate(e.target.value)}
+              disabled={processing}
+              className="ml-auto h-8 w-[140px] text-right text-[12px] tabular-nums"
+            />
+          </div>
+        ) : (
+          <>
+            <div>
+              <span className="mr-1 text-[10px] uppercase tracking-[0.04em] text-muted-foreground">
+                KES
+              </span>
+              <span className="text-[17px] font-medium tabular-nums text-foreground">
+                {row.budgetedAmountKes.toLocaleString('en-KE', {
+                  maximumFractionDigits: 0,
+                })}
+              </span>
+            </div>
+            <span className="mt-1.5 block text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+              {row.status === 'pending_auth' ? (
+                <>
+                  Next: <strong className="font-medium text-foreground">Confirm</strong>
+                </>
+              ) : (
+                <>
+                  At:{' '}
+                  <strong className="font-medium text-foreground">
+                    {row.status === 'under_review' ? 'Review' : 'Awaiting confirm'}
+                  </strong>
+                </>
+              )}
+            </span>
+          </>
+        )}
       </div>
 
       {/* Col 7 — actions or pending-stage */}
       <div className="flex justify-end">
         {isYourTurn && actions ? (
-          <div className="flex gap-1.5">
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Reject"
-              className="size-9 hover:border-[var(--danger-soft)] hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
-              disabled={processing}
-              onClick={(e) => {
-                e.stopPropagation();
-                actions.onReject();
-              }}
-            >
-              <X className="size-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Ask for changes"
-              className="size-9"
-              disabled={processing}
-              onClick={(e) => {
-                e.stopPropagation();
-                actions.onAskForChanges();
-              }}
-            >
-              <MessageCircle className="size-4" />
-            </Button>
-            <Button
-              size="sm"
-              className={cn(
-                'h-9 gap-1.5 border border-foreground bg-foreground px-3.5 text-background hover:bg-[var(--ink-2)]',
+          editing ? (
+            <div className="flex gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label="Cancel edit"
+                className="h-9 gap-1.5 px-3"
+                disabled={processing}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  cancelEdit();
+                }}
+              >
+                <X className="size-4" />
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className={cn(
+                  'h-9 gap-1.5 border border-foreground bg-foreground px-3.5 text-background hover:bg-[var(--ink-2)]',
+                )}
+                disabled={processing}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  saveAndApprove();
+                }}
+              >
+                <Check className="size-4 text-[var(--gold)]" strokeWidth={2} />
+                Save &amp; Approve
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-1.5">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Reject"
+                className="size-9 hover:border-[var(--danger-soft)] hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
+                disabled={processing}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  actions.onReject();
+                }}
+              >
+                <X className="size-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Ask for changes"
+                className="size-9"
+                disabled={processing}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  actions.onAskForChanges();
+                }}
+              >
+                <MessageCircle className="size-4" />
+              </Button>
+              {canShowEdit && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Edit before approving"
+                  className="size-9"
+                  disabled={processing}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    enterEdit();
+                  }}
+                >
+                  <Pencil className="size-4" />
+                </Button>
               )}
-              disabled={processing}
-              onClick={(e) => {
-                e.stopPropagation();
-                actions.onApprove();
-              }}
-            >
-              <Check className="size-4 text-[var(--gold)]" strokeWidth={2} />
-              Approve
-            </Button>
-          </div>
+              <Button
+                size="sm"
+                className={cn(
+                  'h-9 gap-1.5 border border-foreground bg-foreground px-3.5 text-background hover:bg-[var(--ink-2)]',
+                )}
+                disabled={processing}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  actions.onApprove();
+                }}
+              >
+                <Check className="size-4 text-[var(--gold)]" strokeWidth={2} />
+                Approve
+              </Button>
+            </div>
+          )
         ) : (
           <div className="text-right font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
             with{' '}
