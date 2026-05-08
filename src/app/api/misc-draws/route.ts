@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient, getAuthUserProfile, assertMonthOpen } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
+import {
+  fetchExistingByIdempotencyKey,
+  isIdempotencyConflict,
+  isValidUuid,
+  logDuplicateSubmissionBlocked,
+} from '@/lib/idempotency';
 import { formatKES } from '@/lib/utils/currency';
 import { createNotification } from '@/lib/notifications';
 
@@ -199,6 +205,16 @@ export async function POST(request: Request) {
   // draw_standing
   // -------------------------------------------------------
   if (action === 'draw_standing') {
+    if (!isValidUuid(body.idempotency_key)) {
+      return NextResponse.json(
+        {
+          error: 'idempotency_key is required and must be a valid UUID.',
+          code: 'IDEMPOTENCY_KEY_INVALID',
+        },
+        { status: 400 },
+      );
+    }
+
     // Only CFO or assigned PM/TL
     if (isProjectLeadRole(profile.role)) {
       const { data: assignment } = await admin.from('user_project_assignments')
@@ -215,8 +231,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No active misc allocation for this project' }, { status: 404 });
     }
 
-    // Insert standing draw — rely on idx_misc_draws_one_standing_per_month
-    // unique index for enforcement; surface 23505 violations as 409. (F-20)
+    // Insert standing draw. Two unique indexes can fire 23505 here:
+    //   • idx_misc_draws_idempotency_key  (00052) — duplicate-submission
+    //   • idx_misc_draws_one_standing_per_month (F-20) — one-standing-per-month
+    // The idempotency check (substring match on /idempotency_key/) only
+    // matches the first; legacy 23505 falls through to the 409 branch below.
     const { data: draw, error: drawErr } = await admin.from('misc_draws').insert({
       project_id,
       period_month: periodDate,
@@ -225,7 +244,25 @@ export async function POST(request: Request) {
       amount_approved: allocation.monthly_amount,
       status: 'approved',
       requested_by: authUser.id,
+      idempotency_key: body.idempotency_key,
     }).select().single();
+
+    if (drawErr && isIdempotencyConflict(drawErr)) {
+      const existing = await fetchExistingByIdempotencyKey<{ id: string } & Record<string, unknown>>(
+        admin,
+        'misc_draws',
+        body.idempotency_key,
+      );
+      if (existing) {
+        await logDuplicateSubmissionBlocked(admin, {
+          userId: authUser.id,
+          tableName: 'misc_draws',
+          recordId: existing.id,
+          idempotencyKey: body.idempotency_key,
+        });
+        return NextResponse.json({ success: true, draw: existing });
+      }
+    }
 
     if (drawErr) {
       if (drawErr.code === '23505') {
@@ -262,6 +299,16 @@ export async function POST(request: Request) {
   // submit_topup
   // -------------------------------------------------------
   if (action === 'submit_topup') {
+    if (!isValidUuid(body.idempotency_key)) {
+      return NextResponse.json(
+        {
+          error: 'idempotency_key is required and must be a valid UUID.',
+          code: 'IDEMPOTENCY_KEY_INVALID',
+        },
+        { status: 400 },
+      );
+    }
+
     const { amount, purpose, urgency } = body;
 
     if (!amount || !purpose) {
@@ -328,7 +375,25 @@ export async function POST(request: Request) {
       urgency: urgency || 'normal',
       status: 'approved',
       requested_by: authUser.id,
+      idempotency_key: body.idempotency_key,
     }).select().single();
+
+    if (drawErr && isIdempotencyConflict(drawErr)) {
+      const existing = await fetchExistingByIdempotencyKey<{ id: string } & Record<string, unknown>>(
+        admin,
+        'misc_draws',
+        body.idempotency_key,
+      );
+      if (existing) {
+        await logDuplicateSubmissionBlocked(admin, {
+          userId: authUser.id,
+          tableName: 'misc_draws',
+          recordId: existing.id,
+          idempotencyKey: body.idempotency_key,
+        });
+        return NextResponse.json({ success: true, draw: existing });
+      }
+    }
 
     if (drawErr) return NextResponse.json({ error: drawErr.message }, { status: 500 });
 
@@ -510,6 +575,16 @@ export async function POST(request: Request) {
   // accountant_raise — Accountant raises a misc draw on behalf of PM
   // -------------------------------------------------------
   if (action === 'accountant_raise') {
+    if (!isValidUuid(body.idempotency_key)) {
+      return NextResponse.json(
+        {
+          error: 'idempotency_key is required and must be a valid UUID.',
+          code: 'IDEMPOTENCY_KEY_INVALID',
+        },
+        { status: 400 },
+      );
+    }
+
     if (profile.role !== 'accountant') {
       return NextResponse.json({ error: 'Only accountants can raise proxy misc draws' }, { status: 403 });
     }
@@ -543,7 +618,25 @@ export async function POST(request: Request) {
       pm_approval_status: 'pending',
       accountant_notes: accountant_notes || null,
       revision_count: 0,
+      idempotency_key: body.idempotency_key,
     }).select().single();
+
+    if (drawErr && isIdempotencyConflict(drawErr)) {
+      const existing = await fetchExistingByIdempotencyKey<{ id: string } & Record<string, unknown>>(
+        admin,
+        'misc_draws',
+        body.idempotency_key,
+      );
+      if (existing) {
+        await logDuplicateSubmissionBlocked(admin, {
+          userId: authUser.id,
+          tableName: 'misc_draws',
+          recordId: existing.id,
+          idempotencyKey: body.idempotency_key,
+        });
+        return NextResponse.json({ success: true, draw: existing });
+      }
+    }
 
     if (drawErr) return NextResponse.json({ error: drawErr.message }, { status: 500 });
 

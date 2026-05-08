@@ -580,6 +580,13 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
   const [topUpAmount, setTopUpAmount] = useState('');
   const [topUpPurpose, setTopUpPurpose] = useState('');
   const [submittingTopUp, setSubmittingTopUp] = useState(false);
+  // Fresh idempotency key per top-up dialog open. Re-clicking submit
+  // inside the same open hits idx_misc_draws_idempotency_key (00052) and
+  // returns the existing row instead of writing a duplicate top-up.
+  const [topUpIdempotencyKey, regenerateTopUpIdempotencyKey] = useIdempotencyKey();
+  useEffect(() => {
+    if (showTopUp) regenerateTopUpIdempotencyKey();
+  }, [showTopUp, regenerateTopUpIdempotencyKey]);
 
   // Report state
   const [prevReport, setPrevReport] = useState</* // */ any>(null);
@@ -689,6 +696,7 @@ function PmMiscView({ user, selectedMonth }: { user: /* // */ any; selectedMonth
         period_month: selectedMonth,
         amount: parsedAmount,
         purpose: normalizedPurpose,
+        idempotency_key: topUpIdempotencyKey,
       }),
     });
     const data = await res.json();
@@ -2776,6 +2784,13 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
   const [raisePurpose, setRaisePurpose] = useState('');
   const [raiseNotes, setRaiseNotes] = useState('');
   const [raising, setRaising] = useState(false);
+  // Fresh key per raise-form open — same pattern as the top-up dialog
+  // in PmMiscView. Independent scope so opening Raise after Record
+  // Expense (or vice versa) doesn't share a key across forms.
+  const [raiseIdempotencyKey, regenerateRaiseIdempotencyKey] = useIdempotencyKey();
+  useEffect(() => {
+    if (showRaiseForm) regenerateRaiseIdempotencyKey();
+  }, [showRaiseForm, regenerateRaiseIdempotencyKey]);
 
   // Returned (declined) requests
   const [returnedDraws, setReturnedDraws] = useState</* // */ any[]>([]);
@@ -2932,6 +2947,7 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
         amount: parsedAmount,
         purpose: normalizedPurpose,
         accountant_notes: raiseNotes || undefined,
+        idempotency_key: raiseIdempotencyKey,
       }),
     });
     const data = await res.json();
