@@ -164,9 +164,23 @@ export async function GET(request: Request) {
     // — see EOD-1) accepts the call. CRON_SECRET is the same env var
     // verifyCronSecret read above; the inner /api/eod call will 401 if
     // it's missing.
-    const appUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'https://io-finance-hub.vercel.app';
+    //
+    // EOD-11: fail-closed on missing VERCEL_URL. The previous fallback to
+    // the hardcoded prod URL meant a misconfigured preview / non-Vercel
+    // runtime would silently fire EOD against production. If we ever need
+    // to support a non-Vercel deployment, add a deliberate
+    // EOD_SELF_BASE_URL env var as an opt-in — don't add it speculatively.
+    if (!process.env.VERCEL_URL) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'EOD self-URL not configured (VERCEL_URL missing)',
+          code: 'EOD_CONFIG_MISSING',
+        },
+        { status: 500 },
+      );
+    }
+    const appUrl = `https://${process.env.VERCEL_URL}`;
 
     const cronSecret = process.env.CRON_SECRET;
     const res = await fetch(`${appUrl}/api/eod`, {
@@ -178,8 +192,30 @@ export async function GET(request: Request) {
       body: JSON.stringify({ trigger_type: 'auto' }),
     });
 
-    const result = await res.json();
-    return NextResponse.json({ sent: true, result });
+    // EOD-12: surface inner failures rather than always returning 200.
+    // 502 because the upstream (the inner /api/eod call) failed; cron
+    // monitors typically flag on 5xx, so this surfaces the failure
+    // correctly. Distinguishes "auto-send itself broke" (500, via the
+    // outer try/catch) from "auto-send worked but inner call failed"
+    // (502 here). The inner route returns { error, code, ... } on
+    // failure — we passthrough both.
+    const result = await res.json().catch(() => null);
+    if (!res.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            (result as { error?: string } | null)?.error ||
+            `Inner EOD call failed (status ${res.status})`,
+          code:
+            (result as { code?: string } | null)?.code || 'EOD_INNER_FAILED',
+          inner_status: res.status,
+          inner_result: result,
+        },
+        { status: 502 },
+      );
+    }
+    return NextResponse.json({ success: true, result });
   } catch (error) {
     return apiErrorResponse(error, 'Failed to run EOD auto-send.', 'EOD_AUTO_SEND_ERROR');
   }
