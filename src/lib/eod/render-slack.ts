@@ -17,7 +17,14 @@ export function renderEodSlackMessage(
   sender: string,
   sentAtEat: string,
 ): string {
-  const [expenses, withdrawals, cashReceived, budgetActions] = payload.sections;
+  const [
+    expenses,
+    withdrawals,
+    cashReceived,
+    budgetActions,
+    predatedPayouts,
+    predatedCompanyShares,
+  ] = payload.sections;
 
   let msg = `*IO Finance — End of Day Report*\n`;
   msg += `${payload.header.reportDateFormatted} | Prepared by: ${sender}\n\n`;
@@ -65,6 +72,27 @@ export function renderEodSlackMessage(
     }
   }
   msg += `\n`;
+
+  // PRED-5: predated payout sections. Both render only when non-empty
+  // (matching the rest of the message's "show empty state inline" rule
+  // would clutter the digest with two extra "None today" lines on the
+  // overwhelming majority of days, so we suppress empty predated
+  // sections entirely).
+  if (predatedPayouts.rows.length > 0) {
+    msg += `*${predatedPayouts.title}*\n`;
+    for (const r of predatedPayouts.rows) {
+      msg += `• [Predated · ${r.yearMonthLabel}]  ${r.director} · ${r.project} · ${formatKES(r.amountKes)} (${r.paymentMethodLabel})\n`;
+    }
+    msg += `_Total: ${predatedPayouts.rows.length} ${predatedPayouts.rows.length === 1 ? 'record' : 'records'}, ${formatKES(predatedPayouts.totals.kes)}_\n\n`;
+  }
+
+  if (predatedCompanyShares.rows.length > 0) {
+    msg += `*${predatedCompanyShares.title}*\n`;
+    for (const r of predatedCompanyShares.rows) {
+      msg += `• [Predated · ${r.yearMonthLabel}]  ${r.director} · ${formatKES(r.amountKes)} (${r.paymentMethodLabel})\n`;
+    }
+    msg += `_Total: ${predatedCompanyShares.rows.length} ${predatedCompanyShares.rows.length === 1 ? 'record' : 'records'}, ${formatKES(predatedCompanyShares.totals.kes)}_\n\n`;
+  }
 
   msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   msg += `Sent by ${sender} at ${sentAtEat} EAT`;

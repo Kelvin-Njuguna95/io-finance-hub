@@ -51,7 +51,16 @@ async function fetchTodayActivity(admin: /* // */ any, today: string) {
   const dayStart = `${today}T00:00:00+03:00`;
   const dayEnd = `${tomorrow}T00:00:00+03:00`;
 
-  const [expRes, wdByCreated, wdByDate, cashByCreated, cashByDate, budRes] = await Promise.all([
+  const [
+    expRes,
+    wdByCreated,
+    wdByDate,
+    cashByCreated,
+    cashByDate,
+    budRes,
+    predatedPayoutRes,
+    predatedCompanyShareRes,
+  ] = await Promise.all([
     // Expenses created today
     admin.from('expenses').select('id, description, amount_kes, expense_type, project_id, projects(name), expense_categories(name)')
       .gte('created_at', dayStart)
@@ -75,6 +84,21 @@ async function fetchTodayActivity(admin: /* // */ any, today: string) {
       .in('status', ['submitted', 'under_review'])
       .gte('updated_at', dayStart)
       .lt('updated_at', dayEnd),
+    // PRED-5: predated payouts (70% project share) recorded today.
+    // recorded_at filter mirrors the dayStart/dayEnd bound the rest of
+    // the route uses; project FK joins through to projects(name). The
+    // director_user_id and recorded_by columns both FK to users — we
+    // resolve the director name in a wave-2 fetch below to avoid the
+    // multi-FK disambiguation pitfall in the embedded select syntax.
+    admin.from('predated_payouts')
+      .select('id, director_user_id, project_id, year_month, amount_kes, payment_method, recorded_at, projects(name)')
+      .gte('recorded_at', dayStart)
+      .lt('recorded_at', dayEnd),
+    // PRED-5: predated 30% company-pool distributions recorded today.
+    admin.from('predated_company_share_distributions')
+      .select('id, director_user_id, year_month, amount_kes, payment_method, recorded_at')
+      .gte('recorded_at', dayStart)
+      .lt('recorded_at', dayEnd),
   ]);
 
   const sectionResults: Array<readonly [string, { error?: { message?: string } | null }]> = [
@@ -84,6 +108,8 @@ async function fetchTodayActivity(admin: /* // */ any, today: string) {
     ['payments_by_created', cashByCreated],
     ['payments_by_date', cashByDate],
     ['budget_actions', budRes],
+    ['predated_payouts', predatedPayoutRes],
+    ['predated_company_shares', predatedCompanyShareRes],
   ];
   for (const [name, res] of sectionResults) {
     if (res.error) {
@@ -110,11 +136,76 @@ async function fetchTodayActivity(admin: /* // */ any, today: string) {
     return true;
   });
 
+  // PRED-5: resolve director_user_id → full_name for both predated
+  // streams in a single users-by-id round trip. Cleaner than the
+  // embedded multi-FK select syntax (predated tables FK to users twice
+  // — director_user_id and recorded_by — disambiguation requires
+  // constraint names that vary by environment).
+  type PredatedPayoutRaw = {
+    id: string;
+    director_user_id: string;
+    project_id: string;
+    year_month: string;
+    amount_kes: number | string | null;
+    payment_method: string;
+    projects?: { name: string | null } | null;
+  };
+  type PredatedCompanyShareRaw = {
+    id: string;
+    director_user_id: string;
+    year_month: string;
+    amount_kes: number | string | null;
+    payment_method: string;
+  };
+  const predatedPayoutsRaw = (predatedPayoutRes.data || []) as PredatedPayoutRaw[];
+  const predatedCompanySharesRaw = (predatedCompanyShareRes.data || []) as PredatedCompanyShareRaw[];
+
+  const predatedDirectorIds = new Set<string>();
+  for (const r of predatedPayoutsRaw) predatedDirectorIds.add(r.director_user_id);
+  for (const r of predatedCompanySharesRaw) predatedDirectorIds.add(r.director_user_id);
+
+  const predatedDirectorNameById = new Map<string, string>();
+  if (predatedDirectorIds.size > 0) {
+    const { data: dirUsers, error: dirErr } = await admin
+      .from('users')
+      .select('id, full_name')
+      .in('id', Array.from(predatedDirectorIds));
+    if (dirErr) {
+      throw new Error(
+        `EOD section query "predated_directors" failed: ${dirErr.message ?? 'unknown error'}`,
+      );
+    }
+    for (const u of dirUsers ?? []) {
+      if (u.id) predatedDirectorNameById.set(u.id, u.full_name ?? 'Unknown director');
+    }
+  }
+
+  const predatedPayouts = predatedPayoutsRaw.map((r) => ({
+    id: r.id,
+    director_name:
+      predatedDirectorNameById.get(r.director_user_id) ?? 'Unknown director',
+    project_name: r.projects?.name ?? null,
+    year_month: r.year_month,
+    amount_kes: r.amount_kes,
+    payment_method: r.payment_method,
+  }));
+
+  const predatedCompanyShares = predatedCompanySharesRaw.map((r) => ({
+    id: r.id,
+    director_name:
+      predatedDirectorNameById.get(r.director_user_id) ?? 'Unknown director',
+    year_month: r.year_month,
+    amount_kes: r.amount_kes,
+    payment_method: r.payment_method,
+  }));
+
   return {
     expenses: expRes.data || [],
     withdrawals,
     cashReceipts,
     budgetActions: budRes.data || [],
+    predatedPayouts,
+    predatedCompanyShares,
   };
 }
 
@@ -178,9 +269,22 @@ export async function GET(request: Request) {
       { status: 500 },
     );
   }
-  const { expenses, withdrawals, cashReceipts, budgetActions } = liveActivity;
+  const {
+    expenses,
+    withdrawals,
+    cashReceipts,
+    budgetActions,
+    predatedPayouts,
+    predatedCompanyShares,
+  } = liveActivity;
   const totalExpenseKes = expenses.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
-  const hasActivity = expenses.length > 0 || withdrawals.length > 0 || cashReceipts.length > 0 || budgetActions.length > 0;
+  const hasActivity =
+    expenses.length > 0 ||
+    withdrawals.length > 0 ||
+    cashReceipts.length > 0 ||
+    budgetActions.length > 0 ||
+    predatedPayouts.length > 0 ||
+    predatedCompanyShares.length > 0;
 
   // `sections` reflects what's about to be sent (un-SENT day) or what was
   // actually sent (SENT day, sourced from the persisted payload).
@@ -217,6 +321,8 @@ export async function GET(request: Request) {
       withdrawal_count: withdrawals.length,
       cash_received_count: cashReceipts.length,
       budget_action_count: budgetActions.length,
+      predated_payout_count: predatedPayouts.length,
+      predated_company_share_count: predatedCompanyShares.length,
     },
     sections,
   });
@@ -350,8 +456,21 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-  const { expenses, withdrawals, cashReceipts, budgetActions } = activity;
-  const hasActivity = expenses.length > 0 || withdrawals.length > 0 || cashReceipts.length > 0 || budgetActions.length > 0;
+  const {
+    expenses,
+    withdrawals,
+    cashReceipts,
+    budgetActions,
+    predatedPayouts,
+    predatedCompanyShares,
+  } = activity;
+  const hasActivity =
+    expenses.length > 0 ||
+    withdrawals.length > 0 ||
+    cashReceipts.length > 0 ||
+    budgetActions.length > 0 ||
+    predatedPayouts.length > 0 ||
+    predatedCompanyShares.length > 0;
 
   if (!hasActivity) {
     return NextResponse.json({ error: 'No qualifying activity today', has_activity: false });
@@ -417,7 +536,18 @@ export async function POST(request: Request) {
     errorMessage = 'EOD_SLACK_WEBHOOK_URL not configured';
   }
 
-  const payload = { expenses, withdrawals, cash_receipts: cashReceipts, budget_actions: budgetActions, message: msg };
+  // PRED-5: persist predated sections under snake_case keys to match
+  // activityFromPersistedPayload's reader. A resend of this day reads
+  // back the same shape and reproduces both new sections faithfully.
+  const payload = {
+    expenses,
+    withdrawals,
+    cash_receipts: cashReceipts,
+    budget_actions: budgetActions,
+    predated_payouts: predatedPayouts,
+    predated_company_shares: predatedCompanyShares,
+    message: msg,
+  };
 
   // Atomic DB write: eod_reports upsert + conditional red_flag insert in one transaction.
   // Slack delivery already happened above; slack_status / errorMessage carry the result.

@@ -18,6 +18,8 @@ import type {
   WithdrawalRow,
   CashReceiptRow,
   BudgetActionRow,
+  PredatedPayoutRow,
+  PredatedCompanyShareRow,
 } from '@/lib/eod/sections';
 
 interface EodStatus {
@@ -337,6 +339,14 @@ function SectionBlock({ section }: { section: EodSection }) {
               section.rows.map((row) => (
                 <BudgetRowItem key={row.id} row={row} />
               ))}
+            {section.key === 'predated_payouts' &&
+              section.rows.map((row) => (
+                <PredatedPayoutRowItem key={row.id} row={row} />
+              ))}
+            {section.key === 'predated_company_shares' &&
+              section.rows.map((row) => (
+                <PredatedCompanyShareRowItem key={row.id} row={row} />
+              ))}
           </ul>
           <SectionTotal section={section} />
         </>
@@ -347,7 +357,12 @@ function SectionBlock({ section }: { section: EodSection }) {
 
 function SectionTotal({ section }: { section: EodSection }) {
   if (section.key === 'budget_actions' || section.totals === null) return null;
-  if (section.key === 'expenses') {
+  // KES-only sections: expenses, predated payouts, predated company shares.
+  if (
+    section.key === 'expenses' ||
+    section.key === 'predated_payouts' ||
+    section.key === 'predated_company_shares'
+  ) {
     return (
       <div className="flex items-baseline justify-between gap-3 border-t border-border-subtle bg-[var(--paper-2)] px-3 py-1.5">
         <span className="font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
@@ -456,6 +471,41 @@ function BudgetRowItem({ row }: { row: BudgetActionRow }) {
     <RowShell
       primary={<span className="font-medium">{row.scope}</span>}
       secondary={row.statusLabel}
+    />
+  );
+}
+
+function PredatedPayoutRowItem({ row }: { row: PredatedPayoutRow }) {
+  return (
+    <RowShell
+      primary={
+        <>
+          <span className="rounded-sm border border-warning/30 bg-warning-soft px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.10em] text-warning-soft-foreground">
+            Predated · {row.yearMonthLabel}
+          </span>{' '}
+          <span className="font-medium">{row.director}</span>
+          <span className="text-muted-foreground"> — {row.project}</span>
+        </>
+      }
+      secondary={row.paymentMethodLabel}
+      amount={formatKES(row.amountKes)}
+    />
+  );
+}
+
+function PredatedCompanyShareRowItem({ row }: { row: PredatedCompanyShareRow }) {
+  return (
+    <RowShell
+      primary={
+        <>
+          <span className="rounded-sm border border-warning/30 bg-warning-soft px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.10em] text-warning-soft-foreground">
+            Predated · {row.yearMonthLabel}
+          </span>{' '}
+          <span className="font-medium">{row.director}</span>
+        </>
+      }
+      secondary={row.paymentMethodLabel}
+      amount={formatKES(row.amountKes)}
     />
   );
 }

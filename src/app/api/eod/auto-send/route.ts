@@ -76,7 +76,13 @@ export async function GET(request: Request) {
   const dayEnd = `${tomorrow}T00:00:00+03:00`;
 
   // Check for qualifying activity
-  const [expRes, wdRes, payRes] = await Promise.all([
+  const [
+    expRes,
+    wdRes,
+    payRes,
+    predatedPayoutRes,
+    predatedCompanyShareRes,
+  ] = await Promise.all([
     admin.from('expenses').select('id', { count: 'exact', head: true })
       .gte('created_at', dayStart)
       .lt('created_at', dayEnd),
@@ -86,6 +92,17 @@ export async function GET(request: Request) {
     admin.from('payments').select('id', { count: 'exact', head: true })
       .gte('created_at', dayStart)
       .lt('created_at', dayEnd),
+    // PRED-5: predated payouts (70%) recorded today should also trigger
+    // auto-send. No settings flag — predated payouts are a deliberate
+    // CFO/Accountant action, always significant for the daily digest.
+    admin.from('predated_payouts').select('id', { count: 'exact', head: true })
+      .gte('recorded_at', dayStart)
+      .lt('recorded_at', dayEnd),
+    // PRED-5: predated 30% company-pool distributions, same logic.
+    admin.from('predated_company_share_distributions')
+      .select('id', { count: 'exact', head: true })
+      .gte('recorded_at', dayStart)
+      .lt('recorded_at', dayEnd),
   ]);
 
   // EOD-7: surface section query failures rather than silently treating
@@ -96,6 +113,8 @@ export async function GET(request: Request) {
     ['expenses', expRes],
     ['withdrawals', wdRes],
     ['payments', payRes],
+    ['predated_payouts', predatedPayoutRes],
+    ['predated_company_shares', predatedCompanyShareRes],
   ] as const) {
     if (res.error) {
       return NextResponse.json(
@@ -111,16 +130,27 @@ export async function GET(request: Request) {
   const expenseCount = expRes.count || 0;
   const withdrawalCount = wdRes.count || 0;
   const cashReceivedCount = payRes.count || 0;
-  const hasActivity = (sendOnExpense && expenseCount > 0)
+  const predatedPayoutCount = predatedPayoutRes.count || 0;
+  const predatedCompanyShareCount = predatedCompanyShareRes.count || 0;
+  const hasActivity =
+    (sendOnExpense && expenseCount > 0)
     || (sendOnWithdrawal && withdrawalCount > 0)
-    || (sendOnCashReceived && cashReceivedCount > 0);
+    || (sendOnCashReceived && cashReceivedCount > 0)
+    || predatedPayoutCount > 0
+    || predatedCompanyShareCount > 0;
 
   if (!hasActivity) {
     return NextResponse.json({
       skipped: true,
       reason: 'No qualifying activity today',
       trigger_config: { sendOnExpense, sendOnWithdrawal, sendOnCashReceived },
-      counts: { expenseCount, withdrawalCount, cashReceivedCount },
+      counts: {
+        expenseCount,
+        withdrawalCount,
+        cashReceivedCount,
+        predatedPayoutCount,
+        predatedCompanyShareCount,
+      },
     });
   }
 

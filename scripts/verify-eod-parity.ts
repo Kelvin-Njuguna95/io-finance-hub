@@ -209,6 +209,13 @@ const populated: TodayActivity = {
       budgets: { projects: null, departments: { name: 'Operations' } },
     },
   ],
+  // PRED-5: predated sections kept empty in fixtures — the legacy
+  // buildMessage doesn't render them (they didn't exist), so a populated
+  // predated section would break the parity-equality assertion. New
+  // fixtures covering the predated rendering can be added here when the
+  // parity script is wired into CI (Phase 1 audit EOD-4 / EOD-5).
+  predatedPayouts: [],
+  predatedCompanyShares: [],
 };
 
 const empty: TodayActivity = {
@@ -216,6 +223,8 @@ const empty: TodayActivity = {
   withdrawals: [],
   cashReceipts: [],
   budgetActions: [],
+  predatedPayouts: [],
+  predatedCompanyShares: [],
 };
 
 const mixed: TodayActivity = {
@@ -242,6 +251,8 @@ const mixed: TodayActivity = {
     },
   ],
   budgetActions: [],
+  predatedPayouts: [],
+  predatedCompanyShares: [],
 };
 
 const SENDER = 'Kelvin Wachira';

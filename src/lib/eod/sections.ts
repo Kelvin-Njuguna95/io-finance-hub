@@ -47,11 +47,35 @@ export type BudgetActionInput = {
   } | null;
 };
 
+// PRED-5: predated payouts recorded today (both streams). director_name
+// and project_name are resolved upstream by the route — the section
+// module receives them already flattened so it doesn't have to know
+// about the disambiguation between the two FKs from these tables to
+// users (director_user_id, recorded_by).
+export type PredatedPayoutInput = {
+  id: string;
+  director_name: string;
+  project_name: string | null;
+  year_month: string;
+  amount_kes: number | string | null;
+  payment_method: string;
+};
+
+export type PredatedCompanyShareInput = {
+  id: string;
+  director_name: string;
+  year_month: string;
+  amount_kes: number | string | null;
+  payment_method: string;
+};
+
 export type TodayActivity = {
   expenses: ExpenseInput[];
   withdrawals: WithdrawalInput[];
   cashReceipts: CashReceiptInput[];
   budgetActions: BudgetActionInput[];
+  predatedPayouts: PredatedPayoutInput[];
+  predatedCompanyShares: PredatedCompanyShareInput[];
 };
 
 export type ExpenseRow = {
@@ -86,6 +110,25 @@ export type BudgetActionRow = {
   statusLabel: string;
 };
 
+export type PredatedPayoutRow = {
+  id: string;
+  director: string;
+  project: string;
+  yearMonth: string;
+  yearMonthLabel: string;
+  amountKes: number;
+  paymentMethodLabel: string;
+};
+
+export type PredatedCompanyShareRow = {
+  id: string;
+  director: string;
+  yearMonth: string;
+  yearMonthLabel: string;
+  amountKes: number;
+  paymentMethodLabel: string;
+};
+
 export type ExpensesSection = {
   key: 'expenses';
   title: 'Expenses Logged';
@@ -118,11 +161,29 @@ export type BudgetActionsSection = {
   emptyState: 'None today';
 };
 
+export type PredatedPayoutsSection = {
+  key: 'predated_payouts';
+  title: 'Predated Payouts (Project Share)';
+  rows: PredatedPayoutRow[];
+  totals: { kes: number };
+  emptyState: 'None recorded today';
+};
+
+export type PredatedCompanySharesSection = {
+  key: 'predated_company_shares';
+  title: 'Predated Company-Share Distributions';
+  rows: PredatedCompanyShareRow[];
+  totals: { kes: number };
+  emptyState: 'None recorded today';
+};
+
 export type EodSection =
   | ExpensesSection
   | WithdrawalsSection
   | CashReceivedSection
-  | BudgetActionsSection;
+  | BudgetActionsSection
+  | PredatedPayoutsSection
+  | PredatedCompanySharesSection;
 
 export type EodSectionsPayload = {
   header: {
@@ -135,6 +196,8 @@ export type EodSectionsPayload = {
     WithdrawalsSection,
     CashReceivedSection,
     BudgetActionsSection,
+    PredatedPayoutsSection,
+    PredatedCompanySharesSection,
   ];
 };
 
@@ -146,6 +209,32 @@ function num(v: number | string | null | undefined): number {
 
 function capitalize(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  bank_transfer: 'Bank Transfer',
+  cash: 'Cash',
+  mobile_money: 'Mobile Money',
+  cheque: 'Cheque',
+  other: 'Other',
+};
+
+function paymentMethodLabel(value: string): string {
+  return PAYMENT_METHOD_LABELS[value] ?? value;
+}
+
+/** "2024-10" → "Oct 2024" via Africa/Nairobi en-KE. Falls back to the
+ *  raw value if the input doesn't match YYYY-MM. */
+function shortYearMonthLabel(ym: string): string {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) return ym;
+  const [yStr, mStr] = ym.split('-');
+  const y = Number(yStr);
+  const m = Number(mStr);
+  return new Intl.DateTimeFormat('en-KE', {
+    timeZone: 'Africa/Nairobi',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(Date.UTC(y, m - 1, 1)));
 }
 
 export function buildEodSections(
@@ -189,6 +278,26 @@ export function buildEodSections(
     statusLabel: b.status === 'submitted' ? 'Submitted' : 'Under Review',
   }));
 
+  const predatedPayoutsRows: PredatedPayoutRow[] = activity.predatedPayouts.map((p) => ({
+    id: p.id,
+    director: p.director_name || 'Unknown director',
+    project: p.project_name || 'Unassigned project',
+    yearMonth: p.year_month,
+    yearMonthLabel: shortYearMonthLabel(p.year_month),
+    amountKes: num(p.amount_kes),
+    paymentMethodLabel: paymentMethodLabel(p.payment_method),
+  }));
+
+  const predatedCompanyRows: PredatedCompanyShareRow[] =
+    activity.predatedCompanyShares.map((d) => ({
+      id: d.id,
+      director: d.director_name || 'Unknown director',
+      yearMonth: d.year_month,
+      yearMonthLabel: shortYearMonthLabel(d.year_month),
+      amountKes: num(d.amount_kes),
+      paymentMethodLabel: paymentMethodLabel(d.payment_method),
+    }));
+
   return {
     header: {
       reportDate: opts.reportDate,
@@ -230,6 +339,20 @@ export function buildEodSections(
         totals: null,
         emptyState: 'None today',
       },
+      {
+        key: 'predated_payouts',
+        title: 'Predated Payouts (Project Share)',
+        rows: predatedPayoutsRows,
+        totals: { kes: predatedPayoutsRows.reduce((s, r) => s + r.amountKes, 0) },
+        emptyState: 'None recorded today',
+      },
+      {
+        key: 'predated_company_shares',
+        title: 'Predated Company-Share Distributions',
+        rows: predatedCompanyRows,
+        totals: { kes: predatedCompanyRows.reduce((s, r) => s + r.amountKes, 0) },
+        emptyState: 'None recorded today',
+      },
     ],
   };
 }
@@ -240,11 +363,17 @@ export function activityFromPersistedPayload(payload: unknown): TodayActivity {
     withdrawals?: WithdrawalInput[];
     cash_receipts?: CashReceiptInput[];
     budget_actions?: BudgetActionInput[];
+    predated_payouts?: PredatedPayoutInput[];
+    predated_company_shares?: PredatedCompanyShareInput[];
   };
   return {
     expenses: Array.isArray(p.expenses) ? p.expenses : [],
     withdrawals: Array.isArray(p.withdrawals) ? p.withdrawals : [],
     cashReceipts: Array.isArray(p.cash_receipts) ? p.cash_receipts : [],
     budgetActions: Array.isArray(p.budget_actions) ? p.budget_actions : [],
+    predatedPayouts: Array.isArray(p.predated_payouts) ? p.predated_payouts : [],
+    predatedCompanyShares: Array.isArray(p.predated_company_shares)
+      ? p.predated_company_shares
+      : [],
   };
 }
