@@ -38,7 +38,11 @@ import {
 } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-const ALLOWED_ROLES = new Set(['cfo']);
+// PRED-6: Accountant joined CFO on this surface — accountants need
+// access to record predated payouts and view director-balance context.
+// Sensitive CFO-only actions (Approve distribution, Recompute) remain
+// gated at their own call sites; this gate just controls page reach.
+const ALLOWED_ROLES = new Set(['cfo', 'accountant']);
 
 const STATUS_LABEL: Record<ProfitShareStatus, string> = {
   approved: 'Approved',
@@ -65,11 +69,11 @@ export default function ProfitSharePage() {
   const router = useRouter();
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
 
-  // Route-level role gate — CFO ONLY (most sensitive financial surface).
+  // Route-level role gate — CFO and Accountant (PRED-6).
   useEffect(() => {
     if (!user?.role) return;
     if (!ALLOWED_ROLES.has(user.role)) {
-      toast.error('Profit Share is restricted to CFO');
+      toast.error('Profit Share is restricted to CFO and Accountant');
       router.push('/');
     }
   }, [user?.role, router]);
@@ -79,6 +83,12 @@ export default function ProfitSharePage() {
   // PRED-4: history list for the new "Predated payouts" tab. The hook
   // self-gates on cfo/accountant and returns an empty list otherwise.
   const predated = usePredatedPayouts();
+  // PRED-6: Cumulative predated paid across BOTH streams (70% project
+  // share + 30% company pool) — surfaced as a header chip when > 0.
+  const totalPredatedKes = predated.rows.reduce(
+    (s, r) => s + r.amount_kes,
+    0,
+  );
 
   // Predated-payout dialog (PRED-3). Loads its own director + project
   // option lists — useProfitShare exposes DirectorShare aggregates
@@ -153,7 +163,11 @@ export default function ProfitSharePage() {
           subtitle={
             ps.loading
               ? `${formatYearMonth(selectedMonth)} · loading…`
-              : `${formatYearMonth(selectedMonth)} · 70/30 split · ${formatCompactKES(summary.totalDistributablePoolKes)} pool across ${summary.directorCount} ${summary.directorCount === 1 ? 'director' : 'directors'} · ${STATUS_LABEL[summary.distributionStatus].toLowerCase()}`
+              : `${formatYearMonth(selectedMonth)} · 70/30 split · ${formatCompactKES(summary.totalDistributablePoolKes)} pool across ${summary.directorCount} ${summary.directorCount === 1 ? 'director' : 'directors'} · ${STATUS_LABEL[summary.distributionStatus].toLowerCase()}${
+                  canRecordPredated && totalPredatedKes > 0
+                    ? ` · Predated paid · ${formatCompactKES(totalPredatedKes)}`
+                    : ''
+                }`
           }
           action={
             <div className="flex items-center gap-2">
