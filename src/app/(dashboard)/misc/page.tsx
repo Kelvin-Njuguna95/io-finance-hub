@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { useIdempotencyKey } from '@/hooks/use-idempotency-key';
 import { isIdempotencyConflict } from '@/lib/idempotency';
+import { fireDuplicateBlocked } from '@/lib/audit-duplicate-blocked';
 import { PageTitle } from '@/components/layout/page-title';
 import { StatCard } from '@/components/layout/stat-card';
 import { HeadlineStatCard } from '@/components/finance/headline-stat-card';
@@ -2898,6 +2899,8 @@ function AccountantMiscView({ user, selectedMonth }: { user: /* // */ any; selec
       // misc_draws.expense_id link UPDATE below. Re-running the UPDATE
       // would be a no-op on expense_id but would refresh
       // accountant_notified_at unnecessarily, so skip it on retry.
+      // IDEMP-4..IDEMP-10: fire duplicate-submission telemetry.
+      void fireDuplicateBlocked('expenses', recordExpenseIdempotencyKey);
       const projectName = (recordDraw.projects as /* // */ any)?.name || 'Unknown';
       toast.success(`Expense recorded for ${projectName} misc draw.`);
       regenerateRecordExpenseIdempotencyKey();

@@ -21,6 +21,7 @@ import { getUserErrorMessage } from '@/lib/errors';
 import { getActiveProjects } from '@/lib/queries/projects';
 import { INVOICE_STATUS } from '@/lib/constants/status';
 import { isIdempotencyConflict } from '@/lib/idempotency';
+import { fireDuplicateBlocked } from '@/lib/audit-duplicate-blocked';
 
 interface Props {
   open: boolean;
@@ -112,6 +113,11 @@ export function InvoiceFormDialog({ open, onClose, onSaved }: Props) {
     if (error && !isIdempotencyConflict(error)) {
       toast.error(getUserErrorMessage(error, 'Failed to create invoice. Please review the form and try again.'));
     } else {
+      if (error && isIdempotencyConflict(error)) {
+        // IDEMP-4..IDEMP-10: fire telemetry server-side; client can't
+        // write audit_logs through RLS. Fire-and-forget.
+        void fireDuplicateBlocked('invoices', idempotencyKey);
+      }
       // Either the fresh insert succeeded, or a prior attempt with this
       // key already created the row — same outcome from the user's view.
       toast.success('Invoice created');

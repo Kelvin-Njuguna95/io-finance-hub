@@ -16,6 +16,7 @@ import { formatCurrency } from '@/lib/format';
 import { toast } from 'sonner';
 import { getUserErrorMessage } from '@/lib/errors';
 import { isIdempotencyConflict } from '@/lib/idempotency';
+import { fireDuplicateBlocked } from '@/lib/audit-duplicate-blocked';
 
 interface InvoiceOption {
   id: string;
@@ -98,6 +99,11 @@ export function PaymentFormDialog({ open, onClose, onSaved }: Props) {
     if (error && !isIdempotencyConflict(error)) {
       toast.error(getUserErrorMessage());
     } else {
+      if (error && isIdempotencyConflict(error)) {
+        // IDEMP-4..IDEMP-10: fire telemetry server-side; client can't
+        // write audit_logs through RLS. Fire-and-forget.
+        void fireDuplicateBlocked('payments', idempotencyKey);
+      }
       // Either fresh insert succeeded, or a prior attempt with the same
       // key already created the row — same outcome from the user's view.
       toast.success('Payment recorded');

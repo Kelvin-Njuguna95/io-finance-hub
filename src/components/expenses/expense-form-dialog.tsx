@@ -18,6 +18,7 @@ import type { Project, ExpenseType } from '@/types/database';
 import { getUserErrorMessage } from '@/lib/errors';
 import { getActiveProjects } from '@/lib/queries/projects';
 import { isIdempotencyConflict } from '@/lib/idempotency';
+import { fireDuplicateBlocked } from '@/lib/audit-duplicate-blocked';
 
 interface ExpenseFormDialogProps {
   open: boolean;
@@ -151,6 +152,11 @@ export function ExpenseFormDialog({ open, onClose, onSaved }: ExpenseFormDialogP
     if (error && !isIdempotencyConflict(error)) {
       toast.error(getUserErrorMessage());
     } else {
+      if (error && isIdempotencyConflict(error)) {
+        // IDEMP-4..IDEMP-10: fire telemetry server-side; client can't
+        // write audit_logs through RLS. Fire-and-forget.
+        void fireDuplicateBlocked('expenses', idempotencyKey);
+      }
       // Either fresh insert succeeded, or a prior attempt with the same
       // key already created the row — same outcome from the user's view.
       toast.success('Expense recorded');

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { useIdempotencyKey } from '@/hooks/use-idempotency-key';
 import { isIdempotencyConflict } from '@/lib/idempotency';
+import { fireDuplicateBlocked } from '@/lib/audit-duplicate-blocked';
 import { PageTitle } from '@/components/layout/page-title';
 import { StatCard } from '@/components/layout/stat-card';
 import { HeadlineStatCard } from '@/components/finance/headline-stat-card';
@@ -340,6 +341,8 @@ export default function RevenuePage() {
       // updated the invoice's total_paid / balance_outstanding / status.
       // Re-running the UPDATE here would double-count, so skip it and
       // just refresh the page data to show the prior write.
+      // IDEMP-4..IDEMP-10: fire duplicate-submission telemetry.
+      void fireDuplicateBlocked('payments', paymentIdempotencyKey);
       await loadData();
       toast.success(`Payment of ${formatCurrency(paymentAmountUsd, 'USD')} recorded for ${paymentInvoice.invoice_number}`);
       setSubmittingPayment(false);

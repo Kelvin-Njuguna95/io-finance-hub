@@ -15,6 +15,7 @@ import { PageTitle } from '@/components/layout/page-title';
 import { formatYearMonth } from '@/lib/format';
 import { getUserErrorMessage } from '@/lib/errors';
 import { isIdempotencyConflict } from '@/lib/idempotency';
+import { fireDuplicateBlocked } from '@/lib/audit-duplicate-blocked';
 import {
   ExpenseForm,
   type ExpenseFormState,
@@ -158,6 +159,13 @@ export default function NewExpensePage() {
       toast.error(getUserErrorMessage(error));
       setSubmitting(false);
       return;
+    }
+
+    if (error && isIdempotencyConflict(error)) {
+      // IDEMP-4..IDEMP-10: client-direct insert can't write to
+      // audit_logs (RLS), so fire telemetry server-side via the
+      // dedicated route. Fire-and-forget; user-facing UX unchanged.
+      void fireDuplicateBlocked('expenses', idempotencyKey);
     }
 
     // Either fresh insert succeeded, or a prior attempt with this key
