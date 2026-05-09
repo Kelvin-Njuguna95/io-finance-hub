@@ -46,7 +46,7 @@ export async function POST(request: Request) {
 
     const { data: budget } = await admin
       .from('budgets')
-      .select('project_id, created_by, year_month, pm_review_summary')
+      .select('project_id, created_by, year_month, pm_review_summary, submitted_by_role')
       .eq('id', budget_id)
       .single();
     const { data: project } = await admin
@@ -59,6 +59,28 @@ export async function POST(request: Request) {
       const warnings: Array<{ code: string; detail?: string }> = [];
 
       if (auto_reject_siblings && sibling_budget_ids?.length > 0) {
+        // BUDG-2: batch-fetch sibling submitter info once before the loop
+        // so we can fire a notification + write an enriched audit row
+        // per reject. Single IN() query — O(1) DB roundtrips regardless
+        // of how many siblings get rejected.
+        const { data: siblingRows } = await admin
+          .from('budgets')
+          .select('id, created_by, year_month, project_id, submitted_by_role')
+          .in('id', sibling_budget_ids);
+        type SiblingInfo = {
+          id: string;
+          created_by: string;
+          year_month: string;
+          project_id: string | null;
+          submitted_by_role: string | null;
+        };
+        const siblingById = new Map<string, SiblingInfo>(
+          ((siblingRows as SiblingInfo[] | null) ?? []).map((r) => [r.id, r]),
+        );
+        const approvedSubmitterRole =
+          (budget as { submitted_by_role: string | null } | null)
+            ?.submitted_by_role ?? null;
+
         for (const sibId of sibling_budget_ids) {
           await admin.rpc('fn_budget_cfo_approve', {
             p_budget_id: sibId,
@@ -66,6 +88,42 @@ export async function POST(request: Request) {
             p_action: 'reject',
             p_reason: 'Auto-rejected: another budget approved for this project/month.',
           });
+
+          // BUDG-2: notify the rejected submitter and write the enriched
+          // app-layer audit row (action 'budget_auto_rejected_on_cfo_approval')
+          // alongside the RPC's own CFO-attributed 'cfo_budget_rejected'
+          // row. Per-sibling try/catch — a notification or audit failure
+          // for sibling N must not roll back the RPC reject (already
+          // committed) or block siblings N+1, N+2 from being processed.
+          try {
+            const sib = siblingById.get(sibId);
+            if (sib?.created_by) {
+              await createNotification(admin, {
+                userId: sib.created_by,
+                title: 'Budget Closed',
+                message: `Your ${sib.year_month} budget for ${project?.name || 'project'} was closed. The CFO approved a different version for this period.`,
+                link: `/budgets/${sibId}`,
+              });
+            }
+            await admin.from('audit_logs').insert({
+              user_id: user.id,
+              action: 'budget_auto_rejected_on_cfo_approval',
+              table_name: 'budgets',
+              record_id: sibId,
+              new_values: {
+                approved_budget_id: budget_id,
+                approved_submitter_role: approvedSubmitterRole,
+                rejected_submitter_role: sib?.submitted_by_role ?? null,
+                project_id: sib?.project_id ?? null,
+                year_month: sib?.year_month ?? null,
+              },
+            });
+          } catch (notifyErr) {
+            console.error(
+              `[BUDG-2] sibling ${sibId} notify/audit failed:`,
+              notifyErr,
+            );
+          }
         }
       }
 
