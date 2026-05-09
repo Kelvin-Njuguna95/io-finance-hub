@@ -71,6 +71,26 @@ function whenText(at: string | null): string {
   }).format(d);
 }
 
+// Compose "9 May 2026, 14:32" from parts so the locale separator can't
+// drift (en-KE renders the default form with " at " between date and time).
+function formatSubmittedAt(at: string | null): string {
+  if (!at) return '—';
+  const d = new Date(at);
+  if (Number.isNaN(d.getTime())) return '—';
+  const parts = new Intl.DateTimeFormat('en-KE', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: NAIROBI_TZ,
+  }).formatToParts(d);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('day')} ${get('month')} ${get('year')}, ${get('hour')}:${get('minute')}`;
+}
+
 const TONE_CLASS: Record<'success' | 'warning' | 'danger' | 'muted' | 'info', string> = {
   success: 'bg-success-soft text-success-soft-foreground',
   warning: 'bg-warning-soft text-warning-soft-foreground',
@@ -112,8 +132,7 @@ export function BudgetsListRow({
 }: BudgetsListRowProps) {
   const status = displayStatus(row.latestStatus, row.approvedKes, row.spentKes);
   const eyebrow = compactId(row.yearMonth, row.id);
-  const versionLine =
-    row.currentVersion === 1 ? 'v1 · first submission' : `v${row.currentVersion} · revised`;
+  const submittedLine = formatSubmittedAt(row.submittedAt);
 
   const hasAnyAction =
     actions.canWithdraw ||
@@ -187,7 +206,7 @@ export function BudgetsListRow({
       {/* Col 4 — period */}
       <div className="min-w-0">
         <PeriodPill yearMonth={row.yearMonth} />
-        <p className="mt-1.5 text-[11px] text-muted-foreground">{versionLine}</p>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">{submittedLine}</p>
       </div>
 
       {/* Col 5 — approved + utilisation */}
