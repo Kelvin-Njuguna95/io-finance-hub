@@ -325,6 +325,7 @@ export default function ProfitSharePage() {
                 loading={predated.loading}
                 error={predated.error}
                 onRetry={() => void predated.refresh()}
+                onChange={() => void predated.refresh()}
               />
             </TabsContent>
           )}

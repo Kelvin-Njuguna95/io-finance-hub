@@ -90,15 +90,19 @@ async function fetchTodayActivity(admin: /* // */ any, today: string) {
     // director_user_id and recorded_by columns both FK to users — we
     // resolve the director name in a wave-2 fetch below to avoid the
     // multi-FK disambiguation pitfall in the embedded select syntax.
+    // PRED-8: deleted_at IS NULL filter hides soft-deleted rows.
     admin.from('predated_payouts')
       .select('id, director_user_id, project_id, year_month, amount_kes, payment_method, recorded_at, projects(name)')
       .gte('recorded_at', dayStart)
-      .lt('recorded_at', dayEnd),
+      .lt('recorded_at', dayEnd)
+      .is('deleted_at', null),
     // PRED-5: predated 30% company-pool distributions recorded today.
+    // PRED-8: deleted_at IS NULL filter hides soft-deleted rows.
     admin.from('predated_company_share_distributions')
       .select('id, director_user_id, year_month, amount_kes, payment_method, recorded_at')
       .gte('recorded_at', dayStart)
-      .lt('recorded_at', dayEnd),
+      .lt('recorded_at', dayEnd)
+      .is('deleted_at', null),
   ]);
 
   const sectionResults: Array<readonly [string, { error?: { message?: string } | null }]> = [

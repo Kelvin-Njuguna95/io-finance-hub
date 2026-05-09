@@ -95,14 +95,19 @@ export async function GET(request: Request) {
     // PRED-5: predated payouts (70%) recorded today should also trigger
     // auto-send. No settings flag — predated payouts are a deliberate
     // CFO/Accountant action, always significant for the daily digest.
+    // PRED-8: deleted_at IS NULL filter hides soft-deleted rows so a
+    // record deleted today doesn't trigger tonight's auto-send.
     admin.from('predated_payouts').select('id', { count: 'exact', head: true })
       .gte('recorded_at', dayStart)
-      .lt('recorded_at', dayEnd),
+      .lt('recorded_at', dayEnd)
+      .is('deleted_at', null),
     // PRED-5: predated 30% company-pool distributions, same logic.
+    // PRED-8: deleted_at IS NULL filter hides soft-deleted rows.
     admin.from('predated_company_share_distributions')
       .select('id', { count: 'exact', head: true })
       .gte('recorded_at', dayStart)
-      .lt('recorded_at', dayEnd),
+      .lt('recorded_at', dayEnd)
+      .is('deleted_at', null),
   ]);
 
   // EOD-7: surface section query failures rather than silently treating

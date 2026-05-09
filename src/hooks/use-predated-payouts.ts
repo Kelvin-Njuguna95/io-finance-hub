@@ -78,17 +78,23 @@ export function usePredatedPayouts() {
       // Wave 1: fetch both parent tables in parallel. The 70% table
       // joins through to projects via its FK; the 30% table has no
       // project relationship.
+      // PRED-8: hide soft-deleted rows. Migration 00058 added
+      // deleted_at; the partial active-rows index makes this filter
+      // cheap. Restoring a row is a service-role-SQL action — no UI
+      // surface for it.
       const [projectShareRes, companyPoolRes] = await Promise.all([
         supabase
           .from('predated_payouts')
           .select(
             'id, director_user_id, project_id, year_month, amount_kes, payment_method, notes, recorded_at, recorded_by, projects(name, is_active)',
-          ),
+          )
+          .is('deleted_at', null),
         supabase
           .from('predated_company_share_distributions')
           .select(
             'id, director_user_id, year_month, amount_kes, payment_method, notes, recorded_at, recorded_by',
-          ),
+          )
+          .is('deleted_at', null),
       ]);
 
       if (projectShareRes.error) throw new Error(projectShareRes.error.message);

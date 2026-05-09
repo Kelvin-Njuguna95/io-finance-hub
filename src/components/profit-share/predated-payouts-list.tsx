@@ -1,10 +1,22 @@
 'use client';
 
-import { History, Receipt } from 'lucide-react';
+import { useState } from 'react';
+import { History, Loader2, Receipt, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import type { PredatedPayoutRow } from '@/hooks/use-predated-payouts';
+import { useUser } from '@/hooks/use-user';
+import { createClient } from '@/lib/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatYearMonth } from '@/lib/format';
 import { formatKES } from '@/lib/utils/currency';
@@ -43,9 +55,60 @@ type Props = {
   loading: boolean;
   error: string | null;
   onRetry?: () => void;
+  /** Called after a successful soft-delete so the parent can refresh
+   *  the hook and any dependent KPIs. */
+  onChange?: () => void | Promise<void>;
 };
 
-export function PredatedPayoutsList({ rows, loading, error, onRetry }: Props) {
+export function PredatedPayoutsList({
+  rows,
+  loading,
+  error,
+  onRetry,
+  onChange,
+}: Props) {
+  const { user } = useUser();
+  const canDelete = user?.role === 'cfo';
+  const [pendingDelete, setPendingDelete] = useState<PredatedPayoutRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Your session has expired. Please sign in again.');
+        return;
+      }
+      const path =
+        pendingDelete.type === 'project_share'
+          ? `/api/predated-payouts/${pendingDelete.id}`
+          : `/api/predated-company-shares/${pendingDelete.id}`;
+      const res = await fetch(path, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to delete predated record.');
+        return;
+      }
+      toast.success('Predated record deleted.');
+      setPendingDelete(null);
+      await onChange?.();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to delete predated record.',
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -88,15 +151,81 @@ export function PredatedPayoutsList({ rows, loading, error, onRetry }: Props) {
   }
 
   return (
-    <ul className="space-y-2">
-      {rows.map((r) => (
-        <PredatedRow key={`${r.type}-${r.id}`} row={r} />
-      ))}
-    </ul>
+    <>
+      <ul className="space-y-2">
+        {rows.map((r) => (
+          <PredatedRow
+            key={`${r.type}-${r.id}`}
+            row={r}
+            canDelete={canDelete}
+            onRequestDelete={() => setPendingDelete(r)}
+          />
+        ))}
+      </ul>
+
+      <Dialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setPendingDelete(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this predated record?</DialogTitle>
+            <DialogDescription>
+              This soft-deletes the record — it stops appearing in the list,
+              the header KPI, and EOD reports, but the row stays in the
+              database for forensic recovery. Restoration requires engineer
+              SQL access.
+            </DialogDescription>
+          </DialogHeader>
+          {pendingDelete && (
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-[12.5px]">
+              <p className="font-medium text-foreground">
+                {pendingDelete.director_name}
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                {pendingDelete.type === 'project_share'
+                  ? `Project share · ${pendingDelete.project_name ?? '—'} · ${formatYearMonth(pendingDelete.year_month)}`
+                  : `Company pool · ${formatYearMonth(pendingDelete.year_month)}`}
+              </p>
+              <p className="mt-1 font-mono tabular-nums text-foreground">
+                {formatKES(pendingDelete.amount_kes)}
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPendingDelete(null)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleting}
+            >
+              {deleting && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Delete record
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
-function PredatedRow({ row }: { row: PredatedPayoutRow }) {
+function PredatedRow({
+  row,
+  canDelete,
+  onRequestDelete,
+}: {
+  row: PredatedPayoutRow;
+  canDelete: boolean;
+  onRequestDelete: () => void;
+}) {
   const subline =
     row.type === 'project_share'
       ? `Project share · ${row.project_name ?? '—'}${row.project_is_active === false ? ' (deactivated)' : ''} · ${formatYearMonth(row.year_month)}`
@@ -120,9 +249,23 @@ function PredatedRow({ row }: { row: PredatedPayoutRow }) {
             {subline}
           </p>
         </div>
-        <p className="shrink-0 font-mono text-[14px] font-medium tabular-nums text-foreground">
-          {formatKES(row.amount_kes)}
-        </p>
+        <div className="flex shrink-0 items-center gap-2">
+          <p className="font-mono text-[14px] font-medium tabular-nums text-foreground">
+            {formatKES(row.amount_kes)}
+          </p>
+          {canDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 text-muted-foreground hover:text-danger-soft-foreground"
+              onClick={onRequestDelete}
+              aria-label="Delete predated record"
+              title="Delete predated record"
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
       <p className="mt-2 font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
         Recorded {formatRecordedAt(row.recorded_at)} by {row.recorded_by_name}{' '}
