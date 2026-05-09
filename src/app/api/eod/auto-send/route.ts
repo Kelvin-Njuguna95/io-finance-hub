@@ -29,12 +29,12 @@ export async function GET(request: Request) {
 
   try {
     const admin = createAdminClient();
-    const today = new Intl.DateTimeFormat('en-KE', {
+    const today = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Africa/Nairobi',
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
-    }).format(new Date()).split('/').reverse().join('-');
+    }).format(new Date());
 
   // Check if auto-send is enabled + trigger sources
   const { data: settings } = await admin
