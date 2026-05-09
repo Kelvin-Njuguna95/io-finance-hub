@@ -362,57 +362,74 @@ export default function BudgetDetailPage() {
     load();
   }
 
+  // BUDG-4: line-item ops route through /api/budgets/update with an
+  // `items` diff. The server owns INSERT/UPDATE/DELETE, recomputes
+  // budget_versions.total_amount_kes, and writes a 'budget_items_synced'
+  // audit row. Same UX (toast + list refresh) as the prior client-direct
+  // implementation.
   async function handleSaveItem(itemId: string) {
+    if (!budget?.id) return;
     setSavingItem(true);
-    const supabase = createClient();
-    await supabase
-      .from('budget_items')
-      .update({
-        description: editDesc,
-        category: editCategory || null,
-        amount_kes: editAmount,
-        unit_cost_kes: editAmount,
-      })
-      .eq('id', itemId);
-    if (activeVersion) {
-      const { data: allItems } = await supabase
-        .from('budget_items')
-        .select('amount_kes')
-        .eq('budget_version_id', activeVersion.id);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const newTotal = (allItems || []).reduce((s: number, i: any) => s + Number(i.amount_kes), 0);
-      await supabase
-        .from('budget_versions')
-        .update({ total_amount_kes: newTotal })
-        .eq('id', activeVersion.id);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/budgets/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          budget_id: budget.id,
+          items: {
+            edited: [
+              {
+                id: itemId,
+                description: editDesc,
+                category: editCategory || null,
+                amount_kes: editAmount,
+              },
+            ],
+          },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || json?.success === false) {
+        toast.error(json?.error || 'Failed to update line item');
+        return;
+      }
+      setEditingItem(null);
+      toast.success('Line item updated');
+      load();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update line item');
+    } finally {
+      setSavingItem(false);
     }
-    setEditingItem(null);
-    setSavingItem(false);
-    toast.success('Line item updated');
-    load();
   }
 
   async function handleDeleteItem(itemId: string) {
-    const supabase = createClient();
-    await supabase.from('budget_items').delete().eq('id', itemId);
-    if (activeVersion) {
-      const { data: allItems } = await supabase
-        .from('budget_items')
-        .select('amount_kes')
-        .eq('budget_version_id', activeVersion.id);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const newTotal = (allItems || []).reduce((s: number, i: any) => s + Number(i.amount_kes), 0);
-      await supabase
-        .from('budget_versions')
-        .update({ total_amount_kes: newTotal })
-        .eq('id', activeVersion.id);
+    if (!budget?.id) return;
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/budgets/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          budget_id: budget.id,
+          items: { deleted: [{ id: itemId }] },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || json?.success === false) {
+        toast.error(json?.error || 'Failed to remove line item');
+        return;
+      }
+      toast.success('Line item removed');
+      load();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to remove line item');
     }
-    toast.success('Line item removed');
-    load();
   }
 
   async function handleAddItem() {
-    if (!activeVersion?.id) return;
+    if (!activeVersion?.id || !budget?.id) return;
     if (!newItemDesc.trim() || !newItemCategory.trim() || !newItemAmount) {
       toast.error('Description, category and amount are required');
       return;
@@ -422,37 +439,30 @@ export default function BudgetDetailPage() {
       toast.error('Amount must be greater than zero');
       return;
     }
-    const supabase = createClient();
     setSavingItem(true);
     try {
-      const { error: insErr } = await supabase
-        .from('budget_items')
-        .insert({
-          budget_version_id: activeVersion.id,
-          description: newItemDesc.trim(),
-          category: newItemCategory.trim(),
-          amount_kes: amount,
-          unit_cost_kes: amount,
-        });
-      if (insErr) throw insErr;
-
-      // Recompute the version total off the fresh DB state — avoids the
-      // double-count race that would happen if we tried to add `amount`
-      // to a stale local items array.
-      const { data: allItems } = await supabase
-        .from('budget_items')
-        .select('amount_kes')
-        .eq('budget_version_id', activeVersion.id);
-      const newTotal = (allItems || []).reduce(
-        (s: number, i: { amount_kes: number | string | null }) =>
-          s + Number(i.amount_kes ?? 0),
-        0,
-      );
-      await supabase
-        .from('budget_versions')
-        .update({ total_amount_kes: newTotal })
-        .eq('id', activeVersion.id);
-
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/budgets/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          budget_id: budget.id,
+          items: {
+            added: [
+              {
+                description: newItemDesc.trim(),
+                category: newItemCategory.trim(),
+                amount_kes: amount,
+              },
+            ],
+          },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || json?.success === false) {
+        toast.error(json?.error || 'Failed to add line item');
+        return;
+      }
       setAddingItem(false);
       setNewItemDesc('');
       setNewItemCategory('');

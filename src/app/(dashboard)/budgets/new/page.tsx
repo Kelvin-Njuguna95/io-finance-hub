@@ -459,6 +459,11 @@ function NewBudgetPageInner() {
   // from DB so freshly-inserted rows pick up their UUID and a subsequent
   // sync diffs cleanly.
   async function syncItemsToDraft(currentBudgetId: string): Promise<void> {
+    // BUDG-4: diff is still computed locally (we already have the items
+    // array in component state and need to know what changed before
+    // sending), but the actual INSERT/UPDATE/DELETE + total recompute
+    // run server-side via /api/budgets/update. The post-sync refresh
+    // re-reads items so freshly-inserted rows pick up their UUIDs.
     const supabase = createClient();
     const { data: budget } = await supabase
       .from('budgets')
@@ -488,60 +493,83 @@ function NewBudgetPageInner() {
     const dbMap = new Map<string, DbItem>(typedDbItems.map((r) => [r.id, r]));
     const localMap = new Map(items.map((i) => [i.id, i]));
 
-    const toDelete = typedDbItems
+    const deletedIds = typedDbItems
       .filter((d) => !localMap.has(d.id))
       .map((d) => d.id);
-    if (toDelete.length > 0) {
-      await supabase.from('budget_items').delete().in('id', toDelete);
-    }
 
+    type AddedPatch = {
+      description: string;
+      category: string | null;
+      amount_kes: number;
+      sort_order: number;
+    };
+    type EditedPatch = {
+      id: string;
+      description: string;
+      category: string | null;
+      amount_kes: number;
+      sort_order: number;
+    };
+    const added: AddedPatch[] = [];
+    const edited: EditedPatch[] = [];
     for (let idx = 0; idx < items.length; idx++) {
       const it = items[idx];
       const existing = dbMap.get(it.id);
       if (!existing) {
-        await supabase.from('budget_items').insert({
-          budget_version_id: version.id,
+        added.push({
           description: it.description,
           category: it.category || null,
           amount_kes: it.amount_kes,
-          unit_cost_kes: it.amount_kes,
-          quantity: 1,
           sort_order: idx,
         });
-      } else {
-        const changed =
-          (existing.description ?? '') !== it.description ||
-          (existing.category ?? '') !== (it.category || '') ||
-          Number(existing.amount_kes ?? 0) !== it.amount_kes;
-        if (changed) {
-          await supabase
-            .from('budget_items')
-            .update({
-              description: it.description,
-              category: it.category || null,
-              amount_kes: it.amount_kes,
-              unit_cost_kes: it.amount_kes,
-              sort_order: idx,
-            })
-            .eq('id', it.id);
-        }
+        continue;
+      }
+      const changed =
+        (existing.description ?? '') !== it.description ||
+        (existing.category ?? '') !== (it.category || '') ||
+        Number(existing.amount_kes ?? 0) !== it.amount_kes;
+      if (changed) {
+        edited.push({
+          id: it.id,
+          description: it.description,
+          category: it.category || null,
+          amount_kes: it.amount_kes,
+          sort_order: idx,
+        });
       }
     }
 
+    const hasDiff =
+      added.length > 0 || edited.length > 0 || deletedIds.length > 0;
+    if (hasDiff) {
+      const headers = await getAuthHeaders();
+      if (!headers) throw new Error('Not authenticated');
+      const res = await fetch('/api/budgets/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          budget_id: currentBudgetId,
+          items: {
+            added,
+            edited,
+            deleted: deletedIds.map((id) => ({ id })),
+          },
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || json?.success === false) {
+        throw new Error(
+          (json?.error as string | undefined) || 'Failed to sync line items',
+        );
+      }
+    }
+
+    // Re-read items to refresh local state with freshly-assigned UUIDs.
     const { data: fresh } = await supabase
       .from('budget_items')
       .select('id, description, category, amount_kes')
       .eq('budget_version_id', version.id)
       .order('sort_order');
-    const total = (fresh || []).reduce(
-      (s: number, r: { amount_kes: number | string | null }) =>
-        s + Number(r.amount_kes ?? 0),
-      0,
-    );
-    await supabase
-      .from('budget_versions')
-      .update({ total_amount_kes: total })
-      .eq('id', version.id);
 
     setItems(
       (fresh || []).map(
