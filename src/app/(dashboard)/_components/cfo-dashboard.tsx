@@ -14,7 +14,6 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { PageTitle } from '@/components/layout/page-title';
 import { SectionCard } from '@/components/layout/section-card';
-import { StatCard } from '@/components/layout/stat-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -26,14 +25,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { formatCompactCurrency, getCurrentYearMonth } from '@/lib/format';
+import { getCurrentYearMonth } from '@/lib/format';
 import { EXPENSE_STATUS } from '@/lib/constants/status';
 import { CfoMiscApproval } from '@/components/misc/cfo-misc-approval';
 import { PendingInvoicesRail } from '@/components/revenue/pending-invoices-rail';
 import { ExpenseQueuePanel } from '@/components/expenses/expense-queue-panel';
 import { RevenueSpendingTrendChart } from './revenue-spending-trend';
-import { useBankBalance } from '@/hooks/use-bank-balance';
-import { useMonthlyApprovedBudget } from '@/hooks/use-monthly-approved-budget';
+import { HomeKpiStrip } from './home-kpi-strip';
 import { useUser } from '@/hooks/use-user';
 import type { MonthlyFinancialSnapshot } from '@/types/database';
 
@@ -114,8 +112,6 @@ function buildGreeting(): { primary: string; subtitle: string } {
 
 export function CfoDashboard() {
   const { user } = useUser();
-  const bank = useBankBalance();
-  const approvedBudget = useMonthlyApprovedBudget();
   const greeting = buildGreeting();
   const firstName = user?.full_name?.split(/\s+/)[0] ?? '';
 
@@ -254,51 +250,8 @@ export function CfoDashboard() {
             subtitle={greeting.subtitle}
           />
 
-          {/* 6-card KPI hero — 2 rows of 3 */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <StatCard
-              title={`Total revenue · ${monthLabel}`}
-              value={snapshot ? formatCompactCurrency(Number(snapshot.total_revenue_kes), 'KES') : '—'}
-              subtitle="vs March"
-              trend={{ value: '+4.28%', direction: 'up' }}
-              loading={!snapshot}
-            />
-            <StatCard
-              title={`Net profit · ${monthLabel}`}
-              value={snapshot ? formatCompactCurrency(Number(snapshot.net_profit_kes), 'KES') : '—'}
-              subtitle="vs March"
-              trend={{ value: '+30.91%', direction: 'up' }}
-              loading={!snapshot}
-            />
-            <StatCard
-              title="Bank balance"
-              value={bank.error ? '—' : formatCompactCurrency(bank.totalUSD, 'USD')}
-              subtitle="last 7 days"
-              trend={{ value: '−2.17%', direction: 'down' }}
-              loading={bank.loading}
-            />
-            <StatCard
-              title={`Committed capital · ${monthLabel}`}
-              value={approvedBudget.error ? '—' : formatCompactCurrency(approvedBudget.total, 'KES')}
-              subtitle="7 budgets approved"
-              trend={{ value: '+12.4%', direction: 'up' }}
-              loading={approvedBudget.loading}
-            />
-            {/* TODO: useOutstandingReceivables hook (Phase 2.1) */}
-            <StatCard
-              title="Money owed to us"
-              value={<span className="text-muted-foreground">≈ KES —</span>}
-              subtitle="14 invoices · 3 past due"
-              trend={{ value: '−1.16%', direction: 'down' }}
-            />
-            {/* TODO: useCashRunway hook (Phase 2.1) */}
-            <StatCard
-              title="Cash runway"
-              value={<span className="text-muted-foreground">— mo</span>}
-              subtitle="at current burn"
-              trend={{ value: '+0.6 mo', direction: 'up' }}
-            />
-          </div>
+          {/* Primary KPI strip — Bank Balance, Approved Budget, Withdrawn */}
+          <HomeKpiStrip />
 
           <SectionCard
             title="Revenue & spending trend"

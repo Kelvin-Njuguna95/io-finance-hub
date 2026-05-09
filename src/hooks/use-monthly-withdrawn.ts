@@ -7,7 +7,8 @@ import { getUserErrorMessage } from '@/lib/errors';
 import { toast } from 'sonner';
 
 /**
- * Total USD withdrawn in the current calendar month (Africa/Nairobi).
+ * Total USD withdrawn in the given calendar month (Africa/Nairobi).
+ * Defaults to current month when `yearMonth` is omitted.
  *
  * The `withdrawals` table has no status column (see database.ts:189-214):
  * a row IS the record of a completed withdrawal. So summing all rows
@@ -16,22 +17,24 @@ import { toast } from 'sonner';
  *
  * Withdrawal-window logic (days 1–3 and 10–12) is enforced when a
  * withdrawal is created, not when we report totals — the card just
- * sums whatever landed this month.
+ * sums whatever landed in the requested month.
  */
-export function useMonthlyWithdrawn() {
+export function useMonthlyWithdrawn(yearMonth?: string) {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     async function load() {
+      setLoading(true);
+      setError(null);
       const supabase = createClient();
-      const currentMonth = getCurrentYearMonth();
+      const month = yearMonth ?? getCurrentYearMonth();
 
       const { data, error: queryError } = await supabase
         .from('withdrawals')
         .select('amount_usd')
-        .eq('year_month', currentMonth);
+        .eq('year_month', month);
 
       if (queryError) {
         toast.error(
@@ -55,7 +58,7 @@ export function useMonthlyWithdrawn() {
     }
 
     load();
-  }, []);
+  }, [yearMonth]);
 
   return { total, loading, error };
 }

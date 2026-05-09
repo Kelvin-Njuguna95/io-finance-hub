@@ -9,27 +9,30 @@ import { toast } from 'sonner';
 /**
  * Total KES across all budget versions with status = 'approved' (strict
  * CFO approval, not 'pm_approved') whose parent budget is scoped to the
- * current calendar month (Africa/Nairobi, via getCurrentYearMonth()).
+ * given calendar month (Africa/Nairobi). Defaults to current month when
+ * no `yearMonth` is passed, preserving the original call signature.
  *
  * Uses the canonical Postgrest inner-join filter so the month constraint
  * applies on the parent `budgets.year_month` while we select the child
  * `budget_versions.total_amount_kes`. One join, no RPC, no new view.
  */
-export function useMonthlyApprovedBudget() {
+export function useMonthlyApprovedBudget(yearMonth?: string) {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     async function load() {
+      setLoading(true);
+      setError(null);
       const supabase = createClient();
-      const currentMonth = getCurrentYearMonth();
+      const month = yearMonth ?? getCurrentYearMonth();
 
       const { data, error: queryError } = await supabase
         .from('budget_versions')
         .select('total_amount_kes, budgets!inner(year_month)')
         .eq('status', 'approved')
-        .eq('budgets.year_month', currentMonth);
+        .eq('budgets.year_month', month);
 
       if (queryError) {
         toast.error(
@@ -51,7 +54,7 @@ export function useMonthlyApprovedBudget() {
     }
 
     load();
-  }, []);
+  }, [yearMonth]);
 
   return { total, loading, error };
 }
