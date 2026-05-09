@@ -4,7 +4,7 @@
 // the legacy inline buildMessage. If the two diverge for any fixture, the
 // refactor is wrong (not the fixture). Run via:
 //
-//   npx tsx scripts/verify-eod-parity.mts
+//   npm run verify:eod-parity
 //
 // Exits 0 on parity, 1 on divergence.
 
