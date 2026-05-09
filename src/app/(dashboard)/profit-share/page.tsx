@@ -28,6 +28,8 @@ import {
   type PredatedDirectorOption,
   type PredatedProjectOption,
 } from '@/components/profit-share/predated-payout-dialog';
+import { PredatedPayoutsList } from '@/components/profit-share/predated-payouts-list';
+import { usePredatedPayouts } from '@/hooks/use-predated-payouts';
 import { createClient } from '@/lib/supabase/client';
 import {
   formatCompactKES,
@@ -74,6 +76,9 @@ export default function ProfitSharePage() {
 
   const ps = useProfitShare(selectedMonth);
   const summary = ps.summary;
+  // PRED-4: history list for the new "Predated payouts" tab. The hook
+  // self-gates on cfo/accountant and returns an empty list otherwise.
+  const predated = usePredatedPayouts();
 
   // Predated-payout dialog (PRED-3). Loads its own director + project
   // option lists — useProfitShare exposes DirectorShare aggregates
@@ -278,6 +283,12 @@ export default function ProfitSharePage() {
           <TabsList>
             <TabsTrigger value="allocation">Allocation</TabsTrigger>
             <TabsTrigger value="history">History · 8 months</TabsTrigger>
+            {canRecordPredated && (
+              <TabsTrigger value="predated">
+                Predated payouts
+                {predated.rows.length > 0 ? ` · ${predated.rows.length}` : ''}
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="allocation" className="pt-4">
@@ -292,6 +303,17 @@ export default function ProfitSharePage() {
           <TabsContent value="history" className="pt-4">
             <HistoryTable rows={ps.history} loading={ps.loading} />
           </TabsContent>
+
+          {canRecordPredated && (
+            <TabsContent value="predated" className="pt-4">
+              <PredatedPayoutsList
+                rows={predated.rows}
+                loading={predated.loading}
+                error={predated.error}
+                onRetry={() => void predated.refresh()}
+              />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 
@@ -301,7 +323,10 @@ export default function ProfitSharePage() {
           onOpenChange={setPredatedDialogOpen}
           directors={predatedDirectors}
           projects={predatedProjects}
-          onSuccess={() => ps.refresh?.()}
+          onSuccess={() => {
+            void predated.refresh();
+            ps.refresh?.();
+          }}
         />
       )}
     </div>
