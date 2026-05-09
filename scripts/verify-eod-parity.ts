@@ -296,15 +296,324 @@ function compare(label: string, fixture: TodayActivity): boolean {
   return false;
 }
 
+// ─── Numbers parity (EOD-5) ────────────────────────────────────────────────
+// Re-verifies that the totals + row counts the dashboard binds against
+// (`payload.sections[i].totals.*` and `payload.sections[i].rows.length`)
+// are exactly what the Slack renderer emits as `_Total: …_` lines and
+// `• ` rows. Catches drift introduced by a future tweak inside
+// renderEodSlackMessage that the byte-equality fixtures wouldn't notice
+// (e.g. fixtures rotated, new rounding silently introduced, locale
+// changed). Pure in-memory; no Supabase, no network.
+
+type SectionKind =
+  | 'expenses-kes' // totals: { kes }
+  | 'withdrawals-usd-kes' // totals: { usd, kes }
+  | 'cash-usd-kes' // totals: { usd, kes }
+  | 'budget-no-totals' // totals: null
+  | 'predated-kes'; // totals: { kes } AND emits "N record(s), KES X" form
+
+type SectionSpec = {
+  // Index into payload.sections (matches sections.ts ordering).
+  index: 0 | 1 | 2 | 3 | 4 | 5;
+  title: string;
+  kind: SectionKind;
+  // True when render-slack.ts suppresses the entire block on rows=0
+  // (predated sections; the rest emit *Title* + empty-state line).
+  suppressEmpty: boolean;
+};
+
+const SECTION_SPECS: readonly SectionSpec[] = [
+  { index: 0, title: 'Expenses Logged', kind: 'expenses-kes', suppressEmpty: false },
+  { index: 1, title: 'Withdrawals Recorded', kind: 'withdrawals-usd-kes', suppressEmpty: false },
+  { index: 2, title: 'Cash Received', kind: 'cash-usd-kes', suppressEmpty: false },
+  { index: 3, title: 'Budget Actions', kind: 'budget-no-totals', suppressEmpty: false },
+  { index: 4, title: 'Predated Payouts (Project Share)', kind: 'predated-kes', suppressEmpty: true },
+  { index: 5, title: 'Predated Company-Share Distributions', kind: 'predated-kes', suppressEmpty: true },
+] as const;
+
+function parseKes(value: string): number {
+  // "KES 1,234.56" → 1234.56
+  return Number(value.replace(/^KES\s*/, '').replace(/,/g, ''));
+}
+
+function parseUsd(value: string): number {
+  // "USD 1,234.56" → 1234.56
+  return Number(value.replace(/^USD\s*/, '').replace(/,/g, ''));
+}
+
+// Compare at 2dp — that's the precision the renderer commits to via
+// Intl.NumberFormat({ min/maxFractionDigits: 2 }). Anything finer is
+// outside what the dashboard or Slack actually surfaces, so a strict
+// === would be over-tight (and would miss IEEE float artefacts on
+// hypothetical fractional fixture values).
+function roundCents(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+type ParsedSection = {
+  rowCount: number;
+  totalLine: string | null;
+};
+
+function parseSlackSections(slack: string): Map<string, ParsedSection> {
+  const out = new Map<string, ParsedSection>();
+  // The renderer separates sections with a literal blank line ("\n\n"),
+  // and starts each section block with `*Title*\n`. The document header
+  // also opens with `*IO Finance — End of Day Report*` — skip it.
+  const blocks = slack.split('\n\n');
+  for (const block of blocks) {
+    const lines = block.split('\n');
+    const titleMatch = lines[0]?.match(/^\*([^*]+)\*$/);
+    if (!titleMatch) continue;
+    const title = titleMatch[1];
+    if (title === 'IO Finance — End of Day Report') continue;
+    let rowCount = 0;
+    let totalLine: string | null = null;
+    for (const line of lines.slice(1)) {
+      if (line.startsWith('• ')) rowCount++;
+      else if (line.startsWith('_Total:')) totalLine = line;
+    }
+    out.set(title, { rowCount, totalLine });
+  }
+  return out;
+}
+
+type ParityIssue = {
+  fixture: string;
+  section: string;
+  field: string;
+  expected: string;
+  actual: string;
+};
+
+function pushKesTotalCheck(
+  issues: ParityIssue[],
+  fixture: string,
+  section: string,
+  totalLine: string,
+  expected: number,
+): void {
+  const m = totalLine.match(/^_Total: (KES [\d,]+\.\d{2})_$/);
+  if (!m) {
+    issues.push({
+      fixture,
+      section,
+      field: 'totals.kes (format)',
+      expected: '_Total: KES X,XXX.XX_',
+      actual: totalLine,
+    });
+    return;
+  }
+  const got = roundCents(parseKes(m[1]));
+  const want = roundCents(expected);
+  if (got !== want) {
+    issues.push({ fixture, section, field: 'totals.kes', expected: String(want), actual: String(got) });
+  }
+}
+
+function pushUsdKesTotalCheck(
+  issues: ParityIssue[],
+  fixture: string,
+  section: string,
+  totalLine: string,
+  expectedUsd: number,
+  expectedKes: number,
+): void {
+  const m = totalLine.match(/^_Total: (USD [\d,]+\.\d{2}) \((KES [\d,]+\.\d{2})\)_$/);
+  if (!m) {
+    issues.push({
+      fixture,
+      section,
+      field: 'totals.usd/kes (format)',
+      expected: '_Total: USD X,XXX.XX (KES X,XXX.XX)_',
+      actual: totalLine,
+    });
+    return;
+  }
+  const gotUsd = roundCents(parseUsd(m[1]));
+  const wantUsd = roundCents(expectedUsd);
+  if (gotUsd !== wantUsd) {
+    issues.push({ fixture, section, field: 'totals.usd', expected: String(wantUsd), actual: String(gotUsd) });
+  }
+  const gotKes = roundCents(parseKes(m[2]));
+  const wantKes = roundCents(expectedKes);
+  if (gotKes !== wantKes) {
+    issues.push({ fixture, section, field: 'totals.kes', expected: String(wantKes), actual: String(gotKes) });
+  }
+}
+
+function pushPredatedTotalCheck(
+  issues: ParityIssue[],
+  fixture: string,
+  section: string,
+  totalLine: string,
+  expectedKes: number,
+  expectedRows: number,
+): void {
+  // Predated sections render: `_Total: N record(s), KES X,XXX.XX_`
+  const m = totalLine.match(/^_Total: (\d+) records?, (KES [\d,]+\.\d{2})_$/);
+  if (!m) {
+    issues.push({
+      fixture,
+      section,
+      field: 'totals.kes (format)',
+      expected: '_Total: N record(s), KES X,XXX.XX_',
+      actual: totalLine,
+    });
+    return;
+  }
+  const gotN = Number(m[1]);
+  if (gotN !== expectedRows) {
+    issues.push({ fixture, section, field: 'totals.recordCount', expected: String(expectedRows), actual: String(gotN) });
+  }
+  const got = roundCents(parseKes(m[2]));
+  const want = roundCents(expectedKes);
+  if (got !== want) {
+    issues.push({ fixture, section, field: 'totals.kes', expected: String(want), actual: String(got) });
+  }
+}
+
+function compareNumbers(label: string, fixture: TodayActivity): ParityIssue[] {
+  const issues: ParityIssue[] = [];
+  const payload = buildEodSections(fixture, {
+    reportDate: REPORT_DATE,
+    reportDateFormatted: DATE_FORMATTED,
+    preparedBy: SENDER,
+  });
+  const slack = renderEodSlackMessage(payload, SENDER, TIME_EAT);
+  const parsed = parseSlackSections(slack);
+
+  for (const spec of SECTION_SPECS) {
+    const section = payload.sections[spec.index];
+    const ps = parsed.get(spec.title);
+    const rows = section.rows.length;
+
+    // Block presence
+    if (!ps) {
+      if (rows === 0 && spec.suppressEmpty) continue; // expected absence
+      issues.push({
+        fixture: label,
+        section: spec.title,
+        field: 'block',
+        expected: rows === 0 ? 'present (empty-state line)' : 'present (rows + total)',
+        actual: 'missing',
+      });
+      continue;
+    }
+    if (rows === 0 && spec.suppressEmpty) {
+      issues.push({
+        fixture: label,
+        section: spec.title,
+        field: 'block',
+        expected: 'absent (suppressed when empty)',
+        actual: 'present',
+      });
+      continue;
+    }
+
+    // Row count
+    if (ps.rowCount !== rows) {
+      issues.push({
+        fixture: label,
+        section: spec.title,
+        field: 'rows.length',
+        expected: String(rows),
+        actual: String(ps.rowCount),
+      });
+    }
+
+    // Total line — present only when rows > 0 (except budget_actions, never)
+    if (spec.kind === 'budget-no-totals') {
+      if (ps.totalLine !== null) {
+        issues.push({
+          fixture: label,
+          section: spec.title,
+          field: 'totalLine',
+          expected: 'absent (section has no totals)',
+          actual: ps.totalLine,
+        });
+      }
+      continue;
+    }
+
+    if (rows === 0) {
+      // Renderer suppresses the Total line on empty (non-predated) sections.
+      // If a Total line shows up anyway, that's a renderer-spec mismatch
+      // — flag rather than paper over.
+      if (ps.totalLine !== null) {
+        issues.push({
+          fixture: label,
+          section: spec.title,
+          field: 'totalLine',
+          expected: 'absent (empty section)',
+          actual: ps.totalLine,
+        });
+      }
+      continue;
+    }
+
+    if (!ps.totalLine) {
+      issues.push({
+        fixture: label,
+        section: spec.title,
+        field: 'totalLine',
+        expected: '_Total: …_ line',
+        actual: 'missing (section has rows but no rendered total)',
+      });
+      continue;
+    }
+
+    // Parse + compare against payload totals
+    if (spec.kind === 'expenses-kes') {
+      const totals = (section as { totals: { kes: number } }).totals;
+      pushKesTotalCheck(issues, label, spec.title, ps.totalLine, totals.kes);
+    } else if (spec.kind === 'withdrawals-usd-kes' || spec.kind === 'cash-usd-kes') {
+      const totals = (section as { totals: { usd: number; kes: number } }).totals;
+      pushUsdKesTotalCheck(issues, label, spec.title, ps.totalLine, totals.usd, totals.kes);
+    } else if (spec.kind === 'predated-kes') {
+      const totals = (section as { totals: { kes: number } }).totals;
+      pushPredatedTotalCheck(issues, label, spec.title, ps.totalLine, totals.kes, rows);
+    }
+  }
+
+  return issues;
+}
+
 console.log('EOD Slack parity check:');
-const results = [
+
+console.log('\n  Pass 1 — byte-equality (renderer ≡ legacy buildMessage):');
+const byteResults = [
   compare('populated (all four sections, multiple rows)', populated),
   compare('empty (all four sections empty)', empty),
   compare('mixed (some sections populated, some empty)', mixed),
 ];
+const allBytePass = byteResults.every(Boolean);
 
-if (results.every(Boolean)) {
-  console.log('\nAll fixtures byte-identical. ✓');
+console.log('\n  Pass 2 — numbers parity (Slack totals/counts ≡ payload totals/counts):');
+const fixtures: Array<[string, TodayActivity]> = [
+  ['populated (all four sections, multiple rows)', populated],
+  ['empty (all four sections empty)', empty],
+  ['mixed (some sections populated, some empty)', mixed],
+];
+const allNumberIssues: ParityIssue[] = [];
+for (const [label, fixture] of fixtures) {
+  const issues = compareNumbers(label, fixture);
+  if (issues.length === 0) {
+    console.log(`  ✓ ${label} — totals + counts match payload`);
+  } else {
+    console.error(`  ✗ ${label} — ${issues.length} mismatch${issues.length === 1 ? '' : 'es'}`);
+    for (const issue of issues) {
+      console.error(
+        `      [${issue.section}] ${issue.field}: expected ${issue.expected} · got ${issue.actual}`,
+      );
+    }
+    allNumberIssues.push(...issues);
+  }
+}
+const allNumbersPass = allNumberIssues.length === 0;
+
+if (allBytePass && allNumbersPass) {
+  console.log('\nAll passes succeeded ✓');
   process.exit(0);
 }
 console.error('\nParity check FAILED.');
