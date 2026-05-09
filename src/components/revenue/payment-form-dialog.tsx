@@ -103,6 +103,52 @@ export function PaymentFormDialog({ open, onClose, onSaved }: Props) {
         // IDEMP-4..IDEMP-10: fire telemetry server-side; client can't
         // write audit_logs through RLS. Fire-and-forget.
         void fireDuplicateBlocked('payments', idempotencyKey);
+        // Don't re-run the parent invoice recompute on the conflict
+        // path — the original successful attempt was responsible for
+        // it (or, in pre-fix historical data, didn't run it; that's
+        // what the one-shot SQL backfill handles, not retry-time
+        // recovery from this dialog).
+      } else {
+        // Fresh INSERT succeeded → propagate to the parent invoice's
+        // denormalised fields. Without this, the invoice stays at
+        // 'sent' / 'overdue' even when fully paid, and the dashboard's
+        // Pending Invoices rail keeps showing it as outstanding (the
+        // bug fixed by this commit). Mirrors the recompute in
+        // revenue/page.tsx:359-371. Best-effort: a failed UPDATE is
+        // logged but does not block the success toast — the payment
+        // IS recorded. The structural fix (a DB trigger that owns this
+        // recompute end-to-end) is tracked separately.
+        try {
+          const { data: invoice } = await supabase
+            .from('invoices')
+            .select('amount_usd, total_paid')
+            .eq('id', invoiceId)
+            .single();
+          if (invoice) {
+            const currentTotalPaid = Number(invoice.total_paid ?? 0);
+            const nextTotalPaid = currentTotalPaid + amountUsd;
+            const remainingOutstanding = Math.max(
+              0,
+              Number(invoice.amount_usd ?? 0) - nextTotalPaid,
+            );
+            const nextStatus =
+              remainingOutstanding <= 0 ? 'paid' : 'partially_paid';
+            await supabase
+              .from('invoices')
+              .update({
+                total_paid: nextTotalPaid,
+                balance_outstanding: remainingOutstanding,
+                payment_status: nextStatus,
+                status: nextStatus,
+              })
+              .eq('id', invoiceId);
+          }
+        } catch (updateErr) {
+          console.error(
+            '[payment-form-dialog] parent invoice denormalisation failed',
+            updateErr,
+          );
+        }
       }
       // Either fresh insert succeeded, or a prior attempt with the same
       // key already created the row — same outcome from the user's view.
