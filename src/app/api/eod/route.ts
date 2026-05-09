@@ -213,23 +213,6 @@ async function fetchTodayActivity(admin: /* // */ any, today: string) {
   };
 }
 
-/** Build the Slack message text via the shared section builder + renderer.
- * Output is byte-identical with the prior inline implementation; verified by
- * scripts/verify-eod-parity.mts. */
-function buildMessage(
-  activity: TodayActivity,
-  senderName: string,
-  dateFormatted: string,
-  timeEAT: string,
-): string {
-  const payload = buildEodSections(activity, {
-    reportDate: '',
-    reportDateFormatted: dateFormatted,
-    preparedBy: senderName,
-  });
-  return renderEodSlackMessage(payload, senderName, timeEAT);
-}
-
 function formatLongDate(reportDate: string): string {
   // Anchor YYYY-MM-DD at Nairobi midnight so en-KE long-form formatting lands
   // on the same calendar day regardless of server timezone.
@@ -273,29 +256,28 @@ export async function GET(request: Request) {
       { status: 500 },
     );
   }
-  const {
-    expenses,
-    withdrawals,
-    cashReceipts,
-    budgetActions,
-    predatedPayouts,
-    predatedCompanyShares,
-  } = liveActivity;
-  const totalExpenseKes = expenses.reduce((s: number, e: /* // */ any) => s + Number(e.amount_kes), 0);
-  const hasActivity =
-    expenses.length > 0 ||
-    withdrawals.length > 0 ||
-    cashReceipts.length > 0 ||
-    budgetActions.length > 0 ||
-    predatedPayouts.length > 0 ||
-    predatedCompanyShares.length > 0;
+  // Two-payload pattern (EOD route summary/sections drift fix):
+  //   livePayload     — describes activity *right now*; drives summary
+  //                     and has_activity. Always built from liveActivity.
+  //   sectionsPayload — describes what was actually sent on a SENT day
+  //                     (persisted snapshot) or live activity on a
+  //                     not-yet-sent day. Drives the response's
+  //                     `sections` field.
+  // On a not-yet-sent day the two are reference-equal — no double build.
+  // The split exists because the panel's "new activity since send"
+  // callout (eod-panel.tsx:141-153) compares summary.* (live) against
+  // existing_report.*_count (persisted); collapsing them would silence
+  // that callout on a sent day with new activity.
+  const reportDateFormatted = formatLongDate(today);
+  const livePayload = buildEodSections(liveActivity, {
+    reportDate: today,
+    reportDateFormatted,
+    preparedBy: null,
+  });
 
-  // `sections` reflects what's about to be sent (un-SENT day) or what was
-  // actually sent (SENT day, sourced from the persisted payload).
-  let sectionsActivity: TodayActivity;
-  let preparedBy: string | null = null;
+  let sectionsPayload = livePayload;
   if (existing && existing.payload) {
-    sectionsActivity = activityFromPersistedPayload(existing.payload);
+    let preparedBy: string | null = null;
     if (existing.sent_by) {
       const { data: senderProfile } = await admin
         .from('users')
@@ -304,31 +286,36 @@ export async function GET(request: Request) {
         .single();
       preparedBy = senderProfile?.full_name ?? null;
     }
-  } else {
-    sectionsActivity = liveActivity;
+    sectionsPayload = buildEodSections(
+      activityFromPersistedPayload(existing.payload),
+      { reportDate: today, reportDateFormatted, preparedBy },
+    );
   }
 
-  const sections = buildEodSections(sectionsActivity, {
-    reportDate: today,
-    reportDateFormatted: formatLongDate(today),
-    preparedBy,
-  });
+  const [
+    liveExpenses,
+    liveWithdrawals,
+    liveCashReceived,
+    liveBudgetActions,
+    livePredatedPayouts,
+    livePredatedCompanyShares,
+  ] = livePayload.sections;
 
   return NextResponse.json({
     report_date: today,
     already_sent: !!existing,
     existing_report: existing,
-    has_activity: hasActivity,
+    has_activity: livePayload.sections.some((s) => s.rows.length > 0),
     summary: {
-      expense_count: expenses.length,
-      expense_total_kes: totalExpenseKes,
-      withdrawal_count: withdrawals.length,
-      cash_received_count: cashReceipts.length,
-      budget_action_count: budgetActions.length,
-      predated_payout_count: predatedPayouts.length,
-      predated_company_share_count: predatedCompanyShares.length,
+      expense_count: liveExpenses.rows.length,
+      expense_total_kes: liveExpenses.totals.kes,
+      withdrawal_count: liveWithdrawals.rows.length,
+      cash_received_count: liveCashReceived.rows.length,
+      budget_action_count: liveBudgetActions.rows.length,
+      predated_payout_count: livePredatedPayouts.rows.length,
+      predated_company_share_count: livePredatedCompanyShares.rows.length,
     },
-    sections,
+    sections: sectionsPayload,
   });
 }
 
@@ -513,7 +500,25 @@ export async function POST(request: Request) {
   const timeEAT = new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
   const dateFormatted = new Intl.DateTimeFormat('en-KE', { timeZone: 'Africa/Nairobi', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(now);
 
-  const msg = buildMessage(activity, senderName, dateFormatted, timeEAT);
+  // Single sections payload SoT: drives the Slack render AND the persisted
+  // counts on the eod_reports row (RPC args + EOD-8 compensation UPDATE).
+  // Sourcing both from one buildEodSections() call keeps the persisted
+  // counts in lock-step with whatever Slack reported, so the GET handler's
+  // hasNewActivity comparison (eod-panel.tsx:141-153) only fires when
+  // reality has changed since send — never because the two reduction
+  // sites disagreed.
+  const sentPayload = buildEodSections(activity, {
+    reportDate: today,
+    reportDateFormatted: dateFormatted,
+    preparedBy: senderName,
+  });
+  const [
+    sentExpenses,
+    sentWithdrawals,
+    sentCashReceived,
+    sentBudgetActions,
+  ] = sentPayload.sections;
+  const msg = renderEodSlackMessage(sentPayload, senderName, timeEAT);
 
   // Send to Slack
   const webhookUrl = process.env.EOD_SLACK_WEBHOOK_URL;
@@ -565,10 +570,10 @@ export async function POST(request: Request) {
     p_slack_status: slackStatus,
     p_error_message: errorMessage,
     p_payload: payload,
-    p_expense_count: expenses.length,
-    p_withdrawal_count: withdrawals.length,
-    p_cash_received_count: cashReceipts.length,
-    p_budget_action_count: budgetActions.length,
+    p_expense_count: sentExpenses.rows.length,
+    p_withdrawal_count: sentWithdrawals.rows.length,
+    p_cash_received_count: sentCashReceived.rows.length,
+    p_budget_action_count: sentBudgetActions.rows.length,
   });
 
   let reportId: string | null = (report as { id?: string } | null)?.id ?? null;
@@ -594,10 +599,10 @@ export async function POST(request: Request) {
         slack_status: slackStatus,
         error_message: errorMessage,
         payload,
-        expense_count: expenses.length,
-        withdrawal_count: withdrawals.length,
-        cash_received_count: cashReceipts.length,
-        budget_action_count: budgetActions.length,
+        expense_count: sentExpenses.rows.length,
+        withdrawal_count: sentWithdrawals.rows.length,
+        cash_received_count: sentCashReceived.rows.length,
+        budget_action_count: sentBudgetActions.rows.length,
       })
       .eq('report_date', today)
       .select('id')
