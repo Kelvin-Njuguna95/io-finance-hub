@@ -16,7 +16,7 @@ import { getAgingBucket, isBackdated } from '@/lib/backdated-utils';
 import { toast } from 'sonner';
 import { DollarSign, FileText, AlertTriangle, Plus, CreditCard } from 'lucide-react';
 import { getAllInvoices, getInvoicesByMonth, getInvoiceOutstandingTotal, getInvoicePaidTotal } from '@/lib/queries/invoices';
-import { INVOICE_STATUS, OUTSTANDING_INVOICE_STATUSES } from '@/lib/constants/status';
+import { OUTSTANDING_INVOICE_STATUSES } from '@/lib/constants/status';
 
 import { FilterPillBar } from '@/app/(dashboard)/misc/_components/FilterPillBar';
 import { InvoiceRow, InvoiceRowHead } from '@/app/(dashboard)/revenue/_components/InvoiceRow';
@@ -396,40 +396,11 @@ export default function InvoicesPage() {
                 <InvoiceRow
                   key={row.id}
                   {...rowProps}
-                  actions={
-                    canManage ? (
-                      <div className="flex items-center gap-1.5">
-                        <Select value={row.status} onValueChange={(v) => v && handleStatusChange(row.id, v)}>
-                          <SelectTrigger className="h-7 w-[110px] text-[11px]" onClick={(e) => e.stopPropagation()}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={INVOICE_STATUS.DRAFT}>Draft</SelectItem>
-                            <SelectItem value={INVOICE_STATUS.SENT}>Sent</SelectItem>
-                            <SelectItem value={INVOICE_STATUS.PARTIALLY_PAID}>Partial</SelectItem>
-                            <SelectItem value={INVOICE_STATUS.PAID}>Paid</SelectItem>
-                            <SelectItem value={INVOICE_STATUS.OVERDUE}>Overdue</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-[11px]"
-                          onClick={(e) => { e.stopPropagation(); setEditingInvoice(row); }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-[11px]"
-                          onClick={(e) => { e.stopPropagation(); handleDeleteInvoice(row.id); }}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    ) : null
-                  }
+                  statusValue={row.status}
+                  canManage={canManage}
+                  onStatusChange={canManage ? (next) => handleStatusChange(row.id, next) : undefined}
+                  onEdit={canManage ? () => setEditingInvoice(row) : undefined}
+                  onDelete={canManage ? () => handleDeleteInvoice(row.id) : undefined}
                 />
               );
             })

@@ -1,6 +1,21 @@
 // Visual spec: _design-system/invoices.html (.list-row.lr-inv 7-col grid)
 import { ChevronDown, ChevronUp, MoreHorizontal } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { INVOICE_STATUS } from '@/lib/constants/status';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/format';
 
@@ -10,7 +25,7 @@ import { DueBar, type DueBarVariant } from './DueBar';
 import { InvoiceStatusPill, type InvoiceStatusKind } from './InvoiceStatusPill';
 
 const ROW_GRID =
-  'grid grid-cols-[1.6fr_1fr_110px_130px_200px_130px_50px] items-center gap-4';
+  'grid grid-cols-[1.6fr_1fr_110px_130px_200px_148px_36px] items-center gap-4';
 
 export type InvoiceSortKey = 'invoice' | 'client' | 'issued' | 'due' | 'amount' | 'status';
 export type SortDirection = 'asc' | 'desc';
@@ -139,10 +154,23 @@ type InvoiceRowProps = {
   dueBarPct?: number;
 
   status: InvoiceStatusKind;
+  /** Raw DB status value used by the Select when `canManage` is true. */
+  statusValue?: string;
 
   isBackdated?: boolean;
 
-  /** Optional row-actions column content (e.g., "More" menu button). */
+  /** When true, col 6 renders an interactive Select and col 7 a kebab menu. */
+  canManage?: boolean;
+  onStatusChange?: (next: string) => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+
+  /** Legacy slot for caller-supplied row actions. When provided,
+   *  takes precedence over canManage/onEdit/onDelete and renders
+   *  in col 7. New callers should prefer the canManage +
+   *  onEdit/onDelete prop pattern; this slot exists for the
+   *  revenue page's legacy action cluster pending a follow-up
+   *  refactor. */
   actions?: React.ReactNode;
 
   onClick?: () => void;
@@ -165,7 +193,12 @@ export function InvoiceRow({
   dueBarVariant,
   dueBarPct,
   status,
+  statusValue,
   isBackdated,
+  canManage,
+  onStatusChange,
+  onEdit,
+  onDelete,
   actions,
   onClick,
   className,
@@ -253,24 +286,72 @@ export function InvoiceRow({
         ) : null}
       </div>
 
-      {/* 6. Status pill */}
+      {/* 6. Status — Select for managers, static pill for everyone else */}
       <div className="flex justify-end">
-        <InvoiceStatusPill kind={status} />
+        {canManage && onStatusChange ? (
+          <Select
+            value={statusValue}
+            onValueChange={(v) => v && onStatusChange(v)}
+          >
+            <SelectTrigger
+              className="h-7 w-[110px] text-[11px]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent onClick={(e) => e.stopPropagation()}>
+              <SelectItem value={INVOICE_STATUS.DRAFT}>Draft</SelectItem>
+              <SelectItem value={INVOICE_STATUS.SENT}>Sent</SelectItem>
+              <SelectItem value={INVOICE_STATUS.PARTIALLY_PAID}>Partial</SelectItem>
+              <SelectItem value={INVOICE_STATUS.PAID}>Paid</SelectItem>
+              <SelectItem value={INVOICE_STATUS.OVERDUE}>Overdue</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : (
+          <InvoiceStatusPill kind={status} />
+        )}
       </div>
 
-      {/* 7. Row actions */}
+      {/* 7. Row actions — legacy `actions` slot wins (revenue page),
+           then the kebab menu for managers, else an empty placeholder. */}
       <div className="flex justify-end">
         {actions ? (
           actions
+        ) : canManage && (onEdit || onDelete) ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Invoice actions"
+                  className="size-7"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              }
+            >
+              <MoreHorizontal className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              {onEdit && (
+                <DropdownMenuItem
+                  onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                >
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {onDelete && (
+                <DropdownMenuItem
+                  className="text-danger-soft-foreground"
+                  onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                >
+                  Delete
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : (
-          <button
-            type="button"
-            aria-label="More"
-            className="rounded p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MoreHorizontal className="size-4" />
-          </button>
+          <span aria-hidden className="block size-7" />
         )}
       </div>
     </div>
