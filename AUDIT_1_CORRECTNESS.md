@@ -69,11 +69,23 @@ These items use a separate `AUDIT1-ITEM-N` naming scheme distinct from the F-NN 
 - **Phase 3b follow-up:** `src/app/api/budgets/update/route.ts` has NOT been migrated to call the RPC yet. The route still issues five separate PostgREST calls. Until Phase 3b ships, the RPC is dormant and the partial-failure race remains open in production.
 - **PHASE 3B IS HIGH PRIORITY** — see follow-up ticket #1 in §"Deferred follow-up tickets" below.
 
+#### Phase 3b — Route cutover to `fn_budget_items_sync`
+
+- **Status:** SHIPPED 2026-05-11 (commit `825587c`) — **VERIFICATION INCOMPLETE**
+- **Branch:** `audit1/item2-phase3b-route-cutover` (merged + deleted)
+- **Build smoke:** PASS (`npm run build`, exit 0, 31s)
+- **Production smoke test:** ATTEMPTED, FAILED to complete. User tried to add a line item to budget `9666aa2e-3fe4-461a-b488-6e974764a7fc` (Aifi, Draft status, v1, 9 line items, KES 1,533,050 total) via the detail-page Add Item button. UI returned "Budget not found" on Save.
+- **Phase 1 triage performed:** budget-lookup logic at `route.ts:96-106` is byte-identical pre/post Phase 3b. UI handler `src/app/(dashboard)/budgets/[id]/page.tsx` `handleAddItem` sends correct `budget_id`. `EditablePayload` type change is additive only. Build passes clean.
+- **Most plausible explanations (NOT confirmed):** Vercel deploy/cache propagation issue at the moment of smoke test; env-var mismatch between Vercel runtime and Supabase (`NEXT_PUBLIC_SUPABASE_URL` vs `SUPABASE_SERVICE_ROLE_KEY` pointing at different projects); pre-existing bug masked until now. None confirmed.
+- **Network-tab DevTools evidence not captured at time of triage.**
+
 ---
 
 ## Deferred follow-up tickets (opened by Items 1 and 2)
 
 These tickets were filed during the Item 1 and Item 2 design phases (§7 Resolved blocks and Phase 1.5 / 2.5 scope-lock answers in the design docs). Pulled forward here so the canonical audit doc reflects every Audit-1-adjacent commitment opened during the second wave. Cross-referenced against `AUDIT1_STATUS.md §4c`.
+
+0. **URGENT — UNRESOLVED PRODUCTION ERROR (2026-05-12 ~00:08 EAT).** Production smoke test of Phase 3b route cutover returned "Budget not found" 404 on `POST /api/budgets/update` for budget `9666aa2e-3fe4-461a-b488-6e974764a7fc`. Diagnosis incomplete — triage showed Phase 3b's diff did NOT touch the budget-lookup path, but the error reproduces in production. **INVESTIGATE BEFORE ANY FURTHER AUDIT 1 WORK.** Concrete first steps when resuming: (a) check Vercel deployment logs for commit `825587c`, (b) capture DevTools Network tab request/response for the failed Save, (c) confirm Vercel env vars for the Production environment point to the same Supabase project as the browser session, (d) re-attempt the smoke test after Vercel has fully propagated (>15 min after push). If reproduces, consider `git revert 825587c` to roll back to the dormant-RPC state until root cause identified.
 
 1. **Item 2 Phase 3b — route cutover to `fn_budget_items_sync`** *(opened by Item 2)*. Why deferred: design pattern is written but Phase 3a was scoped to ship the DB-side structural fix in isolation; route change is a separate commit. Acceptance: `src/app/api/budgets/update/route.ts` replaces the five PostgREST calls with one `supabase.rpc('fn_budget_items_sync', …)` and the §4 verification queries in `AUDIT1-ITEM2-DESIGN.md` continue to pass. **HIGH PRIORITY** — partial-failure race remains open until this ships.
 2. **Removal of Path A/B application-layer UPDATEs** *(opened by Item 1)*. Why deferred: Item 1's trigger writes the same values; client UPDATEs are now harmless no-ops, but removal is scheduled "after ≥2 weeks of clean soak" to preserve a safety net for an emergency trigger rollback. Acceptance: `revenue/page.tsx` and `payment-form-dialog.tsx` no longer issue an `invoices` UPDATE after a payment is recorded; the drift query in `AUDIT1-ITEM1-DESIGN.md §4 Q1` returns 0 rows.
