@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { InvoiceWithPayments } from '@/types/query-results';
 import { OUTSTANDING_INVOICE_STATUSES } from '@/lib/constants/status';
 
-const INVOICE_WITH_PAYMENTS_SELECT = 'id, invoice_number, project_id, invoice_date, due_date, billing_period, amount_usd, amount_kes, status, description, projects(name), payments(id, amount_usd, payment_date, payment_method, reference)';
+const INVOICE_WITH_PAYMENTS_SELECT = 'id, invoice_number, project_id, invoice_date, due_date, billing_period, amount_usd, amount_kes, status, description, updated_at, projects(name), payments(id, amount_usd, payment_date, payment_method, reference)';
 
 export async function getInvoicesByMonth(supabase: SupabaseClient, yearMonth: string) {
   return supabase

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { InvoiceFormDialog } from '@/components/revenue/invoice-form-dialog';
 import { PaymentFormDialog } from '@/components/revenue/payment-form-dialog';
+import { InvoiceEditDialog, type EditableInvoice } from '@/components/revenue/invoice-edit-dialog';
 import { formatCompactKES, formatCurrency, formatDate, formatYearMonth } from '@/lib/format';
 import { getAgingBucket, isBackdated } from '@/lib/backdated-utils';
 import { toast } from 'sonner';
@@ -35,6 +36,7 @@ type InvoiceRowData = {
   amount_kes?: number | null;
   status: string;
   description: string | null;
+  updated_at: string;
   projects?: { name?: string | null };
   payments?: { id?: string; amount_usd: number; payment_date?: string | null }[];
 };
@@ -136,6 +138,7 @@ export default function InvoicesPage() {
   const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>('all');
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<EditableInvoice | null>(null);
 
   const canManage = user?.role === 'cfo' || user?.role === 'accountant';
 
@@ -329,6 +332,12 @@ export default function InvoicesPage() {
         onClose={() => setShowPaymentDialog(false)}
         onSaved={() => { setShowPaymentDialog(false); loadInvoices(); }}
       />
+      <InvoiceEditDialog
+        invoice={editingInvoice}
+        open={!!editingInvoice}
+        onClose={() => setEditingInvoice(null)}
+        onSaved={() => { setEditingInvoice(null); loadInvoices(); }}
+      />
 
       <div className="mt-6 space-y-6">
         {/* 4-card KPI strip — Total invoiced / Outstanding · open / Overdue / Aging buckets */}
@@ -402,6 +411,14 @@ export default function InvoicesPage() {
                             <SelectItem value={INVOICE_STATUS.OVERDUE}>Overdue</SelectItem>
                           </SelectContent>
                         </Select>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-[11px]"
+                          onClick={(e) => { e.stopPropagation(); setEditingInvoice(row); }}
+                        >
+                          Edit
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
