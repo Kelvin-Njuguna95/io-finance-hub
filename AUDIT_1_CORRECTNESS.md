@@ -39,6 +39,52 @@ Note on F-10 closure: production verification confirmed scenario (a)-with-twist 
 
 Justification: The systemic schema/code drift that anchored the original 42 — `lifecycle_status` un-codified, profit-share trigger columns absent, three different USD fallback rates, USD columns systematically empty — has been resolved via migrations 00024, 00028, 00029, 00030, 00037 and the route-level cleanups in commits 44aa480, 83db636, ffe211d, a64fcfb, ba12f79. The app is no longer one rebuild away from a broken DB. Cross-page revenue/expense agreement is now reachable from the migration tree. Lagged view, status constants, and cash-balance helpers remain centralised. The remaining open findings are localised bugs rather than systemic drift, which is the qualitative shift the score reflects.
 
+**Post-marathon update (2026-05-11):** Audit 1 reopened in a second wave on 2026-05-10. Two new items shipped (Item 1 — payment recompute trigger; Item 2 — `budget_items` transactional RPC, Phase 3a only) using a separate `AUDIT1-ITEM-N` naming scheme distinct from the F-NN findings catalogue. Nine follow-up tickets filed (see §"Deferred follow-up tickets" below). Current state: F-NN findings catalogue complete (29 closed, 1 deferred — F-14, 1 informational — F-31). Audit-1-flavoured items list: Item 1 in production soak; Item 2 structurally installed but operationally dormant pending route cutover.
+
+---
+
+## Post-marathon Audit-1 items (2026-05-10 → 2026-05-11)
+
+These items use a separate `AUDIT1-ITEM-N` naming scheme distinct from the F-NN findings catalogue below. They were authored after the marathon's "AUDIT 1 COMPLETE" declaration and represent a second wave of correctness work. The audit artifacts (diagnosis + design + status) live at the repo root.
+
+### Item 1 — Payment recompute trigger
+
+- **Status:** SHIPPED 2026-05-11
+- **Commit:** `12bd940`
+- **Migration:** `supabase/migrations/00059_audit1_item1_payment_recompute_trigger.sql`
+- **Design doc:** `AUDIT1-ITEM1-DESIGN.md`
+- **Diagnosis doc:** `AUDIT1-ITEM1-DIAGNOSIS.md`
+- **Summary:** `SECURITY DEFINER` `AFTER INSERT/UPDATE/DELETE` trigger on `payments` that recomputes `invoices.total_paid`, `balance_outstanding`, `status`, and `payment_status` from `SUM(payments.amount_usd)`. Closes the lost-update race documented in `AUDIT1-ITEM1-DIAGNOSIS.md §5` between `revenue/page.tsx` (Path A) and `payment-form-dialog.tsx` (Path B). Also reconciles any pre-existing drift via an idempotent backfill in the same migration.
+- **Phase 3b follow-up:** application-layer UPDATE calls in `revenue/page.tsx` and `payment-form-dialog.tsx` remain in place (harmless no-ops). Removal deferred until ≥2-week production soak completes.
+- **Soak window opened:** 2026-05-11.
+
+### Item 2 — `budget_items` transactional RPC
+
+- **Status:** SHIPPED 2026-05-11 (Phase 3a only — RPC dormant)
+- **Commit:** `52e8750`
+- **Migration:** `supabase/migrations/00060_audit1_item2_budget_items_transactional_rpc.sql`
+- **Design doc:** `AUDIT1-ITEM2-DESIGN.md`
+- **Diagnosis doc:** `AUDIT1-ITEM2-DIAGNOSIS.md`
+- **Summary:** `fn_budget_items_sync` — `SECURITY DEFINER` RPC that wraps the `budget_items` DELETE/INSERT/UPDATE/version-recompute/audit chain (commit `70e057e`, BUDG-4) in a single Postgres transaction. Adds `budget_items.idempotency_key UUID` column with a partial unique index (mirroring the `00047` payments pattern) for retry safety.
+- **Phase 3b follow-up:** `src/app/api/budgets/update/route.ts` has NOT been migrated to call the RPC yet. The route still issues five separate PostgREST calls. Until Phase 3b ships, the RPC is dormant and the partial-failure race remains open in production.
+- **PHASE 3B IS HIGH PRIORITY** — see follow-up ticket #1 in §"Deferred follow-up tickets" below.
+
+---
+
+## Deferred follow-up tickets (opened by Items 1 and 2)
+
+These tickets were filed during the Item 1 and Item 2 design phases (§7 Resolved blocks and Phase 1.5 / 2.5 scope-lock answers in the design docs). Pulled forward here so the canonical audit doc reflects every Audit-1-adjacent commitment opened during the second wave. Cross-referenced against `AUDIT1_STATUS.md §4c`.
+
+1. **Item 2 Phase 3b — route cutover to `fn_budget_items_sync`** *(opened by Item 2)*. Why deferred: design pattern is written but Phase 3a was scoped to ship the DB-side structural fix in isolation; route change is a separate commit. Acceptance: `src/app/api/budgets/update/route.ts` replaces the five PostgREST calls with one `supabase.rpc('fn_budget_items_sync', …)` and the §4 verification queries in `AUDIT1-ITEM2-DESIGN.md` continue to pass. **HIGH PRIORITY** — partial-failure race remains open until this ships.
+2. **Removal of Path A/B application-layer UPDATEs** *(opened by Item 1)*. Why deferred: Item 1's trigger writes the same values; client UPDATEs are now harmless no-ops, but removal is scheduled "after ≥2 weeks of clean soak" to preserve a safety net for an emergency trigger rollback. Acceptance: `revenue/page.tsx` and `payment-form-dialog.tsx` no longer issue an `invoices` UPDATE after a payment is recorded; the drift query in `AUDIT1-ITEM1-DESIGN.md §4 Q1` returns 0 rows.
+3. **`payment_status` enum collapse into `status`** *(opened by Item 1)*. Why deferred: out of scope for Item 1's race-window close; touches consumer code across multiple files. Acceptance: `invoices.payment_status` column is dropped; all readers source the value from `invoices.status` (the `invoice_status` enum); the trigger writes only `status` thereafter.
+4. **`fn_audit_log` `search_path` hardening retrofit** *(opened by Item 1)*. Why deferred: today's two new RPCs (`fn_payments_recompute_invoice`, `fn_budget_items_sync`) set `SET search_path = public, pg_temp`; the legacy `fn_audit_log` (shared across 20+ tables as `SECURITY DEFINER`) does not. Filed as a separate ticket because the retrofit needs verification across all callers. Acceptance: `fn_audit_log` declaration carries `SET search_path = public, pg_temp` and all `audit_*` triggers continue to fire correctly across every audited table.
+5. **`fn_audit_log` session-GUC fallback for `user_id`** *(opened by Item 2)*. Why deferred: trigger rows currently carry `user_id = NULL` when the calling client is service-role (`auth.uid()` is NULL under service-role). The proposed `current_setting('app.current_user_id', true)::uuid` fallback restores caller attribution. Filed as a separate ticket because `fn_audit_log` is shared across 20+ tables. Acceptance: trigger rows written under service-role calls carry the authenticated caller's id where the route surfaces it.
+6. **`audit_logs` shape split (`old_values` / `new_values` clean separation)** *(opened by Item 2)*. Why deferred: Phase 2 kept the route-compatible shape (`old_values = NULL`, full payload in `new_values` including a `before` key) to avoid changing the read shape for any future log consumer. A cleaner split is contingent on a downstream-consumer audit of `audit_logs`. Acceptance: the consumer audit lands first; then the split moves the snapshot into `old_values` and the diff into `new_values`.
+7. **Unified `/api/payments` route** *(opened by Item 1)*. Why deferred: out of scope for Item 1's race-window close; mentioned in the `aa167ba` commit body as a structural consolidation. Item 1's trigger already covers correctness; this ticket is consolidation only. Acceptance: a single `/api/payments` endpoint replaces the per-page recompute paths; clients call it from both Path A and Path B surfaces.
+8. **Item 1 drift-check verification SQL — operational follow-up** *(opened by Item 1)*. Why deferred: an operational SOP, not a code change. Acceptance: the drift query in `AUDIT1-ITEM1-DESIGN.md §4 Q1` is run against production weekly for ≥2 weeks and returns 0 rows each time.
+9. **Audit-4 (PS-1 / PS-2) — locate or author the scope doc** *(surfaced during 2026-05-11 status reconstruction, not strictly opened by Item 1/Item 2)*. Why deferred: migration `00055` references "Audit-4 findings PS-1 and PS-2 from the post-marathon correctness sweep," but no matching scope doc exists in the repo. Acceptance: the canonical Audit-4 scope doc is either found and committed alongside the F-NN catalogue, or authored fresh from PS-1/PS-2's commit history.
+
 ---
 
 ## 3. Findings
