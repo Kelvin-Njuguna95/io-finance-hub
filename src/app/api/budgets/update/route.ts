@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthUserProfile, assertRole } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-errors';
 import { BUDGET_EDITABLE_STATUSES } from '@/lib/budgets/status';
+import { isValidUuid } from '@/lib/idempotency';
 
 type ItemAdd = {
   description: string;
@@ -27,10 +28,15 @@ type EditablePayload = {
   project_id?: string | null;
   department_id?: string | null;
   force?: boolean;
+  // A1 (AUDIT1-ITEM2 Phase 3b): reserved for future client-side
+  // idempotency-key generation. Until a UI sends it, the route generates
+  // one per save via crypto.randomUUID(). When provided, validated as
+  // UUID per A7 of the Phase 3b scope lock.
+  idempotency_key?: string;
   // BUDG-4: optional line-item diff. Same version-state guard as the
-  // parent-field path (BUDGET_EDITABLE_STATUSES). Server owns the
-  // INSERT/UPDATE/DELETE, recomputes budget_versions.total_amount_kes,
-  // and writes a single 'budget_items_synced' audit row per call.
+  // parent-field path (BUDGET_EDITABLE_STATUSES). After Phase 3b the
+  // server-side INSERT/UPDATE/DELETE/recompute/audit chain is owned by
+  // the fn_budget_items_sync transactional RPC (migration 00060).
   items?: {
     added?: ItemAdd[];
     edited?: ItemEdit[];
@@ -298,219 +304,103 @@ export async function POST(request: Request) {
       });
     }
 
-    // BUDG-4: line-item diff. The state guard at the top of the route
-    // (BUDGET_EDITABLE_STATUSES) already gates this — we don't need to
-    // re-check here. Apply DELETE → INSERT → UPDATE → recompute total
-    // → write a single 'budget_items_synced' audit row capturing the
-    // before/after for forensic reconstruction.
-    let itemsAuditPayload: {
-      added: Array<Record<string, unknown>>;
-      edited: Array<{ id: string; before: Record<string, unknown>; after: Record<string, unknown> }>;
-      deleted: Array<Record<string, unknown>>;
-    } | null = null;
+    // BUDG-4 / AUDIT1-ITEM2 Phase 3b: line-item diff. The five-call
+    // PostgREST chain that previously lived here (snapshot SELECT, DELETE,
+    // bulk INSERT, N×UPDATE, parent-total recompute, audit-write) is
+    // replaced by a single transactional RPC. The RPC owns the audit row;
+    // do NOT write one here too.
+    //
+    // Reference:
+    //   - fn_budget_items_sync body: supabase/migrations/00060_audit1_item2_budget_items_transactional_rpc.sql
+    //   - Design rationale + scope lock: AUDIT1-ITEM2-PHASE3B-DIAGNOSIS.md
+    //     ("Answers from Njuguna (Phase 1.5 — scope lock)" A1–A7).
+    type ItemsSyncResult = {
+      ok: true;
+      idempotent_hit: boolean;
+      version_total_kes: number;
+      audit_log_id: string | null;
+    };
+    let itemsSyncResult: ItemsSyncResult | null = null;
 
     if (itemsHasDiff) {
-      const versionId = activeVersion!.id;
-
-      // Snapshot rows touched by edited/deleted before mutating, so the
-      // audit row can carry the prior state. One IN() query for both.
-      const touchedIds = Array.from(
-        new Set<string>([
-          ...itemsEdited.map((e) => e.id),
-          ...itemsDeleted.map((d) => d.id),
-        ]),
-      );
-      type ItemRow = {
-        id: string;
-        description: string | null;
-        category: string | null;
-        amount_kes: number | string | null;
-        sort_order: number | null;
-      };
-      const beforeById = new Map<string, ItemRow>();
-      if (touchedIds.length > 0) {
-        const { data: beforeRows } = await admin
-          .from('budget_items')
-          .select('id, description, category, amount_kes, sort_order')
-          .in('id', touchedIds)
-          .eq('budget_version_id', versionId);
-        for (const r of (beforeRows as ItemRow[] | null) ?? []) {
-          beforeById.set(r.id, r);
-        }
-        // Reject if any id doesn't belong to this active version — caller
-        // can't be allowed to edit/delete items on a different budget by
-        // claiming the wrong active version.
-        const missing = touchedIds.filter((id) => !beforeById.has(id));
-        if (missing.length > 0) {
+      // A7: validate body.idempotency_key when present; mirror the
+      // withdrawals precedent at src/app/api/withdrawals/create/route.ts:51-56.
+      // On absence, generate locally per A1 (client-side keys deferred).
+      let idempotencyKey: string;
+      if (body.idempotency_key !== undefined) {
+        if (!isValidUuid(body.idempotency_key)) {
           return NextResponse.json(
             {
               success: false,
-              error: `Some line items do not belong to this budget version`,
-              code: 'ITEMS_NOT_FOUND',
-              missing_ids: missing,
+              error: `Invalid idempotency_key: must be a UUID. Received: ${String(body.idempotency_key)}`,
+              code: 'INVALID_IDEMPOTENCY_KEY',
             },
             { status: 400 },
           );
         }
+        idempotencyKey = body.idempotency_key;
+      } else {
+        idempotencyKey = crypto.randomUUID();
       }
 
-      // DELETE
-      const deletedAuditRows: Record<string, unknown>[] = [];
-      if (itemsDeleted.length > 0) {
-        const ids = itemsDeleted.map((d) => d.id);
-        const { error: delErr } = await admin
-          .from('budget_items')
-          .delete()
-          .in('id', ids)
-          .eq('budget_version_id', versionId);
-        if (delErr) {
-          return NextResponse.json(
-            { success: false, error: delErr.message, code: 'ITEMS_DELETE_FAILED' },
-            { status: 500 },
-          );
-        }
-        for (const id of ids) {
-          const before = beforeById.get(id);
-          if (before) {
-            deletedAuditRows.push({
-              id,
-              description: before.description,
-              category: before.category,
-              amount_kes: Number(before.amount_kes ?? 0),
-              sort_order: before.sort_order,
-            });
-          }
-        }
-      }
-
-      // INSERT (added). Mirrors the existing client convention of
-      // amount_kes === unit_cost_kes for KES-only line items.
-      const addedAuditRows: Record<string, unknown>[] = [];
-      if (itemsAdded.length > 0) {
-        const insertRows = itemsAdded.map((a, i) => ({
-          budget_version_id: versionId,
-          description: a.description,
-          category: a.category ?? null,
-          amount_kes: a.amount_kes,
-          unit_cost_kes: a.amount_kes,
-          quantity: 1,
-          sort_order: a.sort_order ?? i,
-        }));
-        const { data: insertedRows, error: insErr } = await admin
-          .from('budget_items')
-          .insert(insertRows)
-          .select('id, description, category, amount_kes, sort_order');
-        if (insErr) {
-          return NextResponse.json(
-            { success: false, error: insErr.message, code: 'ITEMS_INSERT_FAILED' },
-            { status: 500 },
-          );
-        }
-        for (const r of (insertedRows as ItemRow[] | null) ?? []) {
-          addedAuditRows.push({
-            id: r.id,
-            description: r.description,
-            category: r.category,
-            amount_kes: Number(r.amount_kes ?? 0),
-            sort_order: r.sort_order,
-          });
-        }
-      }
-
-      // UPDATE (edited). One UPDATE per id; only fields actually
-      // present in the patch are sent. amount_kes mirrors to
-      // unit_cost_kes to preserve the existing convention.
-      const editedAuditRows: Array<{
-        id: string;
-        before: Record<string, unknown>;
-        after: Record<string, unknown>;
-      }> = [];
-      for (const e of itemsEdited) {
-        const before = beforeById.get(e.id);
-        if (!before) continue;
-        const patch: Record<string, unknown> = {};
-        if (e.description !== undefined) patch.description = e.description;
-        if (e.category !== undefined) patch.category = e.category;
-        if (e.amount_kes !== undefined) {
-          patch.amount_kes = e.amount_kes;
-          patch.unit_cost_kes = e.amount_kes;
-        }
-        if (e.sort_order !== undefined) patch.sort_order = e.sort_order;
-        if (Object.keys(patch).length === 0) continue;
-
-        const { error: updErr } = await admin
-          .from('budget_items')
-          .update(patch)
-          .eq('id', e.id)
-          .eq('budget_version_id', versionId);
-        if (updErr) {
-          return NextResponse.json(
-            { success: false, error: updErr.message, code: 'ITEMS_UPDATE_FAILED' },
-            { status: 500 },
-          );
-        }
-        editedAuditRows.push({
-          id: e.id,
-          before: {
-            description: before.description,
-            category: before.category,
-            amount_kes: Number(before.amount_kes ?? 0),
-            sort_order: before.sort_order,
-          },
-          after: {
-            description: e.description ?? before.description,
-            category: e.category !== undefined ? e.category : before.category,
-            amount_kes:
-              e.amount_kes !== undefined
-                ? e.amount_kes
-                : Number(before.amount_kes ?? 0),
-            sort_order:
-              e.sort_order !== undefined ? e.sort_order : before.sort_order,
-          },
-        });
-      }
-
-      // Recompute version total off the fresh DB state. Avoids the
-      // double-count race the original client code worked around.
-      const { data: liveItems } = await admin
-        .from('budget_items')
-        .select('amount_kes')
-        .eq('budget_version_id', versionId);
-      const newTotal = ((liveItems as { amount_kes: number | string | null }[] | null) ?? []).reduce(
-        (s, r) => s + Number(r.amount_kes ?? 0),
-        0,
+      // Single transactional RPC. The admin client is untyped — see
+      // src/lib/supabase/admin.ts and the same pattern in
+      // src/app/api/budgets/resubmit/route.ts.
+      const { data: rpcData, error: rpcErr } = await admin.rpc(
+        'fn_budget_items_sync',
+        {
+          p_version_id: activeVersion!.id,
+          p_user_id: user.id,
+          p_added: itemsAdded,                       // JSONB — supabase-js serialises the JS array.
+          p_edited: itemsEdited,                     // JSONB — same.
+          p_deleted: itemsDeleted.map((d) => d.id),  // UUID[] — flatten Array<{id}> to string[].
+          p_idempotency_key: idempotencyKey,
+        },
       );
-      const { error: totalErr } = await admin
-        .from('budget_versions')
-        .update({ total_amount_kes: newTotal })
-        .eq('id', versionId);
-      if (totalErr) {
+
+      if (rpcErr) {
+        // A3: ITEMS_NOT_FOUND survives as a distinct 400 because the RPC
+        // raises with HINT='ITEMS_NOT_FOUND' (migration 00060:146).
+        // Everything else collapses to ITEMS_SYNC_FAILED because the RPC
+        // transaction means there is no "deleted but insert failed"
+        // partial-failure outcome — the five mid-chain *_FAILED codes
+        // are structurally impossible.
+        if (rpcErr.hint === 'ITEMS_NOT_FOUND') {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'One or more line items do not belong to this budget version.',
+              code: 'ITEMS_NOT_FOUND',
+            },
+            { status: 400 },
+          );
+        }
         return NextResponse.json(
-          { success: false, error: totalErr.message, code: 'ITEMS_TOTAL_UPDATE_FAILED' },
+          {
+            success: false,
+            error: rpcErr.message,
+            code: 'ITEMS_SYNC_FAILED',
+          },
           { status: 500 },
         );
       }
 
-      itemsAuditPayload = {
-        added: addedAuditRows,
-        edited: editedAuditRows,
-        deleted: deletedAuditRows,
-      };
+      // A4: nested items_sync field carries the RPC return shape verbatim.
+      // The cast is safe because the success arm of fn_budget_items_sync
+      // always returns the four-field JSONB documented in
+      // AUDIT1-ITEM2-DESIGN.md §1.
+      itemsSyncResult = rpcData as ItemsSyncResult;
 
-      // Single audit row per call describing the diff. Action name
-      // 'budget_items_synced' (chosen over '_changed' / '_updated' to
-      // emphasise this is a batched diff apply, not a per-row mutation).
-      await admin.from('audit_logs').insert({
-        user_id: user.id,
-        action: 'budget_items_synced',
-        table_name: 'budget_versions',
-        record_id: versionId,
-        new_values: {
-          ...itemsAuditPayload,
-          new_total_amount_kes: newTotal,
-        },
-        reason: null,
-      });
+      // Q5 (soft amendment to A2): server-side observability for
+      // idempotent hits. Vercel captures console output; this gives us
+      // a grep path if hits start firing unexpectedly. No helper, no
+      // audit-row, no telemetry pipeline.
+      if (itemsSyncResult.idempotent_hit) {
+        console.log('[budget-items-sync] idempotent_hit', {
+          version_id: activeVersion!.id,
+          idempotency_key: idempotencyKey,
+        });
+      }
     }
 
     let updated: typeof budget = budget;
@@ -549,7 +439,14 @@ export async function POST(request: Request) {
       });
     }
 
-    return NextResponse.json({ success: true, data: updated });
+    // A4: items_sync is only present when itemsHasDiff was true. The
+    // top-level `data` field still carries the parent budget row, so the
+    // four UI call sites that read `json.data` keep working unchanged.
+    return NextResponse.json({
+      success: true,
+      data: updated,
+      ...(itemsSyncResult ? { items_sync: itemsSyncResult } : {}),
+    });
   } catch (error) {
     return apiErrorResponse(error, 'Failed to update budget.', 'BUDGET_UPDATE_ERROR');
   }
