@@ -138,6 +138,26 @@ export async function POST(request: Request) {
 
     if (error) throw error;
 
+    // Best-effort audit trail. director_payouts has no fn_audit_log trigger
+    // (00018 only attaches updated_at + sync triggers), so this route-level
+    // insert is the canonical attribution path. Failure logs but does not
+    // fail the user-facing request — the payout itself succeeded.
+    try {
+      await admin.from('audit_logs').insert({
+        user_id: user.id,
+        action: 'INSERT',
+        table_name: 'director_payouts',
+        record_id: data.id,
+        old_values: null,
+        new_values: data,
+      });
+    } catch (auditError) {
+      console.error('[director-payouts POST] audit_logs insert failed', auditError, {
+        userId: user.id,
+        recordId: data?.id,
+      });
+    }
+
     return NextResponse.json({ data });
   } catch (error) {
     return apiErrorResponse(error, 'Failed to create director payout.', 'DIRECTOR_PAYOUT_CREATE_ERROR');
