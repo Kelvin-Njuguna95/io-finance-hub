@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Award, Download } from 'lucide-react';
+import { AlertCircle, Award, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useUser } from '@/hooks/use-user';
 import {
   useBudgetAccuracy,
+  type AccuracySource,
   type BudgetAccuracyRow,
   type Grade,
   type GradeHistoryRow,
@@ -17,6 +18,7 @@ import { PageTitle } from '@/components/layout/page-title';
 import { StatCard } from '@/components/layout/stat-card';
 import { HeadlineStatCard } from '@/components/finance/headline-stat-card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
   SelectContent,
@@ -94,11 +96,15 @@ export default function BudgetAccuracyPage() {
           subtitle={
             accuracy.loading
               ? `${formatYearMonth(selectedMonth)} · loading…`
-              : summary.budgetCount === 0
-                ? `${formatYearMonth(selectedMonth)} · no expense_variances rows for this month`
-                : `${formatYearMonth(selectedMonth)} · ${summary.budgetCount} ${
-                    summary.budgetCount === 1 ? 'budget' : 'budgets'
-                  } · ${summary.portfolioAccuracyPct.toFixed(1)}% portfolio accuracy · grade ${summary.portfolioGrade} · tolerance ±${TOLERANCE_PCT}%`
+              : summary.measuredCount === 0
+                ? summary.approvedBudgetCount === 0
+                  ? `${formatYearMonth(selectedMonth)} · no approved budgets yet — approve a budget to start tracking accuracy`
+                  : `${formatYearMonth(selectedMonth)} · budgets approved, no confirmed expenses yet`
+                : `${formatYearMonth(selectedMonth)} · ${
+                    summary.isLive ? 'live' : 'signed off'
+                  } · ${summary.measuredCount} ${
+                    summary.measuredCount === 1 ? 'project' : 'projects'
+                  } measured · ${summary.portfolioAccuracyPct.toFixed(1)}% accuracy · grade ${summary.portfolioGrade} · ±${TOLERANCE_PCT}%`
           }
           action={
             <div className="flex items-center gap-2">
@@ -141,6 +147,28 @@ export default function BudgetAccuracyPage() {
       </div>
 
       <div className="space-y-6 p-6">
+        {accuracy.error && !accuracy.loading && (
+          <div className="flex items-start gap-3 rounded-lg border border-danger-soft bg-danger-soft px-5 py-4 text-danger-soft-foreground">
+            <AlertCircle className="mt-0.5 size-5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">
+                Couldn&apos;t load budget accuracy.
+              </p>
+              <p className="mt-1 font-mono text-[11px] opacity-80">
+                {accuracy.error.message}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 font-mono text-[10.5px]"
+              onClick={() => void accuracy.refresh()}
+            >
+              Retry
+            </Button>
+          </div>
+        )}
+
         {/* KPI strip */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <HeadlineStatCard
@@ -148,9 +176,13 @@ export default function BudgetAccuracyPage() {
             value={`${summary.portfolioAccuracyPct.toFixed(1)}%`}
             tone={HEADLINE_TONE[summary.portfolioGrade]}
             sub={
-              summary.budgetCount === 0
-                ? 'No budgets reported this month'
-                : `Grade ${summary.portfolioGrade} · ${summary.portfolioPoints} pts · streak ${summary.streakMonths}mo`
+              summary.measuredCount === 0
+                ? summary.approvedBudgetCount === 0
+                  ? 'No approved budgets this month'
+                  : 'Budgets approved · no confirmed expenses yet'
+                : `Grade ${summary.portfolioGrade} · ${summary.portfolioPoints} pts · streak ${summary.streakMonths}mo${
+                    summary.isLive ? ' · live' : ''
+                  }`
             }
             loading={accuracy.loading}
           />
@@ -225,6 +257,48 @@ export default function BudgetAccuracyPage() {
   );
 }
 
+// ---------- shared ----------
+
+function TableSkeleton({ rows = 6 }: { rows?: number }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="border-b border-border bg-muted/30 px-6 py-3">
+        <Skeleton className="h-3 w-40" />
+      </div>
+      <ul>
+        {Array.from({ length: rows }).map((_, i) => (
+          <li
+            key={i}
+            className="flex items-center justify-between gap-4 border-b border-border/60 px-6 py-4 last:border-b-0"
+          >
+            <Skeleton className="h-9 w-44" />
+            <Skeleton className="h-5 w-20" />
+            <Skeleton className="h-5 w-20" />
+            <Skeleton className="h-7 w-full max-w-[180px]" />
+            <Skeleton className="size-10 rounded-full" />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function SourceBadge({ source }: { source: AccuracySource }) {
+  const live = source === 'fresh';
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.08em]',
+        live
+          ? 'bg-[var(--paper-3)] text-foreground'
+          : 'bg-success-soft text-success-soft-foreground',
+      )}
+    >
+      {live ? 'Live · open month' : 'Signed snapshot'}
+    </span>
+  );
+}
+
 // ---------- By project tab ----------
 
 function ByProjectTable({
@@ -235,16 +309,12 @@ function ByProjectTable({
   loading: boolean;
 }) {
   if (loading) {
-    return (
-      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-        Loading per-project accuracy…
-      </div>
-    );
+    return <TableSkeleton />;
   }
   if (rows.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-        No expense_variances rows for the selected month
+        No approved budgets or confirmed expenses for the selected month yet.
       </div>
     );
   }
@@ -260,11 +330,66 @@ function ByProjectTable({
         <span className="text-center">Grade</span>
       </div>
       <ul>
-        {rows.map((row) => (
-          <ByProjectRow key={row.id} row={row} />
-        ))}
+        {rows.map((row) =>
+          row.error ? (
+            <ByProjectErrorRow key={row.id} row={row} />
+          ) : row.hasPlan ? (
+            <ByProjectRow key={row.id} row={row} />
+          ) : (
+            <ByProjectNoBudgetRow key={row.id} row={row} />
+          ),
+        )}
       </ul>
     </div>
+  );
+}
+
+function ByProjectErrorRow({ row }: { row: BudgetAccuracyRow }) {
+  return (
+    <li className="grid grid-cols-[1.4fr_1fr_1fr_1fr_1.6fr_120px] items-center gap-4 border-b border-border/60 px-6 py-4 last:border-b-0">
+      <div className="min-w-0">
+        <p className="truncate text-[14px] font-medium leading-tight text-foreground">
+          {row.name}
+        </p>
+      </div>
+      <span className="col-span-5 inline-flex items-center gap-1.5 text-[13px] text-danger-soft-foreground">
+        <AlertCircle className="size-4 shrink-0" />
+        Couldn&apos;t compute this row — {row.error}
+      </span>
+    </li>
+  );
+}
+
+function ByProjectNoBudgetRow({ row }: { row: BudgetAccuracyRow }) {
+  return (
+    <li className="grid grid-cols-[1.4fr_1fr_1fr_1fr_1.6fr_120px] items-center gap-4 border-b border-border/60 px-6 py-4 last:border-b-0">
+      <div className="min-w-0">
+        <p className="truncate text-[14px] font-medium leading-tight text-foreground">
+          {row.name}
+        </p>
+        <p className="mt-1 flex items-center gap-1.5 truncate font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
+          {row.isShared ? `${row.ownerName} · shared` : row.ownerName}
+          <SourceBadge source={row.source} />
+        </p>
+      </div>
+      <span className="text-right font-mono text-[13px] tabular-nums text-muted-foreground">
+        —
+      </span>
+      <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
+        {formatCompactKES(row.actualKes)}
+      </span>
+      <span className="text-right font-mono text-[13px] tabular-nums text-muted-foreground">
+        —
+      </span>
+      <span className="text-[12px] italic text-muted-foreground">
+        No approved budget — spend can&apos;t be graded
+      </span>
+      <div className="flex justify-center">
+        <span className="rounded-full bg-[var(--paper-3)] px-2 py-1 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+          No budget
+        </span>
+      </div>
+    </li>
   );
 }
 
@@ -286,8 +411,9 @@ function ByProjectRow({ row }: { row: BudgetAccuracyRow }) {
         <p className="truncate text-[14px] font-medium leading-tight text-foreground">
           {row.name}
         </p>
-        <p className="mt-1 truncate font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
-          {ownerLine}
+        <p className="mt-1 flex items-center gap-1.5 truncate font-mono text-[10.5px] uppercase tracking-[0.10em] text-muted-foreground">
+          <span className="truncate">{ownerLine}</span>
+          <SourceBadge source={row.source} />
         </p>
       </div>
       <span className="text-right font-mono text-[13px] tabular-nums text-foreground">
@@ -412,11 +538,7 @@ function OwnerScorecardTable({
   loading: boolean;
 }) {
   if (loading) {
-    return (
-      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-        Loading owner scorecard…
-      </div>
-    );
+    return <TableSkeleton rows={5} />;
   }
   if (rows.length === 0) {
     return (
@@ -499,11 +621,7 @@ function GradeHistoryTable({
   loading: boolean;
 }) {
   if (loading) {
-    return (
-      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-        Loading grade history…
-      </div>
-    );
+    return <TableSkeleton rows={6} />;
   }
   if (rows.length === 0) {
     return (
