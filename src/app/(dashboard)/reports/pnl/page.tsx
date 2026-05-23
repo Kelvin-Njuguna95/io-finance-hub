@@ -3,13 +3,14 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, CheckCircle2, Download, FilePlus } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle2, Download, FilePlus } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useUser } from '@/hooks/use-user';
 import {
   usePLReports,
   type AnnualReport,
+  type CurrentPeriodSummary,
   type MonthlyReport,
   type PLStatus,
   type QuarterlyReport,
@@ -17,6 +18,7 @@ import {
 import { PageTitle } from '@/components/layout/page-title';
 import { StatCard } from '@/components/layout/stat-card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatCompactKES } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -24,9 +26,9 @@ import { cn } from '@/lib/utils';
 const ALLOWED_ROLES = new Set(['cfo', 'accountant']);
 
 const STATUS_LABEL: Record<PLStatus, string> = {
-  signed: 'Signed',
+  signed: 'Signed off',
   in_review: 'In review',
-  draft: 'Draft',
+  draft: 'Draft · live',
 };
 
 const STATUS_TONE: Record<PLStatus, string> = {
@@ -101,6 +103,26 @@ export default function PLReportsPage() {
       </div>
 
       <div className="space-y-6 p-6">
+        {pl.error && !pl.loading && (
+          <div className="flex items-start gap-3 rounded-lg border border-danger-soft bg-danger-soft px-5 py-4 text-danger-soft-foreground">
+            <AlertCircle className="mt-0.5 size-5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">Couldn&apos;t load P&amp;L reports.</p>
+              <p className="mt-1 font-mono text-[11px] opacity-80">
+                {pl.error.message}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 font-mono text-[10.5px]"
+              onClick={() => void pl.refresh()}
+            >
+              Retry
+            </Button>
+          </div>
+        )}
+
         {/* Featured: current period */}
         <CurrentPeriodSection
           loading={pl.loading}
@@ -131,7 +153,11 @@ export default function PLReportsPage() {
                 : '—'
             }
             subtitle={
-              summary.current ? 'MTD · live snapshot' : 'No current snapshot'
+              summary.current
+                ? summary.current.isLive
+                  ? 'MTD · live (open month)'
+                  : 'MTD · signed snapshot'
+                : 'No current period'
             }
             loading={pl.loading}
             tone="brand"
@@ -145,8 +171,10 @@ export default function PLReportsPage() {
             }
             subtitle={
               summary.current
-                ? `${formatCompactKES(summary.current.netProfitKes)} net profit`
-                : 'No current snapshot'
+                ? `${formatCompactKES(summary.current.netProfitKes)} net profit${
+                    summary.current.isLive ? ' · live' : ''
+                  }`
+                : 'No current period'
             }
             loading={pl.loading}
             tone={
@@ -247,16 +275,7 @@ function CurrentPeriodSection({
   );
 }
 
-type PLReportsCurrentParam =
-  | {
-      yearMonth: string;
-      label: string;
-      revenueMtdKes: number;
-      netProfitKes: number;
-      marginPct: number;
-      status: PLStatus;
-    }
-  | null;
+type PLReportsCurrentParam = CurrentPeriodSummary | null;
 
 function CurrentPeriodInkCard({
   loading,
@@ -268,25 +287,47 @@ function CurrentPeriodInkCard({
   if (loading) {
     return (
       <div className="rounded-lg border border-foreground bg-foreground p-6 text-background">
-        <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--gold)]">
-          Loading…
-        </p>
+        <Skeleton className="h-3 w-40 bg-background/20" />
+        <Skeleton className="mt-3 h-6 w-56 bg-background/20" />
+        <div className="mt-5 grid grid-cols-2 gap-3 border-y border-background/10 py-4">
+          <Skeleton className="h-10 w-full bg-background/15" />
+          <Skeleton className="h-10 w-full bg-background/15" />
+          <Skeleton className="h-10 w-full bg-background/15" />
+          <Skeleton className="h-10 w-full bg-background/15" />
+        </div>
       </div>
     );
   }
   if (!current) {
     return (
       <div className="rounded-lg border border-border bg-card px-6 py-8 text-sm text-muted-foreground">
-        No snapshot for the current month yet — it'll appear here once
-        monthly_financial_snapshots is populated.
+        No current period to display yet.
       </div>
     );
   }
+  if (current.error) {
+    return (
+      <div className="flex items-start gap-3 rounded-lg border border-danger-soft bg-danger-soft px-6 py-8 text-danger-soft-foreground">
+        <AlertCircle className="mt-0.5 size-5 shrink-0" />
+        <div>
+          <p className="text-sm font-medium">
+            Couldn&apos;t compute the current period ({current.label}).
+          </p>
+          <p className="mt-1 font-mono text-[11px] opacity-80">
+            {current.error}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  const topLabel = current.isLive
+    ? `Draft · ${current.label} · MTD`
+    : `Signed off · ${current.label}`;
   return (
     <div className="rounded-lg border border-foreground bg-foreground p-6 text-background">
       <div className="flex items-start justify-between gap-3">
         <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.18em] text-[var(--gold)]">
-          Draft · {current.label} · MTD
+          {topLabel}
         </p>
         <span
           className={cn(
@@ -305,6 +346,11 @@ function CurrentPeriodInkCard({
         <em className="not-italic italic text-[var(--gold)]">
           {current.label}
         </em>
+        {current.isLive && (
+          <em className="ml-2 align-middle font-display text-[12.5px] not-italic italic text-background/55">
+            (live · open month)
+          </em>
+        )}
       </h3>
       <div className="mt-5 grid grid-cols-2 gap-3 border-y border-background/10 py-4">
         <Metric label="Revenue MTD" value={formatCompactKES(current.revenueMtdKes)} />
@@ -396,6 +442,30 @@ function ProjectionCard({
 
 // ---------- Tables ----------
 
+function TableSkeleton({ rows = 6 }: { rows?: number }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="border-b border-border bg-muted/30 px-6 py-3">
+        <Skeleton className="h-3 w-32" />
+      </div>
+      <ul>
+        {Array.from({ length: rows }).map((_, i) => (
+          <li
+            key={i}
+            className="flex items-center justify-between gap-4 border-b border-border/60 px-6 py-4 last:border-b-0"
+          >
+            <Skeleton className="h-9 w-40" />
+            <Skeleton className="h-5 w-20" />
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-5 w-16" />
+            <Skeleton className="h-5 w-28" />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function StatusPill({ status }: { status: PLStatus }) {
   return (
     <span
@@ -418,17 +488,12 @@ function MonthlyTable({
   loading: boolean;
 }) {
   if (loading) {
-    return (
-      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-        Loading reports…
-      </div>
-    );
+    return <TableSkeleton />;
   }
   if (rows.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-        No reports in this view yet — monthly_financial_snapshots will populate
-        as months are closed.
+        Nothing to show in this view yet.
       </div>
     );
   }
@@ -444,7 +509,26 @@ function MonthlyTable({
         <span className="text-right">Actions</span>
       </div>
       <ul>
-        {rows.map((r) => (
+        {rows.map((r) =>
+          r.error ? (
+            <li
+              key={r.yearMonth}
+              className="grid grid-cols-[220px_1fr_1fr_1fr_1fr_1.4fr_110px] items-center gap-4 border-b border-border/60 px-6 py-4 last:border-b-0"
+            >
+              <div>
+                <div className="font-mono text-[11px] uppercase tracking-[0.10em] text-muted-foreground">
+                  {r.reportId}
+                </div>
+                <div className="text-[14px] font-medium text-foreground">
+                  {r.label}
+                </div>
+              </div>
+              <span className="col-span-6 inline-flex items-center gap-1.5 text-[13px] text-danger-soft-foreground">
+                <AlertCircle className="size-4 shrink-0" />
+                Couldn&apos;t compute this month — {r.error}
+              </span>
+            </li>
+          ) : (
           <li
             key={r.yearMonth}
             className="grid grid-cols-[220px_1fr_1fr_1fr_1fr_1.4fr_110px] items-center gap-4 border-b border-border/60 px-6 py-4 last:border-b-0"
@@ -511,11 +595,7 @@ function QuarterlyTable({
   loading: boolean;
 }) {
   if (loading) {
-    return (
-      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-        Loading quarterly rollups…
-      </div>
-    );
+    return <TableSkeleton rows={4} />;
   }
   if (rows.length === 0) {
     return (
@@ -590,11 +670,7 @@ function AnnualTable({
   loading: boolean;
 }) {
   if (loading) {
-    return (
-      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-        Loading annual rollups…
-      </div>
-    );
+    return <TableSkeleton rows={3} />;
   }
   if (rows.length === 0) {
     return (

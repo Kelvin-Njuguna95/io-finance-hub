@@ -2,33 +2,51 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { EXPENSE_STATUS } from '@/lib/constants/status';
 
 /**
  * Read-side composer for the P&L Reports archive.
  *
- * Per Phase 4 Session C:
- *   - Source: `monthly_financial_snapshots` (one row per closed
- *     month, with revenue / direct cost / overhead / net_profit_kes).
- *   - Status & signed-off metadata sourced from `month_closures`
- *     joined by year_month: closed/locked → "signed", under_review →
- *     "in review", open or missing → "draft".
- *   - Closed-by user resolution via direct `users` query (never embed
- *     against monthly_financial_snapshots — it's a regular table but
- *     the lesson banked is "always direct queries for cross-table
- *     names" because RLS / FK quirks have bitten us before).
+ * F-19 pattern (mirrors /profit-share's open/closed split):
+ *   - CLOSED months  → row sourced from `monthly_financial_snapshots`
+ *     (written only by fn_close_month → fn_generate_monthly_snapshot).
+ *   - OPEN / unclosed months → computed FRESH client-side, because the
+ *     snapshot table is empty for them. Both the snapshot engine
+ *     (00036) and this fresh path read the SAME basis, so an open
+ *     month reconciles with its eventual snapshot when it closes:
+ *       revenue  = Σ lagged_revenue_by_project_month.lagged_revenue_kes
+ *       direct   = Σ confirmed expenses (expense_type='project_expense')
+ *       overhead = Σ confirmed expenses (expense_type='shared_expense')
+ *       forex    = Σ withdrawals.variance_kes
+ *       net      = revenue − direct − overhead + forex
+ *
+ * We aggregate company-wide (NOT filtered to active projects): the
+ * snapshot is company-wide and historical months legitimately include
+ * later-deactivated projects (the PS-3 lesson from use-profit-share).
+ * We do NOT call fn_calculate_project_profitability /
+ * fn_generate_monthly_snapshot — both have INSERT side effects and
+ * cannot be used for read-only open-month computation.
+ *
+ * Status & signed-off metadata sourced from `month_closures` joined by
+ * year_month: closed/locked → "signed", under_review → "in review",
+ * open or missing → "draft". Closed-by user resolved via a direct
+ * `users` query (never embed against snapshots).
  *
  * Aggregations:
+ *   - Monthly: every month from the earliest data month through the
+ *     current month, newest first; closed→snapshot, else→fresh.
  *   - Quarterly: rolls 3-month groups by calendar quarter.
- *   - Annual: rolls 12-month groups by calendar year.
- *   - Drafts: snapshots whose closure status is 'open' (or no
- *     closure row), or the current month — whichever yields rows.
- *
- * Custom range tab is deferred per session brief (D5 ships 4 of 5).
+ *   - Annual: rolls 12-month groups by calendar year. (No fiscal-year
+ *     setting exists in system_settings → calendar year.)
+ *   - Drafts: rows whose source is `fresh` (i.e. not a signed snapshot).
  */
 
 const NAIROBI_TZ = 'Africa/Nairobi';
+/** Guard so a malformed earliest month can never spin an infinite range. */
+const MAX_MONTHS = 600;
 
 export type PLStatus = 'signed' | 'in_review' | 'draft';
+export type PLSource = 'snapshot' | 'fresh';
 
 export type MonthlyReport = {
   yearMonth: string;
@@ -39,9 +57,14 @@ export type MonthlyReport = {
   netProfitKes: number;
   marginPct: number;
   status: PLStatus;
+  /** Where the row's figures came from. `fresh` rows are live, unsigned. */
+  source: PLSource;
   signedOffByName: string | null;
   signedOffAt: string | null; // ISO timestamp
   isLocked: boolean;
+  /** Set when fresh computation failed for this month; row renders an
+   *  inline error and the rest of the page still works. */
+  error: string | null;
 };
 
 export type QuarterlyReport = {
@@ -77,10 +100,16 @@ export type CurrentPeriodSummary = {
   netProfitKes: number;
   marginPct: number;
   status: PLStatus;
+  /** True when the figures are computed live (open month, no signed
+   *  snapshot) rather than read from a signed snapshot. */
+  isLive: boolean;
+  /** Surfaced when the current month's fresh compute errored. */
+  error: string | null;
 };
 
 export type PLReportsSummary = {
-  /** Total signed (closed/locked) monthly statements — the archive. */
+  /** Total signed (closed/locked) monthly statements — the archive.
+   *  Snapshot-scoped only. */
   archivedCount: number;
   /** Signed-off statements within the current calendar year. */
   signedOffThisFiscalCount: number;
@@ -105,6 +134,24 @@ type ClosureRow = {
   closed_by: string | null;
   closed_at: string | null;
 };
+
+type LaggedRow = {
+  expense_month: string;
+  lagged_revenue_kes: number | string | null;
+};
+
+type ExpenseRow = {
+  year_month: string;
+  amount_kes: number | string | null;
+  expense_type: 'project_expense' | 'shared_expense';
+};
+
+type WithdrawalRow = {
+  year_month: string;
+  variance_kes: number | string | null;
+};
+
+type UserRow = { id: string; full_name: string | null };
 
 // ---------- helpers ----------
 
@@ -145,11 +192,39 @@ function getCurrentYearMonth(): string {
   return `${y}-${m}`;
 }
 
+function nextYearMonth(yearMonth: string): string {
+  const [y, m] = yearMonth.split('-').map(Number);
+  if (m === 12) return `${y + 1}-01`;
+  return `${y}-${String(m + 1).padStart(2, '0')}`;
+}
+
+/** Inclusive contiguous YYYY-MM list, ascending. YYYY-MM sorts lexically. */
+function monthRange(start: string, end: string): string[] {
+  if (start > end) return [end];
+  const out: string[] = [];
+  let cur = start;
+  let guard = 0;
+  while (cur <= end && guard < MAX_MONTHS) {
+    out.push(cur);
+    cur = nextYearMonth(cur);
+    guard += 1;
+  }
+  return out;
+}
+
+function isValidYearMonth(ym: string): boolean {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(ym);
+}
+
 function statusFromClosure(row: ClosureRow | undefined): PLStatus {
   if (!row) return 'draft';
   if (row.status === 'closed' || row.status === 'locked') return 'signed';
   if (row.status === 'under_review') return 'in_review';
   return 'draft';
+}
+
+function isSignedClosure(row: ClosureRow | undefined): boolean {
+  return row?.status === 'closed' || row?.status === 'locked';
 }
 
 function aggregateStatus(statuses: PLStatus[]): PLStatus {
@@ -159,9 +234,24 @@ function aggregateStatus(statuses: PLStatus[]): PLStatus {
   return 'draft';
 }
 
-function marginPctFor(revenueKes: number, expensesKes: number): number {
+function marginFor(revenueKes: number, netKes: number): number {
   if (revenueKes <= 0) return 0;
-  return ((revenueKes - expensesKes) / revenueKes) * 100;
+  return (netKes / revenueKes) * 100;
+}
+
+/** Sum a numeric-or-stringy column into a Map keyed by month. */
+function sumByMonth<T>(
+  rows: T[],
+  monthKey: (r: T) => string,
+  valueKey: (r: T) => number | string | null,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of rows) {
+    const ym = monthKey(r);
+    if (!ym) continue;
+    out.set(ym, (out.get(ym) ?? 0) + Number(valueKey(r) ?? 0));
+  }
+  return out;
 }
 
 // ---------- hook ----------
@@ -187,7 +277,14 @@ export function usePLReports() {
     const currentYM = getCurrentYearMonth();
 
     try {
-      const [snapshotsRes, closuresRes, usersRes] = await Promise.all([
+      const [
+        snapshotsRes,
+        closuresRes,
+        usersRes,
+        laggedRes,
+        expensesRes,
+        withdrawalsRes,
+      ] = await Promise.all([
         supabase
           .from('monthly_financial_snapshots')
           .select(
@@ -198,68 +295,164 @@ export function usePLReports() {
           .from('month_closures')
           .select('year_month, status, closed_by, closed_at'),
         supabase.from('users').select('id, full_name'),
+        // Revenue: lagged view only (AGENTS.md rule #1 — never raw invoices).
+        supabase
+          .from('lagged_revenue_by_project_month')
+          .select('expense_month, lagged_revenue_kes'),
+        // Expenses feeding financials must be confirmed (AGENTS.md rule #2).
+        supabase
+          .from('expenses')
+          .select('year_month, amount_kes, expense_type')
+          .eq('lifecycle_status', EXPENSE_STATUS.CONFIRMED),
+        // Forex G/L component of net profit — matches fn_generate_monthly_snapshot.
+        supabase.from('withdrawals').select('year_month, variance_kes'),
       ]);
+
+      const firstError =
+        snapshotsRes.error ??
+        closuresRes.error ??
+        usersRes.error ??
+        laggedRes.error ??
+        expensesRes.error ??
+        withdrawalsRes.error;
+      if (firstError) throw firstError;
 
       const snapshots = (snapshotsRes.data ?? []) as SnapshotRow[];
       const closures = (closuresRes.data ?? []) as ClosureRow[];
-      const users = (usersRes.data ?? []) as Array<{
-        id: string;
-        full_name: string | null;
-      }>;
+      const users = (usersRes.data ?? []) as UserRow[];
+      const lagged = (laggedRes.data ?? []) as LaggedRow[];
+      const expenses = (expensesRes.data ?? []) as ExpenseRow[];
+      const withdrawals = (withdrawalsRes.data ?? []) as WithdrawalRow[];
 
       const userNameById = new Map<string, string>();
       for (const u of users) {
         if (u.id) userNameById.set(u.id, u.full_name ?? 'Unknown');
       }
       const closureByMonth = new Map<string, ClosureRow>();
-      for (const c of closures) {
-        closureByMonth.set(c.year_month, c);
-      }
+      for (const c of closures) closureByMonth.set(c.year_month, c);
+      const snapshotByMonth = new Map<string, SnapshotRow>();
+      for (const s of snapshots) snapshotByMonth.set(s.year_month, s);
 
-      // ---- monthly list (all snapshots, newest first) ----
-      const monthlyRows: MonthlyReport[] = snapshots.map((s) => {
-        const closure = closureByMonth.get(s.year_month);
+      // ---- grouped fresh-compute inputs (company-wide, by month) ----
+      const revenueByMonth = sumByMonth(
+        lagged,
+        (r) => r.expense_month,
+        (r) => r.lagged_revenue_kes,
+      );
+      const directByMonth = sumByMonth(
+        expenses.filter((e) => e.expense_type === 'project_expense'),
+        (r) => r.year_month,
+        (r) => r.amount_kes,
+      );
+      const overheadByMonth = sumByMonth(
+        expenses.filter((e) => e.expense_type === 'shared_expense'),
+        (r) => r.year_month,
+        (r) => r.amount_kes,
+      );
+      const forexByMonth = sumByMonth(
+        withdrawals,
+        (r) => r.year_month,
+        (r) => r.variance_kes,
+      );
+
+      // ---- month range: earliest data month → current month ----
+      const dataMonths = new Set<string>([currentYM]);
+      for (const s of snapshots) if (isValidYearMonth(s.year_month)) dataMonths.add(s.year_month);
+      for (const ym of revenueByMonth.keys()) if (isValidYearMonth(ym)) dataMonths.add(ym);
+      for (const ym of directByMonth.keys()) if (isValidYearMonth(ym)) dataMonths.add(ym);
+      for (const ym of overheadByMonth.keys()) if (isValidYearMonth(ym)) dataMonths.add(ym);
+      for (const ym of forexByMonth.keys()) if (isValidYearMonth(ym)) dataMonths.add(ym);
+      const sortedMonths = Array.from(dataMonths).sort();
+      const earliest = sortedMonths[0];
+      const latest = sortedMonths[sortedMonths.length - 1]; // ≥ currentYM
+      const allMonths = monthRange(earliest, latest);
+
+      // ---- build one row per month (snapshot if signed, else fresh) ----
+      const monthlyRows: MonthlyReport[] = allMonths.map((ym) => {
+        const closure = closureByMonth.get(ym);
         const status = statusFromClosure(closure);
-        const revenue = Number(s.total_revenue_kes ?? 0);
-        const direct = Number(s.total_direct_costs_kes ?? 0);
-        const overhead = Number(s.total_shared_overhead_kes ?? 0);
-        const expenses = direct + overhead;
-        const net = Number(s.net_profit_kes ?? 0);
-        const margin =
-          revenue > 0 ? (net / revenue) * 100 : marginPctFor(revenue, expenses);
-        return {
-          yearMonth: s.year_month,
-          label: shortMonth(s.year_month),
-          reportId: `PL · ${s.year_month}`,
-          revenueKes: revenue,
-          expensesKes: expenses,
-          netProfitKes: net,
-          marginPct: margin,
+        const snapshot = snapshotByMonth.get(ym);
+        const base = {
+          yearMonth: ym,
+          label: shortMonth(ym),
+          reportId: `PL · ${ym}`,
           status,
-          signedOffByName: closure?.closed_by
-            ? userNameById.get(closure.closed_by) ?? 'Unknown'
-            : null,
-          signedOffAt: closure?.closed_at ?? null,
-          isLocked: Boolean(s.is_locked),
         };
+
+        // CLOSED month with a snapshot → authoritative signed figures.
+        if (isSignedClosure(closure) && snapshot) {
+          const revenue = Number(snapshot.total_revenue_kes ?? 0);
+          const direct = Number(snapshot.total_direct_costs_kes ?? 0);
+          const overhead = Number(snapshot.total_shared_overhead_kes ?? 0);
+          const net = Number(snapshot.net_profit_kes ?? 0);
+          return {
+            ...base,
+            revenueKes: revenue,
+            expensesKes: direct + overhead,
+            netProfitKes: net,
+            marginPct: marginFor(revenue, net),
+            source: 'snapshot',
+            signedOffByName: closure?.closed_by
+              ? userNameById.get(closure.closed_by) ?? 'Unknown'
+              : null,
+            signedOffAt: closure?.closed_at ?? null,
+            isLocked: Boolean(snapshot.is_locked),
+            error: null,
+          };
+        }
+
+        // OPEN / unclosed month → compute fresh. Wrapped so a single bad
+        // month surfaces an inline error without breaking the page.
+        try {
+          const revenue = revenueByMonth.get(ym) ?? 0;
+          const direct = directByMonth.get(ym) ?? 0;
+          const overhead = overheadByMonth.get(ym) ?? 0;
+          const forex = forexByMonth.get(ym) ?? 0;
+          const net = revenue - direct - overhead + forex;
+          if (
+            ![revenue, direct, overhead, forex, net].every(Number.isFinite)
+          ) {
+            throw new Error('Non-numeric figure in fresh computation');
+          }
+          return {
+            ...base,
+            revenueKes: revenue,
+            expensesKes: direct + overhead,
+            netProfitKes: net,
+            marginPct: marginFor(revenue, net),
+            source: 'fresh',
+            signedOffByName: null,
+            signedOffAt: null,
+            isLocked: false,
+            error: null,
+          };
+        } catch (e) {
+          return {
+            ...base,
+            revenueKes: 0,
+            expensesKes: 0,
+            netProfitKes: 0,
+            marginPct: 0,
+            source: 'fresh',
+            signedOffByName: null,
+            signedOffAt: null,
+            isLocked: false,
+            error: e instanceof Error ? e.message : 'Computation failed',
+          };
+        }
       });
 
-      // ---- quarterly + annual aggregations ----
+      // Newest first.
+      monthlyRows.sort((a, b) => b.yearMonth.localeCompare(a.yearMonth));
+
+      // ---- quarterly + annual: aggregate the SAME combined list ----
       const quarterAgg = new Map<
         string,
-        {
-          yearQuarter: string;
-          label: string;
-          months: MonthlyReport[];
-        }
+        { yearQuarter: string; label: string; months: MonthlyReport[] }
       >();
       const annualAgg = new Map<
         string,
-        {
-          year: string;
-          label: string;
-          months: MonthlyReport[];
-        }
+        { year: string; label: string; months: MonthlyReport[] }
       >();
       for (const m of monthlyRows) {
         const q = quarterOf(m.yearMonth);
@@ -280,24 +473,24 @@ export function usePLReports() {
         ya.months.push(m);
         annualAgg.set(y.year, ya);
       }
+
       const quarterlyRows: QuarterlyReport[] = Array.from(quarterAgg.values())
         .map((qa) => {
           const sorted = qa.months
             .slice()
             .sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
           const revenue = sorted.reduce((s, m) => s + m.revenueKes, 0);
-          const expenses = sorted.reduce((s, m) => s + m.expensesKes, 0);
+          const expenses_ = sorted.reduce((s, m) => s + m.expensesKes, 0);
           const net = sorted.reduce((s, m) => s + m.netProfitKes, 0);
-          const margin = revenue > 0 ? (net / revenue) * 100 : 0;
           return {
             yearQuarter: qa.yearQuarter,
             label: qa.label,
             startYearMonth: sorted[0].yearMonth,
             endYearMonth: sorted[sorted.length - 1].yearMonth,
             revenueKes: revenue,
-            expensesKes: expenses,
+            expensesKes: expenses_,
             netProfitKes: net,
-            marginPct: margin,
+            marginPct: marginFor(revenue, net),
             status: aggregateStatus(sorted.map((m) => m.status)),
             monthCount: sorted.length,
           };
@@ -310,34 +503,35 @@ export function usePLReports() {
             .slice()
             .sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
           const revenue = sorted.reduce((s, m) => s + m.revenueKes, 0);
-          const expenses = sorted.reduce((s, m) => s + m.expensesKes, 0);
+          const expenses_ = sorted.reduce((s, m) => s + m.expensesKes, 0);
           const net = sorted.reduce((s, m) => s + m.netProfitKes, 0);
-          const margin = revenue > 0 ? (net / revenue) * 100 : 0;
           return {
             year: ya.year,
             label: ya.label,
             revenueKes: revenue,
-            expensesKes: expenses,
+            expensesKes: expenses_,
             netProfitKes: net,
-            marginPct: margin,
+            marginPct: marginFor(revenue, net),
             status: aggregateStatus(sorted.map((m) => m.status)),
             monthCount: sorted.length,
           };
         })
         .sort((a, b) => b.year.localeCompare(a.year));
 
-      const draftsRows = monthlyRows.filter((m) => m.status !== 'signed');
+      // Drafts = freshly-computed (unsigned) rows.
+      const draftsRows = monthlyRows.filter((m) => m.source === 'fresh');
 
-      // ---- summary ----
-      const archivedCount = monthlyRows.filter(
-        (m) => m.status === 'signed',
-      ).length;
+      // ---- summary: F-cards stay strictly snapshot-scoped ----
       const currentYear = currentYM.split('-')[0];
-      const signedThisFiscal = monthlyRows.filter(
-        (m) => m.status === 'signed' && m.yearMonth.startsWith(currentYear),
+      const signedSnapshots = snapshots.filter((s) =>
+        isSignedClosure(closureByMonth.get(s.year_month)),
+      );
+      const archivedCount = signedSnapshots.length;
+      const signedThisFiscal = signedSnapshots.filter((s) =>
+        s.year_month.startsWith(currentYear),
       );
       const ytdNetProfitKes = signedThisFiscal.reduce(
-        (s, m) => s + m.netProfitKes,
+        (s, snap) => s + Number(snap.net_profit_kes ?? 0),
         0,
       );
 
@@ -350,17 +544,17 @@ export function usePLReports() {
             netProfitKes: currentRow.netProfitKes,
             marginPct: currentRow.marginPct,
             status: currentRow.status,
+            isLive: currentRow.source === 'fresh',
+            error: currentRow.error,
           }
         : null;
 
-      const newSummary: PLReportsSummary = {
+      setSummary({
         archivedCount,
         signedOffThisFiscalCount: signedThisFiscal.length,
         ytdNetProfitKes,
         current,
-      };
-
-      setSummary(newSummary);
+      });
       setMonthly(monthlyRows);
       setQuarterly(quarterlyRows);
       setAnnual(annualRows);
